@@ -1,10 +1,13 @@
-// Bot players. Ported from the Python balance sim (game/v3/sim/v3sim.py) so the AI fillers play the
-// way the 700,000+ simulated games did. Bots only read their own hand plus public information.
+// Bot players. The "normal" bot is ported from the Python balance sim (game/v3/sim/v3sim.py) so the AI
+// fillers play the way the 700,000+ simulated games did. "hard" adds the tricks that beat the table in
+// the strategy sims (game/v3/sim/smart/): sit out round 1, join every fight, pile on whoever is one
+// Foothold from winning, hold grudges, and notice players who keep backing each other. "easy" plays
+// looser. Bots only read their own hand plus public information (including the job history).
 
 import { HIRE_COST, ROLES, cashOf, fightValue, isFighter, makeJobDeck } from "./cards";
-import type { HeistGame } from "./game";
+import { choosePayment, type HeistGame } from "./game";
 import { Rng } from "./rng";
-import type { Answer, Ask, Card, RoleId, Side } from "./types";
+import type { Answer, Ask, Card, Deal, JobState, RoleId, Side, WantedOption } from "./types";
 
 const ROLE_TASTE: Record<RoleId, number> = {
   getaway: 9, lookout: 8, muscle: 7, mastermind: 7, inside_man: 6, hacker: 6, forger: 6,
@@ -13,28 +16,83 @@ const ROLE_TASTE: Record<RoleId, number> = {
 
 const keepValue = (c: Card) => (c.kind === "S" ? c.score : { F: 7, B: 5, X: 6, S: 0 }[c.kind]);
 
+export type BotLevel = "easy" | "normal" | "hard";
+
+export interface BotOptions {
+  /** default "normal" (plays like the balance sim) */
+  level?: BotLevel;
+  /** Only hits with a 12+ card, a hand of 6+, a rival about to win, or after waiting 2 turns. Off by default:
+   * in the sims a whole table of patient players made games slow, and waiting only paid when others didn't. */
+  patient?: boolean;
+  /** A bad beat gives a grudge: pick that player as Mark, join against them, Double-Cross their allies.
+   * On by default for hard bots. */
+  vendetta?: boolean;
+  /** Secret partner: back each other (join their side, never pick them) until they're 1 Foothold from
+   * winning, then turn on them. Set it on both bots. Hard bots notice pairs after 3 assists. */
+  partner?: number | null;
+}
+
+interface Tuning {
+  temp: number; // card choice softmax temperature
+  sitOutRound1: boolean;
+  joinEveryFight: boolean;
+  pileOn: boolean;
+  wantedAlways: boolean;
+  watchPairs: boolean;
+  fenceMin: number;
+  wildGap: number;
+  dcRate: number;
+  bribes: boolean;
+  avoidHackerCall: boolean;
+}
+
+const TUNING: Record<BotLevel, Tuning> = {
+  easy: { temp: 0.35, sitOutRound1: false, joinEveryFight: false, pileOn: false, wantedAlways: false, watchPairs: false, fenceMin: 12, wildGap: 1, dcRate: 0.4, bribes: false, avoidHackerCall: false },
+  normal: { temp: 0.12, sitOutRound1: false, joinEveryFight: false, pileOn: false, wantedAlways: true, watchPairs: false, fenceMin: 10, wildGap: 2, dcRate: 0.7, bribes: true, avoidHackerCall: true },
+  hard: { temp: 0.08, sitOutRound1: true, joinEveryFight: true, pileOn: true, wantedAlways: true, watchPairs: true, fenceMin: 8, wildGap: 3, dcRate: 0.7, bribes: true, avoidHackerCall: true },
+};
+
 export class Bot {
   rng: Rng;
-  constructor(seed: number) {
+  level: BotLevel;
+  patient: boolean;
+  vendetta: boolean;
+  partner: number | null;
+  private t: Tuning;
+  private waited = 0;
+  private grudge: number | null = null;
+  private seenJobs = 0;
+  /** assists[a][b]: times a joined b's side while b was Boss or Mark */
+  private assists: number[][] = [];
+
+  constructor(seed: number, opts: BotOptions = {}) {
     this.rng = new Rng(seed);
+    this.level = opts.level ?? "normal";
+    this.t = TUNING[this.level];
+    this.patient = opts.patient ?? false;
+    this.vendetta = opts.vendetta ?? this.level === "hard";
+    this.partner = opts.partner ?? null;
   }
 
   answer(g: HeistGame, a: Ask): Answer {
+    this.observe(g, a.seat);
     const s = g.s;
     const me = s.players[a.seat];
     const r = this.rng;
+    const t = this.t;
+    const threat = (q: number) => g.footholds(q) >= s.target - 1;
     switch (a.kind) {
       case "keepRole":
         return { kind: "keepRole", role: [...a.options].sort((x, y) => ROLE_TASTE[y] - ROLE_TASTE[x])[0] };
 
       case "wildcard": {
         const lead = a.targets.reduce((m, q) => (g.footholds(q) > g.footholds(m) ? q : m), a.targets[0]);
-        return { kind: "wildcard", target: lead !== undefined && g.footholds(lead) >= s.target - 2 ? lead : null };
+        return { kind: "wildcard", target: lead !== undefined && g.footholds(lead) >= s.target - t.wildGap ? lead : null };
       }
 
       case "fence": {
         const big = s.discard.reduce<Card | null>((m, c) => (fightValue(c) > fightValue(m) ? c : m), null);
-        return { kind: "fence", cardId: big && big.score >= 10 && g.cash(a.seat) >= 4 ? big.id : null };
+        return { kind: "fence", cardId: big && big.score >= t.fenceMin && g.cash(a.seat) >= 4 ? big.id : null };
       }
 
       case "bank": {
@@ -57,7 +115,7 @@ export class Bot {
       }
 
       case "hire": {
-        const home = g.homeCrew(a.seat);
+        const home = g.homeCrew(a.seat) + me.returning;
         return { kind: "hire", count: home >= 10 ? 0 : Math.min(a.max, 10 - home) };
       }
 
@@ -67,30 +125,50 @@ export class Bot {
         const big = Math.max(0, ...me.hand.filter(isFighter).map((c) => c.score));
         for (const o of a.busts) {
           const H = me.hideouts[o.hideout];
-          let score = H[a.seat] + big - (H[o.rival] + 9) + (g.footholds(o.rival) >= s.target - 1 ? 6 : 0);
+          let score = H[a.seat] + big - (H[o.rival] + 9) + (threat(o.rival) ? 6 : 0);
           if (g.homeCrew(a.seat) === 0) score += 6;
+          if (this.level === "easy") score -= 3;
           if (!best || score > best.score) best = { score, ...o };
         }
         if (best && best.score >= 0) return { kind: "action", choice: "bust", hideout: best.hideout, rival: best.rival };
-        if (a.wanted.length) {
-          const leader = a.wanted[0].leader;
-          if (g.footholds(leader) >= s.target - 1) {
-            const w = a.wanted.reduce((m, o) => {
-              const def = (x: typeof o) => { const H = s.players[x.mark].hideouts[x.hideout]; return H[x.mark] + H.reduce((p, q) => p + q, 0) * 0.3; };
-              return def(o) < def(m) ? o : m;
-            });
-            return { kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout };
+        if (!a.canHit) return { kind: "action", choice: "pass" };
+        const rivalsThreat = this.rivals(g, a.seat).some(threat);
+        if (t.sitOutRound1 && s.turn < s.n && !rivalsThreat) return { kind: "action", choice: "pass" };
+        if (this.patient) {
+          const top = Math.max(0, ...me.hand.filter((c) => c.kind === "S").map((c) => c.score));
+          if (!(top >= 12 || me.hand.length >= 6 || this.waited >= 2 || rivalsThreat)) {
+            this.waited++;
+            return { kind: "action", choice: "pass" };
           }
         }
-        if (a.canHit) return { kind: "action", choice: "hit" };
-        return { kind: "action", choice: "pass" };
+        this.waited = 0;
+        const w = this.pickWanted(g, a.seat, a.wanted);
+        if (w) return { kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout };
+        return { kind: "action", choice: "hit" };
+      }
+
+      case "again": {
+        if (g.homeCrew(a.seat) < 2) return { kind: "again", again: false };
+        const w = this.pickWanted(g, a.seat, a.wanted);
+        return w ? { kind: "again", again: true, wanted: { mark: w.mark, hideout: w.hideout } } : { kind: "again", again: true };
       }
 
       case "pickMark": {
-        // Go after the leader; among ties, the one with the weakest hideout.
         const fh = (q: number) => g.footholds(q);
-        const top = Math.max(...a.rivals.map(fh));
-        const lead = r.shuffle(a.rivals.filter((q) => fh(q) === top));
+        let cands = a.rivals.filter((q) => !this.loyalTo(g, a.seat, q));
+        if (!cands.length) cands = a.rivals;
+        if (t.pileOn) {
+          const th = cands.filter(threat);
+          if (th.length) return { kind: "pickMark", mark: th[0] };
+        }
+        if (this.vendetta && this.grudge !== null && cands.includes(this.grudge)) return { kind: "pickMark", mark: this.grudge };
+        if (t.watchPairs && !rivalsAboutToWin(g, a.rivals)) {
+          const teamed = cands.filter((q) => this.exposed(q, a.seat));
+          if (teamed.length) return { kind: "pickMark", mark: teamed.reduce((m, q) => (fh(q) > fh(m) ? q : m)) };
+        }
+        // Go after the leader; among ties, the one with the weakest hideout.
+        const top = Math.max(...cands.map(fh));
+        const lead = r.shuffle(cands.filter((q) => fh(q) === top));
         const weakest = (q: number) => Math.min(...s.players[q].hideouts.map((h) => h[q]));
         return { kind: "pickMark", mark: lead.reduce((m, q) => (weakest(q) < weakest(m) ? q : m)) };
       }
@@ -107,38 +185,52 @@ export class Bot {
 
       case "send": {
         const home = g.homeCrew(a.seat);
-        return { kind: "send", count: Math.max(1, Math.min(a.max, home <= 3 ? home : home - 1)) };
+        const count = Math.max(1, Math.min(a.max, home <= 3 ? home : home - 1));
+        return { kind: "send", count, from: this.from(g, a.seat, count) };
+      }
+
+      case "bribe": {
+        if (!t.bribes || g.cash(a.seat) < 6) return { kind: "bribe", offers: [] };
+        const j = s.job!;
+        const taken = new Set(j.bribes.map((b) => b.to));
+        const cands = a.targets.filter((q) => g.homeCrew(q) >= 2 && !taken.has(q));
+        if (!cands.length) return { kind: "bribe", offers: [] };
+        let to: number;
+        if (this.level === "hard") {
+          const { b, m } = g.bases(j);
+          if (Math.abs(b - m) > 6) return { kind: "bribe", offers: [] };
+          to = cands.reduce((x, q) => (g.homeCrew(q) > g.homeCrew(x) ? q : x));
+        } else {
+          if (r.next() >= 0.5) return { kind: "bribe", offers: [] };
+          to = r.pick(cands);
+        }
+        return { kind: "bribe", offers: [{ to, cardIds: choosePayment(me.bank, 2).map((c) => c.id) }] };
       }
 
       case "join": {
         const j = s.job!;
         const avail = g.homeCrew(a.seat);
         if (avail <= 1) return { kind: "join", B: 0, M: 0 };
-        const H = s.players[j.mark].hideouts[j.hideout];
-        const { b: bStr, m: mStr } = g.bases(j);
-        let side: Side | null;
-        if (H[a.seat] > 0) side = r.next() < 0.75 ? "M" : null;
-        else if (g.footholds(j.boss) >= s.target - 1 && H[j.boss] === 0) side = "M";
-        else if (g.footholds(j.mark) >= s.target - 1) side = "B";
-        else {
-          const lean = 1 / (1 + Math.exp(-(bStr - mStr) / 3));
-          const x = r.next();
-          const pB = 0.55 * (0.4 + 1.2 * lean);
-          side = x < pB ? "B" : x < pB + 0.3 ? "M" : null;
-        }
+        const side = this.joinSide(g, a.seat, j);
         if (!side) return { kind: "join", B: 0, M: 0 };
         const k = Math.min(a.max, avail - 1, r.pick([1, 2, 2, 3]));
-        if (a.split && k >= 2) return { kind: "join", B: Math.floor(k / 2), M: k - Math.floor(k / 2) };
-        return { kind: "join", B: side === "B" ? k : 0, M: side === "M" ? k : 0 };
+        const from = this.from(g, a.seat, k);
+        if (a.split && k >= 2) return { kind: "join", B: Math.floor(k / 2), M: k - Math.floor(k / 2), from };
+        return { kind: "join", B: side === "B" ? k : 0, M: side === "M" ? k : 0, from };
       }
 
       case "doubleCross": {
         const j = s.job!;
         const mine: Side | null = a.seat === j.boss ? "B" : a.seat === j.mark ? "M" : j.side.B[a.seat] ? "B" : j.side.M[a.seat] ? "M" : null;
-        if (!mine || r.next() > 0.7) return { kind: "doubleCross", target: null };
+        if (!mine) return { kind: "doubleCross", target: null };
         const other: Side = mine === "B" ? "M" : "B";
-        const enemies = a.targets.filter((q) => j.side[other][q] > 0 && q !== a.seat);
+        const enemies = a.targets.filter((q) => j.side[other][q] > 0 && q !== a.seat && !this.loyalTo(g, a.seat, q));
         if (!enemies.length) return { kind: "doubleCross", target: null };
+        if (t.pileOn || this.vendetta) {
+          const hot = enemies.filter((q) => (t.pileOn && threat(q)) || (this.vendetta && q === this.grudge));
+          if (hot.length) return { kind: "doubleCross", target: hot[0] };
+        }
+        if (r.next() > t.dcRate) return { kind: "doubleCross", target: null };
         return { kind: "doubleCross", target: enemies.reduce((m, q) => (j.side[other][q] > j.side[other][m] ? q : m)) };
       }
 
@@ -146,7 +238,7 @@ export class Bot {
         if (g.cash(a.seat) < 3 || r.next() < 0.5) return { kind: "bet", side: null };
         const j = s.job!;
         const { b, m } = g.bases(j);
-        const side: Side = b + gauss(r) * 4 > m ? "B" : "M";
+        const side: Side = this.level === "easy" ? (r.next() < 0.5 ? "B" : "M") : b + gauss(r) * 4 > m ? "B" : "M";
         const card = me.bank.reduce((x, c) => (c.cash < x.cash ? c : x));
         return { kind: "bet", side, cardId: card.id };
       }
@@ -191,8 +283,16 @@ export class Bot {
       case "dealAccept":
         return { kind: "dealAccept", accept: a.offer === "walk" ? true : r.next() < 0.55 };
 
-      case "again":
-        return { kind: "again", again: g.homeCrew(a.seat) >= 2 };
+      case "deal":
+        return this.deal(g, a);
+
+      case "giveCards": {
+        const ids = [...me.hand].sort((x, y) => keepValue(x) - keepValue(y)).slice(0, a.count).map((c) => c.id);
+        return { kind: "giveCards", cardIds: ids };
+      }
+
+      case "placeCrew":
+        return { kind: "placeCrew", to: this.place(g, a.seat, a.count) };
 
       case "discard": {
         const ids = [...me.hand].sort((x, y) => keepValue(x) - keepValue(y)).slice(0, a.count).map((c) => c.id);
@@ -201,6 +301,172 @@ export class Bot {
     }
   }
 
+  // ------------------------------------------------------------------ memory
+  /** Read jobs finished since we last looked: grudges after bad beats, and who keeps backing whom. */
+  private observe(g: HeistGame, me: number) {
+    const h = g.s.history;
+    const n = g.s.n;
+    if (!this.assists.length) this.assists = Array.from({ length: n }, () => new Array(n).fill(0));
+    for (; this.seenJobs < h.length; this.seenJobs++) {
+      const j = h[this.seenJobs];
+      if (j.kind !== "hit") continue;
+      for (const q of j.allies.B) this.assists[q][j.boss]++;
+      for (const q of j.allies.M) this.assists[q][j.mark]++;
+      if ((j.result !== "B" && j.result !== "M") || !j.bossCard || !j.markCard) continue;
+      const bwin = j.result === "B";
+      const loser = bwin ? j.mark : j.boss;
+      const winner = bwin ? j.boss : j.mark;
+      const lc = bwin ? j.markCard : j.bossCard;
+      const wc = bwin ? j.bossCard : j.markCard;
+      const badBeat = lc.kind === "S" && (wc.kind !== "S" || lc.score >= wc.score || lc.score >= 12);
+      if (badBeat && loser === me) this.grudge = winner;
+    }
+  }
+
+  /** Still backing our secret partner? (Not once they're 1 Foothold from winning.) */
+  private loyalTo(g: HeistGame, me: number, q: number) {
+    return this.partner === q && g.footholds(q) < g.s.target - 1 && q !== me;
+  }
+
+  /** Two players who've backed each other 3+ times in plain sight look like a team. */
+  private exposed(q: number, me: number) {
+    if (!this.t.watchPairs || !this.assists.length) return false;
+    return this.assists[q].some((k, x) => x !== me && x !== q && k + this.assists[x][q] >= 3 && k > 0 && this.assists[x][q] > 0);
+  }
+
+  private rivals(g: HeistGame, me: number) {
+    return g.s.players.map((p) => p.seat).filter((q) => q !== me);
+  }
+
+  private pickWanted(g: HeistGame, me: number, opts: WantedOption[]): WantedOption | null {
+    if (!opts.length) return null;
+    const s = g.s;
+    const leader = opts[0].leader;
+    if (this.loyalTo(g, me, leader)) return null;
+    if (!this.t.wantedAlways && g.footholds(leader) < s.target - 1) return null;
+    const def = (x: WantedOption) => {
+      const H = s.players[x.mark].hideouts[x.hideout];
+      return H[x.mark] + H.reduce((p, q) => p + q, 0) * 0.3;
+    };
+    return opts.reduce((m, o) => (def(o) < def(m) ? o : m));
+  }
+
+  private joinSide(g: HeistGame, me: number, j: JobState): Side | null {
+    const s = g.s;
+    const r = this.rng;
+    const t = this.t;
+    const H = s.players[j.mark].hideouts[j.hideout];
+    const T = s.target;
+    const fh = (q: number) => g.footholds(q);
+    const paid = j.bribes.filter((b) => b.to === me);
+    const bribedSide = paid.length ? paid.reduce((x, b) => (b.amount >= x.amount ? b : x)).side : null;
+    if (this.level !== "hard") {
+      // the sim bot: a bribe wins (1 in 5 take the money and stay out), then defend our own crew
+      if (bribedSide) return r.next() < 0.8 ? bribedSide : null;
+      if (H[me] > 0) return r.next() < 0.75 ? "M" : null;
+    } else {
+      // our crew already sit in the target hideout: defend it. Then pile on anyone about to win.
+      if (H[me] > 0) return "M";
+      if (fh(j.boss) >= T - 1) return "M";
+      if (fh(j.mark) >= T - 1) return "B";
+    }
+    if (this.partner !== null && this.loyalTo(g, me, this.partner)) {
+      if (this.partner === j.boss) return "B";
+      if (this.partner === j.mark) return "M";
+    }
+    if (this.vendetta && this.grudge !== null) {
+      if (this.grudge === j.boss) return "M";
+      if (this.grudge === j.mark) return "B";
+    }
+    if (t.watchPairs) {
+      if (this.exposed(j.boss, me)) return "M";
+      if (this.exposed(j.mark, me)) return "B";
+    }
+    if (bribedSide && r.next() < 0.8) return bribedSide;
+    const { b: bStr, m: mStr } = g.bases(j);
+    if (t.joinEveryFight) return bStr + 2 >= mStr ? "B" : "M";
+    if (fh(j.boss) >= T - 1 && H[j.boss] === 0) return "M";
+    if (fh(j.mark) >= T - 1) return "B";
+    const lean = 1 / (1 + Math.exp(-(bStr - mStr) / 3));
+    const x = r.next();
+    const pB = 0.55 * (0.4 + 1.2 * lean);
+    return x < pB ? "B" : x < pB + 0.3 ? "M" : null;
+  }
+
+  // ------------------------------------------------------------------ crew placement (rules.placeCrew)
+  /** Which hideouts to take crew from: only chosen when players place their own crew. Hard bots keep crew
+   * where rivals sit (to bust them later) and send from quiet hideouts. */
+  private from(g: HeistGame, me: number, count: number): number[] | undefined {
+    if (!g.s.rules.placeCrew) return undefined;
+    const hs = g.s.players[me].hideouts.map((h) => [...h]);
+    const rivalsIn = (h: number[]) => h.reduce((x, k, q) => (q !== me ? x + k : x), 0);
+    const out = [0, 0, 0];
+    for (let i = 0; i < count; i++) {
+      const key = (h: number) => hs[h][me] - (this.level === "hard" && rivalsIn(hs[h]) > 0 ? 3 : 0);
+      const h = [0, 1, 2].filter((x) => hs[x][me] > 0).reduce((m, x) => (key(x) > key(m) ? x : m));
+      hs[h][me]--;
+      out[h]++;
+    }
+    return out;
+  }
+
+  private place(g: HeistGame, me: number, count: number): number[] {
+    const hs = g.s.players[me].hideouts.map((h) => [...h]);
+    const rivalsIn = (h: number[]) => h.reduce((x, k, q) => (q !== me ? x + k : x), 0);
+    const out = [0, 0, 0];
+    for (let i = 0; i < count; i++) {
+      const key = (h: number) => {
+        const H = hs[h];
+        // hard: stack up next to rival crew (bust them, and a Boss hitting there faces more of us)
+        const bonus = this.level === "hard" && rivalsIn(H) > 0 && H[me] <= rivalsIn(H) + 2 ? 3 : 0;
+        return H[me] - bonus;
+      };
+      const h = [0, 1, 2].reduce((m, x) => (key(x) < key(m) ? x : m));
+      hs[h][me]++;
+      out[h]++;
+    }
+    return out;
+  }
+
+  // ------------------------------------------------------------------ open Fixer deals (rules.openDeals)
+  /** How much a deal is worth to `me` compared with no deal (both sides send 2 crew to the Pen). */
+  private dealValue(g: HeistGame, me: number, d: Deal): number {
+    const j = g.s.job!;
+    const isBoss = me === j.boss;
+    const cash = isBoss ? d.markPays - d.bossPays : d.bossPays - d.markPays;
+    const cards = isBoss ? d.markCards - d.bossCards : d.bossCards - d.markCards;
+    let fh = 0;
+    if (d.foothold) {
+      const near = g.footholds(j.boss) >= g.s.target - 1;
+      fh = isBoss ? (near ? 100 : 4.5) : -(near ? 100 : 4.5);
+    }
+    // no deal costs us 2 crew (worth ~1.5 each) and costs them the same (worth ~0.75 to us)
+    const noDealSaved = 2 * 1.5 - 2 * 0.75;
+    return cash + 1.5 * cards + fh + noDealSaved;
+  }
+
+  private deal(g: HeistGame, a: Extract<Ask, { kind: "deal" }>): Answer {
+    const s = g.s;
+    const j = s.job!;
+    const me = a.seat;
+    const noise = this.level === "easy" ? 3 : this.level === "normal" ? 1.5 : 0.5;
+    const canFoothold = s.players[j.mark].hideouts[j.hideout][j.boss] === 0;
+    const walk: Deal = { bossPays: 0, markPays: 0, bossCards: 0, markCards: 0, foothold: false };
+    if (a.offer) {
+      const v = this.dealValue(g, me, a.offer) + gauss(this.rng) * noise;
+      if (v >= 0) return { kind: "deal", action: "accept" };
+      if (a.offersLeft <= 0) return { kind: "deal", action: "reject" };
+      // counter: the Mark offers both walking away; the Boss offers to pay a little more
+      if (me === j.mark) return { kind: "deal", action: "propose", deal: walk };
+      const pay = Math.min(g.cash(me), a.offer.bossPays + 2);
+      return { kind: "deal", action: "propose", deal: canFoothold ? { ...walk, foothold: true, bossPays: pay } : walk };
+    }
+    // opening offer (Boss)
+    if (canFoothold && g.cash(me) >= HIRE_COST) return { kind: "deal", action: "propose", deal: { ...walk, foothold: true, bossPays: HIRE_COST } };
+    return { kind: "deal", action: "propose", deal: walk };
+  }
+
+  // ------------------------------------------------------------------ showdown cards
   private unseen(g: HeistGame, me: number): Card[] {
     const seen = new Set<number>();
     for (const c of g.s.discard) seen.add(c.id);
@@ -228,6 +494,8 @@ export class Bot {
       oppTot = as === "boss" ? m : b;
       defender = as === "mark";
     }
+    // the opponent's Hacker called a number before cards were picked: playing it loses outright
+    const called = this.t.avoidHackerCall && j.hackerCall && j.hackerCall.seat === opp ? j.hackerCall.n : null;
     const pool = this.unseen(g, me);
     const src = pool.length ? pool : opts;
     const k = Math.max(1, Math.min(s.players[opp].hand.filter(isFighter).length || 1, src.length));
@@ -242,19 +510,21 @@ export class Bot {
     const utils: [number, Card][] = [];
     for (const c of uniq.values()) {
       let w = 0;
-      for (const gs of guesses) {
-        if (c.kind === "F" && gs.kind === "F") w += 0.5;
-        else if (c.kind === "F") w += 0;
-        else if (gs.kind === "F") w += 1;
-        else {
-          const x = c.score + myTot, y = gs.score + oppTot;
-          w += x > y || (x === y && defender) ? 1 : 0;
+      if (!(c.kind === "S" && c.score === called)) {
+        for (const gs of guesses) {
+          if (c.kind === "F" && gs.kind === "F") w += 0.5;
+          else if (c.kind === "F") w += 0;
+          else if (gs.kind === "F") w += 1;
+          else {
+            const x = c.score + myTot, y = gs.score + oppTot;
+            w += x > y || (x === y && defender) ? 1 : 0;
+          }
         }
+        w /= guesses.length;
       }
-      w /= guesses.length;
       utils.push([w - (c.kind === "S" ? (0.25 * c.score) / 30 : 0.05), c]);
     }
-    const ws = utils.map(([u]) => Math.exp(u / 0.12));
+    const ws = utils.map(([u]) => Math.exp(u / this.t.temp));
     let x = r.next() * ws.reduce((p, q) => p + q, 0);
     for (let i = 0; i < utils.length; i++) {
       x -= ws[i];
@@ -265,6 +535,10 @@ export class Bot {
 }
 
 const ALL = makeJobDeck();
+
+function rivalsAboutToWin(g: HeistGame, rivals: number[]) {
+  return rivals.some((q) => g.footholds(q) >= g.s.target - 1);
+}
 
 function gauss(r: Rng) {
   return Math.sqrt(-2 * Math.log(1 - r.next())) * Math.cos(2 * Math.PI * r.next());
