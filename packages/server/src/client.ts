@@ -171,6 +171,11 @@ export class HeistClient {
   chat(text: string) {
     this.send({ t: "chat", text });
   }
+  /** buy a drink for one seat, or a round for the table (`to` null) */
+  drink(id: string, to: number | null) {
+    this.send({ t: "drink", id, to });
+  }
+
   leave() {
     this.send({ t: "leave" });
   }

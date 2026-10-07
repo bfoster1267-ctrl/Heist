@@ -6,6 +6,7 @@
 // for the seat that receives it, so other hands, face-down showdown cards and the deck are never sent.
 
 import type { Answer, Ask, Frame, GameState } from "@heist/engine";
+import type { Badge, Progress, Reward } from "@heist/profile";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -21,6 +22,8 @@ export interface SeatInfo {
   connected: boolean;
   /** a bot is playing this human's seat (they timed out twice, left, or asked for it) */
   autopilot: boolean;
+  /** level, prestige, frame and title of a signed-in player */
+  badge?: Badge | null;
 }
 
 export interface RoomInfo {
@@ -73,6 +76,8 @@ export type ClientMsg =
   | { t: "answer"; askId: number; answer: Answer }
   | { t: "autopilot"; on: boolean }
   | { t: "chat"; text: string }
+  /** buy a drink (coins) for one seat, or for everyone with a round (`to: null`) */
+  | { t: "drink"; id: string; to: number | null }
   | { t: "ping"; n?: number };
 
 // ------------------------------------------------------------------ server -> client
@@ -88,6 +93,8 @@ export type ErrorCode =
   | "stale_ask"
   | "illegal"
   | "bad_state"
+  | "no_chips"
+  | "no_coins"
   | "version";
 
 export type ServerMsg =
@@ -105,6 +112,10 @@ export type ServerMsg =
   | { t: "timeout"; seat: number; autopilot: boolean }
   | { t: "gameOver"; game: number; winners: number[]; reason: "footholds" | "last_call"; stakes: number }
   | { t: "chat"; seat: number | null; name: string; text: string; at: number }
+  /** someone bought a drink: `to` lists every seat it goes to */
+  | { t: "drink"; from: number; to: number[]; id: string; name: string; at: number }
+  /** your XP, coins and level after a game (signed-in players only), and your updated progress */
+  | { t: "reward"; game: number; reward: Reward; progress: Progress }
   | { t: "left" }
   | { t: "error"; code: ErrorCode; msg: string }
   | { t: "pong"; n?: number; at: number };

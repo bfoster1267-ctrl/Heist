@@ -1,0 +1,218 @@
+import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
+import { createSoloGame } from "@heist/profile";
+import { generateKeyPairSync, sign } from "node:crypto";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, describe, expect, it } from "vitest";
+import { OAuth } from "../src/accounts/oauth";
+import { AccountService } from "../src/accounts/service";
+import { FileAccountStore } from "../src/accounts/store";
+import { HeistClient } from "../src/client";
+import type { ServerMsg } from "../src/protocol";
+import { startServer, type HeistServer } from "../src/server";
+import { simpleAnswer } from "./helpers";
+
+const servers: HeistServer[] = [];
+const dirs: string[] = [];
+afterAll(async () => {
+  for (const s of servers) await s.close();
+  for (const d of dirs) rmSync(d, { recursive: true, force: true });
+});
+
+// ------------------------------------------------------------------ a fake Google, for real signature checks
+
+const { publicKey, privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
+const jwk = { ...publicKey.export({ format: "jwk" }), kid: "k1", alg: "RS256", use: "sig" };
+const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString("base64url");
+function idToken(claims: Record<string, unknown>, key = privateKey) {
+  const head = b64({ alg: "RS256", kid: "k1" });
+  const body = b64({ iss: "https://accounts.google.com", aud: "web-client", exp: Math.floor(Date.now() / 1000) + 600, ...claims });
+  return `${head}.${body}.${sign("RSA-SHA256", Buffer.from(`${head}.${body}`), key).toString("base64url")}`;
+}
+const fakeFetch = async (url: string) => ({
+  ok: true,
+  json: async () => (url.includes("googleapis") ? { keys: [jwk] } : {}),
+});
+const verifier = () => new OAuth({ google: { clientIds: ["web-client"] } }, fakeFetch);
+
+/** Play a solo game from the server's seed with a bot in the player's chair, recording answers. */
+function playSolo(seed: number, players: number) {
+  const { game, bots } = createSoloGame(seed, players, "Me");
+  const me = new Bot(seed + 99);
+  const answers: Answer[] = [];
+  for (;;) {
+    runBots(game, bots);
+    const p = game.pending;
+    if (!p) break;
+    const a = me.answer(game, p);
+    game.answer(p.seat, a);
+    answers.push(a);
+  }
+  return { answers, won: game.s.winners!.includes(0) };
+}
+
+describe("accounts", () => {
+  it("creates email accounts, checks passwords, and turns a guest into an account keeping progress", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const g = await svc.guest(undefined, "Ace");
+    expect(g.me.guest).toBe(true);
+    await svc.buy(await svc.require(g.token), "title.smooth"); // spend some starting coins as a guest
+    const r = await svc.register("Ace@Example.com", "hunter22hunter", "Ace", g.token);
+    expect(r.me.id).toBe(g.me.id);
+    expect(r.me.guest).toBe(false);
+    expect(r.me.progress.owned).toContain("title.smooth");
+    await expect(svc.register("ace@example.com", "anotherpass", "X")).rejects.toThrow(/already/);
+    await expect(svc.login("ace@example.com", "wrongpass")).rejects.toThrow(/Wrong/);
+    expect((await svc.login(" ACE@example.com", "hunter22hunter")).me.id).toBe(g.me.id);
+    await expect(svc.register("nope", "hunter22hunter", "X")).rejects.toThrow();
+    await expect(svc.register("a@b.co", "short", "X")).rejects.toThrow();
+  });
+
+  it("verifies Google ID tokens and rejects forged, expired or foreign ones", async () => {
+    const svc = new AccountService({ secret: "s", verifier: verifier() });
+    const a = await svc.oauthSignIn("google", idToken({ sub: "g-123", name: "Gina", email: "gina@x.com" }), undefined);
+    expect(a.me.name).toBe("Gina");
+    expect(a.me.logins).toEqual(["google"]);
+    const again = await svc.oauthSignIn("google", idToken({ sub: "g-123" }), undefined);
+    expect(again.me.id).toBe(a.me.id);
+    const other = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
+    await expect(svc.oauthSignIn("google", idToken({ sub: "g-1" }, other), undefined)).rejects.toThrow(/signature/);
+    await expect(svc.oauthSignIn("google", idToken({ sub: "g-1", exp: 1000 }), undefined)).rejects.toThrow(/expired/);
+    await expect(svc.oauthSignIn("google", idToken({ sub: "g-1", aud: "someone-else" }), undefined)).rejects.toThrow(/different app/);
+    await expect(svc.oauthSignIn("apple", idToken({ sub: "g-1" }), undefined)).rejects.toThrow(/set up/);
+  });
+
+  it("signs out everywhere and deletes accounts", async () => {
+    const svc = new AccountService({ secret: "s", devLogins: true });
+    const a = await svc.dev("Dana");
+    const b = await svc.signOutEverywhere(await svc.require(a.token));
+    expect(await svc.fromToken(a.token)).toBeNull();
+    expect(await svc.fromToken(b.token)).not.toBeNull();
+    await svc.remove(await svc.require(b.token));
+    expect(await svc.fromToken(b.token)).toBeNull();
+    // the name is free to sign up with again, as a fresh account
+    expect((await svc.dev("Dana")).me.id).not.toBe(a.me.id);
+  });
+
+  it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Solo");
+    const acct = () => svc.require(token);
+    const s = await svc.soloStart(await acct(), 4, 250);
+    expect(s.me.progress.chips).toBe(10_000 - 250);
+    const game = playSolo(s.seed, 4);
+    await expect(svc.soloFinish(await acct(), s.gameId, game.answers.slice(0, 5))).rejects.toThrow(/check out/);
+    const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
+    expect(done.me.progress.stats.games).toBe(1);
+    expect(done.me.progress.chips).toBe(10_000 - 250 + (game.won ? done.reward.payout : 0));
+    expect(done.reward.xp).toBeGreaterThanOrEqual(50);
+    await expect(svc.soloFinish(await acct(), s.gameId, game.answers)).rejects.toThrow(/isn't running/);
+
+    const s2 = await svc.soloStart(await acct(), 3, 100);
+    const s3 = await svc.soloStart(await acct(), 3, 100); // walked away from s2
+    expect(s3.quit?.xp).toBe(0);
+    expect(s3.me.progress.stats.quits).toBe(1);
+    expect(s3.me.progress.stats.games).toBe(2);
+    expect(s2.gameId).not.toBe(s3.gameId);
+    await expect(svc.soloStart(await acct(), 3, 1_000_000)).rejects.toThrow(/chips/);
+  });
+
+  it("keeps accounts in a file across restarts", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "heist-acct-"));
+    dirs.push(dir);
+    const one = new AccountService({ secret: "s", store: new FileAccountStore(dir) });
+    const r = await one.register("keep@x.com", "longenough", "Keeper");
+    await one.store.flush();
+    const two = new AccountService({ secret: "s", store: new FileAccountStore(dir) });
+    expect((await two.require(r.token)).name).toBe("Keeper");
+    expect((await two.login("keep@x.com", "longenough")).me.id).toBe(r.me.id);
+  });
+});
+
+describe("accounts over HTTP and the game socket", () => {
+  it("serves the API, settles an online game with XP and stats, and sells drinks for coins", async () => {
+    const accounts = new AccountService({ secret: "s", devLogins: true });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const post = async (path: string, body: object, token?: string) => {
+      const r = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+      return { status: r.status, body: await r.json() };
+    };
+
+    const cfg = await (await fetch(`${base}/api/config`)).json();
+    expect(cfg.providers).toEqual(["email", "dev"]);
+    expect((await fetch(`${base}/api/me`)).status).toBe(401);
+
+    const ann = (await post("/api/auth/dev", { name: "Ann" })).body;
+    const ben = (await post("/api/auth/register", { email: "ben@x.com", password: "bens-password", name: "Ben" })).body;
+    expect(ann.me.name).toBe("Ann");
+    expect((await post("/api/shop/buy", { id: "felt.vault" }, ann.token)).status).toBe(400); // prestige-only
+
+    // two signed-in players and two bots play online
+    const play = (token: string) => {
+      const c = new HeistClient(`ws://127.0.0.1:${srv.port()}/ws`, { token });
+      let view: GameState | null = null;
+      const seen: ServerMsg[] = [];
+      c.onAny((m) => {
+        seen.push(m);
+        if (m.t === "sync") view = m.state;
+        if (m.t === "frames" && m.frames.length) view = m.frames[m.frames.length - 1].state;
+        if (m.t === "ask" && view) c.answer(simpleAnswer(m.ask, view));
+      });
+      return { c, seen };
+    };
+    const a = play(ann.token);
+    const b = play(ben.token);
+    await Promise.all([a.c.connect(), b.c.connect()]);
+    expect(a.c.userId).toBe(ann.me.id);
+    a.c.create({ players: 4, stakes: 500 });
+    await until(() => !!a.c.room);
+    b.c.join(a.c.room!.code);
+    await until(() => a.c.room?.seats.filter((s) => s.kind === "human").length === 2);
+    expect(a.c.room!.seats[0].badge?.level).toBe(1);
+    a.c.start();
+
+    // Ann buys Ben a whiskey and the table a round
+    await until(() => a.seen.some((m) => m.t === "frames"));
+    a.c.drink("whiskey", 1);
+    await until(() => b.seen.some((m) => m.t === "drink"));
+    const d = b.seen.find((m) => m.t === "drink") as Extract<ServerMsg, { t: "drink" }>;
+    expect(d).toMatchObject({ from: 0, to: [1], id: "whiskey", name: "Ann" });
+    a.c.drink("whiskey", 1); // too soon after the last one
+    await until(() => a.seen.some((m) => m.t === "error" && m.code === "rate_limited"));
+
+    await until(() => a.seen.some((m) => m.t === "reward") && b.seen.some((m) => m.t === "reward"), 20_000);
+    const over = a.seen.find((m) => m.t === "gameOver") as Extract<ServerMsg, { t: "gameOver" }>;
+    const ra = a.seen.find((m) => m.t === "reward") as Extract<ServerMsg, { t: "reward" }>;
+    const annWon = over.winners.includes(0);
+    expect(ra.progress.stats.games).toBe(1);
+    expect(ra.progress.stats.byMode.online.g).toBe(1);
+    expect(ra.progress.coins).toBe(300 - 15 + ra.reward.coins);
+    expect(ra.progress.chips).toBe(10_000 - 500 + (annWon ? Math.floor(2000 / over.winners.length) : 0));
+    expect(ra.reward.lines.some((l) => l.label === "Online table")).toBe(true);
+
+    const me = await (await fetch(`${base}/api/me`, { headers: { authorization: `Bearer ${ben.token}` } })).json();
+    expect(me.progress.drinksReceived).toBe(1);
+    const board = await (await fetch(`${base}/api/leaderboard?by=wins`)).json();
+    expect(board.rows.map((r: { id: string }) => r.id).sort()).toEqual([ann.me.id, ben.me.id].sort());
+    const pub = await (await fetch(`${base}/api/players/${ben.me.id}`)).json();
+    expect(pub.stats.games).toBe(1);
+    expect(pub).not.toHaveProperty("email");
+
+    // can't sit at a table you can't afford
+    a.c.create({ players: 3, stakes: 1_000_000 });
+    await until(() => a.seen.some((m) => m.t === "error" && m.code === "no_chips"));
+    a.c.close();
+    b.c.close();
+  }, 30_000);
+});
+
+const until = async (f: () => boolean, ms = 5000) => {
+  const end = Date.now() + ms;
+  while (!f()) {
+    if (Date.now() > end) throw new Error("timed out waiting");
+    await new Promise((r) => setTimeout(r, 5));
+  }
+};
