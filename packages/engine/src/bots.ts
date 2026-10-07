@@ -133,7 +133,7 @@ export class Bot {
         if (best && best.score >= 0) return { kind: "action", choice: "bust", hideout: best.hideout, rival: best.rival };
         if (!a.canHit) return { kind: "action", choice: "pass" };
         const rivalsThreat = this.rivals(g, a.seat).some(threat);
-        if (t.sitOutRound1 && s.turn < s.n && !rivalsThreat) return { kind: "action", choice: "pass" };
+        if (t.sitOutRound1 && s.turn < s.n && !rivalsThreat && this.sitsOut()) return { kind: "action", choice: "pass" };
         if (this.patient) {
           const top = Math.max(0, ...me.hand.filter((c) => c.kind === "S").map((c) => c.score));
           if (!(top >= 12 || me.hand.length >= 6 || this.waited >= 2 || rivalsThreat)) {
@@ -277,8 +277,11 @@ export class Bot {
         return { kind: "backup", side: onSide(losing) && gap <= 3 ? losing : null };
       }
 
-      case "dealOffer":
-        return { kind: "dealOffer", offer: g.cash(a.seat) >= HIRE_COST ? "foothold" : "walk" };
+      case "dealOffer": {
+        // As in the sim: ask for a Foothold (paying what we can); walk only when we already have one there.
+        const j = s.job!;
+        return { kind: "dealOffer", offer: s.players[j.mark].hideouts[j.hideout][a.seat] === 0 ? "foothold" : "walk" };
+      }
 
       case "dealAccept":
         return { kind: "dealAccept", accept: a.offer === "walk" ? true : r.next() < 0.55 };
@@ -332,6 +335,14 @@ export class Bot {
   private exposed(q: number, me: number) {
     if (!this.t.watchPairs || !this.assists.length) return false;
     return this.assists[q].some((k, x) => x !== me && x !== q && k + this.assists[x][q] >= 3 && k > 0 && this.assists[x][q] > 0);
+  }
+
+  /** Hard bots sit out round 1 (bank and hire, no hit) in about 3 games of 5: it's their biggest edge, but a
+   * table where every bot always waits just moves the seat-order gap around. Decided once per game. */
+  private sitOut: boolean | null = null;
+  private sitsOut() {
+    if (this.sitOut === null) this.sitOut = this.rng.next() < SIT_OUT_RATE;
+    return this.sitOut;
   }
 
   private rivals(g: HeistGame, me: number) {
@@ -535,6 +546,7 @@ export class Bot {
 }
 
 const ALL = makeJobDeck();
+const SIT_OUT_RATE = 0.6;
 
 function rivalsAboutToWin(g: HeistGame, rivals: number[]) {
   return rivals.some((q) => g.footholds(q) >= g.s.target - 1);
