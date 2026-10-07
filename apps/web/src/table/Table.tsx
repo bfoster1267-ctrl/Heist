@@ -3,7 +3,7 @@ import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControl
 import { useEffect, useRef, useState } from "react";
 import { useWakeLock } from "../appShell";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
-import { chipRun } from "../sound";
+import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN, useTable, type TableSettings } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
 import { Coach, Walkthrough } from "./Coach";
@@ -13,6 +13,7 @@ import { seatPos, useLayout } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Seat, footholdsOf } from "./Seat";
 import { Settings } from "./Settings";
+import { Showdown } from "./Showdown";
 import { TooltipLayer } from "./Tooltip";
 
 const CHIP_COLORS = ["#c8372d", "#2f78c4", "#1d1f24", "#3a9a4a", "#8a4fbf"];
@@ -45,6 +46,11 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
 
   // Buy-ins: everyone's chips slide into the pot as the cards come out.
   const boughtIn = useRef(false);
+  const [dealing, setDealing] = useState(true);
+  useEffect(() => {
+    const id = window.setTimeout(() => setDealing(false), 2500);
+    return () => clearTimeout(id);
+  }, []);
   useEffect(() => {
     if (!s || boughtIn.current) return;
     boughtIn.current = true;
@@ -52,6 +58,9 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
     for (let p = 0; p < s.n; p++) ms = Math.max(ms, fly(`seat-${p}`, "pot", { kind: "chip", color: CHIP_COLORS[p % CHIP_COLORS.length] }, 3, 60));
     chipRun(8);
     window.setTimeout(() => setPotShown(pot), ms);
+    // Then the deal: five cards to each rival, a beat apart; your own hand fans in on its own.
+    for (let p = 0; p < s.n; p++) if (p !== HUMAN) window.setTimeout(() => fly("deck", `seat-${p}`, { kind: "card" }, 5, 70), ms + p * 160);
+    if (!reducedMotion()) window.setTimeout(shuffleSound, ms);
   }, [s, pot, fly]);
 
   // The payout: the pot flies to the winners before the results card comes up.
@@ -242,6 +251,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
                     dim={!!hs && !can}
                     onClick={can ? () => toggle(c.id) : undefined}
                     style={{ rotate: `${off * 3}deg`, marginTop: Math.abs(off) * 4, zIndex: i }}
+                    enter={dealing ? 0.5 + i * 0.12 : undefined}
                   />
                 );
               })}
@@ -304,6 +314,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
             )}
           </AnimatePresence>
 
+          <Showdown s={s} ev={ev} k={t.shown!.key} />
           <FlightLayer flights={flights} speed={t.speed} />
 
           <AnimatePresence>

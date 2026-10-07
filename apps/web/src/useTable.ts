@@ -13,8 +13,8 @@ const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie",
 const HOLD: Record<GameEvent["t"], number> = {
   setup: 700, role: 250, wildcard: 1300, turn: 900, draw: 450, reshuffle: 1000, lastCall: 1800, penReturn: 550,
   fence: 800, bank: 650, hire: 650, stuck: 1300, flip: 1300, mark: 1100, target: 900, send: 600, pass: 350,
-  doubleCross: 1600, bet: 700, hackerCall: 1100, facedown: 550, reveal: 1700, hacked: 1600, forged: 1300,
-  backup: 1100, result: 1800, fixerFixer: 1400, deal: 1300, toPen: 650, foothold: 1000, loot: 900, cut: 550,
+  doubleCross: 1600, bet: 700, hackerCall: 1100, facedown: 550, reveal: 2600, hacked: 1600, forged: 1300,
+  backup: 1100, result: 2200, fixerFixer: 1400, deal: 1300, toPen: 650, foothold: 1000, loot: 900, cut: 550,
   betPaid: 600, bust: 1100, bustResult: 1400, again: 800, discard: 450, gameOver: 600,
 };
 
