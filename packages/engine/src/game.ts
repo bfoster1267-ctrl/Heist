@@ -474,15 +474,7 @@ export class HeistGame {
 
   /** Totals without the showdown cards. */
   bases(j: JobState): { b: number; m: number } {
-    const s = this.s;
-    const H = s.players[j.mark].hideouts[j.hideout];
-    let b = j.side.B.reduce((x, y) => x + y, 0) + j.backups.B;
-    let m = H[j.mark] + j.side.M.reduce((x, y) => x + y, 0) + j.backups.M;
-    m += this.role(j.boss) === "mastermind" ? 2 : HOME_TURF;
-    if (this.role(j.boss) === "muscle") b += 1;
-    if (this.role(j.mark) === "muscle") m += 1;
-    if (this.role(j.mark) === "lookout") m += 4;
-    return { b, m };
+    return jobBases(this.s, j);
   }
 
   private cardValue(j: JobState, side: Side) {
@@ -924,19 +916,39 @@ export class HeistGame {
   }
 
   // ------------------------------------------------------------------ views
-  /** What one seat may see: other hands and the deck order are hidden. seat = -1 for spectators. */
-  viewFor(seat: number, st: GameState = this.s): GameState {
-    const v = snapshot(st);
-    v.deck = [];
-    for (const p of v.players) {
-      if (p.seat !== seat && !(this.over && seat === -2)) {
-        p.hand = p.hand.map((c) => ({ ...c, id: -1 - c.id, kind: "S", score: 0, cash: 0, color: -1 }));
-      }
-    }
-    if (v.job && !v.job.revealed) {
-      if (v.job.boss !== seat && v.job.bossCard) v.job.bossCard = { ...v.job.bossCard, kind: "S", score: 0, cash: 0, color: -1 };
-      if (v.job.mark !== seat && v.job.markCard) v.job.markCard = { ...v.job.markCard, kind: "S", score: 0, cash: 0, color: -1 };
-    }
-    return v;
+  /** What one seat may see right now (see viewFor). */
+  viewFor(seat: number): GameState {
+    return viewFor(this.s, seat);
   }
+}
+
+/** Boss and Mark totals for a job before the showdown cards (crew, home turf, Role bonuses, Backups). */
+export function jobBases(s: GameState, j: JobState): { b: number; m: number } {
+  const role = (p: number) => s.players[p].role;
+  const H = s.players[j.mark].hideouts[j.hideout];
+  let b = j.side.B.reduce((x, y) => x + y, 0) + j.backups.B;
+  let m = H[j.mark] + j.side.M.reduce((x, y) => x + y, 0) + j.backups.M;
+  m += role(j.boss) === "mastermind" ? 2 : HOME_TURF;
+  if (role(j.boss) === "muscle") b += 1;
+  if (role(j.mark) === "muscle") m += 1;
+  if (role(j.mark) === "lookout") m += 4;
+  return { b, m };
+}
+
+const HIDDEN: Omit<Card, "id"> = { kind: "S", score: 0, cash: 0, color: -1 };
+
+/** What one seat may see: other hands, unrevealed showdown cards and the deck order are hidden.
+ * Hidden cards get ids that say nothing about which card they are. Pass seat = -1 for a spectator. */
+export function viewFor(st: GameState, seat: number): GameState {
+  const v = snapshot(st);
+  v.deck = [];
+  for (const p of v.players) {
+    if (p.seat !== seat) p.hand = p.hand.map((_, i) => ({ ...HIDDEN, id: -1000 - p.seat * 100 - i }));
+  }
+  const j = v.job;
+  if (j && !j.revealed) {
+    if (j.boss !== seat && j.bossCard) j.bossCard = { ...HIDDEN, id: -1 };
+    if (j.mark !== seat && j.markCard) j.markCard = { ...HIDDEN, id: -2 };
+  }
+  return v;
 }
