@@ -9,6 +9,7 @@ The online version of **Heist**, the double-cross card game: 3 to 6 players, pok
 | `packages/engine` | The v3 rules as code: every Boss/Mark/Pen rule and all 13 Roles, bots ported from the balance sim, tests, and a bot-vs-bot sim. Runs in the browser and on a server. |
 | `apps/web` | The table: lobby, seats around a felt table, the job zone, card and crew animations, sound, play-money chips. Solo vs bots today. |
 | `docs/PLAN.md` | The roadmap and the workstreams (one branch each). |
+| `docs/ENGINE.md` | The engine API: Asks and Answers, optional rules, bot levels, the sim. |
 
 ## Run it
 
