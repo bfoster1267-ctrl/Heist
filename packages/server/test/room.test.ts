@@ -1,6 +1,6 @@
-import { HeistGame, type GameState } from "@heist/engine";
+import { Bot, HeistGame, runBots, viewFor, type GameState } from "@heist/engine";
 import { describe, expect, it } from "vitest";
-import { Room } from "../src/room";
+import { Room, frameView } from "../src/room";
 import { sanitizeAnswer } from "../src/sanitize";
 import { MemoryStore } from "../src/store";
 import { FakeClock, TestConn, simpleAnswer } from "./helpers";
@@ -247,6 +247,18 @@ describe("Room", () => {
     expect(a.last("chat")).toMatchObject({ seat: 0, name: "Ann", text: "hi there" });
     for (let i = 0; i < 4; i++) room.chat("c1", "x");
     expect(room.chat("c1", "x")).toBe("rate_limited");
+  });
+});
+
+describe("frameView", () => {
+  it("matches the engine's viewFor on every frame, for every seat and a spectator", () => {
+    for (const n of [3, 6]) {
+      for (let seed = 1; seed <= 6; seed++) {
+        const g = new HeistGame({ seed, seats: Array.from({ length: n }, (_, k) => ({ name: `B${k}`, bot: true })) });
+        runBots(g, new Map(g.s.players.map((p) => [p.seat, new Bot(seed + p.seat)])));
+        for (const f of g.frames) for (let seat = -1; seat < n; seat++) expect(JSON.parse(JSON.stringify(frameView(f.state, seat)))).toEqual(viewFor(f.state, seat));
+      }
+    }
   });
 });
 

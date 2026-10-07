@@ -22,6 +22,8 @@ export interface ServerOptions {
   lobbyHoldMs?: number;
   /** browser origins allowed to connect (empty = any; set this in production) */
   allowedOrigins?: string[];
+  /** compress messages (default true) */
+  compression?: boolean;
   /** per-socket message rate: a burst, refilling this many per second */
   rate?: { burst: number; perSec: number };
   onGameOver?: (r: GameOverReport) => void;
@@ -63,7 +65,8 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const http = createServer((req, res) => {
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size }));
+      const cpu = process.cpuUsage();
+      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
     res.writeHead(404).end();
@@ -73,8 +76,12 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     server: http,
     path: "/ws",
     maxPayload: MAX_MESSAGE_BYTES,
-    // frames carry whole table snapshots that differ little from one to the next: compression cuts them several-fold
-    perMessageDeflate: { threshold: 1024 },
+    // frames carry whole table snapshots that differ little from one to the next: compression cuts them
+    // several-fold. Small zlib windows keep each socket's compressor to ~40 KB instead of ~300 KB.
+    perMessageDeflate:
+      o.compression === false
+        ? false
+        : { threshold: 1024, serverMaxWindowBits: 11, zlibDeflateOptions: { memLevel: 6, level: 6 }, concurrencyLimit: 4 },
     verifyClient: ({ origin }: { origin: string }) => !o.allowedOrigins?.length || o.allowedOrigins.includes(origin),
   });
 

@@ -2,7 +2,7 @@
 // every connection only what its seat may see. Transport-agnostic: a Conn is anything with send(), and the
 // clock is injected, so the whole room runs in tests without sockets or real time.
 
-import { Bot, HeistGame, viewFor, type Ask, type Frame, type GameEvent } from "@heist/engine";
+import { Bot, HeistGame, viewFor, type Ask, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { randomInt } from "node:crypto";
 import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
@@ -75,7 +75,7 @@ interface Seat {
 
 const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
 /** Frames kept for clients that reconnect and resume (older ones get a full sync instead). */
-const FRAME_BUFFER = 400;
+const FRAME_BUFFER = 150;
 /** Two missed decisions in a row and a bot keeps playing the seat until the player is back. */
 const TIMEOUTS_TO_AUTOPILOT = 2;
 /** Rough time the table spends animating a frame, so a player's clock starts after they've seen the play. */
@@ -550,5 +550,21 @@ function blankSeat(): Seat {
 }
 
 function seen(f: Frame, i: number, seat: number): SeenFrame {
-  return { i, ev: f.ev, msg: f.msg, state: viewFor(f.state, seat) };
+  return { i, ev: f.ev, msg: f.msg, state: frameView(f.state, seat) };
+}
+
+const HIDDEN = { kind: "S", score: 0, cash: 0, color: -1 } as const;
+
+/** The same view as the engine's viewFor, for a frame snapshot that is never changed again: it shares
+ * everything public with the snapshot instead of deep-copying it, which was most of the server's CPU.
+ * Only ever serialised, never mutated. Tested against viewFor on every frame of whole games. */
+export function frameView(st: GameState, seat: number): GameState {
+  const players = st.players.map((p) => (p.seat === seat ? p : { ...p, hand: p.hand.map((_, k) => ({ ...HIDDEN, id: -1000 - p.seat * 100 - k })) }));
+  let job = st.job;
+  if (job && !job.revealed) {
+    const hideB = job.boss !== seat && job.bossCard;
+    const hideM = job.mark !== seat && job.markCard;
+    if (hideB || hideM) job = { ...job, bossCard: hideB ? { ...HIDDEN, id: -1 } : job.bossCard, markCard: hideM ? { ...HIDDEN, id: -2 } : job.markCard };
+  }
+  return { ...st, deck: [], players, job };
 }
