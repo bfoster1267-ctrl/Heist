@@ -68,9 +68,57 @@ button:disabled {
 
 /* ---------------------------------------------------------------- stage + felt */
 .stage {
+  /* table theme (classic by default; .theme-vault and .theme-neon override these) */
+  --felt-hi: #187a50;
+  --rail-a: #5b3a1e;
+  --rail-b: #2d1c0e;
+  --rail-line: rgba(231, 181, 60, 0.45);
+  --rail-glow: rgba(255, 220, 160, 0.25);
+  --room: radial-gradient(ellipse at 50% 40%, #1d2028 0%, #0b0d10 70%);
+  --felt-logo: rgba(255, 255, 255, 0.04);
   position: fixed;
   inset: 0;
-  background: radial-gradient(ellipse at 50% 40%, #1d2028 0%, #0b0d10 70%);
+  background: var(--room);
+}
+.theme-vault {
+  --felt-hi: #3a4656;
+  --felt: #263040;
+  --felt2: #161c26;
+  --rail-a: #8d939c;
+  --rail-b: #3b4048;
+  --rail-line: rgba(231, 181, 60, 0.7);
+  --rail-glow: rgba(255, 255, 255, 0.45);
+  --room: radial-gradient(ellipse at 50% 30%, #2a2f38 0%, #0c0e12 70%);
+  --felt-logo: rgba(231, 181, 60, 0.06);
+}
+.theme-vault .felt-inner {
+  background-image: repeating-radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.025) 0 2px, transparent 2px 26px), radial-gradient(ellipse at 50% 45%, var(--felt-hi) 0%, var(--felt) 45%, var(--felt2) 100%);
+}
+.theme-neon {
+  --felt-hi: #3b1670;
+  --felt: #22104a;
+  --felt2: #10072a;
+  --rail-a: #16121f;
+  --rail-b: #08060d;
+  --rail-line: #ff3fb4;
+  --rail-glow: rgba(80, 230, 255, 0.5);
+  --room: radial-gradient(ellipse at 50% 35%, #2a0f3d 0%, #07040c 70%);
+  --felt-logo: rgba(255, 63, 180, 0.09);
+}
+.theme-neon .felt::after {
+  box-shadow: 0 0 14px #ff3fb4, inset 0 0 14px rgba(255, 63, 180, 0.6);
+  animation: neon 3.2s ease-in-out infinite;
+}
+.theme-neon .felt {
+  box-shadow: 0 0 60px rgba(80, 230, 255, 0.25), 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 2px 0 var(--rail-glow);
+}
+.theme-neon .felt-logo {
+  text-shadow: 0 0 30px rgba(255, 63, 180, 0.35);
+}
+@keyframes neon {
+  50% {
+    box-shadow: 0 0 22px #ff3fb4, 0 0 40px rgba(80, 230, 255, 0.35), inset 0 0 18px rgba(255, 63, 180, 0.8);
+  }
 }
 .canvas {
   position: absolute;
@@ -85,8 +133,8 @@ button:disabled {
   width: 1060px;
   height: 520px;
   border-radius: 260px;
-  background: linear-gradient(180deg, #5b3a1e, #2d1c0e);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 2px 0 rgba(255, 220, 160, 0.25), inset 0 -3px 0 rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, var(--rail-a), var(--rail-b));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 2px 0 var(--rail-glow), inset 0 -3px 0 rgba(0, 0, 0, 0.5);
   padding: 18px;
 }
 .felt::after {
@@ -94,14 +142,14 @@ button:disabled {
   position: absolute;
   inset: 8px;
   border-radius: 252px;
-  border: 2px solid rgba(231, 181, 60, 0.45);
+  border: 2px solid var(--rail-line);
   pointer-events: none;
 }
 .felt-inner {
   width: 100%;
   height: 100%;
   border-radius: 240px;
-  background: radial-gradient(ellipse at 50% 45%, #187a50 0%, var(--felt) 45%, var(--felt2) 100%);
+  background: radial-gradient(ellipse at 50% 45%, var(--felt-hi) 0%, var(--felt) 45%, var(--felt2) 100%);
   box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55);
 }
 .felt-logo {
@@ -112,7 +160,7 @@ button:disabled {
   font-family: var(--title);
   font-size: 150px;
   letter-spacing: 30px;
-  color: rgba(255, 255, 255, 0.04);
+  color: var(--felt-logo);
   pointer-events: none;
 }
 .ticker {
@@ -2161,4 +2209,32 @@ button:disabled {
   .lobby-float {
     display: none;
   }
+}
+.theme-pick {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+}
+.theme-swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #1e2128;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 12px;
+}
+.theme-swatch.on {
+  border-color: var(--gold);
+  color: var(--gold2);
+}
+.theme-swatch i {
+  width: 52px;
+  height: 26px;
+  border-radius: 13px;
+  border: 3px solid;
 }

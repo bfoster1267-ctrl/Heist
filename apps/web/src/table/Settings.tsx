@@ -1,7 +1,7 @@
 // The table's settings popover: sound, motion, tips, and the walkthrough.
 import { motion } from "motion/react";
 import { useState } from "react";
-import { setPrefs, usePrefs, type MotionPref } from "../prefs";
+import { THEMES, setPrefs, usePrefs, type MotionPref } from "../prefs";
 import { chip, getVolume, isMuted, setMuted, setVolume } from "../sound";
 
 export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () => void }) {
@@ -15,6 +15,15 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         <button className="icon-btn" onClick={onClose} aria-label="Close settings">
           ✕
         </button>
+      </div>
+
+      <div className="theme-pick" role="radiogroup" aria-label="Table">
+        {THEMES.map((t) => (
+          <button key={t.id} role="radio" aria-checked={prefs.theme === t.id} className={"theme-swatch" + (prefs.theme === t.id ? " on" : "")} onClick={() => setPrefs({ theme: t.id })}>
+            <i style={{ background: t.felt, borderColor: t.rail }} />
+            {t.name}
+          </button>
+        ))}
       </div>
 
       <label className="set-row">

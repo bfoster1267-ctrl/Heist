@@ -3,9 +3,17 @@
 import { useSyncExternalStore } from "react";
 
 export type MotionPref = "system" | "reduce" | "full";
+export type Theme = "classic" | "vault" | "neon";
+
+export const THEMES: { id: Theme; name: string; felt: string; rail: string }[] = [
+  { id: "classic", name: "Classic", felt: "#0f5a3c", rail: "#5b3a1e" },
+  { id: "vault", name: "Vault", felt: "#263040", rail: "#8d939c" },
+  { id: "neon", name: "Neon Vegas", felt: "#22104a", rail: "#ff3fb4" },
+];
 
 export interface Prefs {
   motion: MotionPref;
+  theme: Theme;
   tips: boolean;
   /** The first-game walkthrough has been shown. */
   walked: boolean;
@@ -14,7 +22,7 @@ export interface Prefs {
 }
 
 const KEY = "heist.prefs";
-const DEFAULTS: Prefs = { motion: "system", tips: true, walked: false, seen: [] };
+const DEFAULTS: Prefs = { motion: "system", theme: "classic", tips: true, walked: false, seen: [] };
 
 function load(): Prefs {
   try {
