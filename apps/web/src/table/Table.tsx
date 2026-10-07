@@ -1,6 +1,7 @@
 import { CREWS, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { useWakeLock } from "../appShell";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun } from "../sound";
 import { BANNER, HUMAN, useTable, type TableSettings } from "../useTable";
@@ -21,7 +22,7 @@ const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
 
 export function Table({ settings, onExit, onGameOver, onAgain }: { settings: TableSettings; onExit: () => void; onGameOver: (won: number) => void; onAgain: () => void }) {
   const t = useTable(settings);
-  const { L, scale } = useLayout();
+  const { L, scale, dx, dy } = useLayout();
   const prefs = usePrefs();
   const reduce = reducedMotion(prefs);
   const canvas = useRef<HTMLDivElement>(null);
@@ -35,6 +36,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
   const [paidOut, setPaidOut] = useState(false);
   const paid = useRef(false);
   const shake = useAnimationControls();
+  useWakeLock(!t.shown?.state.winners);
 
   const s = t.shown?.state;
   const pot = settings.stakes * settings.players;
@@ -110,7 +112,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
       <div className={"stage" + (reduce ? " reduce-motion" : "")}>
         <motion.div className="shaker" animate={shake}>
-        <div className={`canvas l-${L.name}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(-50%, -50%) scale(${scale})` }}>
+        <div className={`canvas l-${L.name}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
           <LayoutGroup>
             <div className="felt">
               <div className="felt-inner" />

@@ -30,7 +30,16 @@ body,
   font-family: var(--body);
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-text-size-adjust: 100%;
   user-select: none;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+html,
+body {
+  position: fixed;
+  inset: 0;
 }
 button {
   font: inherit;
@@ -1480,8 +1489,10 @@ button:disabled {
   overflow-y: auto;
   display: grid;
   place-items: center;
-  padding: 20px 16px;
+  padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
   background: radial-gradient(ellipse at 50% 30%, #1a3a2c 0%, #0b0d10 65%);
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 .lobby-bg {
   position: fixed;
@@ -2086,4 +2097,68 @@ button:disabled {
 }
 .learn {
   align-self: center;
+}
+.install {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(126, 200, 255, 0.5);
+  background: rgba(30, 60, 90, 0.35);
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+.install b {
+  color: #a8d8ff;
+}
+.install .share {
+  display: inline-block;
+  width: 14px;
+  height: 16px;
+  vertical-align: -3px;
+  margin: 0 2px;
+}
+.install .x {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 16px;
+  padding: 4px;
+}
+.lobby-col {
+  display: contents;
+}
+/* phone held sideways: lobby in two columns so it fits without scrolling */
+@media (orientation: landscape) and (max-height: 520px) {
+  .lobby-card {
+    width: min(860px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    column-gap: 22px;
+    align-items: start;
+    padding: 16px 20px 14px;
+  }
+  .lobby-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .logo {
+    font-size: 60px;
+  }
+  .tagline {
+    margin-top: -4px;
+  }
+  .stake {
+    padding: 7px 10px;
+  }
+  .btn.huge {
+    padding: 9px;
+    font-size: 24px;
+  }
+  .lobby-float {
+    display: none;
+  }
 }

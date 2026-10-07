@@ -1,0 +1,36 @@
+/* Bundled so the app works offline from the home screen. Subset to Latin, woff2. SIL OFL (see OFL-*.txt). */
+@font-face {
+  font-family: "Bebas Neue";
+  src: url("./BebasNeue-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 500 600;
+  src: url("./BarlowCondensed-SemiBold.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 700;
+  src: url("./BarlowCondensed-Bold.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow Condensed";
+  font-weight: 800 900;
+  src: url("./BarlowCondensed-ExtraBold.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow";
+  font-weight: 400;
+  src: url("./Barlow-Regular.woff2") format("woff2");
+  font-display: swap;
+}
+@font-face {
+  font-family: "Barlow";
+  font-weight: 500 700;
+  src: url("./Barlow-SemiBold.woff2") format("woff2");
+  font-display: swap;
+}

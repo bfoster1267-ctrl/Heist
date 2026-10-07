@@ -2,6 +2,7 @@
 // Two canvases: "desk" (16:10, laptops and tablets) and "wide" (phones held sideways and very wide
 // windows), which is shorter so everything draws about a third bigger on a phone.
 import { useLayoutEffect, useState } from "react";
+import { safeInsets } from "../appShell";
 
 export type LayoutName = "desk" | "wide";
 
@@ -49,10 +50,12 @@ export function seatPos(L: Layout, seat: number, n: number, human: number): [num
 
 /** Pick the canvas for the window shape and the scale that fits it. */
 export function useLayout() {
+  // Fit inside the safe area so nothing sits under the notch or the home bar.
   const pick = () => {
-    const w = window.innerWidth, h = window.innerHeight;
+    const ins = safeInsets();
+    const w = window.innerWidth - ins.left - ins.right, h = window.innerHeight - ins.top - ins.bottom;
     const L = w / h >= 1.85 ? LAYOUTS.wide : LAYOUTS.desk;
-    return { L, scale: Math.min(w / L.W, h / L.H) };
+    return { L, scale: Math.min(w / L.W, h / L.H), dx: (ins.left - ins.right) / 2, dy: (ins.top - ins.bottom) / 2 };
   };
   const [v, setV] = useState(pick);
   useLayoutEffect(() => {
@@ -60,9 +63,13 @@ export function useLayout() {
     f();
     window.addEventListener("resize", f);
     window.addEventListener("orientationchange", f);
+    // iOS reports the new insets a moment after rotating.
+    const late = () => window.setTimeout(f, 300);
+    window.addEventListener("orientationchange", late);
     return () => {
       window.removeEventListener("resize", f);
       window.removeEventListener("orientationchange", f);
+      window.removeEventListener("orientationchange", late);
     };
   }, []);
   return v;
