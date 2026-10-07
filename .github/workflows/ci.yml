@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck engine
+        run: npx tsc -p packages/engine --noEmit
+      - name: Engine tests
+        run: npm test
+      - name: Bot games (100 per player count)
+        run: npm run sim -- 100
+      - name: Build the table
+        run: npm run build
