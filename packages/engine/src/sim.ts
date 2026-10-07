@@ -4,6 +4,7 @@ import { Bot, runBots } from "./bots";
 import { HeistGame } from "./game";
 
 const games = Number(process.argv[2] ?? 500);
+let failed = 0;
 for (const n of [3, 4, 5, 6]) {
   let target = 0, lastCall = 0, turns = 0, frames = 0, errors = 0;
   const seatWins = new Array(n).fill(0);
@@ -26,6 +27,7 @@ for (const n of [3, 4, 5, 6]) {
       if (errors <= 3) console.error(n, seed, e);
     }
   }
+  failed += errors;
   const ok = games - errors;
   console.log(JSON.stringify({
     players: n,
@@ -39,4 +41,4 @@ for (const n of [3, 4, 5, 6]) {
     ms_per_game: +((Date.now() - t0) / games).toFixed(1),
   }));
 }
-
+if (failed) process.exitCode = 1;
