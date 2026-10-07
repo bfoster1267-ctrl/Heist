@@ -1,8 +1,11 @@
 // Small visual building blocks: crew shapes, crew tokens, cards and chips. Colors and shapes match
 // the printed cards (game/v3/build_cards.py).
-import { CREWS, type Card } from "@heist/engine";
+import { CREWS, ROLES, cardLabel, type Card, type RoleId } from "@heist/engine";
 import { motion } from "motion/react";
+import { useEffect, useRef, useState } from "react";
+import { reducedMotion } from "../prefs";
 import type { CSSProperties, ReactNode } from "react";
+import { FixerIcon, Keyhole, People, RoleIcon, SwitchIcon, Trophy } from "./icons";
 
 export const crewHex = (c: number) => (c >= 0 ? CREWS[c].hex : "#555");
 
@@ -66,21 +69,34 @@ const KIND_STYLE: Record<Card["kind"], { label: string; accent: string }> = {
 
 export type CardSize = "xs" | "sm" | "md" | "lg";
 
+const ICON_PX: Record<CardSize, number> = { xs: 16, sm: 30, md: 44, lg: 70 };
+
+/** A Job card face, laid out like the printed card: kind band, cash badge, crew tile, big mark, rule pill. */
 export function CardFace({ card, size = "md" }: { card: Card; size?: CardSize }) {
   const k = KIND_STYLE[card.kind];
+  const big = size === "md" || size === "lg";
   return (
     <div className={`card card-${size} card-face kind-${card.kind}`} style={{ ["--accent" as string]: k.accent }}>
-      <span className="card-cash">${card.cash}</span>
+      {size === "lg" && <span className="card-band">{k.label}</span>}
+      <span className={"card-cash" + (card.cash === 0 ? " zero" : "")}>${card.cash}</span>
       <span className="card-crew" style={{ background: crewHex(card.color) }}>
-        <Shape color={card.color} size={size === "xs" ? 7 : size === "sm" ? 9 : 13} />
+        <Shape color={card.color} size={size === "xs" ? 7 : size === "sm" ? 9 : size === "md" ? 12 : 18} />
       </span>
       <div className="card-main">
         {card.kind === "S" && <span className="card-num">{card.score}</span>}
-        {card.kind === "F" && <span className="card-icon">⚖</span>}
-        {card.kind === "B" && <span className="card-num small">+3</span>}
-        {card.kind === "X" && <span className="card-icon">⇄</span>}
+        {card.kind === "F" && <FixerIcon size={ICON_PX[size]} />}
+        {card.kind === "B" && <span className="card-num">+3</span>}
+        {card.kind === "X" && <SwitchIcon size={ICON_PX[size] * 1.1} />}
+        {big && card.kind === "F" && <span className="card-sub">MAKE A DEAL</span>}
+        {big && card.kind === "B" && <span className="card-sub">BOOST EITHER SIDE</span>}
+        {big && card.kind === "X" && <span className="card-sub">1 ALLY SWITCHES</span>}
       </div>
-      <span className="card-label">{k.label}</span>
+      {size === "sm" && <span className="card-label">{k.label}</span>}
+      {big && card.kind === "S" && (
+        <span className="card-pill">
+          {card.score} + <People size={size === "lg" ? 16 : 13} /> = <Trophy size={size === "lg" ? 14 : 11} />
+        </span>
+      )}
     </div>
   );
 }
@@ -88,7 +104,25 @@ export function CardFace({ card, size = "md" }: { card: Card; size?: CardSize })
 export function CardBack({ size = "md" }: { size?: CardSize }) {
   return (
     <div className={`card card-${size} card-back`}>
-      <span className="back-mark">H</span>
+      <span className="back-key">
+        <Keyhole size={size === "xs" ? 16 : size === "sm" ? 26 : size === "md" ? 40 : 64} />
+      </span>
+      {size !== "xs" && <span className="back-word">HEIST</span>}
+    </div>
+  );
+}
+
+/** A Role card, blueprint style like the print. */
+export function RoleCard({ role, size = "md" }: { role: RoleId; size?: "sm" | "md" }) {
+  const R = ROLES.find((r) => r.id === role)!;
+  return (
+    <div className={"role-face role-" + size}>
+      <span className="role-kicker">CREW ROLE · BREAKS ONE RULE</span>
+      <span className="role-disc">
+        <RoleIcon role={role} size={size === "sm" ? 30 : 46} />
+      </span>
+      <span className="role-band">{R.name}</span>
+      <span className="role-rule">{R.text}</span>
     </div>
   );
 }
@@ -121,6 +155,21 @@ export function TableCard({
       onClick={onClick}
       style={style}
       whileHover={onClick ? { y: -10 } : undefined}
+      role={onClick ? "button" : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      aria-pressed={onClick ? !!selected : undefined}
+      aria-label={hidden ? "Face-down card" : cardLabel(card) + (card.cash ? `, $${card.cash}` : "")}
+      data-tip={hidden || onClick || size === "md" || size === "lg" ? undefined : tipFor(card)}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
       {hidden ? <CardBack size={size} /> : <CardFace card={card} size={size} />}
     </motion.div>
@@ -142,7 +191,7 @@ export function FlipCard({ card, revealed, size = "md" }: { card: Card | null; r
   );
 }
 
-export function Chips({ amount, small }: { amount: number; small?: boolean }) {
+export function Chips({ amount, small, counting }: { amount: number; small?: boolean; counting?: boolean }) {
   const stacks = Math.min(5, Math.max(1, Math.ceil(Math.log10(Math.max(amount, 1)))));
   const colors = ["#c8372d", "#2f78c4", "#1d1f24", "#3a9a4a", "#8a4fbf"];
   return (
@@ -152,7 +201,50 @@ export function Chips({ amount, small }: { amount: number; small?: boolean }) {
           <span key={i} className="chip" style={{ background: colors[i % colors.length], bottom: i * 3 }} />
         ))}
       </span>
-      <span className="chip-amt">{amount.toLocaleString()}</span>
+      <span className="chip-amt">{counting ? <CountUp value={amount} /> : amount.toLocaleString()}</span>
     </span>
+  );
+}
+
+const KIND_TIP: Record<Card["kind"], string> = {
+  S: "Score: lay it face down at the showdown. Its number plus your side's crew is your total.",
+  F: "Fixer: lay it at the showdown. Fixer vs Fixer makes a deal; a Score always beats a Fixer.",
+  B: "Backup: play after the cards are revealed for +3 to either side.",
+  X: "Double-Cross: anyone can play it after allies join. One ally switches sides.",
+};
+
+export function tipFor(card: Card) {
+  return `${cardLabel(card)} · $${card.cash} cash · ${CREWS[card.color]?.name ?? ""} color\n${KIND_TIP[card.kind]}`;
+}
+
+/** A number that counts to its new value instead of jumping. */
+export function CountUp({ value, prefix = "" }: { value: number; prefix?: string }) {
+  const [shown, setShown] = useState(value);
+  const from = useRef(value);
+  useEffect(() => {
+    if (reducedMotion() || from.current === value) {
+      from.current = value;
+      setShown(value);
+      return;
+    }
+    const a = from.current, t0 = performance.now(), dur = 450;
+    let raf = 0;
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / dur);
+      setShown(Math.round(a + (value - a) * (1 - (1 - k) ** 3)));
+      if (k < 1) raf = requestAnimationFrame(step);
+      else from.current = value;
+    };
+    raf = requestAnimationFrame(step);
+    return () => {
+      cancelAnimationFrame(raf);
+      from.current = value;
+    };
+  }, [value]);
+  return (
+    <>
+      {prefix}
+      {shown.toLocaleString()}
+    </>
   );
 }

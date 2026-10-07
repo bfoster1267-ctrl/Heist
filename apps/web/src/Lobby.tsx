@@ -2,6 +2,7 @@ import { CREWS } from "@heist/engine";
 import { motion } from "motion/react";
 import { useState } from "react";
 import { Chips, CrewBadge } from "./table/pieces";
+import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 
 const FLOAT_POS = [
@@ -29,6 +30,7 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
     }
   });
   const [stake, setStake] = useState(1);
+  const prefs = usePrefs();
   const go = (i: number) => {
     try {
       localStorage.setItem("heist.name", name);
@@ -106,6 +108,13 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
             Queue with friends
           </button>
         </div>
+        {prefs.walked ? (
+          <button className="btn ghost small learn" onClick={() => setPrefs({ walked: false, tips: true, seen: [] })}>
+            Show me the tour again next game
+          </button>
+        ) : (
+          <div className="fine">Your first game starts with a quick tour of the table.</div>
+        )}
         <div className="fine">Online tables are coming. Quick Match seats you with bots for now. Chips are play money only.</div>
       </motion.div>
     </div>

@@ -3,7 +3,7 @@
 // that sends the same Frames.
 import { Bot, HeistGame, runBots, viewFor, type Answer, type Ask, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { sfx } from "./sound";
+import { sfx, yourTurn } from "./sound";
 
 export const HUMAN = 0;
 
@@ -50,6 +50,7 @@ export function useTable(settings: TableSettings) {
   const flightHook = useRef<FlightHook | null>(null);
   const shownRef = useRef<Shown | null>(null);
   const counter = useRef(0);
+  const lastAsk = useRef(-1e9);
 
   const pump = useCallback(() => {
     const r = ref.current;
@@ -62,6 +63,9 @@ export function useTable(settings: TableSettings) {
         r.queue.push(...r.game.drainFrames());
         return pump();
       }
+      // Chime when the table comes back to you, not on every follow-up choice in the same turn.
+      if (performance.now() - lastAsk.current > 2500) yourTurn();
+      lastAsk.current = performance.now();
       setAsk(p);
       return;
     }
@@ -70,7 +74,7 @@ export function useTable(settings: TableSettings) {
     const after = viewFor(f.state, HUMAN);
     const before = shownRef.current?.state ?? after;
     const flightMs = flightHook.current ? flightHook.current(f.ev, before, after) : 0;
-    sfx(f.ev);
+    sfx(f.ev, HUMAN);
     const apply = () => {
       const s: Shown = { state: after, msg: f.msg, ev: f.ev, key: ++counter.current };
       shownRef.current = s;
@@ -119,6 +123,7 @@ export function useTable(settings: TableSettings) {
         return;
       }
       setAsk(null);
+      lastAsk.current = performance.now();
       r.queue.push(...r.game.drainFrames());
       pump();
     },

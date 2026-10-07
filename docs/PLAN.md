@@ -22,6 +22,14 @@ Goal: a polished online multiplayer Heist in the browser (poker-table seats, ful
 - Tests: every bot game finishes, cards and crew are never lost or duplicated, exact replay, illegal answers rejected, hands hidden.
 - Table: lobby with stakes and play chips, felt table with seats, hideouts and Footholds, job zone with face-down cards that flip, flying crew/coins/cards, banners, game log, speed controls, sound, game-over payout.
 
+## Done (table polish, workstream 2)
+
+- Cards drawn like the printed icon cards (Score pill, Fixer arrows, Double-Cross figures, keyhole backs, blueprint Role cards with icons).
+- Phone-sideways layout: a shorter canvas picked for wide screens so the table draws about a third bigger.
+- First-game table tour and one coach tip per decision type; tooltips on everything (hover, focus, long press).
+- Keyboard play, screen-reader announcements, reduced-motion mode, settings menu (sound, volume, motion, tips).
+- Animation and sound pass: arced tosses, buy-ins into the pot, payout to the winner, confetti, showdown spotlight, table shake on Double-Cross, count-up totals, your-turn chime.
+
 ## Workstreams (one branch and thread each)
 
 | # | Workstream | Branch | Depends on | What "done" looks like |

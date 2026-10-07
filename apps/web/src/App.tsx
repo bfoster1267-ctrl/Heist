@@ -7,6 +7,7 @@ import { REFILL_TO, loadChips, saveChips } from "./wallet";
 export function App() {
   const [chips, setChipsState] = useState(loadChips);
   const [table, setTable] = useState<TableSettings | null>(null);
+  const [round, setRound] = useState(0);
   const setChips = useCallback((f: (c: number) => number) => {
     setChipsState((c) => {
       const v = f(c);
@@ -18,11 +19,13 @@ export function App() {
   const sit = (c: LobbyChoice) => {
     setChips((x) => x - c.stakes);
     setTable({ ...c, seed: undefined });
+    setRound((r) => r + 1);
   };
 
   if (!table) return <Lobby chips={chips} onPlay={sit} onRefill={() => setChips((c) => Math.max(c, REFILL_TO))} />;
   return (
     <Table
+      key={round}
       settings={table}
       onExit={() => setTable(null)}
       onGameOver={(won) => won && setChips((c) => c + won)}
