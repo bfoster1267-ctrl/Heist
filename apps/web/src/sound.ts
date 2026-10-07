@@ -101,6 +101,11 @@ export const chip = () => {
   noise(0.04, 4600, 0.25, 0.06);
 };
 export const click = () => noise(0.03, 3000, 0.15);
+/** A soft pop for a chat bubble. */
+export const pop = () => {
+  tone(520, 0.08, 0, "sine", 0.08);
+  tone(780, 0.1, 0.05, "sine", 0.06);
+};
 /** A riffle: a run of quick card flicks. */
 export const shuffle = () => {
   for (let i = 0; i < 14; i++) noise(0.05, 2000 + (i % 3) * 500, 0.18, i * 0.035);

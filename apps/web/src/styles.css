@@ -1858,7 +1858,7 @@ button:disabled {
 .tooltip {
   position: absolute;
   z-index: 80;
-  transform: translate(-50%, -100%);
+  translate: -50% -100%;
   max-width: 260px;
   padding: 7px 10px;
   border-radius: 9px;
@@ -1872,7 +1872,7 @@ button:disabled {
   white-space: pre-line;
 }
 .tooltip.below {
-  transform: translate(-50%, 0);
+  translate: -50% 0;
 }
 .tooltip:has(.role-face) {
   padding: 0;
@@ -2335,4 +2335,68 @@ button:disabled {
 }
 .sd-stamp.r-M {
   color: #ff7a5e;
+}
+/* chat */
+.bubble {
+  position: absolute;
+  z-index: 38;
+  translate: -50% -100%;
+  max-width: 200px;
+  padding: 6px 12px;
+  border-radius: 14px;
+  background: var(--paper);
+  color: #16181d;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 16px;
+  white-space: nowrap;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}
+.bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  margin-left: -6px;
+  border: 6px solid transparent;
+  border-bottom: 0;
+  border-top-color: var(--paper);
+}
+.bubble.emoji {
+  font-size: 30px;
+  padding: 2px 10px;
+}
+.chat-tray {
+  position: absolute;
+  right: 10px;
+  top: 44px;
+  width: 300px;
+  z-index: 70;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(14, 16, 20, 0.98);
+  border: 1px solid var(--line);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.8);
+}
+.chat-emotes {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.chat-emotes button {
+  border: 0;
+  background: none;
+  font-size: 24px;
+  padding: 4px 0;
+  border-radius: 8px;
+}
+.chat-emotes button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.chat-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
 }

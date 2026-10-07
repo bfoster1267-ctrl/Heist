@@ -6,6 +6,7 @@ import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN, useTable, type TableSettings } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
+import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { Coach, Walkthrough } from "./Coach";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
@@ -32,6 +33,8 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
   const [sel, setSel] = useState<number[]>([]);
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const chat = useBubbles(HUMAN);
   const [walk, setWalk] = useState(() => !getPrefs().walked);
   const [potShown, setPotShown] = useState(0);
   const [paidOut, setPaidOut] = useState(false);
@@ -78,6 +81,11 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
       setPaidOut(false);
     }
   }, [s?.winners, pot, onGameOver, fly, s]);
+
+  useEffect(() => {
+    if (s) chat.react(ev, s);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t.shown?.key]);
 
   useEffect(() => {
     if (ev && SHAKE.has(ev.t) && !reduce) void shake.start({ x: [0, -7, 6, -4, 3, 0], transition: { duration: 0.4 } });
@@ -156,6 +164,9 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
               ))}
               <button className="icon-btn" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
                 ⏭
+              </button>
+              <button className={"icon-btn" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes and quick chat" data-tip="Emotes and quick chat">
+                💬
               </button>
               <button className={"icon-btn" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
                 ☰
@@ -315,6 +326,8 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
           </AnimatePresence>
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
+          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
+          <AnimatePresence>{showChat && <ChatTray onSay={(text) => chat.say(HUMAN, text)} onClose={() => setShowChat(false)} />}</AnimatePresence>
           <FlightLayer flights={flights} speed={t.speed} />
 
           <AnimatePresence>
