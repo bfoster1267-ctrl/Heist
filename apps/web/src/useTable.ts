@@ -73,6 +73,18 @@ export function useTable(settings: TableSettings) {
   const counter = useRef(0);
   const lastAsk = useRef(-1e9);
   const history = useRef<HistoryEntry[]>([]);
+  // frame updates waiting on a flight animation, oldest first
+  const late = useRef(new Map<number, () => void>());
+  /** Cancel them; returns the newest, so Skip can show it at once instead. */
+  const dropLate = () => {
+    let newest: (() => void) | undefined;
+    late.current.forEach((apply, id) => {
+      clearTimeout(id);
+      newest = apply;
+    });
+    late.current.clear();
+    return newest;
+  };
   const record = (f: Frame) => history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
 
   const pump = useCallback(() => {
@@ -105,8 +117,14 @@ export function useTable(settings: TableSettings) {
       setShown(s);
       setLog((l) => [...l.slice(-80), { msg: f.msg, key: s.key }]);
     };
-    if (flightMs > 0) window.setTimeout(apply, flightMs / sp);
-    else apply();
+    if (flightMs > 0) {
+      // remembered so Skip can drop it: a late apply would put an older frame back over the skipped-to one
+      const id = window.setTimeout(() => {
+        late.current.delete(id);
+        apply();
+      }, flightMs / sp);
+      late.current.set(id, apply);
+    } else apply();
     r.timer = window.setTimeout(() => {
       r.timer = null;
       pump();
@@ -118,6 +136,7 @@ export function useTable(settings: TableSettings) {
     // built the same way the server replays it, so a finished game can be checked before it counts
     const { game, bots } = createSoloGame(seed, settings.players, settings.name);
     if (ref.current?.timer) clearTimeout(ref.current.timer);
+    dropLate();
     ref.current = { game, bots, queue: game.drainFrames(), timer: null, answers: [] };
     shownRef.current = null;
     history.current = [];
@@ -131,6 +150,7 @@ export function useTable(settings: TableSettings) {
     start();
     return () => {
       if (ref.current?.timer) clearTimeout(ref.current.timer);
+      dropLate();
       ref.current = null;
     };
   }, [start]);
@@ -162,6 +182,7 @@ export function useTable(settings: TableSettings) {
       clearTimeout(r.timer);
       r.timer = null;
     }
+    const pending = dropLate();
     const last = r.queue[r.queue.length - 1];
     r.queue.forEach(record);
     r.queue = [];
@@ -169,7 +190,7 @@ export function useTable(settings: TableSettings) {
       const s: Shown = { state: viewFor(last.state, HUMAN), msg: last.msg, ev: last.ev, key: ++counter.current };
       shownRef.current = s;
       setShown(s);
-    }
+    } else pending?.();
     pump();
   }, [pump]);
 
