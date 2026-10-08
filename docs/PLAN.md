@@ -38,8 +38,8 @@ Goal: a polished online multiplayer Heist in the browser (poker-table seats, ful
 | 1 | Engine and bots | `engine/*` | none | ~~Hideout choice for crew, bribes, free-form Fixer deals; bot difficulty levels (grudges, secret pairs, patience); closer match to the Python sim at 5-6 players.~~ Done, see `docs/ENGINE.md`. Next: the table and server switch the optional rules on. |
 | 2 | Table polish | `table/*` | none | Card art when it's locked, tutorial/first game walkthrough, better mobile landscape layout, hover tooltips, accessibility, reduced-motion mode, sound pass. |
 | 3 | Game server | `server/*` | 1 | Authoritative WebSocket server running the engine; rooms, reconnect, turn timers (bot takes over on timeout), spectators, action log storage. Hosting on Fly.io or Render (Brock needs an account). |
-| 4 | Accounts, friends, matchmaking | `social/*` | 3 | Sign in (Apple, Google, email), profiles, friends list, invite links, party queue ("queue with friends"), quick queue by player count and stakes, bot fill after a wait. Supabase for auth and database. |
-| 5 | Chips economy | `chips/*` | 4 | Server-side chip balances, buy-ins and payouts per table, daily bonus, leaderboards, stake tiers. Play money only. |
+| 4 | Accounts, friends, matchmaking | `social/*` | 3 | **Accounts done (PR #5, see docs/ACCOUNTS.md):** sign in with Apple, Google, Facebook or email, guests keep progress, career stats and trackers, XP, levels, prestige, coins, cosmetics shop, drinks. Accounts live on the game server (no Supabase needed). Still to do: friends list, invite links, party queue, quick queue, bot fill after a wait. |
+| 5 | Chips economy | `chips/*` | 4 | **Mostly done in PR #5:** server-side chips, buy-ins and payouts for online and vs-bot games, daily bonus, top-ups, leaderboards. Play money only. |
 | 6 | iPhone app | `ios/*` | 2, 4 | Capacitor wrap, portrait table layout, haptics, push notifications for invites and "your turn", TestFlight build. Needs an Apple Developer account ($99/year) and a cloud Mac build (Codemagic or similar). |
 
 Workstreams 1 and 2 can start now in parallel. 3 starts now too and 4 follows it. 5 and 6 come after accounts exist.
@@ -47,6 +47,6 @@ Workstreams 1 and 2 can start now in parallel. 3 starts now too and 4 follows it
 ## Things only Brock can do
 
 - Hosting account for the game server (Fly.io or Render) when workstream 3 is ready to deploy.
-- Supabase project (free tier) for accounts and friends.
+- Developer accounts for sign-in: Google Cloud (free), Apple Developer ($99/year, also needed for the iPhone app), Facebook for Developers (free). Steps in docs/ACCOUNTS.md.
 - Apple Developer account for the iPhone app.
 - Pick the art direction; the table currently draws cards from the icon style.

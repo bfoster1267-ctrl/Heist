@@ -269,22 +269,22 @@ function Shop({ me }: { me: Me }) {
 
 function Preview({ c, name }: { c: Cosmetic; name: string }) {
   const [a, b] = c.colors ?? ["#333", "#111"];
-  if (c.slot === "felt") return <div className="acct-prev felt" style={{ background: `radial-gradient(ellipse at 50% 40%, ${a}, ${b})` }} />;
+  if (c.slot === "felt") return <div className="acct-prev acct-prev-felt" style={{ background: `radial-gradient(ellipse at 50% 40%, ${a}, ${b})` }} />;
   if (c.slot === "cardBack")
     return (
-      <div className="acct-prev back-wrap">
-        <div className="acct-prev back" data-pattern={c.pattern} style={{ ["--back" as string]: a, ["--back2" as string]: b }}>
+      <div className="acct-prev acct-prev-backwrap">
+        <div className="acct-prev-back" data-pattern={c.pattern} style={{ ["--back" as string]: a, ["--back2" as string]: b }}>
           <span>H</span>
         </div>
       </div>
     );
   if (c.slot === "frame")
     return (
-      <div className="acct-prev frame">
+      <div className="acct-prev acct-prev-frame">
         <Avatar name={name} frame={c.id} size={50} />
       </div>
     );
-  return <div className="acct-prev title">{c.text ? `“${c.text}”` : "—"}</div>;
+  return <div className="acct-prev acct-prev-title">{c.text ? `“${c.text}”` : "—"}</div>;
 }
 
 function Board({ me }: { me: Me }) {

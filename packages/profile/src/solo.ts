@@ -19,10 +19,10 @@ export function soloBotNames(seed: number, players: number): string[] {
   return names.slice(0, players - 1);
 }
 
-export function createSoloGame(seed: number, players: number, name: string) {
+export function createSoloGame(seed: number, players: number, name: string, snapshots = true) {
   const bots = soloBotNames(seed, players);
   const seats = Array.from({ length: players }, (_, i) => (i === SOLO_SEAT ? { name: name || "Ace", bot: false } : { name: bots[i - 1], bot: true }));
-  const game = new HeistGame({ seed, seats });
+  const game = new HeistGame({ seed, seats, snapshots });
   const botMap = new Map(game.s.players.filter((p) => p.bot).map((p) => [p.seat, new Bot(seed + p.seat * 31)]));
   return { game, bots: botMap };
 }
@@ -38,7 +38,7 @@ export interface SoloReplay {
  * network go through `clean` first (the server passes its answer sanitizer).
  */
 export function replaySolo(seed: number, players: number, answers: unknown[], clean: (ask: Ask, raw: unknown) => Answer | null = (_, a) => a as Answer): SoloReplay {
-  const { game, bots } = createSoloGame(seed, players, "You");
+  const { game, bots } = createSoloGame(seed, players, "You", false);
   const events: GameEvent[] = [];
   const take = () => events.push(...game.drainFrames().map((f) => f.ev));
   take();

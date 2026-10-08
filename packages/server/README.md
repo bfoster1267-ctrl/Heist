@@ -42,7 +42,7 @@ Frames arrive in the same shape the solo table already plays back (`ev`, `msg`, 
 
 | Later work | Plug-in point |
 |---|---|
-| Accounts (Supabase) | Implement `IdentityProvider` (verify the Supabase session token, return the account id and name) and pass it to `startServer`. Guests keep working through `GuestIdentity`. |
+| Accounts | Done: pass an `AccountService` as `accounts` to `startServer` (main.ts does). See docs/ACCOUNTS.md for the API, sign-in setup and progression. |
 | Quick queue, party queue, invites | `Rooms.create()`, then `room.join(conn)` for each matched player and `room.start(null)` to start without a host. Invite links carry the room code. |
 | Chips economy | `onGameOver` gets the stakes, every seat's user id and the winners; settle buy-ins and payouts there. |
 | Database | Implement `GameStore` (started, answered, ended, plus `unfinished` for restarts). |

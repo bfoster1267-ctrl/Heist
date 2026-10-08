@@ -1,6 +1,6 @@
 import { CREWS } from "@heist/engine";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Chips, CrewBadge } from "./table/pieces";
 import { isIOS, isStandalone } from "./appShell";
 import { setPrefs, usePrefs } from "./prefs";
@@ -21,11 +21,11 @@ export interface LobbyChoice {
   stakes: number;
 }
 
-export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: LobbyChoice) => void; onRefill: () => void }) {
+export function Lobby({ chips, onPlay, onRefill, defaultName, top }: { chips: number; onPlay: (c: LobbyChoice) => void; onRefill: () => void; defaultName?: string; top?: ReactNode }) {
   const [players, setPlayers] = useState(4);
   const [name, setName] = useState(() => {
     try {
-      return localStorage.getItem("heist.name") || "";
+      return defaultName || localStorage.getItem("heist.name") || "";
     } catch {
       return "";
     }
@@ -57,6 +57,7 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
         ))}
       </div>
       <motion.div className="lobby-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        {top && <div className="acct-in-lobby">{top}</div>}
         <div className="lobby-col">
           <div className="logo">HEIST</div>
           <div className="tagline">Plan the job. Pick your crew. Trust no one.</div>

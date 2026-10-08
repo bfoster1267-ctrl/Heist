@@ -78,7 +78,13 @@ function Game() {
     <>
       {!table ? (
         <>
-          <Lobby chips={chips} onPlay={sit} onRefill={() => act((b) => b.refill())} />
+          <Lobby
+            chips={chips}
+            defaultName={me.guest && me.name.startsWith("Guest") ? undefined : me.name}
+            onPlay={sit}
+            onRefill={() => act((b) => b.refill())}
+            top={<ProfileChip me={me} onOpen={() => setProfile(true)} />}
+          />
           <div className="acct-corner">
             <ProfileChip me={me} onOpen={() => setProfile(true)} />
           </div>
