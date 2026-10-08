@@ -1389,6 +1389,16 @@ button:disabled {
   margin-top: 6px;
   line-height: 1.35;
 }
+.already-in {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffb36b;
+  background: rgba(255, 140, 40, 0.12);
+  border: 1px solid rgba(255, 150, 60, 0.5);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+}
 .odds {
   font-family: var(--cond);
   font-size: 14px;

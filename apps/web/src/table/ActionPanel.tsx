@@ -274,9 +274,10 @@ export function ActionPanel({
       body = (
         <>
           {oddsLine}
+          {alreadyIn && <div className="already-in">You already have crew in this hideout. Backing the Boss can't win you a new Foothold here.</div>}
           {ask.split ? (
             <div className="btns wrap">
-              <span className="lbl">Boss</span>
+              <span className="lbl">Boss{alreadyIn ? " (you're already in)" : ""}</span>
               <Stepper value={n} min={0} max={ask.max - n2} onChange={setN} />
               <span className="lbl">Mark</span>
               <Stepper value={n2} min={0} max={ask.max - n} onChange={setN2} />
@@ -291,7 +292,7 @@ export function ActionPanel({
             <div className="btns wrap">
               <Stepper value={n} min={1} max={ask.max} onChange={setN} />
               <Btn kind="gold" onClick={() => answer({ kind: "join", B: n, M: 0 })}>
-                Back the Boss
+                Back the Boss{alreadyIn ? " (you're already in)" : ""}
               </Btn>
               <Btn kind="danger" onClick={() => answer({ kind: "join", B: 0, M: n })}>
                 Defend the Mark
