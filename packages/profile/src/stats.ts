@@ -2,6 +2,7 @@
 // online and vs-bot games count the same way.
 
 import type { GameEvent, RoleId } from "@heist/engine";
+import type { Rival } from "./rating";
 
 /** What one player did in one game, read from that game's events. */
 export interface GameSummary {
@@ -138,6 +139,12 @@ export interface GameResult {
   summary: GameSummary;
   quit?: boolean;
   at: number;
+  /** everyone else at the table, for the hidden skill rating (left out: the rating doesn't move) */
+  rivals?: Rival[];
+  /** the campaign stage this game was (its first win clears it) */
+  campaign?: number;
+  /** a coached game (doesn't count toward the rating) */
+  coached?: boolean;
 }
 
 const bump = (r: WinLoss | undefined, won: boolean): WinLoss => ({ g: (r?.g ?? 0) + 1, w: (r?.w ?? 0) + (won ? 1 : 0) });

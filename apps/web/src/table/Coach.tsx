@@ -132,11 +132,13 @@ const COACH: Partial<Record<Ask["kind"], { title: string; text: string }>> = {
 export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
   const prefs = usePrefs();
   const tip = ask && !blocked && prefs.tips && !prefs.seen.includes(ask.kind) ? COACH[ask.kind] : undefined;
+  const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
   return (
     <AnimatePresence>
       {tip && ask && (
         <motion.div
           key={ask.kind}
+          ref={above}
           className={"coach" + (ask.kind === "keepRole" ? " top" : "")}
           role="note"
           initial={{ opacity: 0, y: 10 }}
@@ -163,10 +165,11 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
 /** Coached play: the coach's read of every decision, docked beside your action panel. */
 export function LiveCoach({ s, ask }: { s: GameState; ask: Ask | null }) {
   const tip = ask ? coachTip(s, ask) : "";
+  const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
   return (
     <AnimatePresence>
       {tip && ask && (
-        <motion.div key={JSON.stringify(ask)} className="coach live" role="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+        <motion.div key={JSON.stringify(ask)} ref={above} className={"coach live" + (ask.kind === "keepRole" ? " top" : "")} role="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
           <div className="coach-title">Coach</div>
           <div className="coach-text">{tip}</div>
         </motion.div>
@@ -178,8 +181,9 @@ export function LiveCoach({ s, ask }: { s: GameState; ask: Ask | null }) {
 /** Coached play: a rookie mistake is caught before it's played. You can still play it. */
 export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId; before: number; onAnyway: () => void; onChange: () => void }) {
   const m = MISTAKES[id];
+  const above = useAbovePanel(true);
   return (
-    <motion.div className="coach live mistake" role="alertdialog" aria-label={m.title} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}>
+    <motion.div ref={above} className="coach live mistake" role="alertdialog" aria-label={m.title} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}>
       <div className="coach-title">Hold on: {m.title.toLowerCase()}</div>
       <div className="coach-text">
         {m.why}
@@ -195,4 +199,26 @@ export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId
       </div>
     </motion.div>
   );
+}
+
+/** The action panel changes height with each decision (and with the text size), so sit the tip just
+ *  above it rather than at a fixed height that can cover the panel's title. */
+function useAbovePanel(on: boolean) {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const parent = el?.offsetParent as HTMLElement | null;
+    const panel = parent?.querySelector<HTMLElement>(".action-panel");
+    if (!on || !el || !parent || !panel) return;
+    const place = () => {
+      const H = parent.clientHeight;
+      const bottom = Math.min(H - panel.offsetTop + 8, H - el.offsetHeight - 8);
+      el.style.bottom = `${Math.max(8, bottom)}px`;
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(panel);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [on, el]);
+  return setEl;
 }

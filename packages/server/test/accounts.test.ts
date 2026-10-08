@@ -1,5 +1,5 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { createSoloGame } from "@heist/profile";
+import { STAGES, botLevelsFor, createSoloGame, type SoloSetup } from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,8 +37,8 @@ const fakeFetch = async (url: string) => ({
 const verifier = () => new OAuth({ google: { clientIds: ["web-client"] } }, fakeFetch);
 
 /** Play a solo game from the server's seed with a bot in the player's chair, recording answers. */
-function playSolo(seed: number, players: number) {
-  const { game, bots } = createSoloGame(seed, players, "Me");
+function playSolo(seed: number, players: number, setup?: SoloSetup) {
+  const { game, bots } = createSoloGame(seed, players, "Me", true, setup);
   const me = new Bot(seed + 99);
   const answers: Answer[] = [];
   for (;;) {
@@ -155,7 +155,7 @@ describe("accounts", () => {
     const svc = new AccountService({ secret: "s" });
     const { token } = await svc.guest(undefined, "Learner");
     const acct = () => svc.require(token);
-    const s = await svc.soloStart(await acct(), 4, 5000, true);
+    const s = await svc.soloStart(await acct(), 4, 5000, undefined, undefined, true);
     expect(s.me.progress.chips).toBe(10_000); // no buy-in, whatever stakes were sent
     const game = playSolo(s.seed, 4);
     const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
@@ -168,10 +168,92 @@ describe("accounts", () => {
     expect(report.counts.map((c) => c.id)).toContain("alreadyIn");
 
     // walking out of a coached game costs nothing and isn't a quit
-    await svc.soloStart(await acct(), 3, 0, true);
+    await svc.soloStart(await acct(), 3, 0, undefined, undefined, true);
     const next = await svc.soloStart(await acct(), 3, 100);
     expect(next.quit).toBeNull();
     expect(next.me.progress.stats.quits).toBe(0);
+  });
+
+  it("scales vs-bots tables to a hidden skill rating, replaying them with the same bots", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Solo");
+    const acct = () => svc.require(token);
+    // an older client (no `scaled`) gets the normal bots it knows how to build
+    expect((await svc.soloStart(await acct(), 4, 0)).levels).toBeUndefined();
+    const s = await svc.soloStart(await acct(), 4, 0, true);
+    // walking out of the first game cost some rating, so the bots ease off a little
+    expect(s.me.progress.rating).toBeLessThan(1000);
+    expect(s.levels).toEqual(botLevelsFor(s.me.progress.rating, 3));
+    expect(s.levels).toContain("easy");
+    const game = playSolo(s.seed, 4, { levels: s.levels });
+    const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
+    const p = done.me.progress;
+    expect(p.ratedGames).toBe(2);
+    if (game.won) expect(p.rating).toBeGreaterThan(s.me.progress.rating);
+    else expect(p.rating).toBeLessThanOrEqual(s.me.progress.rating);
+
+    // a strong player gets hard bots, a weak one easy bots
+    const x = await acct();
+    x.progress.rating = 1200;
+    await svc.store.put(x);
+    expect((await svc.soloStart(await acct(), 5, 0, true)).levels).toEqual(["hard", "hard", "hard", "hard"]);
+    expect(await svc.botLevel(x.id)).toBe("hard");
+    const y = await acct();
+    y.progress.rating = 900;
+    await svc.store.put(y);
+    expect((await svc.soloStart(await acct(), 3, 0, true)).levels).toEqual(["easy", "easy"]);
+  });
+
+  it("plays the campaign in order, paying and giving items on the first clear only", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Climber");
+    const acct = () => svc.require(token);
+    await expect(svc.soloStart(await acct(), 3, 0, true, 2)).rejects.toThrow(/before that one/);
+    await expect(svc.soloStart(await acct(), 3, 0, true, 99)).rejects.toThrow(/No such stage/);
+    // stage 4 gives a title; pretend stages 1-3 are cleared and win stage 4 (keep trying seeds until the stand-in wins)
+    const x = await acct();
+    x.progress.campaign = 3;
+    await svc.store.put(x);
+    let done;
+    for (let i = 0; i < 40 && !done?.reward.lines.some((l) => l.label.startsWith("Cleared")); i++) {
+      const s = await svc.soloStart(await acct(), 6, 5000, true, 4);
+      expect(s).toMatchObject({ players: 4, stage: 4, levels: undefined });
+      expect(s.me.progress.chips).toBe(10_000); // no buy-in
+      const game = playSolo(s.seed, s.players, { stage: 4 });
+      done = await svc.soloFinish(await acct(), s.gameId, game.answers);
+      expect(done.me.progress.campaign).toBe(game.won ? 4 : 3);
+    }
+    const p = done!.me.progress;
+    expect(p.campaign).toBe(4);
+    expect(p.owned).toContain("title.wheelman");
+    expect(done!.reward.unlocked).toContain("title.wheelman");
+    expect(done!.reward.lines).toContainEqual({ label: "Cleared Armored Van", xp: STAGES[3].xp, coins: STAGES[3].coins });
+    // replaying a cleared stage pays like a normal game
+    const again = await svc.soloStart(await acct(), 3, 0, true, 4);
+    const game = playSolo(again.seed, again.players, { stage: 4 });
+    const r = await svc.soloFinish(await acct(), again.gameId, game.answers);
+    expect(r.reward.lines.some((l) => l.label.startsWith("Cleared"))).toBe(false);
+    await expect(svc.buy(await acct(), "title.mastermind")).rejects.toThrow(/campaign stage 12/);
+  });
+
+  it("moves online ratings by who beat whom", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const a = await svc.register("win@example.com", "password1", "Win");
+    const b = await svc.register("lose@example.com", "password1", "Lose");
+    const out = await svc.recordOnline({
+      stakes: 0,
+      players: 3,
+      seats: [{ seat: 0, userId: a.me.id, bot: false }, { seat: 1, userId: b.me.id, bot: false }, { seat: 2, userId: null, bot: true }],
+      winners: [0],
+      events: [],
+      botLevel: "hard",
+    });
+    const win = out.get(a.me.id)!.me.progress;
+    const lose = out.get(b.me.id)!.me.progress;
+    expect(win.rating).toBeGreaterThan(1000);
+    expect(lose.rating).toBeLessThan(1000);
+    // the winner also beat the (hard) bot; the loser only lost to the winner
+    expect(win.rating - 1000).toBeGreaterThan(1000 - lose.rating);
   });
 
   it("keeps accounts in a file across restarts", async () => {

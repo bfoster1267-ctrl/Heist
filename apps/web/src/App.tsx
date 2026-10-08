@@ -75,16 +75,18 @@ function Game() {
     async (c: LobbyChoice) => {
       if (me && c.name && c.name !== me.name)
         await act((b) => b.rename(c.name));
-      const t = await act((b) => b.soloStart(c.players, c.stakes, c.name, c.coached));
+      const t = await act((b) => b.soloStart(c.players, c.stakes, c.name, c.campaign, c.coached));
       if (!t) return;
       if (t.quit) showReward(t.quit);
       finished.current = false;
       setTable({
-        players: c.players,
+        players: t.players ?? c.players,
         name: c.name,
-        stakes: c.coached ? 0 : c.stakes,
+        stakes: t.stage || c.coached ? 0 : c.stakes,
         coached: c.coached,
         seed: t.seed,
+        levels: t.levels,
+        stage: t.stage,
         gameId: t.gameId,
       });
       setRound((r) => r + 1);
@@ -167,6 +169,7 @@ function Game() {
             onPlay={sit}
             onRefill={() => act((b) => b.refill())}
             onOnline={setOnline}
+            cleared={me.progress.campaign ?? 0}
             top={<ProfileChip me={me} onOpen={() => setProfile("career")} />}
           />
           <div className="acct-corner">
@@ -183,7 +186,7 @@ function Game() {
           mistakes={me.progress.mistakes}
           onAgain={() => {
             if (chips < table.stakes) return exit();
-            void sit(table);
+            void sit({ ...table, campaign: table.stage });
           }}
         />
       )}

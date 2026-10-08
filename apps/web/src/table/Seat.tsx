@@ -149,7 +149,8 @@ export function Seat({
             )}
           </div>
           <div className="seat-role" data-tip-role={role?.id} tabIndex={role ? 0 : undefined}>
-            {roleName(P.role)}
+            {/* "The Getaway Driver" doesn't fit next to the Footholds; the seat shows "Getaway Driver" */}
+            {roleName(P.role).replace(/^The /, "")}
           </div>
         </div>
         <div className="seat-fh" data-anchor={me ? "my-fh" : undefined} data-tip={`Footholds: ${fh} of ${s.target}\nCrew living in rival hideouts. ${s.target} wins.`} aria-label={`${fh} of ${s.target} Footholds`}>

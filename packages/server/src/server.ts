@@ -174,6 +174,8 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         case "create": {
           const opts = roomOptions(m.options);
           if (!opts) return err("bad_message", "Tables are for 3 to 6 players");
+          // no level picked: the bots play to the host's skill
+          if (accounts && !m.options?.botLevel) opts.botLevel = await accounts.botLevel(conn.userId);
           if (accounts && !(await accounts.canAfford(conn.userId, opts.stakes))) return err("no_chips", "Not enough chips for that table");
           const room = rooms.create(opts);
           if (!room) return err("bad_state", "The server is full right now");

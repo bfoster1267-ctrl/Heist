@@ -5,6 +5,7 @@
 
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import type { BotLevel } from "@heist/engine";
 import type { Progress } from "@heist/profile";
 
 export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
@@ -23,6 +24,10 @@ export interface SoloGame {
   startedAt: number;
   /** Coached play: free, small XP, kept out of the career */
   coached?: boolean;
+  /** each bot's level, picked from the player's rating at the start (missing on older games: all normal) */
+  levels?: BotLevel[];
+  /** a campaign stage */
+  stage?: number;
 }
 
 export interface Account {
