@@ -21,7 +21,21 @@ export interface LobbyChoice {
   stakes: number;
 }
 
-export function Lobby({ chips, onPlay, onRefill, defaultName, top }: { chips: number; onPlay: (c: LobbyChoice) => void; onRefill: () => void; defaultName?: string; top?: ReactNode }) {
+export function Lobby({
+  chips,
+  onPlay,
+  onRefill,
+  onOnline,
+  defaultName,
+  top,
+}: {
+  chips: number;
+  onPlay: (c: LobbyChoice) => void;
+  onRefill: () => void;
+  onOnline?: (name: string) => void;
+  defaultName?: string;
+  top?: ReactNode;
+}) {
   const [players, setPlayers] = useState(4);
   const [name, setName] = useState(() => {
     try {
@@ -107,11 +121,8 @@ export function Lobby({ chips, onPlay, onRefill, defaultName, top }: { chips: nu
           </button>
           <InstallHint />
           <div className="lobby-row">
-            <button className="btn ghost" disabled title="Coming with online play">
-              Invite friends
-            </button>
-            <button className="btn ghost" disabled title="Coming with online play">
-              Queue with friends
+            <button className="btn ghost" disabled={!onOnline} onClick={() => onOnline?.(name.trim() || "Ace")}>
+              Play with friends
             </button>
           </div>
           {prefs.walked ? (
@@ -121,7 +132,7 @@ export function Lobby({ chips, onPlay, onRefill, defaultName, top }: { chips: nu
           ) : (
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
-          <div className="fine">Online tables are coming. Quick Match seats you with bots for now. Chips are play money only.</div>
+          <div className="fine">Quick Match seats you with bots. Play with friends makes an online table you can share. Chips are play money only.</div>
         </div>
       </motion.div>
     </div>

@@ -10,7 +10,7 @@ export const HUMAN = 0;
 
 
 /** How long each event holds the table, in ms at 1x speed. */
-const HOLD: Record<GameEvent["t"], number> = {
+export const HOLD: Record<GameEvent["t"], number> = {
   setup: 700, role: 250, wildcard: 1300, turn: 900, draw: 450, reshuffle: 1000, lastCall: 1800, penReturn: 550,
   fence: 800, bank: 650, hire: 650, stuck: 1300, flip: 1300, mark: 1100, target: 900, send: 600, pass: 350,
   doubleCross: 1600, bet: 700, hackerCall: 1100, facedown: 550, reveal: 2600, hacked: 1600, forged: 1300,
@@ -50,7 +50,7 @@ export interface HistoryEntry {
   mark: number | null;
 }
 
-function footholds(s: GameState) {
+export function footholds(s: GameState) {
   return s.players.map((p) => {
     let k = 0;
     for (const q of s.players) if (q.seat !== p.seat) for (const h of q.hideouts) if (h[p.seat] > 0) k++;

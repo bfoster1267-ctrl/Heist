@@ -8,6 +8,7 @@ import { Rewards } from "./account/Rewards";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
 import { Lobby, type LobbyChoice } from "./Lobby";
+import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { Table } from "./table/Table";
 import type { TableSettings } from "./useTable";
 
@@ -31,6 +32,8 @@ function Game() {
   // the profile sheet and which tab it opens on (false = closed)
   const [profile, setProfile] = useState<false | "career" | "account">(false);
   const finished = useRef(false);
+  // online: the player's name, set while the friends lobby or an online table is open
+  const [online, setOnline] = useState<string | null>(() => (inviteCode() ? savedName() : null));
 
   // The buy-in is paid and the seed comes from the account (the server, when there is one), so the
   // finished game can be checked and counted toward the career.
@@ -75,6 +78,23 @@ function Game() {
   if (!me) return <div className="loading">Opening the vault…</div>;
   const chips = me.progress.chips;
 
+  // Online games settle chips, XP and stats on the server (the socket signs in as this account), so the
+  // lobby only needs to re-read the account when money moves.
+  if (online !== null)
+    return (
+      <OnlineLobby
+        name={online}
+        chips={chips}
+        join={inviteCode()}
+        onExit={() => {
+          setOnline(null);
+          void act((b) => b.me());
+        }}
+        onBuyIn={() => void act((b) => b.me())}
+        onWin={() => void act((b) => b.me())}
+      />
+    );
+
   return (
     <>
       {!table ? (
@@ -84,6 +104,7 @@ function Game() {
             defaultName={me.guest && me.name.startsWith("Guest") ? undefined : me.name}
             onPlay={sit}
             onRefill={() => act((b) => b.refill())}
+            onOnline={setOnline}
             top={<ProfileChip me={me} onOpen={() => setProfile("career")} />}
           />
           <div className="acct-corner">
@@ -112,4 +133,12 @@ function Game() {
       )}
     </>
   );
+}
+
+function savedName() {
+  try {
+    return localStorage.getItem("heist.name") || "Ace";
+  } catch {
+    return "Ace";
+  }
 }

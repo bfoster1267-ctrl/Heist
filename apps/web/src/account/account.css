@@ -903,3 +903,27 @@
   width: 100%;
   margin-top: 4px;
 }
+
+/* phones sideways: a smaller reward card so it doesn't cover the table */
+@media (max-height: 500px) {
+  .acct-reward {
+    top: 6px;
+    padding: 8px 12px;
+    width: min(320px, calc(100vw - 32px));
+    margin-left: min(-160px, calc(-50vw + 16px));
+    gap: 4px;
+  }
+  .acct-reward-xp {
+    font-size: 28px;
+  }
+  .acct-reward-lines {
+    font-size: 12px;
+  }
+  .acct-reward-lines li {
+    padding: 1px 0;
+  }
+  .acct-reward-save {
+    padding: 6px 10px;
+    font-size: 15px;
+  }
+}
