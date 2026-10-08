@@ -7,6 +7,7 @@ import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN as LOCAL_SEAT, useTable, type HistoryEntry, type TableSettings, type TableSource } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
+import { useLook } from "../account/useAccount";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, Walkthrough } from "./Coach";
@@ -111,6 +112,7 @@ export function Table({
   const evNow = t.shown?.ev;
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
+  const look = useLook();
   useEffect(() => talk?.listen((seat, text) => chat.say(seat, text)), [talk, chat.say]);
   const nRef = useRef(settings.players);
   // Drinks sit on the rail just above the player's avatar.
@@ -352,6 +354,7 @@ export function Table({
                   pos={pos}
                   grow={seatGrow(L, pos)}
                   me={!watching && p.seat === HUMAN}
+                  cigar={!watching && p.seat === HUMAN ? look.equipped?.cigar : undefined}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
                   hideoutGlow={pickHide}
@@ -465,7 +468,7 @@ export function Table({
           </AnimatePresence>
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
-          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
+          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} mine={watching ? undefined : HUMAN} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
             {showChat && !watching && (

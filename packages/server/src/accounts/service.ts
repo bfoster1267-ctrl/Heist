@@ -4,7 +4,7 @@
 
 import { randomBytes, randomInt } from "node:crypto";
 import {
-  badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, payForDrink, payout, prestige, publicProfile, refill,
+  badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
   replaySolo, settle, summarize, upgrade, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { GameEvent } from "@heist/engine";
@@ -289,6 +289,16 @@ export class AccountService {
       x.progress = r.progress;
       this.board = null;
       return { me: this.me(x), coins: r.coins, unlocked: r.unlocked };
+    });
+  }
+
+  /** Open a season pack: a free one from the pass, or one bought with chips. The server rolls the items. */
+  openPack(a: Account, paid: unknown) {
+    return this.update(a.id, (x) => {
+      const r = openPack(x.progress, this.now(), (n) => randomInt(n), paid === true);
+      if (failed(r)) throw new ApiError(400, r.error);
+      x.progress = r.progress;
+      return { me: this.me(x), items: r.items, dupeXp: r.dupeXp };
     });
   }
 

@@ -74,6 +74,12 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
+/** What the player owns and has on, or nothing outside the account (no throw, for table pieces). */
+export function useLook() {
+  const me = useContext(Ctx)?.me;
+  return { owned: me?.progress.owned ?? [], equipped: me?.progress.equipped };
+}
+
 export function useAccount() {
   const c = useContext(Ctx);
   if (!c) throw new Error("useAccount outside AccountProvider");
@@ -84,6 +90,15 @@ function useEquippedLook(me: Me | null) {
   const felt = me?.progress.equipped.felt;
   const back = me?.progress.equipped.cardBack;
   const frame = me?.progress.equipped.frame;
+  const chat = me?.progress.equipped.chat;
+  useEffect(() => {
+    const c = cosmetic(chat ?? "")?.chat;
+    const root = document.documentElement.style;
+    for (const [k, i] of [["--chat-bg", 0], ["--chat-ink", 1], ["--chat-edge", 2]] as const) {
+      if (c && chat !== "chat.house") root.setProperty(k, c[i]);
+      else root.removeProperty(k);
+    }
+  }, [chat]);
   useEffect(() => {
     const root = document.documentElement.style;
     const f = cosmetic(felt ?? "")?.colors;

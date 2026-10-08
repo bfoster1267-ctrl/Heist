@@ -1,5 +1,5 @@
 import type { Answer } from "@heist/engine";
-import { DRINKS, type Reward } from "@heist/profile";
+import { ALL_DRINKS, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
@@ -110,7 +110,7 @@ function Game() {
 
   const buyDrink = useCallback(
     async (emoji: string, count: number) => {
-      const d = DRINKS.find((x) => x.emoji === emoji);
+      const d = ALL_DRINKS.find((x) => x.emoji === emoji);
       return !!d && !!(await act((b) => b.drink(d.id, count)));
     },
     [act],

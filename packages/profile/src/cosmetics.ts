@@ -1,7 +1,19 @@
-// Cosmetics bought with coins (earned by playing, never with real money in this version) or unlocked by
-// level and prestige. Purely visual: nothing here changes the game.
+// Cosmetics bought with coins (earned by playing, never with real money in this version), unlocked by
+// level and prestige, or earned in a season (the season pass and chip packs, see season.ts). Purely
+// visual: nothing here changes the game.
 
-export type Slot = "felt" | "cardBack" | "frame" | "title";
+import { SEASON_ITEMS } from "./season1";
+
+/** Slots a player equips one item in. */
+export type EquipSlot = "felt" | "cardBack" | "frame" | "title" | "chat" | "banner" | "cigar";
+/** Emotes and drinks are collected, not equipped: owning one adds it to the chat tray or drink menu. */
+export type Slot = EquipSlot | "emote" | "drink";
+
+/**
+ * How rare an item is. Season 1 only has common items for now; shiny and legendary tiers get designed
+ * with Brock and slot in here (plus the pack odds in season.ts).
+ */
+export type Rarity = "common";
 
 export interface Cosmetic {
   id: string;
@@ -14,8 +26,16 @@ export interface Cosmetic {
   colors?: [string, string];
   /** title text shown under the name at the table */
   text?: string;
-  /** card back pattern */
-  pattern?: "classic" | "red" | "stripes" | "diamonds" | "noir" | "gold";
+  /** card back or banner pattern */
+  pattern?: string;
+  /** emote and drink items: the emoji; cigars: the smoke tint */
+  emoji?: string;
+  /** chat bubbles: [bubble, text, edge] */
+  chat?: [string, string, string];
+  /** season items: which season, how it's earned, and its rarity */
+  season?: number;
+  source?: "pass" | "pack";
+  rarity?: Rarity;
 }
 
 export const COSMETICS: Cosmetic[] = [
@@ -51,16 +71,28 @@ export const COSMETICS: Cosmetic[] = [
   { id: "title.ghost", slot: "title", name: "The Ghost", price: 0, unlock: { level: 25 }, text: "The Ghost" },
   { id: "title.untouchable", slot: "title", name: "Untouchable", price: 0, unlock: { prestige: 1 }, text: "Untouchable" },
   { id: "title.legend", slot: "title", name: "Living Legend", price: 0, unlock: { prestige: 10 }, text: "Living Legend" },
+
+  // everyone starts with these; seasons add more
+  { id: "chat.house", slot: "chat", name: "House Bubble", price: 0, chat: ["#f3ead6", "#1b1b1b", "#c9b98f"] },
+  { id: "banner.none", slot: "banner", name: "No Banner", price: 0 },
+  { id: "cigar.none", slot: "cigar", name: "No Cigar", price: 0 },
 ];
 
-export const DEFAULT_EQUIPPED: Record<Slot, string> = {
+export const DEFAULT_EQUIPPED: Record<EquipSlot, string> = {
   felt: "felt.classic",
   cardBack: "back.classic",
   frame: "frame.none",
   title: "title.none",
+  chat: "chat.house",
+  banner: "banner.none",
+  cigar: "cigar.none",
 };
 
-export const cosmetic = (id: string) => COSMETICS.find((c) => c.id === id);
+/** Every item: the shop's plus every season's. */
+export const ALL_COSMETICS: Cosmetic[] = [...COSMETICS, ...SEASON_ITEMS];
+const byId = new Map(ALL_COSMETICS.map((c) => [c.id, c]));
+export const cosmetic = (id: string) => byId.get(id);
+export const equippable = (c: Cosmetic): c is Cosmetic & { slot: EquipSlot } => c.slot !== "emote" && c.slot !== "drink";
 
 /** Unlock met? (level within the current prestige, or any prestige at or above the requirement) */
 export function unlocked(c: Cosmetic, level: number, prestige: number): boolean {
@@ -70,8 +102,8 @@ export function unlocked(c: Cosmetic, level: number, prestige: number): boolean 
   return true;
 }
 
-/** Owned without buying: free items whose unlock is met. */
-export const freeWith = (c: Cosmetic, level: number, prestige: number) => c.price === 0 && unlocked(c, level, prestige);
+/** Owned without buying: free items whose unlock is met (season items have to be earned). */
+export const freeWith = (c: Cosmetic, level: number, prestige: number) => !c.season && c.price === 0 && unlocked(c, level, prestige);
 
 // ------------------------------------------------------------------ drinks
 
@@ -92,4 +124,11 @@ export const DRINKS: Drink[] = [
   { id: "champagne", name: "Round of Champagne", emoji: "🍾", price: 60, round: true },
 ];
 
-export const drink = (id: string) => DRINKS.find((d) => d.id === id);
+/** Season drinks cost a few coins to send, like the shop's, but only their owners can order them. */
+export const SEASON_DRINK_PRICE = 10;
+const SEASON_DRINKS: Drink[] = SEASON_ITEMS.filter((c) => c.slot === "drink").map((c) => ({ id: c.id, name: c.name, emoji: c.emoji!, price: SEASON_DRINK_PRICE }));
+
+/** The shop's drinks and every season's. */
+export const ALL_DRINKS: Drink[] = [...DRINKS, ...SEASON_DRINKS];
+
+export const drink = (id: string) => DRINKS.find((d) => d.id === id) ?? SEASON_DRINKS.find((d) => d.id === id);

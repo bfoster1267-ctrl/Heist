@@ -1,5 +1,6 @@
 import { roleName, ROLES, type GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
+import { Cigar } from "../account/items";
 import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
 
 /** Click-or-keyboard props for a table element that acts like a button. */
@@ -78,6 +79,7 @@ export function Seat({
   acting,
   showBank,
   away,
+  cigar,
 }: {
   s: GameState;
   seat: number;
@@ -92,6 +94,8 @@ export function Seat({
   showBank?: boolean;
   /** online: the player has dropped ("away") or a bot is playing for them ("bot") */
   away?: "away" | "bot";
+  /** your equipped cigar, resting by your avatar */
+  cigar?: string;
 }) {
   const P = s.players[seat];
   const j = s.job;
@@ -113,6 +117,7 @@ export function Seat({
       <div className="seat-top">
         <div className="seat-avatar" data-anchor={`seat-${seat}`}>
           <CrewBadge color={P.color} size={42} />
+          {cigar && <span className="seat-cigar"><Cigar id={cigar} size={30} /></span>}
           {acting && !me && (
             <span className="thinking" aria-hidden>
               <span />
