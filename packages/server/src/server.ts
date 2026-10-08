@@ -9,6 +9,7 @@ import { GuestIdentity, type Identity, type IdentityProvider } from "./identity"
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
 import { realClock, type Clock, type Conn, type GameOverReport, type Room } from "./room";
 import { Rooms, roomOptions, type Limits } from "./rooms";
+import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
 
 export interface ServerOptions {
@@ -18,6 +19,8 @@ export interface ServerOptions {
   store?: GameStore;
   clock?: Clock;
   limits?: Partial<Limits>;
+  /** quick queue: how long the first person waits before bots fill the table (ms) */
+  queueWaitMs?: number;
   graceMs?: number;
   lobbyHoldMs?: number;
   /** browser origins allowed to connect (empty = any; set this in production) */
@@ -33,6 +36,7 @@ export interface ServerOptions {
 export interface HeistServer {
   http: Server;
   rooms: Rooms;
+  queue: Matchmaker;
   port(): number;
   close(): Promise<void>;
 }
@@ -59,6 +63,12 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const log = o.log ?? (() => {});
   const rate = o.rate ?? RATE;
   const rooms = new Rooms({ store, clock, log, onGameOver: o.onGameOver, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
+  /** each signed-in connection's way into a room, for the matchmaker */
+  const entrances = new Map<string, (room: Room) => ReturnType<Room["join"]>>();
+  const queue = new Matchmaker(rooms, clock, (conn, room) => {
+    const enter = entrances.get(conn.id);
+    return enter ? enter(room) : "bad_state";
+  }, o.queueWaitMs, log);
   const restored = rooms.restore();
   if (restored) log("restored tables", { count: restored });
 
@@ -66,7 +76,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
       const cpu = process.cpuUsage();
-      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
+      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
     res.writeHead(404).end();
@@ -94,6 +104,10 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
 
     ws.on("pong", () => (c.alive = true));
     ws.on("close", () => {
+      if (c.conn) {
+        queue.leave(c.conn.id, false);
+        entrances.delete(c.conn.id);
+      }
       if (c.room && c.conn) c.room.disconnect(c.conn.id);
       c.room = null;
     });
@@ -128,6 +142,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         if (c.id) return err("bad_state", "Already said hello");
         c.id = await identity.authenticate(m.token, m.name);
         c.conn = { id: randomBytes(8).toString("base64url"), userId: c.id.userId, name: c.id.name, send };
+        entrances.set(c.conn.id, (room) => enter(room, {}));
         return send({ t: "welcome", v: PROTOCOL_VERSION, userId: c.id.userId, name: c.id.name, token: c.id.token });
       }
       const conn = c.conn;
@@ -135,19 +150,32 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       switch (m.t) {
         case "list":
           return send({ t: "rooms", rooms: rooms.list() });
+        case "queue": {
+          if (c.room?.status === "playing" && c.room.seatOf(conn.userId) !== null) return err("bad_state", "Finish or leave your game first");
+          const e = queue.join(conn, m.players, m.stakes);
+          if (e) return err(e, "Pick 3 to 6 players and a buy-in");
+          return;
+        }
+        case "unqueue":
+          return queue.leave(conn.id);
         case "create": {
+          queue.leave(conn.id);
           const opts = roomOptions(m.options);
           if (!opts) return err("bad_message", "Tables are for 3 to 6 players");
           const room = rooms.create(opts);
           if (!room) return err("bad_state", "The server is full right now");
-          return enter(room, {});
+          enter(room, {});
+          return;
         }
         case "join": {
+          queue.leave(conn.id);
           const room = rooms.get(m.code);
           if (!room) return err("no_room", "No table with that code");
-          return enter(room, { spectate: m.spectate === true, since: m.since });
+          enter(room, { spectate: m.spectate === true, since: m.since });
+          return;
         }
         case "leave":
+          queue.leave(conn.id, false);
           if (c.room) c.room.leave(conn.id);
           c.room = null;
           return send({ t: "left" });
@@ -180,16 +208,18 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       if (e) err(e);
     }
 
-    function enter(room: Room, opts: { spectate?: boolean; since?: number }) {
+    function enter(room: Room, opts: { spectate?: boolean; since?: number }): ReturnType<Room["join"]> {
       const conn = c.conn!;
       if (c.room && c.room !== room) c.room.leave(conn.id);
       else if (c.room === room) room.disconnect(conn.id);
       const e = room.join(conn, opts);
       if (e) {
         c.room = null;
-        return err(e);
+        err(e);
+        return e;
       }
       c.room = room;
+      return null;
     }
 
     (ws as WebSocket & { heist?: Client }).heist = c;
@@ -215,9 +245,11 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   return {
     http,
     rooms,
+    queue,
     port: () => (http.address() as { port: number }).port,
     async close() {
       clearInterval(beat);
+      queue.close();
       for (const ws of wss.clients) ws.terminate();
       rooms.closeAll();
       await new Promise<void>((r) => wss.close(() => r()));

@@ -174,6 +174,13 @@ export class HeistClient {
     if (!this.ask) return;
     this.send({ t: "answer", askId: this.ask.askId, answer });
   }
+  /** Quick queue: get dealt into the next table of this size and stakes. */
+  queue(players: number, stakes: number) {
+    this.send({ t: "queue", players, stakes });
+  }
+  unqueue() {
+    this.send({ t: "unqueue" });
+  }
   sit() {
     this.send({ t: "sit" });
   }

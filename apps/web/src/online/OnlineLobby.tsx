@@ -201,7 +201,13 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
             <div className="fine">{online ? "No open tables right now. Start one!" : sess.status === "connecting" ? "Connecting..." : "Offline"}</div>
           )}
         </div>
-        <button className="btn ghost" onClick={onBack}>
+        <button
+          className="btn ghost"
+          onClick={() => {
+            if (sess.queue) sess.client.unqueue();
+            onBack();
+          }}
+        >
           Back
         </button>
       </div>
@@ -232,12 +238,46 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
             Open to anyone
           </button>
         </div>
-        <button className="btn primary huge" disabled={!online || chips < buyIn} onClick={() => sess.client.create({ players, stakes: buyIn, isPrivate })}>
-          Start a table
-        </button>
-        <div className="fine">Empty seats get bots when the host deals. Chips are play money only.</div>
+        {sess.queue ? (
+          <QueueCard sess={sess} />
+        ) : (
+          <div className="start-row">
+            <button className="btn gold huge" disabled={!online || chips < buyIn} onClick={() => sess.client.queue(players, buyIn)}>
+              Play now
+            </button>
+            <button className="btn primary huge" disabled={!online || chips < buyIn} onClick={() => sess.client.create({ players, stakes: buyIn, isPrivate })}>
+              Start a table
+            </button>
+          </div>
+        )}
+        <div className="fine">Play now seats you with other players looking for the same game; bots fill any seats still empty after 2 minutes. Chips are play money only.</div>
       </div>
     </>
+  );
+}
+
+/** Waiting in the quick queue: who's in line, and when bots fill the rest. */
+function QueueCard({ sess }: { sess: OnlineSession }) {
+  const q = sess.queue!;
+  const now = useSyncExternalStore(
+    (cb) => {
+      const t = window.setInterval(cb, 1000);
+      return () => clearInterval(t);
+    },
+    () => Math.floor(Date.now() / 1000),
+  );
+  const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
+  return (
+    <div className="queue-card" role="status">
+      <div className="queue-title">Finding players...</div>
+      <div>
+        {q.waiting} of {q.players} here · Buy-in {q.stakes.toLocaleString()}
+      </div>
+      <div className="fine">{left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}</div>
+      <button className="btn ghost" onClick={() => sess.client.unqueue()}>
+        Cancel
+      </button>
+    </div>
   );
 }
 

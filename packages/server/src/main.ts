@@ -5,6 +5,7 @@
 //   ALLOWED_ORIGINS comma-separated browser origins allowed to connect (default: any)
 //   COMPRESSION     set to 0 to turn off WebSocket compression
 //   TURN_GRACE_MS   how long a dropped player's decision waits before a bot answers (default 20000)
+//   QUEUE_WAIT_MS   quick queue: how long the first in line waits before bots fill the table (default 120000)
 
 import { GuestIdentity } from "./identity";
 import { startServer } from "./server";
@@ -21,6 +22,7 @@ const server = await startServer({
   allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [],
   compression: env.COMPRESSION !== "0",
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
+  queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
 });
