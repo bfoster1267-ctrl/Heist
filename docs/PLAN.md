@@ -23,6 +23,14 @@ Goal: a polished online multiplayer Heist in the browser (poker-table seats, ful
 - Engine workstream, round 1 (see `docs/ENGINE.md`): bots use Wanted like the sim, so 65/63/69/75% now end at the target (Python 67/61/66/71%). Optional rules, off by default until the table handles them: bribes, players placing their own crew, open Fixer vs Fixer deals. Bot levels easy / normal / hard, plus patient, grudge and secret-partner traits. Public job history. Fuzz tests with random legal play, replay of fuzzed games.
 - Table: lobby with stakes and play chips, felt table with seats, hideouts and Footholds, job zone with face-down cards that flip, flying crew/coins/cards, banners, game log, speed controls, sound, game-over payout.
 
+## Done (table polish, workstream 2)
+
+- Cards drawn like the printed icon cards (Score pill, Fixer arrows, Double-Cross figures, keyhole backs, blueprint Role cards with icons).
+- Phone-sideways layout: a shorter canvas picked for wide screens so the table draws about a third bigger.
+- First-game table tour and one coach tip per decision type; tooltips on everything (hover, focus, long press).
+- Keyboard play, screen-reader announcements, reduced-motion mode, settings menu (sound, volume, motion, tips).
+- Animation and sound pass: arced tosses, buy-ins into the pot, payout to the winner, confetti, showdown spotlight, table shake on Double-Cross, count-up totals, your-turn chime.
+
 ## Workstreams (one branch and thread each)
 
 | # | Workstream | Branch | Depends on | What "done" looks like |
