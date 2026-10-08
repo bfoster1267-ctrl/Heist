@@ -1,7 +1,7 @@
 import type { Answer } from "@heist/engine";
 import { DRINKS } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
@@ -9,6 +9,7 @@ import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
 import { Lobby, type LobbyChoice } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
+import { session } from "./online/session";
 import { Table } from "./table/Table";
 import type { TableSettings } from "./useTable";
 
@@ -33,18 +34,36 @@ function Game() {
   const [profile, setProfile] = useState<false | "career" | "account">(false);
   const finished = useRef(false);
   // online: the player's name, set while the friends lobby or an online table is open
-  const [online, setOnline] = useState<string | null>(() => (inviteCode() ? savedName() : null));
+  const [online, setOnline] = useState<string | null>(() =>
+    inviteCode() ? savedName() : null,
+  );
+  // after an online game the server sends what it earned: show it like a game vs bots
+  useEffect(() => {
+    if (online === null) return;
+    return session(online).onMessage((m) => {
+      if (m.t !== "reward") return;
+      showReward(m.reward);
+      void act((b) => b.me());
+    });
+  }, [online, showReward, act]);
 
   // The buy-in is paid and the seed comes from the account (the server, when there is one), so the
   // finished game can be checked and counted toward the career.
   const sit = useCallback(
     async (c: LobbyChoice) => {
-      if (me && c.name && c.name !== me.name) await act((b) => b.rename(c.name));
+      if (me && c.name && c.name !== me.name)
+        await act((b) => b.rename(c.name));
       const t = await act((b) => b.soloStart(c.players, c.stakes, c.name));
       if (!t) return;
       if (t.quit) showReward(t.quit);
       finished.current = false;
-      setTable({ players: c.players, name: c.name, stakes: c.stakes, seed: t.seed, gameId: t.gameId });
+      setTable({
+        players: c.players,
+        name: c.name,
+        stakes: c.stakes,
+        seed: t.seed,
+        gameId: t.gameId,
+      });
       setRound((r) => r + 1);
     },
     [me, act, showReward],
@@ -82,17 +101,20 @@ function Game() {
   // lobby only needs to re-read the account when money moves.
   if (online !== null)
     return (
-      <OnlineLobby
-        name={online}
-        chips={chips}
-        join={inviteCode()}
-        onExit={() => {
-          setOnline(null);
-          void act((b) => b.me());
-        }}
-        onBuyIn={() => void act((b) => b.me())}
-        onWin={() => void act((b) => b.me())}
-      />
+      <>
+        <OnlineLobby
+          name={online}
+          chips={chips}
+          join={inviteCode()}
+          onExit={() => {
+            setOnline(null);
+            void act((b) => b.me());
+          }}
+          onBuyIn={() => void act((b) => b.me())}
+          onWin={() => void act((b) => b.me())}
+        />
+        <Rewards />
+      </>
     );
 
   return (
@@ -101,7 +123,9 @@ function Game() {
         <>
           <Lobby
             chips={chips}
-            defaultName={me.guest && me.name.startsWith("Guest") ? undefined : me.name}
+            defaultName={
+              me.guest && me.name.startsWith("Guest") ? undefined : me.name
+            }
             onPlay={sit}
             onRefill={() => act((b) => b.refill())}
             onOnline={setOnline}
@@ -124,7 +148,15 @@ function Game() {
           }}
         />
       )}
-      <AnimatePresence>{profile && <Profile key={profile} tab={profile} onClose={() => setProfile(false)} />}</AnimatePresence>
+      <AnimatePresence>
+        {profile && (
+          <Profile
+            key={profile}
+            tab={profile}
+            onClose={() => setProfile(false)}
+          />
+        )}
+      </AnimatePresence>
       <Rewards onSave={() => setProfile("account")} />
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
