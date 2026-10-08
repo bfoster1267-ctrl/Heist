@@ -1234,7 +1234,8 @@ button:disabled {
 }
 .job-note {
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.25;
   color: #9fc3ff;
   margin-top: 4px;
 }
@@ -2991,4 +2992,7 @@ button:disabled {
 .lobby.big-text .how-to,
 .lobby.big-text .lobby-row .btn {
   font-size: calc(15px * min(var(--ts), 1.4));
+}
+.big-text .job-note {
+  font-size: calc(13px * min(var(--ts), 1.4));
 }

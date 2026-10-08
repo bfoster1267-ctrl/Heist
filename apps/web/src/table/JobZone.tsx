@@ -89,7 +89,11 @@ function JobBody({ s }: { s: GameState }) {
           ))}
         </div>
       )}
-      {j.hackerCall && <div className="job-note">Hacker called {j.hackerCall.n}</div>}
+      {j.hackerCall && (
+        <div className="job-note" data-tip={"The Hacker\nBefore cards are picked, the Hacker calls a number. If the other side's card shows it, the Hacker wins outright."}>
+          {P[j.hackerCall.seat].name}'s Hacker called <b>{j.hackerCall.n}</b>. A {j.hackerCall.n} against them loses.
+        </div>
+      )}
       <AnimatePresence>
         {j.result && (
           <motion.div className={"job-result r-" + j.result} initial={{ scale: 2.6, opacity: 0, rotate: -14 }} animate={{ scale: 1, opacity: 1, rotate: -6 }} transition={{ type: "spring", stiffness: 320, damping: 16 }}>
