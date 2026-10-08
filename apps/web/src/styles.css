@@ -2974,3 +2974,21 @@ button:disabled {
   max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   overflow-y: auto;
 }
+/* the text size slider reaches the lobby's small print too */
+.lobby.big-text .tagline {
+  font-size: calc(16px * min(var(--ts), 1.4));
+}
+.lobby.big-text .field > span {
+  font-size: calc(13px * min(var(--ts), 1.5));
+}
+.lobby.big-text .stake-buy,
+.lobby.big-text .stake-pot {
+  font-size: calc(13px * min(var(--ts), 1.5));
+}
+.lobby.big-text .fine {
+  font-size: calc(12px * min(var(--ts), 1.5));
+}
+.lobby.big-text .how-to,
+.lobby.big-text .lobby-row .btn {
+  font-size: calc(15px * min(var(--ts), 1.4));
+}

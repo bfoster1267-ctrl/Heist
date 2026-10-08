@@ -46,7 +46,7 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
     onPlay({ players, name: name.trim() || "Ace", stakes: STAKES[i].buyIn });
   };
   return (
-    <div className="lobby">
+    <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
         {CREWS.map((c, i) => (
           <motion.span
