@@ -102,9 +102,10 @@ export function Seat({
   const home = P.hideouts.reduce((a, h) => a + h[seat], 0);
   const role = ROLES.find((r) => r.id === P.role);
   const winner = s.winners?.includes(seat);
+  const atRight = String(grow?.transformOrigin ?? "").startsWith("right");
   return (
     <motion.div
-      className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "")}
+      className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "") + (atRight ? " at-right" : "")}
       style={{ left: pos[0], top: pos[1], ...grow }}
       layout={false}
       data-anchor={me ? "my-seat" : undefined}
