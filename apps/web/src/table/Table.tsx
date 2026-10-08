@@ -88,7 +88,8 @@ export function Table({
   // Drinks sit on the rail just above the player's avatar.
   const seatAt = (seat: number): [number, number] => {
     const a = anchorAt(`seat-${seat}`);
-    if (a) return [a.x - 8, a.y - 32];
+    // above the avatar, or beside it for a seat at the top edge, where above is off the table
+    if (a) return a.y - 32 < 18 ? [a.x - 40, a.y] : [a.x - 8, a.y - 32];
     const p = seatPos(L, seat, nRef.current, HUMAN);
     return [p[0], p[1] - 70];
   };
