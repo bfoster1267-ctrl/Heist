@@ -48,6 +48,14 @@ export function seatPos(L: Layout, seat: number, n: number, human: number): [num
   return L.opp[n - 1][i - 1];
 }
 
+/** How a seat grows when the text size makes it bigger: away from the nearest canvas edge, and less
+ *  for a seat in the middle, which has the top bar, the job or your hand right next to it. */
+export function seatGrow(L: Layout, [x, y]: [number, number]): React.CSSProperties {
+  const h = x < L.W * 0.25 ? "left" : x > L.W * 0.75 ? "right" : "center";
+  const v = y < L.H * 0.3 ? "top" : y > L.H * 0.7 ? "bottom" : "center";
+  return { transformOrigin: `${h} ${v}`, ...(h === "center" ? { "--seat-max": 1.1 } : {}) } as React.CSSProperties;
+}
+
 /** Pick the canvas for the window shape and the scale that fits it. */
 export function useLayout() {
   // Fit inside the safe area so nothing sits under the notch or the home bar.
