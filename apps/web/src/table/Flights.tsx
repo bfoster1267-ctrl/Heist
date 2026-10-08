@@ -98,7 +98,7 @@ export function useFlights(canvas: React.RefObject<HTMLDivElement | null>, scale
     [at],
   );
 
-  return { flights, launch, fly };
+  return { flights, launch, fly, at };
 }
 
 export function FlightLayer({ flights, speed }: { flights: Flight[]; speed: number }) {

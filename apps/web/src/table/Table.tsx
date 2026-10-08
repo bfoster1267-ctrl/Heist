@@ -72,7 +72,7 @@ export function Table({
   const prefs = usePrefs();
   const reduce = reducedMotion(prefs);
   const canvas = useRef<HTMLDivElement>(null);
-  const { flights, launch, fly } = useFlights(canvas, scale);
+  const { flights, launch, fly, at: anchorAt } = useFlights(canvas, scale);
   t.flightHook.current = launch;
   const [sel, setSel] = useState<number[]>([]);
   const [showLog, setShowLog] = useState(false);
@@ -85,7 +85,13 @@ export function Table({
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
   const nRef = useRef(settings.players);
-  const seatAt = (seat: number) => seatPos(L, seat, nRef.current, HUMAN);
+  // Drinks sit on the rail just above the player's avatar.
+  const seatAt = (seat: number): [number, number] => {
+    const a = anchorAt(`seat-${seat}`);
+    if (a) return [a.x - 8, a.y - 32];
+    const p = seatPos(L, seat, nRef.current, HUMAN);
+    return [p[0], p[1] - 70];
+  };
   const drinks = useDrinks(seatAt, (d) => {
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
