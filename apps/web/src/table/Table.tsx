@@ -57,6 +57,7 @@ export function Table({
   seat = LOCAL_SEAT,
   useSource = useTable,
   talk,
+  watching = false,
 }: {
   settings: TableSettings;
   onExit: () => void;
@@ -67,6 +68,8 @@ export function Table({
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
   useSource?: (settings: TableSettings) => TableSource;
   /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
+  /** Watching, not playing (online): the table is drawn from `seat`, but it isn't yours. */
+  watching?: boolean;
   talk?: { send: (text: string) => void; listen: (heard: (seat: number, text: string) => void) => () => void };
 }) {
   const HUMAN = seat;
@@ -261,9 +264,11 @@ export function Table({
               <button className="icon-btn labeled" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
                 ⏭<span className="ib-k">Skip</span>
               </button>
-              <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
-                💬<span className="ib-k">Chat</span>
-              </button>
+              {!watching && (
+                <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
+                  💬<span className="ib-k">Chat</span>
+                </button>
+              )}
               <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
                 ☰<span className="ib-k">Log</span>
               </button>
@@ -320,7 +325,7 @@ export function Table({
                   s={s}
                   seat={p.seat}
                   pos={pos}
-                  me={p.seat === HUMAN}
+                  me={!watching && p.seat === HUMAN}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
                   hideoutGlow={pickHide}
@@ -435,7 +440,7 @@ export function Table({
           <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
-            {showChat && (
+            {showChat && !watching && (
               <ChatTray
                 onSay={(text) => (talk ? talk.send(text) : chat.say(HUMAN, text))}
                 rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
@@ -476,7 +481,7 @@ export function Table({
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching ? -1 : HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />

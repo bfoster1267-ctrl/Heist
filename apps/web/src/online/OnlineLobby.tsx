@@ -272,6 +272,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         seat={sess.seat ?? 0}
         useSource={useSource}
         talk={talk}
+        watching={sess.seat === null}
         onExit={onExit}
         // a spectator sees the table from seat 0, but its winnings aren't theirs
         onGameOver={(won) => won && sess.seat !== null && onWin(won)}
