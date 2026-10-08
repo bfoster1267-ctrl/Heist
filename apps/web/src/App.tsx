@@ -75,14 +75,15 @@ function Game() {
     async (c: LobbyChoice) => {
       if (me && c.name && c.name !== me.name)
         await act((b) => b.rename(c.name));
-      const t = await act((b) => b.soloStart(c.players, c.stakes, c.name));
+      const t = await act((b) => b.soloStart(c.players, c.stakes, c.name, c.coached));
       if (!t) return;
       if (t.quit) showReward(t.quit);
       finished.current = false;
       setTable({
         players: c.players,
         name: c.name,
-        stakes: c.stakes,
+        stakes: c.coached ? 0 : c.stakes,
+        coached: c.coached,
         seed: t.seed,
         gameId: t.gameId,
       });
@@ -179,6 +180,7 @@ function Game() {
           onExit={exit}
           onGameOver={gameOver}
           buyDrink={buyDrink}
+          mistakes={me.progress.mistakes}
           onAgain={() => {
             if (chips < table.stakes) return exit();
             void sit(table);

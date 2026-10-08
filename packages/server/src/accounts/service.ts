@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, settle, summarize, upgrade, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, summarize, upgrade, type MistakeCounts, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -332,23 +332,27 @@ export class AccountService {
 
   // ------------------------------------------------------------------ games
 
-  /** Start a vs-bots game: pay the buy-in and get a seed from the server. */
-  soloStart(a: Account, players: unknown, stakes: unknown) {
+  /** Start a vs-bots game: pay the buy-in and get a seed from the server. Coached play is free. */
+  soloStart(a: Account, players: unknown, stakes: unknown, coached?: unknown) {
     if (typeof players !== "number" || !SOLO_PLAYERS.includes(players)) throw new ApiError(400, "Tables are for 3 to 6 players");
     if (typeof stakes !== "number" || !Number.isInteger(stakes) || stakes < 0 || stakes > MAX_STAKES) throw new ApiError(400, "Bad stakes");
+    const coach = coached === true;
+    if (coach) stakes = 0;
     return this.update(a.id, (x) => {
       let quit: Reward | null = null;
       if (x.solo) quit = this.settleQuit(x);
-      this.apply(x, buyIn(x.progress, stakes));
-      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes, startedAt: this.now() };
+      this.apply(x, buyIn(x.progress, stakes as number));
+      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes: stakes as number, startedAt: this.now(), ...(coach ? { coached: true } : {}) };
       return { me: this.me(x), gameId: x.solo.gameId, seed: x.solo.seed, quit };
     });
   }
 
-  /** A solo game left unfinished counts as a loss (so quitting can't protect a win rate). */
-  private settleQuit(x: Account): Reward {
+  /** A solo game left unfinished counts as a loss (so quitting can't protect a win rate). Coached games
+   * aren't in the career, so leaving one costs nothing. */
+  private settleQuit(x: Account): Reward | null {
     const g = x.solo!;
     x.solo = null;
+    if (g.coached) return null;
     const r = settle(x.progress, {
       mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(),
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
@@ -379,6 +383,13 @@ export class AccountService {
       }
       x.solo = null;
       const won = rep.winners.includes(0);
+      // every vs-bots game feeds the rookie-mistake tally the coach leans on
+      x.progress = addMistakes(x.progress, rep.mistakes);
+      if (g.coached) {
+        const c = settleCoached(x.progress, won);
+        x.progress = c.progress;
+        return { me: this.me(x), reward: c.reward, winners: rep.winners };
+      }
       const pay = payout(g.stakes, g.players, rep.winners, 0);
       const r = settle(x.progress, { mode: "bots", players: g.players, stakes: g.stakes, won, payout: pay, summary: summarize(rep.events, 0), at: this.now() });
       x.progress = r.progress;
@@ -411,6 +422,19 @@ export class AccountService {
     }
     this.board = null;
     return out;
+  }
+
+  // ------------------------------------------------------------------ rookie mistakes
+
+  /** How often players make each rookie mistake, across every account (no names): which warnings matter. */
+  async mistakes(): Promise<{ players: number; coachGames: number; counts: { id: string; title: string; count: number; players: number }[] }> {
+    const all = (await this.store.all()).map((a) => upgrade(a.progress));
+    let total: MistakeCounts = {};
+    for (const p of all) total = addCounts(total, p.mistakes);
+    const counts = MISTAKE_IDS.map((id) => ({ id, title: MISTAKES[id].title, count: total[id] ?? 0, players: all.filter((p) => (p.mistakes[id] ?? 0) > 0).length })).sort(
+      (a, b) => b.count - a.count,
+    );
+    return { players: all.length, coachGames: all.reduce((t, p) => t + p.coachGames, 0), counts };
   }
 
   // ------------------------------------------------------------------ leaderboards

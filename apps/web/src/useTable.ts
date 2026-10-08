@@ -30,6 +30,8 @@ export interface TableSettings {
   name: string;
   stakes: number;
   seed?: number;
+  /** Coached play: a coach talks you through the game (free table, small XP, not in the career) */
+  coached?: boolean;
 }
 
 export interface Shown {

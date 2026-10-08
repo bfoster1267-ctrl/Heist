@@ -21,6 +21,8 @@ export interface SoloGame {
   players: number;
   stakes: number;
   startedAt: number;
+  /** Coached play: free, small XP, kept out of the career */
+  coached?: boolean;
 }
 
 export interface Account {

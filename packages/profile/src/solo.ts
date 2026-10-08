@@ -3,6 +3,7 @@
 // toward a career: the bots' moves come from their own seeded randomness, never from the client.
 
 import { Bot, HeistGame, runBots, type Answer, type Ask, type GameEvent } from "@heist/engine";
+import { checkMove, type MistakeCounts } from "./coach";
 
 export const SOLO_SEAT = 0;
 const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
@@ -31,6 +32,8 @@ export interface SoloReplay {
   winners: number[];
   reason: "footholds" | "last_call";
   events: GameEvent[];
+  /** rookie mistakes the player made (see coach.ts) */
+  mistakes: MistakeCounts;
 }
 
 /**
@@ -43,6 +46,7 @@ export function replaySolo(seed: number, players: number, answers: unknown[], cl
   const take = () => events.push(...game.drainFrames().map((f) => f.ev));
   take();
   let i = 0;
+  const mistakes: MistakeCounts = {};
   for (let guard = 0; guard < 100_000; guard++) {
     runBots(game, bots);
     take();
@@ -52,12 +56,14 @@ export function replaySolo(seed: number, players: number, answers: unknown[], cl
     if (i >= answers.length) throw new Error("game isn't finished");
     const a = clean(p, answers[i++]);
     if (!a) throw new Error("bad answer");
+    const m = checkMove(game.s, p, a);
+    if (m) mistakes[m] = (mistakes[m] ?? 0) + 1;
     game.answer(SOLO_SEAT, a);
     take();
   }
   if (i !== answers.length) throw new Error("extra answers");
   if (!game.s.winners) throw new Error("game isn't finished");
-  return { winners: game.s.winners, reason: game.s.endReason ?? "last_call", events };
+  return { winners: game.s.winners, reason: game.s.endReason ?? "last_call", events, mistakes };
 }
 
 /** The pot is every seat's buy-in; winners split it (bots' buy-ins are house money). */

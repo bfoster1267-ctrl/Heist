@@ -151,6 +151,29 @@ describe("accounts", () => {
     await expect(svc.soloStart(await acct(), 3, 1_000_000)).rejects.toThrow(/chips/);
   });
 
+  it("runs Coached play free, for a little XP, out of the career, and tallies rookie mistakes", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Learner");
+    const acct = () => svc.require(token);
+    const s = await svc.soloStart(await acct(), 4, 5000, true);
+    expect(s.me.progress.chips).toBe(10_000); // no buy-in, whatever stakes were sent
+    const game = playSolo(s.seed, 4);
+    const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
+    expect(done.me.progress.stats.games).toBe(0);
+    expect(done.me.progress.chips).toBe(10_000);
+    expect(done.me.progress.coachGames).toBe(1);
+    expect(done.reward.xp).toBeLessThanOrEqual(50);
+    const report = await svc.mistakes();
+    expect(report.coachGames).toBe(1);
+    expect(report.counts.map((c) => c.id)).toContain("alreadyIn");
+
+    // walking out of a coached game costs nothing and isn't a quit
+    await svc.soloStart(await acct(), 3, 0, true);
+    const next = await svc.soloStart(await acct(), 3, 100);
+    expect(next.quit).toBeNull();
+    expect(next.me.progress.stats.quits).toBe(0);
+  });
+
   it("keeps accounts in a file across restarts", async () => {
     const dir = mkdtempSync(join(tmpdir(), "heist-acct-"));
     dirs.push(dir);

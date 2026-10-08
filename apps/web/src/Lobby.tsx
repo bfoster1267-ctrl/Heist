@@ -20,6 +20,8 @@ export interface LobbyChoice {
   players: number;
   name: string;
   stakes: number;
+  /** Coached play: a real game vs bots with a coach; free, small XP, not in the career */
+  coached?: boolean;
 }
 
 export function Lobby({
@@ -55,6 +57,14 @@ export function Lobby({
       /* ignore */
     }
     onPlay({ players, name: name.trim() || "Ace", stakes: STAKES[i].buyIn });
+  };
+  const coach = () => {
+    try {
+      localStorage.setItem("heist.name", name);
+    } catch {
+      /* ignore */
+    }
+    onPlay({ players, name: name.trim() || "Ace", stakes: 0, coached: true });
   };
   return (
     <div className="lobby">
@@ -123,6 +133,9 @@ export function Lobby({
           </button>
           <InstallHint />
           <div className="lobby-row">
+            <button className="btn ghost" onClick={coach} data-tip="A real game against bots with a coach who explains every move. Free to play, small XP, doesn't count in your career.">
+              Coached play
+            </button>
             <button className="btn ghost" disabled={!onOnline} onClick={() => onOnline?.(name.trim() || "Ace")}>
               Play with friends
             </button>
@@ -138,7 +151,7 @@ export function Lobby({
           ) : (
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
-          <div className="fine">Quick Match seats you with bots. Play with friends makes an online table you can share. Chips are play money only.</div>
+          <div className="fine">Quick Match seats you with bots. Coached play is a free game with a coach at your side. Play with friends makes an online table you can share. Chips are play money only.</div>
         </div>
       </motion.div>
     </div>

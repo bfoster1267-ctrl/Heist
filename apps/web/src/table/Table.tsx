@@ -10,7 +10,8 @@ import { ActionPanel, handSelect } from "./ActionPanel";
 import { useLook } from "../account/useAccount";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
-import { Coach, Walkthrough } from "./Coach";
+import { Coach, LiveCoach, MistakeCheck, Walkthrough } from "./Coach";
+import { checkMove, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
 import { seatGrow, seatPos, useLayout } from "./layout";
@@ -64,8 +65,11 @@ export function Table({
   watching = false,
   away,
   clock,
+  mistakes,
 }: {
   settings: TableSettings;
+  /** Coached play: the rookie mistakes this player has made before */
+  mistakes?: MistakeCounts;
   onExit: () => void;
   onGameOver: (won: number, answers: Answer[]) => void;
   /** deal the next game; left out online when only the host can deal */
@@ -107,6 +111,9 @@ export function Table({
   const [showSettings, setShowSettings] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  // Coached play: an answer held back because the coach spotted a rookie mistake in it
+  const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
+  useEffect(() => setHeld(null), [t.ask]);
   // Which part of the Boss's turn we're in, from the latest event (kept when an event doesn't say).
   const stepRef = useRef(0);
   const evNow = t.shown?.ev;
@@ -227,6 +234,17 @@ export function Table({
 
   if (!s) return <div className="loading">Shuffling…</div>;
   const ask = walk ? null : t.ask;
+  const coached = !!settings.coached && !watching;
+  /** Every answer from this seat goes through here, so Coached play can catch a mistake first. */
+  const play = (a: Answer) => {
+    if (coached && ask) {
+      const id = checkMove(s, ask, a);
+      if (id) return setHeld({ a, id });
+    }
+    setHeld(null);
+    setSel([]);
+    t.answer(a);
+  };
   const me = s.players[HUMAN];
   const hs = handSelect(ask, s, HUMAN);
   const toggle = (id: number) => {
@@ -274,7 +292,7 @@ export function Table({
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  Stakes {settings.stakes.toLocaleString()} · First to {s.target}
+                  {settings.coached ? "Coached play" : `Stakes ${settings.stakes.toLocaleString()}`} · First to {s.target}
                 </span>
                 {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
               </div>
@@ -356,9 +374,9 @@ export function Table({
                   me={!watching && p.seat === HUMAN}
                   cigar={!watching && p.seat === HUMAN ? look.equipped?.cigar : undefined}
                   glow={pickMark || s.boss === p.seat}
-                  onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
+                  onClick={pickMark ? () => play({ kind: "pickMark", mark: p.seat }) : undefined}
                   hideoutGlow={pickHide}
-                  onHideout={pickHide ? (h) => t.answer({ kind: "pickHideout", hideout: h }) : undefined}
+                  onHideout={pickHide ? (h) => play({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
                   showBank={wide}
                   away={away?.[p.seat]}
@@ -419,14 +437,24 @@ export function Table({
                   clock={clock}
                   sel={sel}
                   setSel={setSel}
-                  answer={(a) => {
-                    setSel([]);
-                    t.answer(a);
-                  }}
+                  answer={play}
                 />
               )}
             </AnimatePresence>
-            <Coach ask={ask} blocked={walk || !!s.winners} />
+            {coached ? (
+              held ? (
+                <MistakeCheck id={held.id} before={mistakes?.[held.id] ?? 0} onChange={() => setHeld(null)} onAnyway={() => {
+                  const a = held.a;
+                  setHeld(null);
+                  setSel([]);
+                  t.answer(a);
+                }} />
+              ) : (
+                !s.winners && <LiveCoach s={s} ask={ask} />
+              )
+            ) : (
+              <Coach ask={ask} blocked={walk || !!s.winners} />
+            )}
             {!t.ask && !s.winners && (
               <div className="waiting">
                 <span className="dots">

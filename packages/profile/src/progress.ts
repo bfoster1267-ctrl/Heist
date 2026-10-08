@@ -6,6 +6,7 @@ import { COSMETICS, DEFAULT_EQUIPPED, cosmetic, drink, equippable, freeWith, unl
 import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForLevel } from "./levels";
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
 import { addPassXp, passLines, type PassResult, type PassState } from "./season";
+import { addCounts, type MistakeCounts } from "./coach";
 
 export const START_CHIPS = 10_000;
 /** Enough for one cheap cosmetic straight away. */
@@ -34,12 +35,17 @@ export interface Progress {
   dailyDay: string | null;
   drinksSent: number;
   drinksReceived: number;
+  /** rookie mistakes made in vs-bot games (coach.ts), so the coach can lean on the ones you repeat */
+  mistakes: MistakeCounts;
+  /** Coached play games finished (they don't count in the career stats) */
+  coachGames: number;
 }
 
 export function newProgress(): Progress {
   return {
     chips: START_CHIPS, coins: START_COINS, xp: 0, prestige: 0, stats: emptyStats(), owned: [],
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
+    mistakes: {}, coachGames: 0,
   };
 }
 
@@ -121,6 +127,45 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
       unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
     },
   };
+}
+
+/** Coached play pays a little XP and nothing else: no chips, coins, season XP or career stats. */
+export const COACH_XP = { played: 25, won: 25 };
+
+/** Record a finished Coached play game. */
+export function settleCoached(prev: Progress, won: boolean): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const lines: RewardLine[] = [{ label: "Coached game", xp: COACH_XP.played, coins: 0 }];
+  if (won) lines.push({ label: "Won", xp: COACH_XP.won, coins: 0 });
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  p.coachGames++;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass: null,
+    },
+  };
+}
+
+/** Add one game's rookie mistakes to the player's tally. */
+export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
+  return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
 }
 
 export const level = (p: Progress) => levelInfo(p.xp).level;

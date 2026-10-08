@@ -2987,3 +2987,17 @@ button:disabled {
   font-size: 19px;
   color: var(--muted);
 }
+/* Coached play: the coach's read of each decision, and the "hold on" card for a rookie mistake */
+.coach.live {
+  border-color: #6fd39a;
+}
+.coach.live .coach-title {
+  color: #9be8bb;
+}
+.coach.live.mistake {
+  border-color: #ff9a5c;
+  z-index: 40;
+}
+.coach.live.mistake .coach-title {
+  color: #ffb37f;
+}
