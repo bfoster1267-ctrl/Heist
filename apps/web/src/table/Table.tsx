@@ -182,30 +182,33 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
             </div>
 
             <div className="topbar left">
-              <button className="icon-btn" onClick={onExit} aria-label="Leave table" data-tip="Leave table">
-                ←
+              <button className="icon-btn labeled" onClick={onExit} aria-label="Leave table" data-tip="Leave table">
+                ←<span className="ib-k">Lobby</span>
               </button>
               <span className="stakes">
                 Stakes {settings.stakes.toLocaleString()} · First to {s.target}
               </span>
             </div>
             <div className="topbar right" role="toolbar" aria-label="Table controls">
-              {[1, 2, 4].map((x) => (
-                <button key={x} className={"icon-btn" + (t.speed === x ? " on" : "")} aria-pressed={t.speed === x} aria-label={`Speed ${x}x`} onClick={() => t.setSpeed(x)}>
-                  {x}x
-                </button>
-              ))}
-              <button className="icon-btn" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
-                ⏭
+              <button
+                className="icon-btn labeled"
+                aria-label={`Game speed ${t.speed}x. Tap to change.`}
+                data-tip="Game speed (1, 2, 4)"
+                onClick={() => t.setSpeed(t.speed === 1 ? 2 : t.speed === 2 ? 4 : 1)}
+              >
+                {t.speed}x<span className="ib-k">Speed</span>
               </button>
-              <button className={"icon-btn" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes and quick chat" data-tip="Emotes and quick chat">
-                💬
+              <button className="icon-btn labeled" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
+                ⏭<span className="ib-k">Skip</span>
               </button>
-              <button className={"icon-btn" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
-                ☰
+              <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
+                💬<span className="ib-k">Chat</span>
               </button>
-              <button className={"icon-btn" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label="Settings" data-tip="Sound, motion and tips">
-                ⚙
+              <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
+                ☰<span className="ib-k">Log</span>
+              </button>
+              <button className={"icon-btn labeled" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label="Settings" data-tip="Sound, motion and tips">
+                ⚙<span className="ib-k">Settings</span>
               </button>
             </div>
 

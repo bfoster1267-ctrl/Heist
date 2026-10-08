@@ -138,27 +138,47 @@ export function Seat({
           </div>
         </div>
         <div className="seat-fh" data-anchor={me ? "my-fh" : undefined} data-tip={`Footholds: ${fh} of ${s.target}\nCrew living in rival hideouts. ${s.target} wins.`} aria-label={`${fh} of ${s.target} Footholds`}>
+          <span className="fh-k">
+            Footholds {fh}/{s.target}
+          </span>
+          <span className="fh-pips">
           {Array.from({ length: s.target }, (_, i) => (
             <motion.span key={i + (i < fh ? "on" : "")} className={"pip" + (i < fh ? " on" : "")} initial={i < fh ? { scale: 2.4 } : false} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 12 }} />
           ))}
+          </span>
         </div>
       </div>
       <div className="seat-stats">
         <span className="stat" data-tip="Cards in hand">
-          <span className="mini-back" />
-          {P.hand.length}
+          <span className="stat-v">
+            <span className="mini-back" />
+            {P.hand.length}
+          </span>
+          <span className="stat-k">Cards</span>
         </span>
         <span className="stat cash" data-tip="Banked cash\nSpent on crew and bets. Thieves take loot from it." data-anchor={`bank-${seat}`}>
-          <CountUp value={cash} prefix="$" />
+          <span className="stat-v">
+            <CountUp value={cash} prefix="$" />
+          </span>
+          <span className="stat-k">Cash</span>
         </span>
         <span className="stat" data-tip="Crew at home\nIn your own hideouts, ready to send." data-anchor={`home-${seat}`}>
-          <Crew color={P.color} size={13} />
-          {home}
+          <span className="stat-v">
+            <Crew color={P.color} size={13} />
+            {home}
+          </span>
+          <span className="stat-k">Home</span>
         </span>
-        <span className="stat dim" data-tip="In the Pen / in reserve\nOne crew leaves the Pen each turn. Reserve crew can be hired.">
-          Pen {P.pen} · Res {P.reserve}
+        <span className="stat dim" data-tip="Crew in the Pen\nCaught crew. One leaves the Pen each turn.">
+          <span className="stat-v">{P.pen}</span>
+          <span className="stat-k">Pen</span>
+        </span>
+        <span className="stat dim" data-tip="Crew in reserve\nNot on the table yet. Hire them with cash.">
+          <span className="stat-v">{P.reserve}</span>
+          <span className="stat-k">Spare</span>
         </span>
       </div>
+      <div className="seat-sub">Hideouts</div>
       <div className="seat-hideouts">
         {P.hideouts.map((_, h) => (
           <Hideout key={h} s={s} owner={seat} h={h} glow={hideoutGlow} onClick={onHideout ? () => onHideout(h) : undefined} />
