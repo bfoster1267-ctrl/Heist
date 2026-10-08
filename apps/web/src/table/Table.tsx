@@ -58,6 +58,7 @@ export function Table({
   useSource = useTable,
   talk,
   watching = false,
+  away,
 }: {
   settings: TableSettings;
   onExit: () => void;
@@ -70,6 +71,8 @@ export function Table({
   /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
   /** Watching, not playing (online): the table is drawn from `seat`, but it isn't yours. */
   watching?: boolean;
+  /** online: seats whose player has dropped or is on autopilot */
+  away?: Record<number, "away" | "bot">;
   talk?: {
     send: (text: string) => void;
     listen: (heard: (seat: number, text: string) => void) => () => void;
@@ -341,6 +344,7 @@ export function Table({
                   onHideout={pickHide ? (h) => t.answer({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
                   showBank={wide}
+                  away={away?.[p.seat]}
                 />
               );
             })}

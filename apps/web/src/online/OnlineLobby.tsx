@@ -275,6 +275,12 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
     }),
     [sess],
   );
+  const seats = room.seats;
+  const away = useMemo(() => {
+    const a: Record<number, "away" | "bot"> = {};
+    for (const s of seats) if (s.kind === "human" && (s.autopilot || !s.connected)) a[s.seat] = s.autopilot ? "bot" : "away";
+    return a;
+  }, [seats]);
   return (
     <>
       <Table
@@ -284,6 +290,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         useSource={useSource}
         talk={talk}
         watching={sess.seat === null}
+        away={away}
         onExit={onExit}
         // a spectator sees the table from seat 0, but its winnings aren't theirs
         onGameOver={(won) => won && sess.seat !== null && onWin(won)}
