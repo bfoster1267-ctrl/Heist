@@ -768,6 +768,8 @@ export class HeistGame {
       }
     }
     if (win === "B") {
+      // Boss-side players already holding a Foothold here get no new one; the log says so, or the win looks lost.
+      const already = s.players.filter((p) => j.side.B[p.seat] > 0 && H[p.seat] > 0).map((p) => p.name);
       for (const p of s.players) {
         const k = j.side.B[p.seat];
         if (!k) continue;
@@ -795,7 +797,8 @@ export class HeistGame {
       }
       const safe = this.role(boss) === "safecracker";
       const paid = this.pay(mark, safe ? 2 * LOOT : LOOT, boss);
-      this.emit({ t: "loot", from: mark, to: boss, amount: paid }, paid ? `${this.name(mark)} pays $${paid} loot.` : `${this.name(mark)} has no cash to pay loot.`);
+      const note = already.length ? ` ${already.join(" and ")} already had a Foothold there, so no new one: their crew all went home.` : "";
+      this.emit({ t: "loot", from: mark, to: boss, amount: paid }, (paid ? `${this.name(mark)} pays $${paid} loot.` : `${this.name(mark)} has no cash to pay loot.`) + note);
       if (paid) for (const p of s.players) if (p.role === "pickpocket") this.bankTop(p.seat, "the Pickpocket skims the loot");
       if (safe) {
         const others = s.players[mark].hideouts.filter((h, i) => i !== j.hideout && h[mark] > 0);
