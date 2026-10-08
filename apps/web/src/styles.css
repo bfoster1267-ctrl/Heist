@@ -107,7 +107,21 @@ button:disabled {
 }
 .theme-neon .felt::after {
   box-shadow: 0 0 14px #ff3fb4, inset 0 0 14px rgba(255, 63, 180, 0.6);
-  animation: neon 3.2s ease-in-out infinite;
+}
+/* The pulse is a second glow layer fading in and out: opacity runs on the GPU, an animated
+   box-shadow would repaint the whole table every frame on a phone. */
+.theme-neon .felt::before {
+  content: "";
+  position: absolute;
+  inset: 8px;
+  border-radius: 252px;
+  box-shadow: 0 0 26px #ff3fb4, 0 0 46px rgba(80, 230, 255, 0.35), inset 0 0 20px rgba(255, 63, 180, 0.8);
+  pointer-events: none;
+  animation: glow-pulse 3.2s ease-in-out infinite;
+}
+
+.l-wide .felt::before {
+  border-radius: 184px;
 }
 .theme-neon .felt {
   box-shadow: 0 0 60px rgba(80, 230, 255, 0.25), 0 30px 80px rgba(0, 0, 0, 0.7), inset 0 2px 0 var(--rail-glow);
@@ -115,9 +129,13 @@ button:disabled {
 .theme-neon .felt-logo {
   text-shadow: 0 0 30px rgba(255, 63, 180, 0.35);
 }
-@keyframes neon {
+@keyframes glow-pulse {
+  0%,
+  100% {
+    opacity: 0;
+  }
   50% {
-    box-shadow: 0 0 22px #ff3fb4, 0 0 40px rgba(80, 230, 255, 0.35), inset 0 0 18px rgba(255, 63, 180, 0.8);
+    opacity: 1;
   }
 }
 .canvas {
@@ -310,12 +328,14 @@ button:disabled {
   padding: 2px 14px;
   border-radius: 6px;
   z-index: 6;
-  animation: pulse 1.2s ease-in-out infinite;
 }
-@keyframes pulse {
-  50% {
-    box-shadow: 0 0 22px var(--red);
-  }
+.lastcall-badge::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 22px var(--red);
+  animation: glow-pulse 1.2s ease-in-out infinite;
 }
 
 /* ---------------------------------------------------------------- chips */
@@ -803,12 +823,16 @@ button:disabled {
 }
 .seat.clickable {
   cursor: pointer;
-  animation: beckon 1s ease-in-out infinite;
 }
-@keyframes beckon {
-  50% {
-    box-shadow: 0 0 0 3px var(--gold2), 0 0 30px rgba(246, 215, 122, 0.7);
-  }
+.seat.clickable::after,
+.hideout.glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 3px var(--gold2), 0 0 30px rgba(246, 215, 122, 0.7);
+  pointer-events: none;
+  animation: glow-pulse 1s ease-in-out infinite;
 }
 .seat.winner {
   border-color: var(--gold2);
@@ -961,7 +985,6 @@ button:disabled {
 .hideout.glow {
   border-color: var(--gold2);
   background: rgba(246, 215, 122, 0.15);
-  animation: beckon 1s ease-in-out infinite;
 }
 .hideout.clickable {
   cursor: pointer;
@@ -1786,13 +1809,13 @@ button:disabled {
   inset: -4px;
   border-radius: 17px;
   border: 2px solid rgba(246, 215, 122, 0.85);
+  box-shadow: 0 0 18px rgba(246, 215, 122, 0.35);
   pointer-events: none;
   animation: acting 1.6s ease-in-out infinite;
 }
 @keyframes acting {
   50% {
-    border-color: rgba(246, 215, 122, 0.25);
-    box-shadow: 0 0 18px rgba(246, 215, 122, 0.35);
+    opacity: 0.3;
   }
 }
 .thinking {
