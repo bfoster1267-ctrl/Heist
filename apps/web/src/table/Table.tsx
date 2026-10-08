@@ -5,7 +5,7 @@ import { useWakeLock } from "../appShell";
 import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
-import { BANNER, HUMAN, useTable, type HistoryEntry, type TableSettings } from "../useTable";
+import { BANNER, HUMAN as LOCAL_SEAT, useTable, type HistoryEntry, type TableSettings, type TableSource } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
@@ -25,8 +25,25 @@ const CHIP_COLORS = ["#c8372d", "#2f78c4", "#1d1f24", "#3a9a4a", "#8a4fbf"];
 /** Events that shake the table a little. */
 const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
 
-export function Table({ settings, onExit, onGameOver, onAgain }: { settings: TableSettings; onExit: () => void; onGameOver: (won: number) => void; onAgain: () => void }) {
-  const t = useTable(settings);
+export function Table({
+  settings,
+  onExit,
+  onGameOver,
+  onAgain,
+  seat = LOCAL_SEAT,
+  useSource = useTable,
+}: {
+  settings: TableSettings;
+  onExit: () => void;
+  onGameOver: (won: number) => void;
+  onAgain: () => void;
+  /** The seat this player sits in. */
+  seat?: number;
+  /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
+  useSource?: (settings: TableSettings) => TableSource;
+}) {
+  const HUMAN = seat;
+  const t = useSource(settings);
   const { L, scale, dx, dy } = useLayout();
   const prefs = usePrefs();
   const reduce = reducedMotion(prefs);
@@ -182,30 +199,33 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
             </div>
 
             <div className="topbar left">
-              <button className="icon-btn" onClick={onExit} aria-label="Leave table" data-tip="Leave table">
-                ←
+              <button className="icon-btn labeled" onClick={onExit} aria-label="Leave table" data-tip="Leave table">
+                ←<span className="ib-k">Lobby</span>
               </button>
               <span className="stakes">
                 Stakes {settings.stakes.toLocaleString()} · First to {s.target}
               </span>
             </div>
             <div className="topbar right" role="toolbar" aria-label="Table controls">
-              {[1, 2, 4].map((x) => (
-                <button key={x} className={"icon-btn" + (t.speed === x ? " on" : "")} aria-pressed={t.speed === x} aria-label={`Speed ${x}x`} onClick={() => t.setSpeed(x)}>
-                  {x}x
-                </button>
-              ))}
-              <button className="icon-btn" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
-                ⏭
+              <button
+                className="icon-btn labeled"
+                aria-label={`Game speed ${t.speed}x. Tap to change.`}
+                data-tip="Game speed (1, 2, 4)"
+                onClick={() => t.setSpeed(t.speed === 1 ? 2 : t.speed === 2 ? 4 : 1)}
+              >
+                {t.speed}x<span className="ib-k">Speed</span>
               </button>
-              <button className={"icon-btn" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes and quick chat" data-tip="Emotes and quick chat">
-                💬
+              <button className="icon-btn labeled" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
+                ⏭<span className="ib-k">Skip</span>
               </button>
-              <button className={"icon-btn" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
-                ☰
+              <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
+                💬<span className="ib-k">Chat</span>
               </button>
-              <button className={"icon-btn" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label="Settings" data-tip="Sound, motion and tips">
-                ⚙
+              <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
+                ☰<span className="ib-k">Log</span>
+              </button>
+              <button className={"icon-btn labeled" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label="Settings" data-tip="Sound, motion and tips">
+                ⚙<span className="ib-k">Settings</span>
               </button>
             </div>
 
@@ -409,7 +429,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -455,8 +475,8 @@ function Confetti() {
   );
 }
 
-function GameOver({ s, pot, history, onAgain, onExit }: { s: GameState; pot: number; history: HistoryEntry[]; onAgain: () => void; onExit: () => void }) {
-  const won = s.winners!.includes(HUMAN);
+function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: number; pot: number; history: HistoryEntry[]; onAgain: () => void; onExit: () => void }) {
+  const won = s.winners!.includes(me);
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
   return (
