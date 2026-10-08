@@ -67,7 +67,8 @@ export function Table({
       window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);
     }
   });
-  const [walk, setWalk] = useState(() => !getPrefs().walked);
+  // the tour pauses nothing, so it only runs at a local table where the game waits for you
+  const [walk, setWalk] = useState(() => !getPrefs().walked && useSource === useTable);
   const [potShown, setPotShown] = useState(0);
   const [paidOut, setPaidOut] = useState(false);
   const paid = useRef(false);
