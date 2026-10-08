@@ -7,17 +7,25 @@ import { useEffect, useState } from "react";
 import { Coins } from "./bits";
 import { useAccount } from "./useAccount";
 
-export function Rewards() {
-  const { reward, showReward } = useAccount();
+export function Rewards({ onSave }: { onSave?: () => void }) {
+  const { reward, showReward, me, backend } = useAccount();
+  // guests on the live server get a nudge to keep what they just earned
+  const save =
+    onSave && me?.guest && backend?.kind === "server"
+      ? () => {
+          showReward(null);
+          onSave();
+        }
+      : undefined;
   useEffect(() => {
     if (!reward) return;
     const t = window.setTimeout(() => showReward(null), 12_000);
     return () => clearTimeout(t);
   }, [reward, showReward]);
-  return <AnimatePresence>{reward && <RewardCard key={JSON.stringify(reward.lines)} r={reward} onClose={() => showReward(null)} />}</AnimatePresence>;
+  return <AnimatePresence>{reward && <RewardCard key={JSON.stringify(reward.lines)} r={reward} onClose={() => showReward(null)} onSave={save} />}</AnimatePresence>;
 }
 
-function RewardCard({ r, onClose }: { r: Reward; onClose: () => void }) {
+function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; onSave?: () => void }) {
   const leveled = r.levelAfter > r.levelBefore;
   // stage 0: fill the old level; stage 1: level-up burst and the new level's bar
   const [stage, setStage] = useState(0);
@@ -70,6 +78,11 @@ function RewardCard({ r, onClose }: { r: Reward; onClose: () => void }) {
         </div>
       )}
       {r.canPrestige && <div className="acct-reward-unlock">Level 50! You can prestige from your profile.</div>}
+      {onSave && (
+        <button className="btn primary acct-reward-save" onClick={onSave}>
+          Save my career: free account
+        </button>
+      )}
     </motion.div>
   );
 }

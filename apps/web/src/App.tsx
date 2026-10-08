@@ -28,7 +28,8 @@ function Game() {
   const { me, act, showReward, error, clearError } = useAccount();
   const [table, setTable] = useState<Seated | null>(null);
   const [round, setRound] = useState(0);
-  const [profile, setProfile] = useState(false);
+  // the profile sheet and which tab it opens on (false = closed)
+  const [profile, setProfile] = useState<false | "career" | "account">(false);
   const finished = useRef(false);
 
   // The buy-in is paid and the seed comes from the account (the server, when there is one), so the
@@ -83,10 +84,10 @@ function Game() {
             defaultName={me.guest && me.name.startsWith("Guest") ? undefined : me.name}
             onPlay={sit}
             onRefill={() => act((b) => b.refill())}
-            top={<ProfileChip me={me} onOpen={() => setProfile(true)} />}
+            top={<ProfileChip me={me} onOpen={() => setProfile("career")} />}
           />
           <div className="acct-corner">
-            <ProfileChip me={me} onOpen={() => setProfile(true)} />
+            <ProfileChip me={me} onOpen={() => setProfile("career")} />
           </div>
         </>
       ) : (
@@ -102,8 +103,8 @@ function Game() {
           }}
         />
       )}
-      <AnimatePresence>{profile && !table && <Profile onClose={() => setProfile(false)} />}</AnimatePresence>
-      <Rewards />
+      <AnimatePresence>{profile && <Profile key={profile} tab={profile} onClose={() => setProfile(false)} />}</AnimatePresence>
+      <Rewards onSave={() => setProfile("account")} />
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
           {error}
