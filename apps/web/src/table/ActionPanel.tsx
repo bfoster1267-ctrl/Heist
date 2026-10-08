@@ -71,6 +71,8 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ask]);
   const j = s.job;
+  // Already have crew in the job's hideout? Winning leaves no new Foothold there, so all of yours come home.
+  const alreadyIn = !!j && j.kind === "hit" && s.players[j.mark].hideouts[j.hideout][seat] > 0;
   const odds = j && j.kind === "hit" ? jobBases(s, j) : null;
   const oddsLine = odds && j ? (
     <div className="odds">
@@ -187,6 +189,7 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
             {ask.wanted.map((w) => (
               <Btn key={`w${w.mark}-${w.hideout}`} kind="warn" onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
                 Wanted: hit {name(w.mark)}'s hideout {w.hideout + 1}
+                {s.players[w.mark].hideouts[w.hideout][seat] > 0 ? " (you're already in)" : ""}
               </Btn>
             ))}
             <Btn kind="ghost" onClick={() => answer({ kind: "action", choice: "pass" })}>
@@ -215,13 +218,19 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
     case "pickHideout":
       title = `Pick ${name(ask.mark)}'s hideout to hit`;
       body = (
-        <div className="btns">
-          {s.players[ask.mark].hideouts.map((h, i) => (
-            <Btn key={i} onClick={() => answer({ kind: "pickHideout", hideout: i })}>
-              Hideout {i + 1} · {h[ask.mark]} guard{h[ask.mark] === 1 ? "" : "s"}
-            </Btn>
-          ))}
-        </div>
+        <>
+          <div className="btns wrap">
+            {s.players[ask.mark].hideouts.map((h, i) => (
+              <Btn key={i} onClick={() => answer({ kind: "pickHideout", hideout: i })}>
+                Hideout {i + 1} · {h[ask.mark]} guard{h[ask.mark] === 1 ? "" : "s"}
+                {h[seat] > 0 ? " · you're already in" : ""}
+              </Btn>
+            ))}
+          </div>
+          {s.players[ask.mark].hideouts.some((h) => h[seat] > 0) && (
+            <div className="hint">You already have a Foothold where it says "you're already in". Winning there gets you no new one.</div>
+          )}
+        </>
       );
       break;
     case "send":
@@ -235,7 +244,11 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
               Send {n}
             </Btn>
           </div>
-          <div className="hint">Win and each crew on your side leaves 1 behind as a Foothold. Lose and they all go to the Pen.</div>
+          <div className="hint">
+            {alreadyIn
+              ? "You already have a Foothold in this hideout, so a win adds none: all your crew come home. Lose and they all go to the Pen."
+              : "Win: 1 of your crew stays in this hideout as a Foothold and the rest come home. Lose: they all go to the Pen."}
+          </div>
         </>
       );
       break;
@@ -271,7 +284,11 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
               </Btn>
             </div>
           )}
-          <div className="hint">Boss side wins: you leave 1 crew as a Foothold. Mark holds: defenders bank a Cut.</div>
+          <div className="hint">
+            {alreadyIn
+              ? "Boss side wins: you already have a Foothold here, so your crew all come home. Mark holds: defenders bank a Cut."
+              : "Boss side wins: you leave 1 crew as a Foothold. Mark holds: defenders bank a Cut."}
+          </div>
         </>
       );
       break;
