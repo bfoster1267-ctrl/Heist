@@ -3109,3 +3109,30 @@ button:disabled {
 .big-text .job-note {
   font-size: calc(13px * min(var(--ts), 1.4));
 }
+/* picking a hideout: each choice says whose Footholds are already inside */
+.btns.hideout-picks {
+  flex-direction: column;
+  align-items: stretch;
+}
+.btn.hideout-pick {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  text-align: left;
+}
+.hp-others {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 0.78em;
+  font-weight: 600;
+  color: var(--muted);
+}
+.hp-other {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #e3e6ec;
+}
