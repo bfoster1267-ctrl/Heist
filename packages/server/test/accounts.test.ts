@@ -102,7 +102,7 @@ describe("accounts", () => {
     const s = await svc.soloStart(await acct(), 4, 250);
     expect(s.me.progress.chips).toBe(10_000 - 250);
     const game = playSolo(s.seed, 4);
-    await expect(svc.soloFinish(await acct(), s.gameId, game.answers.slice(0, 5))).rejects.toThrow(/check out/);
+    await expect(svc.soloFinish(await acct(), s.gameId, game.answers.slice(0, -1))).rejects.toThrow(/check out/); // one answer short: never a finished game
     const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
     expect(done.me.progress.stats.games).toBe(1);
     expect(done.me.progress.chips).toBe(10_000 - 250 + (game.won ? done.reward.payout : 0));
