@@ -230,6 +230,7 @@ function Trend({ games }: { games: Me["progress"]["stats"]["recent"] }) {
   const y = (v: number) => (hi === lo ? H / 2 : 4 + (1 - (v - lo) / (hi - lo)) * (H - 8));
   const d = pts.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
   const end = pts[pts.length - 1];
+  const avg = Math.round(end / games.length);
   return (
     <div className="acct-trend">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
@@ -237,7 +238,10 @@ function Trend({ games }: { games: Me["progress"]["stats"]["recent"] }) {
         <motion.path d={d} className={end >= 0 ? "up" : "down"} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} />
       </svg>
       <div className="acct-trend-k">
-        <span>Last {games.length} games</span>
+        <span>
+          Last {games.length} games · {avg >= 0 ? "+" : ""}
+          {avg.toLocaleString()} a game
+        </span>
         <b className={end >= 0 ? "good" : "bad"}>{(end >= 0 ? "+" : "") + end.toLocaleString()} chips</b>
       </div>
     </div>
@@ -392,6 +396,9 @@ function Board({ me }: { me: Me }) {
             </li>
           ))}
         </ol>
+      )}
+      {rows && rows.length > 0 && !rows.some((r) => r.id === me.id) && (
+        <div className="dim acct-board-you">{me.guest ? "Guests aren't ranked. Save your career to an account to get on the board." : me.progress.stats.games ? "You're not in the top 100 yet. Keep playing." : "Play a game to get on the board."}</div>
       )}
       <AnimatePresence>{open && <PlayerCard id={open} onClose={() => setOpen(null)} />}</AnimatePresence>
     </div>
@@ -553,6 +560,7 @@ function ChangePassword() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [done, setDone] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
   if (!open)
     return (
       <button className="btn ghost small" onClick={() => (setOpen(true), setDone(false))}>
@@ -564,7 +572,9 @@ function ChangePassword() {
       className="acct-email"
       onSubmit={async (e) => {
         e.preventDefault();
-        if (await act((b) => b.changePassword(current, next))) {
+        setNote(null);
+        const ok = await act((b) => b.changePassword(current, next), { inline: true }).catch((err: Error) => (setNote(err.message), null));
+        if (ok) {
           setOpen(false);
           setDone(true);
           setCurrent("");
@@ -574,6 +584,7 @@ function ChangePassword() {
     >
       <input type="password" autoComplete="current-password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
       <input type="password" autoComplete="new-password" placeholder="New password (8+ characters)" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
+      {note && <div className="acct-note">{note}</div>}
       <div className="btns">
         <button className="btn gold">Save password</button>
         <button type="button" className="btn ghost" onClick={() => setOpen(false)}>

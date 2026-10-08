@@ -664,6 +664,11 @@
 .acct-board-rows li {
   cursor: pointer;
 }
+.acct-board-you {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 13px;
+}
 .acct-next {
   margin-top: 4px;
   font-size: 12px;

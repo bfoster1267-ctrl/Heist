@@ -49,7 +49,10 @@ export function SignIn() {
     try {
       await f();
     } catch (e) {
-      setNote(e instanceof Error ? e.message : "Sign-in didn't work");
+      const msg = e instanceof Error ? e.message : "Sign-in didn't work";
+      setNote(msg);
+      // the email already has an account: flip to signing in, keeping what they typed
+      if (/sign in instead/i.test(msg)) setMode("login");
     }
     setBusy(false);
   };
@@ -122,7 +125,7 @@ export function SignIn() {
         className="acct-email"
         onSubmit={(e) => {
           e.preventDefault();
-          run(() => act((b) => (mode === "register" ? b.register(email, password, name) : b.login(email, password))));
+          run(() => act((b) => (mode === "register" ? b.register(email, password, name) : b.login(email, password)), { inline: true }));
         }}
       >
         <div className="seg">
@@ -133,9 +136,9 @@ export function SignIn() {
             I have one
           </button>
         </div>
-        <input type="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input type="email" name="email" autoComplete="username" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <div className="acct-pw">
-          <input type={show ? "text" : "password"} autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? "Password (8+ characters)" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
+          <input type={show ? "text" : "password"} name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? "Password (8+ characters)" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
           <button type="button" className="acct-pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"}>
             {show ? "Hide" : "Show"}
           </button>
@@ -160,7 +163,7 @@ export function SignIn() {
           className="acct-email"
           onSubmit={(e) => {
             e.preventDefault();
-            run(() => act((b) => b.dev(name)));
+            run(() => act((b) => b.dev(name), { inline: true }));
           }}
         >
           <div className="dim">Test server: sign in with just a name.</div>

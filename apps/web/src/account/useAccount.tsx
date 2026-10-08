@@ -14,7 +14,7 @@ interface AccountCtx {
   error: string | null;
   clearError(): void;
   /** run a backend call that returns the updated player */
-  act<T extends Me | { me: Me }>(f: (b: Backend) => Promise<T>): Promise<T | null>;
+  act<T extends Me | { me: Me }>(f: (b: Backend) => Promise<T>, o?: { inline?: boolean }): Promise<T | null>;
   /** a reward waiting to be shown (after a game, a prestige) */
   reward: Reward | null;
   showReward(r: Reward | null): void;
@@ -47,13 +47,15 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const act = useCallback(
-    async <T extends Me | { me: Me }>(f: (b: Backend) => Promise<T>): Promise<T | null> => {
+    async <T extends Me | { me: Me }>(f: (b: Backend) => Promise<T>, o?: { inline?: boolean }): Promise<T | null> => {
       if (!backend) return null;
       try {
         const r = await f(backend);
         setMe("me" in r && typeof r.me === "object" ? (r as { me: Me }).me : (r as Me));
         return r;
       } catch (e) {
+        // inline: the caller shows the message next to its own form instead of a toast
+        if (o?.inline) throw e instanceof BackendError ? e : new BackendError("Couldn't reach the game server. Try again in a moment.");
         setError(e instanceof BackendError ? e.message : "Couldn't reach the game server. Try again in a moment.");
         return null;
       }
