@@ -66,8 +66,7 @@ export function botRound(ev: GameEvent | null, s: GameState): [number, number] |
   return s.players[pair[0]]?.bot ? pair : null;
 }
 
-/** Where a seat's drinks sit: just above the name plate. */
-const at = (p: [number, number]): [number, number] => [p[0] - 46, p[1] - 58];
+const at = (p: [number, number]): [number, number] => p;
 
 export function DrinkLayer({ drinks, slides, pos }: { drinks: Drink[]; slides: Slide[]; pos: (seat: number) => [number, number] }) {
   return (

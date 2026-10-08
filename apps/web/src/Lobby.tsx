@@ -1,7 +1,8 @@
 import { CREWS } from "@heist/engine";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Chips, CrewBadge } from "./table/pieces";
+import { Rules } from "./table/Rules";
 import { isIOS, isStandalone } from "./appShell";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
@@ -45,6 +46,7 @@ export function Lobby({
     }
   });
   const [stake, setStake] = useState(1);
+  const [rules, setRules] = useState(false);
   const prefs = usePrefs();
   const go = (i: number) => {
     try {
@@ -125,6 +127,10 @@ export function Lobby({
               Play with friends
             </button>
           </div>
+          <button className="btn ghost small learn" onClick={() => setRules(true)}>
+            How to play
+          </button>
+          <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
           {prefs.walked ? (
             <button className="btn ghost small learn" onClick={() => setPrefs({ walked: false, tips: true, seen: [] })}>
               Show me the tour again next game
