@@ -46,6 +46,7 @@ export function OnlineLobby({
   join?: string | null;
   onExit: () => void;
   onBuyIn: (stakes: number) => void;
+  /** the table has played out to the end (won = chips won, 0 if not) */
   onWin: (won: number) => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
@@ -265,7 +266,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         seat={sess.seat ?? 0}
         useSource={useSource}
         onExit={onExit}
-        onGameOver={(won) => won && onWin(won)}
+        onGameOver={(won) => onWin(won)}
         onAgain={() => host && sess.client.start()}
       />
       <TurnClock sess={sess} />

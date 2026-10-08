@@ -1,5 +1,5 @@
 import type { Answer } from "@heist/engine";
-import { DRINKS } from "@heist/profile";
+import { DRINKS, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
@@ -37,15 +37,28 @@ function Game() {
   const [online, setOnline] = useState<string | null>(() =>
     inviteCode() ? savedName() : null,
   );
-  // after an online game the server sends what it earned: show it like a game vs bots
+  // After an online game the server sends what it earned. It usually lands while the table is still
+  // playing the last moves, so it's held until the table shows the end, then shown like a game vs bots.
+  const onlineEnd = useRef<{ reward: Reward | null; ended: boolean }>({
+    reward: null,
+    ended: false,
+  });
   useEffect(() => {
     if (online === null) return;
     return session(online).onMessage((m) => {
+      if (m.t === "frames" && m.frames[0]?.i === 0)
+        onlineEnd.current = { reward: null, ended: false };
       if (m.t !== "reward") return;
-      showReward(m.reward);
       void act((b) => b.me());
+      if (onlineEnd.current.ended) showReward(m.reward);
+      else onlineEnd.current.reward = m.reward;
     });
   }, [online, showReward, act]);
+  const onlineTableEnded = useCallback(() => {
+    const e = onlineEnd.current;
+    if (e.reward) showReward(e.reward);
+    onlineEnd.current = { reward: null, ended: !e.reward };
+  }, [showReward]);
 
   // The buy-in is paid and the seed comes from the account (the server, when there is one), so the
   // finished game can be checked and counted toward the career.
@@ -111,7 +124,10 @@ function Game() {
             void act((b) => b.me());
           }}
           onBuyIn={() => void act((b) => b.me())}
-          onWin={() => void act((b) => b.me())}
+          onWin={() => {
+            onlineTableEnded();
+            void act((b) => b.me());
+          }}
         />
         <Rewards />
       </>
