@@ -5,7 +5,7 @@
 
 import {
   buy, buyIn, daily, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
-  botLevelsFor, soloRivals, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
+  botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 
@@ -32,6 +32,9 @@ export interface SoloTicket {
   seed: number;
   /** each bot's level, picked from your skill rating (missing: all normal) */
   levels?: BotLevel[];
+  /** a campaign stage, which sets the seat count (older servers don't send players) */
+  stage?: number;
+  players?: number;
   me: Me;
   /** the reward for a game walked away from (it counts as a loss) */
   quit: Reward | null;
@@ -58,7 +61,7 @@ export interface Backend {
   readonly kind: "server" | "browser";
   readonly config: Config;
   me(): Promise<Me>;
-  soloStart(players: number, stakes: number, name: string): Promise<SoloTicket>;
+  soloStart(players: number, stakes: number, name: string, campaign?: number): Promise<SoloTicket>;
   soloFinish(gameId: string, answers: unknown[]): Promise<{ me: Me; reward: Reward }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
@@ -118,7 +121,7 @@ interface LocalSave {
   name: string;
   joined: number;
   progress: Progress;
-  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[] } | null;
+  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number } | null;
 }
 
 const LOCAL_KEY = "heist.profile";
@@ -172,35 +175,38 @@ export class BrowserBackend implements Backend {
     if (!g) return null;
     this.save.solo = null;
     const r = settle(this.save.progress, {
-      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: Date.now(), rivals: soloRivals(g.players, g.levels),
+      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: Date.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
     });
     this.save.progress = r.progress;
     return r.reward;
   }
 
-  async soloStart(players: number, stakes: number, name: string): Promise<SoloTicket> {
+  async soloStart(players: number, stakes: number, name: string, campaign?: number): Promise<SoloTicket> {
+    const st = campaign ? stage(campaign) : undefined;
+    if (campaign && (!st || st.n > this.save.progress.campaign + 1)) throw new BackendError("Clear the stage before that one first");
+    if (st) [players, stakes] = [st.players, 0];
     const quit = this.quit();
     if (name) this.save.name = name;
     const p = buyIn(this.save.progress, stakes);
     if (failed(p)) throw new BackendError(p.error);
     this.save.progress = p;
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const levels = botLevelsFor(this.save.progress.rating, players - 1);
-    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels };
+    const levels = st ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
+    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n };
     this.write();
-    return { gameId: this.save.solo.gameId, seed, levels, me: this.view(), quit };
+    return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, me: this.view(), quit };
   }
 
   async soloFinish(gameId: string, answers: unknown[]) {
     const g = this.save.solo;
     if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
-    const rep = replaySolo(g.seed, g.players, answers, undefined, g.levels);
+    const rep = replaySolo(g.seed, g.players, answers, undefined, g);
     this.save.solo = null;
     const won = rep.winners.includes(0);
     const r = settle(this.save.progress, {
       mode: "bots", players: g.players, stakes: g.stakes, won, payout: payout(g.stakes, g.players, rep.winners, 0), summary: summarize(rep.events, 0), at: Date.now(),
-      rivals: soloRivals(g.players, g.levels, rep.winners),
+      rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
     });
     this.save.progress = r.progress;
     this.write();
@@ -353,8 +359,8 @@ export class ServerBackend implements Backend {
     return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "" }));
   }
 
-  soloStart(players: number, stakes: number) {
-    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true });
+  soloStart(players: number, stakes: number, _name: string, campaign?: number) {
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign });
   }
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });

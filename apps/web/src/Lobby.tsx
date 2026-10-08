@@ -1,6 +1,8 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
+import { STAGES } from "@heist/profile";
+import { Campaign } from "./Campaign";
 import { Chips, CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
 import { isIOS, isStandalone } from "./appShell";
@@ -20,6 +22,8 @@ export interface LobbyChoice {
   players: number;
   name: string;
   stakes: number;
+  /** a campaign stage (sets the table; no buy-in) */
+  campaign?: number;
 }
 
 export function Lobby({
@@ -29,6 +33,7 @@ export function Lobby({
   onOnline,
   defaultName,
   top,
+  cleared = 0,
 }: {
   chips: number;
   onPlay: (c: LobbyChoice) => void;
@@ -36,6 +41,8 @@ export function Lobby({
   onOnline?: (name: string) => void;
   defaultName?: string;
   top?: ReactNode;
+  /** campaign stages cleared */
+  cleared?: number;
 }) {
   const [players, setPlayers] = useState(4);
   const [name, setName] = useState(() => {
@@ -47,14 +54,15 @@ export function Lobby({
   });
   const [stake, setStake] = useState(1);
   const [rules, setRules] = useState(false);
+  const [camp, setCamp] = useState(false);
   const prefs = usePrefs();
-  const go = (i: number) => {
+  const go = (i: number, campaign?: number) => {
     try {
       localStorage.setItem("heist.name", name);
     } catch {
       /* ignore */
     }
-    onPlay({ players, name: name.trim() || "Ace", stakes: STAKES[i].buyIn });
+    onPlay({ players, name: name.trim() || "Ace", stakes: campaign ? 0 : STAKES[i].buyIn, campaign });
   };
   return (
     <div className="lobby">
@@ -123,10 +131,25 @@ export function Lobby({
           </button>
           <InstallHint />
           <div className="lobby-row">
+            <button className="btn ghost" onClick={() => setCamp(true)}>
+              Campaign <span className="dim">{Math.min(cleared, STAGES.length)}/{STAGES.length}</span>
+            </button>
             <button className="btn ghost" disabled={!onOnline} onClick={() => onOnline?.(name.trim() || "Ace")}>
               Play with friends
             </button>
           </div>
+          <AnimatePresence>
+            {camp && (
+              <Campaign
+                cleared={cleared}
+                onClose={() => setCamp(false)}
+                onPlay={(n) => {
+                  setCamp(false);
+                  go(0, n);
+                }}
+              />
+            )}
+          </AnimatePresence>
           <button className="btn ghost how-to" onClick={() => setRules(true)}>
             <span className="how-to-q">?</span> New here? How to play
           </button>
@@ -138,7 +161,7 @@ export function Lobby({
           ) : (
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
-          <div className="fine">Quick Match seats you with bots. Play with friends makes an online table you can share. Chips are play money only.</div>
+          <div className="fine">Quick Match seats you with bots. Campaign is twelve tougher tables in a row. Play with friends makes an online table you can share. Chips are play money only.</div>
         </div>
       </motion.div>
     </div>

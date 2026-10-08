@@ -7,6 +7,7 @@ import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForL
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
 import { addPassXp, passLines, type PassResult, type PassState } from "./season";
 import { START_RATING, rate } from "./rating";
+import { stage } from "./campaign";
 
 export const START_CHIPS = 10_000;
 /** Enough for one cheap cosmetic straight away. */
@@ -38,13 +39,15 @@ export interface Progress {
   /** hidden skill rating (see rating.ts) and how many games have moved it */
   rating: number;
   ratedGames: number;
+  /** campaign stages cleared */
+  campaign: number;
 }
 
 export function newProgress(): Progress {
   return {
     chips: START_CHIPS, coins: START_COINS, xp: 0, prestige: 0, stats: emptyStats(), owned: [],
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
-    rating: START_RATING, ratedGames: 0,
+    rating: START_RATING, ratedGames: 0, campaign: 0,
   };
 }
 
@@ -98,13 +101,20 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
   const firstWin = r.won && !r.quit && p.winBonusDay !== today;
   const lines = rewardLines(r, firstWin);
   if (firstWin) p.winBonusDay = today;
+  // the first clear of the next campaign stage
+  const cleared = r.won && !r.quit && r.campaign !== undefined && r.campaign === p.campaign + 1 ? stage(r.campaign) : undefined;
+  if (cleared) {
+    lines.push({ label: `Cleared ${cleared.name}`, xp: cleared.xp, coins: cleared.coins });
+    p.campaign = cleared.n;
+    for (const id of cleared.items ?? []) if (!p.owned.includes(id)) p.owned.push(id);
+  }
   let xp = lines.reduce((t, l) => t + l.xp, 0);
   let coins = lines.reduce((t, l) => t + l.coins, 0);
 
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
   const after = levelInfo(p.xp);
-  const unlockedNow: string[] = [];
+  const unlockedNow: string[] = [...(cleared?.items ?? [])];
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
@@ -164,6 +174,7 @@ export function buy(prev: Progress, id: string): Progress | Fail {
   if (owns(prev, id)) return { error: "You already own that." };
   if (!unlocked(c, level(prev), prev.prestige)) return { error: "That one's still locked." };
   if (c.season) return { error: "Season items come from the season pass and packs." };
+  if (c.campaign) return { error: `Clear campaign stage ${c.campaign} to earn that one.` };
   if (c.price <= 0) return { error: "That one isn't for sale." };
   if (prev.coins < c.price) return { error: "Not enough coins." };
   const p: Progress = structuredClone(prev);

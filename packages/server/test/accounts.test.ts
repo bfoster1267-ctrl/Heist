@@ -1,5 +1,5 @@
-import { Bot, runBots, type Answer, type BotLevel, type GameState } from "@heist/engine";
-import { botLevelsFor, createSoloGame } from "@heist/profile";
+import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
+import { STAGES, botLevelsFor, createSoloGame, type SoloSetup } from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,8 +37,8 @@ const fakeFetch = async (url: string) => ({
 const verifier = () => new OAuth({ google: { clientIds: ["web-client"] } }, fakeFetch);
 
 /** Play a solo game from the server's seed with a bot in the player's chair, recording answers. */
-function playSolo(seed: number, players: number, levels?: BotLevel[]) {
-  const { game, bots } = createSoloGame(seed, players, "Me", true, levels);
+function playSolo(seed: number, players: number, setup?: SoloSetup) {
+  const { game, bots } = createSoloGame(seed, players, "Me", true, setup);
   const me = new Bot(seed + 99);
   const answers: Answer[] = [];
   for (;;) {
@@ -162,7 +162,7 @@ describe("accounts", () => {
     expect(s.me.progress.rating).toBeLessThan(1000);
     expect(s.levels).toEqual(botLevelsFor(s.me.progress.rating, 3));
     expect(s.levels).toContain("easy");
-    const game = playSolo(s.seed, 4, s.levels);
+    const game = playSolo(s.seed, 4, { levels: s.levels });
     const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
     const p = done.me.progress;
     expect(p.ratedGames).toBe(2);
@@ -179,6 +179,38 @@ describe("accounts", () => {
     y.progress.rating = 900;
     await svc.store.put(y);
     expect((await svc.soloStart(await acct(), 3, 0, true)).levels).toEqual(["easy", "easy"]);
+  });
+
+  it("plays the campaign in order, paying and giving items on the first clear only", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Climber");
+    const acct = () => svc.require(token);
+    await expect(svc.soloStart(await acct(), 3, 0, true, 2)).rejects.toThrow(/before that one/);
+    await expect(svc.soloStart(await acct(), 3, 0, true, 99)).rejects.toThrow(/No such stage/);
+    // stage 4 gives a title; pretend stages 1-3 are cleared and win stage 4 (keep trying seeds until the stand-in wins)
+    const x = await acct();
+    x.progress.campaign = 3;
+    await svc.store.put(x);
+    let done;
+    for (let i = 0; i < 40 && !done?.reward.lines.some((l) => l.label.startsWith("Cleared")); i++) {
+      const s = await svc.soloStart(await acct(), 6, 5000, true, 4);
+      expect(s).toMatchObject({ players: 4, stage: 4, levels: undefined });
+      expect(s.me.progress.chips).toBe(10_000); // no buy-in
+      const game = playSolo(s.seed, s.players, { stage: 4 });
+      done = await svc.soloFinish(await acct(), s.gameId, game.answers);
+      expect(done.me.progress.campaign).toBe(game.won ? 4 : 3);
+    }
+    const p = done!.me.progress;
+    expect(p.campaign).toBe(4);
+    expect(p.owned).toContain("title.wheelman");
+    expect(done!.reward.unlocked).toContain("title.wheelman");
+    expect(done!.reward.lines).toContainEqual({ label: "Cleared Armored Van", xp: STAGES[3].xp, coins: STAGES[3].coins });
+    // replaying a cleared stage pays like a normal game
+    const again = await svc.soloStart(await acct(), 3, 0, true, 4);
+    const game = playSolo(again.seed, again.players, { stage: 4 });
+    const r = await svc.soloFinish(await acct(), again.gameId, game.answers);
+    expect(r.reward.lines.some((l) => l.label.startsWith("Cleared"))).toBe(false);
+    await expect(svc.buy(await acct(), "title.mastermind")).rejects.toThrow(/campaign stage 12/);
   });
 
   it("moves online ratings by who beat whom", async () => {

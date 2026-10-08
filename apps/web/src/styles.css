@@ -2987,3 +2987,89 @@ button:disabled {
   font-size: 19px;
   color: var(--muted);
 }
+
+/* campaign ladder */
+.camp-sub {
+  color: var(--muted);
+  font-size: 15px;
+  margin: -4px 0 10px;
+  text-align: left;
+}
+.camp-list h3 {
+  font-family: var(--cond);
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 12px 0 6px;
+}
+.camp-list section:first-child h3 {
+  margin-top: 0;
+}
+.camp-stage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 6px;
+}
+.camp-stage.next {
+  border-color: var(--gold);
+  background: rgba(231, 181, 60, 0.1);
+  box-shadow: 0 0 18px rgba(231, 181, 60, 0.18);
+}
+.camp-stage.locked {
+  opacity: 0.45;
+}
+.camp-n {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--title);
+  font-size: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--gold2);
+}
+.camp-stage.done .camp-n {
+  background: rgba(89, 179, 106, 0.2);
+  color: var(--cash);
+}
+.camp-info {
+  flex: 1;
+  min-width: 0;
+}
+.camp-name {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 18px;
+}
+.camp-meta {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.camp-blurb {
+  font-size: 14px;
+  color: #c9c2b2;
+}
+.camp-prize {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.camp-item {
+  color: var(--gold2);
+}
+@media (max-width: 520px) {
+  .camp-meta {
+    display: block;
+    margin-left: 0;
+  }
+}

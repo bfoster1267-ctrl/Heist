@@ -36,6 +36,8 @@ export interface Cosmetic {
   season?: number;
   source?: "pass" | "pack";
   rarity?: Rarity;
+  /** campaign items: the stage whose first clear gives it (not for sale) */
+  campaign?: number;
 }
 
 export const COSMETICS: Cosmetic[] = [
@@ -46,6 +48,7 @@ export const COSMETICS: Cosmetic[] = [
   { id: "felt.slate", slot: "felt", name: "Slate", price: 600, colors: ["#3d4650", "#15191e"] },
   { id: "felt.violet", slot: "felt", name: "Velvet Violet", price: 900, unlock: { level: 15 }, colors: ["#4b2a72", "#1b0d2e"] },
   { id: "felt.vault", slot: "felt", name: "Vault Gold", price: 0, unlock: { prestige: 1 }, colors: ["#6b5521", "#2a1f08"] },
+  { id: "felt.vaultfloor", slot: "felt", name: "Vault Floor", price: 0, campaign: 12, colors: ["#4a4f57", "#1a1d22"] },
   { id: "felt.obsidian", slot: "felt", name: "Obsidian", price: 0, unlock: { prestige: 5 }, colors: ["#262626", "#050505"] },
 
   // card backs
@@ -54,6 +57,7 @@ export const COSMETICS: Cosmetic[] = [
   { id: "back.navy", slot: "cardBack", name: "Navy Stripes", price: 300, colors: ["#1b3a6b", "#d9e2f0"], pattern: "stripes" },
   { id: "back.emerald", slot: "cardBack", name: "Emerald Diamonds", price: 500, colors: ["#16613f", "#e7d9a8"], pattern: "diamonds" },
   { id: "back.noir", slot: "cardBack", name: "Noir", price: 800, unlock: { level: 10 }, colors: ["#141414", "#c9a54b"], pattern: "noir" },
+  { id: "back.blueprint", slot: "cardBack", name: "Blueprint", price: 0, campaign: 8, colors: ["#163a6b", "#9cc8ff"], pattern: "stripes" },
   { id: "back.gold", slot: "cardBack", name: "Gold Leaf", price: 0, unlock: { prestige: 2 }, colors: ["#7a5a14", "#ffe08a"], pattern: "gold" },
 
   // avatar frames
@@ -70,6 +74,8 @@ export const COSMETICS: Cosmetic[] = [
   { id: "title.highroller", slot: "title", name: "High Roller", price: 750, text: "High Roller" },
   { id: "title.ghost", slot: "title", name: "The Ghost", price: 0, unlock: { level: 25 }, text: "The Ghost" },
   { id: "title.untouchable", slot: "title", name: "Untouchable", price: 0, unlock: { prestige: 1 }, text: "Untouchable" },
+  { id: "title.wheelman", slot: "title", name: "Wheelman", price: 0, campaign: 4, text: "Wheelman" },
+  { id: "title.mastermind", slot: "title", name: "The Mastermind", price: 0, campaign: 12, text: "The Mastermind" },
   { id: "title.legend", slot: "title", name: "Living Legend", price: 0, unlock: { prestige: 10 }, text: "Living Legend" },
 
   // everyone starts with these; seasons add more
@@ -102,8 +108,8 @@ export function unlocked(c: Cosmetic, level: number, prestige: number): boolean 
   return true;
 }
 
-/** Owned without buying: free items whose unlock is met (season items have to be earned). */
-export const freeWith = (c: Cosmetic, level: number, prestige: number) => !c.season && c.price === 0 && unlocked(c, level, prestige);
+/** Owned without buying: free items whose unlock is met (season and campaign items have to be earned). */
+export const freeWith = (c: Cosmetic, level: number, prestige: number) => !c.season && !c.campaign && c.price === 0 && unlocked(c, level, prestige);
 
 // ------------------------------------------------------------------ drinks
 

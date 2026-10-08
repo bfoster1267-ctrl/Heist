@@ -32,6 +32,8 @@ export interface TableSettings {
   seed?: number;
   /** each bot's level, from the account's solo ticket */
   levels?: BotLevel[];
+  /** a campaign stage (sets the bots and rules) */
+  stage?: number;
 }
 
 export interface Shown {
@@ -136,7 +138,7 @@ export function useTable(settings: TableSettings) {
   const start = useCallback(() => {
     const seed = settings.seed ?? Math.floor(Math.random() * 2 ** 31);
     // built the same way the server replays it, so a finished game can be checked before it counts
-    const { game, bots } = createSoloGame(seed, settings.players, settings.name, true, settings.levels);
+    const { game, bots } = createSoloGame(seed, settings.players, settings.name, true, { levels: settings.levels, stage: settings.stage });
     if (ref.current?.timer) clearTimeout(ref.current.timer);
     dropLate();
     ref.current = { game, bots, queue: game.drainFrames(), timer: null, answers: [] };

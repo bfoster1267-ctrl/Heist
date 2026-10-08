@@ -174,7 +174,7 @@ describe("skill rating", () => {
 
   it("replays a solo game with the same bot levels", () => {
     const levels = botLevelsFor(1200, 3);
-    const { game, bots } = createSoloGame(7, 4, "Tester", true, levels);
+    const { game, bots } = createSoloGame(7, 4, "Tester", true, { levels });
     const me = new Bot(1);
     const answers: Answer[] = [];
     for (;;) {
@@ -185,6 +185,6 @@ describe("skill rating", () => {
       game.answer(p.seat, a);
       answers.push(a);
     }
-    expect(replaySolo(7, 4, answers, undefined, levels).winners).toEqual(game.s.winners);
+    expect(replaySolo(7, 4, answers, undefined, { levels }).winners).toEqual(game.s.winners);
   });
 });

@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, settle, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, settle, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -341,17 +341,24 @@ export class AccountService {
   // ------------------------------------------------------------------ games
 
   /** Start a vs-bots game: pay the buy-in and get a seed from the server. */
-  /** `scaled`: the client builds bots at the levels in the ticket (older cached clients don't, so they get normal bots). */
-  soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown) {
+  /**
+   * `scaled`: the client builds bots at the levels in the ticket (older cached clients don't, so they get
+   * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in).
+   */
+  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown) {
+    const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
+    if (campaign !== undefined && campaign !== null && !st) throw new ApiError(400, "No such stage");
+    if (st) [players, stakes] = [st.players, 0];
     if (typeof players !== "number" || !SOLO_PLAYERS.includes(players)) throw new ApiError(400, "Tables are for 3 to 6 players");
     if (typeof stakes !== "number" || !Number.isInteger(stakes) || stakes < 0 || stakes > MAX_STAKES) throw new ApiError(400, "Bad stakes");
     return this.update(a.id, (x) => {
+      if (st && st.n > x.progress.campaign + 1) throw new ApiError(403, "Clear the stage before that one first");
       let quit: Reward | null = null;
       if (x.solo) quit = this.settleQuit(x);
       this.apply(x, buyIn(x.progress, stakes));
-      const levels = scaled === true ? botLevelsFor(x.progress.rating, players - 1) : undefined;
-      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes, startedAt: this.now(), levels };
-      return { me: this.me(x), gameId: x.solo.gameId, seed: x.solo.seed, levels, quit };
+      const levels = !st && scaled === true ? botLevelsFor(x.progress.rating, players - 1) : undefined;
+      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes, startedAt: this.now(), levels, stage: st?.n };
+      return { me: this.me(x), gameId: x.solo.gameId, seed: x.solo.seed, players, levels, stage: st?.n, quit };
     });
   }
 
@@ -360,7 +367,7 @@ export class AccountService {
     const g = x.solo!;
     x.solo = null;
     const r = settle(x.progress, {
-      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g.levels),
+      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
     });
     x.progress = r.progress;
@@ -383,7 +390,7 @@ export class AccountService {
       if (!Array.isArray(answers) || answers.length > 5000) throw new ApiError(400, "Bad answers");
       let rep;
       try {
-        rep = replaySolo(g.seed, g.players, answers, sanitizeAnswer, g.levels);
+        rep = replaySolo(g.seed, g.players, answers, sanitizeAnswer, g);
       } catch {
         throw new ApiError(400, "That game doesn't check out");
       }
@@ -391,7 +398,7 @@ export class AccountService {
       const won = rep.winners.includes(0);
       const pay = payout(g.stakes, g.players, rep.winners, 0);
       const r = settle(x.progress, { mode: "bots", players: g.players, stakes: g.stakes, won, payout: pay, summary: summarize(rep.events, 0), at: this.now(),
-        rivals: soloRivals(g.players, g.levels, rep.winners),
+        rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
       });
       x.progress = r.progress;
       this.board = null;

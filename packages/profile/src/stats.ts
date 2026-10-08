@@ -141,6 +141,8 @@ export interface GameResult {
   at: number;
   /** everyone else at the table, for the hidden skill rating (left out: the rating doesn't move) */
   rivals?: Rival[];
+  /** the campaign stage this game was (its first win clears it) */
+  campaign?: number;
   /** a coached game (doesn't count toward the rating) */
   coached?: boolean;
 }

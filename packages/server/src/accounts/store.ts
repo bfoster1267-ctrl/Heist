@@ -24,6 +24,8 @@ export interface SoloGame {
   startedAt: number;
   /** each bot's level, picked from the player's rating at the start (missing on older games: all normal) */
   levels?: BotLevel[];
+  /** a campaign stage */
+  stage?: number;
 }
 
 export interface Account {
