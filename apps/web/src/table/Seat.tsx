@@ -69,6 +69,7 @@ export function Seat({
   s,
   seat,
   pos,
+  grow,
   me,
   glow,
   onClick,
@@ -80,6 +81,7 @@ export function Seat({
   s: GameState;
   seat: number;
   pos: [number, number];
+  grow?: React.CSSProperties;
   me: boolean;
   glow?: boolean;
   onClick?: () => void;
@@ -100,7 +102,7 @@ export function Seat({
   return (
     <motion.div
       className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "")}
-      style={{ left: pos[0], top: pos[1] }}
+      style={{ left: pos[0], top: pos[1], ...grow }}
       layout={false}
       data-anchor={me ? "my-seat" : undefined}
       {...pressable(onClick, `Pick ${P.name} as the Mark`)}

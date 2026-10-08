@@ -127,8 +127,8 @@ export function Lobby({
               Play with friends
             </button>
           </div>
-          <button className="btn ghost small learn" onClick={() => setRules(true)}>
-            How to play
+          <button className="btn ghost how-to" onClick={() => setRules(true)}>
+            <span className="how-to-q">?</span> New here? How to play
           </button>
           <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
           {prefs.walked ? (

@@ -12,7 +12,7 @@ import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, Walkthrough } from "./Coach";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
-import { seatPos, useLayout } from "./layout";
+import { seatGrow, seatPos, useLayout } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
@@ -216,7 +216,10 @@ export function Table({
 
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
-      <div className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.bigText ? " big-text" : "")}>
+      <div
+        className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.textSize > 1 ? " big-text" : "")}
+        style={{ "--ts": prefs.textSize } as React.CSSProperties}
+      >
         <motion.div className="shaker" animate={shake}>
         <div className={`canvas l-${L.name}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
           <LayoutGroup>
@@ -319,6 +322,7 @@ export function Table({
                   s={s}
                   seat={p.seat}
                   pos={pos}
+                  grow={seatGrow(L, pos)}
                   me={p.seat === HUMAN}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}

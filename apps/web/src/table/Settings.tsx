@@ -75,9 +75,23 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         <span>Haptics</span>
         <input type="checkbox" checked={prefs.haptics} onChange={(e) => setPrefs({ haptics: e.target.checked })} />
       </label>
-      <label className="set-row">
-        <span>Larger text</span>
-        <input type="checkbox" checked={prefs.bigText} onChange={(e) => setPrefs({ bigText: e.target.checked })} />
+      <label className="set-row text-size">
+        <span>Text size</span>
+        <span className="ts-small" aria-hidden>
+          A
+        </span>
+        <input
+          type="range"
+          min={1}
+          max={1.8}
+          step={0.1}
+          value={prefs.textSize}
+          aria-valuetext={`${Math.round(prefs.textSize * 100)}%`}
+          onChange={(e) => setPrefs({ textSize: Number(e.target.value), bigText: false })}
+        />
+        <span className="ts-big" aria-hidden>
+          A
+        </span>
       </label>
 
       <label className="set-row">
