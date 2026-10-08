@@ -2960,3 +2960,17 @@ button:disabled {
   font-size: 19px;
   color: var(--muted);
 }
+/* the table's settings, opened from the lobby */
+.lobby-settings-back {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.55);
+}
+.lobby-settings-back .settings {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
