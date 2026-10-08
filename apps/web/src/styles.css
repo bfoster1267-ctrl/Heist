@@ -2498,7 +2498,7 @@ button:disabled {
 .bubble::after {
   content: "";
   position: absolute;
-  left: 50%;
+  left: var(--tail, 50%);
   bottom: -6px;
   margin-left: -6px;
   border: 6px solid transparent;
