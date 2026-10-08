@@ -56,6 +56,7 @@ export function Table({
   onAgain,
   seat = LOCAL_SEAT,
   useSource = useTable,
+  talk,
 }: {
   settings: TableSettings;
   onExit: () => void;
@@ -65,6 +66,8 @@ export function Table({
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
   useSource?: (settings: TableSettings) => TableSource;
+  /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
+  talk?: { send: (text: string) => void; listen: (heard: (seat: number, text: string) => void) => () => void };
 }) {
   const HUMAN = seat;
   const t = useSource(settings);
@@ -84,6 +87,7 @@ export function Table({
   const evNow = t.shown?.ev;
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
+  useEffect(() => talk?.listen((seat, text) => chat.say(seat, text)), [talk, chat.say]);
   const nRef = useRef(settings.players);
   // Drinks sit on the rail just above the player's avatar.
   const seatAt = (seat: number): [number, number] => {
@@ -433,7 +437,7 @@ export function Table({
           <AnimatePresence>
             {showChat && (
               <ChatTray
-                onSay={(text) => chat.say(HUMAN, text)}
+                onSay={(text) => (talk ? talk.send(text) : chat.say(HUMAN, text))}
                 rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
                 onDrink={(to, emoji) => drinks.send(HUMAN, to, emoji)}
                 onClose={() => setShowChat(false)}

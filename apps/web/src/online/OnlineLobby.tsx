@@ -257,6 +257,13 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
   const useSource = useMemo(() => onlineSource(sess), [sess]);
   const settings = useMemo(() => ({ players: room.players, name: sess.client.name ?? "", stakes: room.stakes }), [room.players, room.stakes, sess]);
   const host = room.hostId === sess.client.userId;
+  const talk = useMemo(
+    () => ({
+      send: (text: string) => sess.client.chat(text),
+      listen: (heard: (seat: number, text: string) => void) => sess.onMessage((m) => m.t === "chat" && m.seat !== null && heard(m.seat, m.text)),
+    }),
+    [sess],
+  );
   return (
     <>
       <Table
@@ -264,6 +271,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         settings={settings}
         seat={sess.seat ?? 0}
         useSource={useSource}
+        talk={talk}
         onExit={onExit}
         onGameOver={(won) => won && onWin(won)}
         onAgain={() => host && sess.client.start()}
