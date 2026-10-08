@@ -17,11 +17,14 @@ export function Rewards({ onSave }: { onSave?: () => void }) {
           onSave();
         }
       : undefined;
+  // guests get longer to tap the save button
+  const stay = save ? 25_000 : 12_000;
   useEffect(() => {
     if (!reward) return;
-    const t = window.setTimeout(() => showReward(null), 12_000);
+    const t = window.setTimeout(() => showReward(null), stay);
     return () => clearTimeout(t);
-  }, [reward, showReward]);
+  }, [reward, showReward, stay]);
+
   return <AnimatePresence>{reward && <RewardCard key={JSON.stringify(reward.lines)} r={reward} onClose={() => showReward(null)} onSave={save} />}</AnimatePresence>;
 }
 

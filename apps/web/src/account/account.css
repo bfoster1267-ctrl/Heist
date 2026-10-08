@@ -895,7 +895,21 @@
     z-index: 2;
   }
   .acct-panel .acct-head {
-    padding: 10px 200px 8px 16px;
+    padding: 8px 200px 6px 16px;
+    gap: 12px;
+  }
+  /* a smaller header leaves the stats more of the short screen */
+  .acct-head .acct-avatar {
+    width: 52px !important;
+    height: 52px !important;
+    font-size: 20px !important;
+  }
+  .acct-head-name {
+    font-size: 26px;
+  }
+  .acct-tabs button {
+    padding-top: 6px;
+    padding-bottom: 6px;
   }
 }
 
