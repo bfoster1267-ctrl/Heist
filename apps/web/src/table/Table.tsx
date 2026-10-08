@@ -12,7 +12,7 @@ import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, Walkthrough } from "./Coach";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
-import { seatPos, useLayout } from "./layout";
+import { seatGrow, seatPos, useLayout } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
@@ -347,6 +347,7 @@ export function Table({
                   s={s}
                   seat={p.seat}
                   pos={pos}
+                  grow={seatGrow(L, pos)}
                   me={!watching && p.seat === HUMAN}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
