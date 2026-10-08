@@ -147,6 +147,15 @@ export function SignIn() {
         <button className="btn primary big" disabled={busy}>
           {mode === "register" ? "Create account" : "Sign in"}
         </button>
+        {mode === "register" && (
+          <div className="dim acct-privacy">
+            By creating an account you agree that the game records what you do in it (games, purchases, chat, taps) as described in the{" "}
+            <a href="./privacy.html" target="_blank" rel="noreferrer">
+              privacy policy
+            </a>
+            .
+          </div>
+        )}
         {mode === "login" && (
           <button type="button" className="acct-link" onClick={() => setForgot((v) => !v)}>
             Forgot your password?

@@ -11,6 +11,7 @@ import { Lobby, type LobbyChoice } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
 import { Table } from "./table/Table";
+import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
 
 export function App() {
@@ -63,6 +64,10 @@ function Game() {
       else onlineEnd.current.reward = m.reward;
     });
   }, [online, showReward, act]);
+  // the owner's activity log: which screen the player is on
+  useEffect(() => {
+    trackScreen(profile ? `Profile: ${profile}` : table ? (table.stage ? `Campaign table ${table.stage}` : "Table vs bots") : online !== null ? "Online" : "Lobby");
+  }, [profile, table, online]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);

@@ -31,10 +31,10 @@ export async function serveStatic(dir: string, req: IncomingMessage, res: Server
   let file = normalize(join(root, path));
   if (file !== root && !file.startsWith(root + sep)) return false;
   const isFile = await stat(file).then((s) => s.isFile(), () => false);
-  // unknown paths without an extension get the app (it has one page)
+  // unknown paths without an extension get the app (it has one page); /admin gets the owner's back office
   if (!isFile) {
     if (extname(path)) return false;
-    file = join(root, "index.html");
+    file = join(root, path === "/admin" ? "admin.html" : "index.html");
   }
   const body = await readFile(file).catch(() => null);
   if (!body) return false;
