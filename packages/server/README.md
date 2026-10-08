@@ -28,13 +28,15 @@ npm run build -w packages/server   # one bundled file: packages/server/dist/main
   resumes without a gap; if that's too far back it gets a full `sync` instead. Leaving on purpose
   mid-game hands the seat to a bot; leaving in the lobby frees the seat.
 - **Rematch.** After a game the host can start again with the same table; players who left are replaced by bots.
+- **Table talk.** `chat` lines and `drink`s (one of five drinks, from a seated player to another seat) go to
+  everyone at the table. They share one limit per player.
 - **Action log.** Each game is stored as seed + seats + every answer (and who gave it: player, bot, or
   autopilot). That rebuilds any game exactly. When the server restarts, unfinished tables are rebuilt
   from the log and players reclaim their seats by reconnecting.
-- **Limits.** 16 KB per message, a per-socket rate limit, 5 chat lines per 10 s, and every answer is
+- **Limits.** 16 KB per message, a per-socket rate limit, 5 chat lines or drinks per 10 s, and every answer is
   reshaped and type-checked before it reaches the engine. Idle rooms close after 10 minutes.
 
-The wire protocol is in `src/protocol.ts` and a ready-made client (auto-reconnect, resume) in
+The wire protocol is in `src/protocol.ts` and a ready-made client (auto-reconnect, resume, `onConnection` to show when it's reconnecting) in
 `src/client.ts`; both are browser-safe and exported as `@heist/server/protocol` and `@heist/server/client`.
 Frames arrive in the same shape the solo table already plays back (`ev`, `msg`, `state`), plus an index `i`.
 
