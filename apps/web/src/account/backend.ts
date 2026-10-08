@@ -399,5 +399,13 @@ export async function openBackend(): Promise<Backend> {
   // "same-origin": the app is served by the game server itself (the Docker image builds it this way)
   const set = import.meta.env.VITE_SERVER_URL as string | undefined;
   const url = (set === "same-origin" ? location.origin : set)?.replace(/\/$/, "");
-  return (url && (await ServerBackend.connect(url))) || new BrowserBackend();
+  if (set !== "same-origin") return (url && (await ServerBackend.connect(url))) || new BrowserBackend();
+  // The game server sent this page, so it is the player's home: never drop to browser-only play (games
+  // would save to this phone instead of the account). Ride out a restart, e.g. during a deploy.
+  for (let attempt = 0; ; attempt++) {
+    const b = await ServerBackend.connect(url!);
+    if (b) return b;
+    if (attempt >= 3) throw new BackendError("Can't reach the game server");
+    await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+  }
 }

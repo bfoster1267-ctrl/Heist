@@ -34,6 +34,8 @@ self.addEventListener("fetch", (e) => {
     e.respondWith(
       fetch(req)
         .then((res) => {
+          // a 502 while the server restarts must not replace the saved app, and the saved app beats it
+          if (!res.ok) return caches.match("./").then((hit) => hit || res);
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put("./", copy));
           return res;

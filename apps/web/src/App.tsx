@@ -28,6 +28,15 @@ interface Seated extends TableSettings {
 
 function Game() {
   const { me, failed, act, showReward, error, clearError } = useAccount();
+  // can't reach the server: check back every few seconds and reload once it answers
+  useEffect(() => {
+    if (!failed) return;
+    const base = import.meta.env.VITE_SERVER_URL === "same-origin" ? "" : ((import.meta.env.VITE_SERVER_URL as string | undefined) ?? "").replace(/\/$/, "");
+    const t = window.setInterval(() => {
+      fetch(`${base}/api/config`, { cache: "no-store" }).then((r) => r.ok && location.reload(), () => {});
+    }, 5000);
+    return () => clearInterval(t);
+  }, [failed]);
   const [table, setTable] = useState<Seated | null>(null);
   const [round, setRound] = useState(0);
   // the profile sheet and which tab it opens on (false = closed)
@@ -111,7 +120,7 @@ function Game() {
     return failed ? (
       <div className="loading loading-failed">
         <div>Can't reach the vault</div>
-        <p>The game server didn't answer. Your account and chips are safe.</p>
+        <p>The game server didn't answer, maybe it's restarting. Your account and chips are safe, and this page reconnects by itself when it's back.</p>
         <button className="btn primary big" onClick={() => location.reload()}>
           Try again
         </button>

@@ -31,13 +31,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let live = true;
-    openBackend().then(async (b) => {
-      const m = await b.me().catch(() => null);
-      if (!live) return;
-      setBackend(b);
-      setMe(m);
-      setFailed(!m);
-    });
+    openBackend().then(
+      async (b) => {
+        const m = await b.me().catch(() => null);
+        if (!live) return;
+        setBackend(b);
+        setMe(m);
+        setFailed(!m);
+      },
+      () => live && setFailed(true),
+    );
     return () => {
       live = false;
     };
