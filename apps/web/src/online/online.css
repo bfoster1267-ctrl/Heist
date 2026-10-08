@@ -1,0 +1,143 @@
+/* Online lobby and table extras (codes, seats, turn clock). Builds on the lobby styles in styles.css. */
+.online-card .seg button {
+  font-family: var(--cond);
+  font-size: 15px;
+  font-weight: 700;
+}
+.online-card .field .seg button {
+  font-family: var(--title);
+  font-size: 22px;
+}
+.code-row {
+  display: flex;
+  gap: 8px;
+}
+.code-input {
+  flex: 1;
+  min-width: 0;
+  text-transform: uppercase;
+  letter-spacing: 6px;
+  font-family: var(--title) !important;
+  font-size: 24px !important;
+  text-align: center;
+}
+.open-tables {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.open-table {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 9px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #1e2128;
+  text-align: left;
+}
+.open-table b {
+  font-family: var(--cond);
+}
+.room-code {
+  font-family: var(--title);
+  font-size: 64px;
+  letter-spacing: 12px;
+  text-align: center;
+  color: var(--gold2);
+  user-select: all;
+}
+.room-seats {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.room-seat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: #1e2128;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-weight: 600;
+}
+.room-seat.open {
+  opacity: 0.5;
+  border-style: dashed;
+}
+.room-seat.me {
+  border-color: var(--gold);
+}
+.room-seat .tag {
+  margin-left: auto;
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold2);
+}
+.room-seat .tag.dim {
+  color: var(--muted);
+}
+.waiting-host {
+  text-align: center;
+  padding: 12px 0;
+}
+.online-error {
+  background: #3a1513;
+  border: 1px solid #8a2a22;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.turn-clock {
+  float: right;
+  margin-left: 8px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(14, 16, 20, 0.9);
+  border: 1px solid var(--gold);
+  color: var(--gold2);
+  font-family: var(--title);
+  font-size: 16px;
+  line-height: 1.5;
+  pointer-events: none;
+}
+.turn-clock.low {
+  border-color: #d0453a;
+  color: #ff8a7d;
+}
+.online-banner {
+  position: fixed;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  padding: 8px 16px;
+  border-radius: 12px;
+  background: rgba(14, 16, 20, 0.92);
+  border: 1px solid var(--line);
+  font-family: var(--cond);
+}
+
+.online-banner.top {
+  bottom: auto;
+  top: calc(64px + env(safe-area-inset-top));
+  color: var(--gold, #e7b53c);
+}
+
+.online-banner.autopilot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-color: var(--gold);
+}
+
+/* a spectator's view comes from seat 0, but that hand isn't theirs to see or hold */
+.my-hand.watching {
+  visibility: hidden;
+}

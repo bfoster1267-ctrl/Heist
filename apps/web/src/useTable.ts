@@ -2,15 +2,15 @@
 // with pacing so every move can be seen. Online play will swap the engine for a server connection
 // that sends the same Frames.
 import { Bot, HeistGame, runBots, viewFor, type Answer, type Ask, type Frame, type GameEvent, type GameState } from "@heist/engine";
+import { createSoloGame } from "@heist/profile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sfx, yourTurn } from "./sound";
 
 export const HUMAN = 0;
 
-const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
 
 /** How long each event holds the table, in ms at 1x speed. */
-const HOLD: Record<GameEvent["t"], number> = {
+export const HOLD: Record<GameEvent["t"], number> = {
   setup: 700, role: 250, wildcard: 1300, turn: 900, draw: 450, reshuffle: 1000, lastCall: 1800, penReturn: 550,
   fence: 800, bank: 650, hire: 650, stuck: 1300, flip: 1300, mark: 1100, target: 900, send: 600, pass: 350,
   doubleCross: 1600, bet: 700, hackerCall: 1100, facedown: 550, reveal: 2600, hacked: 1600, forged: 1300,
@@ -50,7 +50,7 @@ export interface HistoryEntry {
   mark: number | null;
 }
 
-function footholds(s: GameState) {
+export function footholds(s: GameState) {
   return s.players.map((p) => {
     let k = 0;
     for (const q of s.players) if (q.seat !== p.seat) for (const h of q.hideouts) if (h[p.seat] > 0) k++;
@@ -61,7 +61,7 @@ function footholds(s: GameState) {
 export type FlightHook = (ev: GameEvent, before: GameState, after: GameState) => number;
 
 export function useTable(settings: TableSettings) {
-  const ref = useRef<{ game: HeistGame; bots: Map<number, Bot>; queue: Frame[]; timer: number | null } | null>(null);
+  const ref = useRef<{ game: HeistGame; bots: Map<number, Bot>; queue: Frame[]; timer: number | null; answers: Answer[] } | null>(null);
   const [shown, setShown] = useState<Shown | null>(null);
   const [ask, setAsk] = useState<Ask | null>(null);
   const [log, setLog] = useState<{ msg: string; key: number }[]>([]);
@@ -133,13 +133,11 @@ export function useTable(settings: TableSettings) {
 
   const start = useCallback(() => {
     const seed = settings.seed ?? Math.floor(Math.random() * 2 ** 31);
-    const names = [...BOT_NAMES].sort(() => Math.random() - 0.5);
-    const seats = Array.from({ length: settings.players }, (_, i) => (i === HUMAN ? { name: settings.name || "Ace", bot: false } : { name: names[i], bot: true }));
-    const game = new HeistGame({ seed, seats });
-    const bots = new Map(game.s.players.filter((p) => p.bot).map((p) => [p.seat, new Bot(seed + p.seat * 31)]));
+    // built the same way the server replays it, so a finished game can be checked before it counts
+    const { game, bots } = createSoloGame(seed, settings.players, settings.name);
     if (ref.current?.timer) clearTimeout(ref.current.timer);
     dropLate();
-    ref.current = { game, bots, queue: game.drainFrames(), timer: null };
+    ref.current = { game, bots, queue: game.drainFrames(), timer: null, answers: [] };
     shownRef.current = null;
     history.current = [];
     setShown(null);
@@ -163,6 +161,7 @@ export function useTable(settings: TableSettings) {
       if (!r || !r.game.pending) return;
       try {
         r.game.answer(HUMAN, a);
+        r.answers.push(a);
       } catch (e) {
         console.warn(e);
         return;
@@ -195,7 +194,7 @@ export function useTable(settings: TableSettings) {
     pump();
   }, [pump]);
 
-  return { shown, ask: shown && !ref.current?.queue.length ? ask : null, answer, log, speed, setSpeed, restart: start, skip, flightHook, history, game: ref.current?.game ?? null };
+  return { shown, ask: shown && !ref.current?.queue.length ? ask : null, answer, log, speed, setSpeed, restart: start, skip, flightHook, history, game: ref.current?.game ?? null, answers: () => ref.current?.answers ?? [] };
 }
 
 /** What the table renders from. The local game vs bots is one source; online play plugs in another. */

@@ -21,5 +21,9 @@ jobs:
         run: npm test
       - name: Bot games (100 per player count)
         run: npm run sim -- 100
+      - name: Progression rules typecheck and tests
+        run: npx tsc -p packages/profile --noEmit && npm test -w packages/profile
+      - name: Game server typecheck, tests and bundle
+        run: npm test -w packages/server && npm run build -w packages/server
       - name: Build the table
         run: npm run build

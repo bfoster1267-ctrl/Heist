@@ -1,5 +1,6 @@
 import { roleName, ROLES, type GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
+import { Cigar } from "../account/items";
 import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
 
 /** Click-or-keyboard props for a table element that acts like a button. */
@@ -77,6 +78,8 @@ export function Seat({
   onHideout,
   acting,
   showBank,
+  away,
+  cigar,
 }: {
   s: GameState;
   seat: number;
@@ -89,6 +92,10 @@ export function Seat({
   onHideout?: (h: number) => void;
   acting?: boolean;
   showBank?: boolean;
+  /** online: the player has dropped ("away") or a bot is playing for them ("bot") */
+  away?: "away" | "bot";
+  /** your equipped cigar, resting by your avatar */
+  cigar?: string;
 }) {
   const P = s.players[seat];
   const j = s.job;
@@ -110,6 +117,7 @@ export function Seat({
       <div className="seat-top">
         <div className="seat-avatar" data-anchor={`seat-${seat}`}>
           <CrewBadge color={P.color} size={42} />
+          {cigar && <span className="seat-cigar"><Cigar id={cigar} size={30} /></span>}
           {acting && !me && (
             <span className="thinking" aria-hidden>
               <span />
@@ -134,6 +142,11 @@ export function Seat({
           <div className="seat-name">
             {P.name}
             {me && <span className="you-tag">YOU</span>}
+            {away && (
+              <span className="away-tag" data-tip={away === "bot" ? "A bot is playing this seat until they're back" : "Lost connection. Their seat is held."}>
+                {away === "bot" ? "AUTO" : "AWAY"}
+              </span>
+            )}
           </div>
           <div className="seat-role" data-tip-role={role?.id} tabIndex={role ? 0 : undefined}>
             {roleName(P.role)}

@@ -1,6 +1,6 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Chips, CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
 import { isIOS, isStandalone } from "./appShell";
@@ -22,11 +22,25 @@ export interface LobbyChoice {
   stakes: number;
 }
 
-export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: LobbyChoice) => void; onRefill: () => void }) {
+export function Lobby({
+  chips,
+  onPlay,
+  onRefill,
+  onOnline,
+  defaultName,
+  top,
+}: {
+  chips: number;
+  onPlay: (c: LobbyChoice) => void;
+  onRefill: () => void;
+  onOnline?: (name: string) => void;
+  defaultName?: string;
+  top?: ReactNode;
+}) {
   const [players, setPlayers] = useState(4);
   const [name, setName] = useState(() => {
     try {
-      return localStorage.getItem("heist.name") || "";
+      return defaultName || localStorage.getItem("heist.name") || "";
     } catch {
       return "";
     }
@@ -59,6 +73,7 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
         ))}
       </div>
       <motion.div className="lobby-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        {top && <div className="acct-in-lobby">{top}</div>}
         <div className="lobby-col">
           <div className="logo">HEIST</div>
           <div className="tagline">Plan the job. Pick your crew. Trust no one.</div>
@@ -108,11 +123,8 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
           </button>
           <InstallHint />
           <div className="lobby-row">
-            <button className="btn ghost" disabled title="Coming with online play">
-              Invite friends
-            </button>
-            <button className="btn ghost" disabled title="Coming with online play">
-              Queue with friends
+            <button className="btn ghost" disabled={!onOnline} onClick={() => onOnline?.(name.trim() || "Ace")}>
+              Play with friends
             </button>
           </div>
           <button className="btn ghost how-to" onClick={() => setRules(true)}>
@@ -126,7 +138,7 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
           ) : (
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
-          <div className="fine">Online tables are coming. Quick Match seats you with bots for now. Chips are play money only.</div>
+          <div className="fine">Quick Match seats you with bots. Play with friends makes an online table you can share. Chips are play money only.</div>
         </div>
       </motion.div>
     </div>
