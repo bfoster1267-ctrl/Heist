@@ -72,6 +72,15 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </div>
 
       <label className="set-row">
+        <span>Haptics</span>
+        <input type="checkbox" checked={prefs.haptics} onChange={(e) => setPrefs({ haptics: e.target.checked })} />
+      </label>
+      <label className="set-row">
+        <span>Larger text</span>
+        <input type="checkbox" checked={prefs.bigText} onChange={(e) => setPrefs({ bigText: e.target.checked })} />
+      </label>
+
+      <label className="set-row">
         <span>Coach tips</span>
         <input type="checkbox" checked={prefs.tips} onChange={(e) => setPrefs({ tips: e.target.checked, ...(e.target.checked ? { seen: [] } : {}) })} />
       </label>

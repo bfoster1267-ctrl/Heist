@@ -1,6 +1,7 @@
 import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { buzz } from "../haptics";
 import { click } from "../sound";
 import { pressable } from "./Seat";
 import { CardFace, RoleCard } from "./pieces";
@@ -37,6 +38,7 @@ function Btn({ children, onClick, kind = "", disabled }: { children: React.React
       disabled={disabled}
       onClick={() => {
         click();
+        buzz("tap");
         onClick();
       }}
     >
@@ -95,6 +97,7 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
               whileTap={{ scale: 0.97 }}
               onClick={() => {
                 click();
+                buzz("bump");
                 answer({ kind: "keepRole", role: r });
               }}
             >

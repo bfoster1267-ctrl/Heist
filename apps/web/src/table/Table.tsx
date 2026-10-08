@@ -2,6 +2,7 @@ import { CREWS, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { useWakeLock } from "../appShell";
+import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN, useTable, type HistoryEntry, type TableSettings } from "../useTable";
@@ -83,6 +84,16 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
     }
   }, [s?.winners, pot, onGameOver, fly, s]);
 
+  // Buzz on the moments that matter to you (Android always; iPhone when it lands on a tap).
+  useEffect(() => {
+    if (!ev || !s) return;
+    if (ev.t === "foothold" && (ev.seat === HUMAN || ev.owner === HUMAN)) buzz("bump");
+    else if (ev.t === "doubleCross" && ev.target === HUMAN) buzz("alert");
+    else if (ev.t === "mark" && ev.mark === HUMAN) buzz("bump");
+    else if (ev.t === "gameOver" && ev.winners.includes(HUMAN)) buzz("win");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t.shown?.key]);
+
   useEffect(() => {
     if (s) chat.react(ev, s);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -128,7 +139,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
 
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
-      <div className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "")}>
+      <div className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.bigText ? " big-text" : "")}>
         <motion.div className="shaker" animate={shake}>
         <div className={`canvas l-${L.name}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
           <LayoutGroup>
@@ -261,7 +272,14 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
                     size="md"
                     selected={sel.includes(c.id)}
                     dim={!!hs && !can}
-                    onClick={can ? () => toggle(c.id) : undefined}
+                    onClick={
+                      can
+                        ? () => {
+                            buzz("tap");
+                            toggle(c.id);
+                          }
+                        : undefined
+                    }
                     style={{ rotate: `${off * 3}deg`, marginTop: Math.abs(off) * 4, zIndex: i }}
                     enter={dealing ? 0.5 + i * 0.12 : undefined}
                   />

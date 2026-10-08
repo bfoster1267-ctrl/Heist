@@ -14,6 +14,9 @@ export const THEMES: { id: Theme; name: string; felt: string; rail: string }[] =
 export interface Prefs {
   motion: MotionPref;
   theme: Theme;
+  haptics: boolean;
+  /** Bigger text and controls on the table. */
+  bigText: boolean;
   tips: boolean;
   /** The first-game walkthrough has been shown. */
   walked: boolean;
@@ -22,7 +25,7 @@ export interface Prefs {
 }
 
 const KEY = "heist.prefs";
-const DEFAULTS: Prefs = { motion: "system", theme: "classic", tips: true, walked: false, seen: [] };
+const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, tips: true, walked: false, seen: [] };
 
 function load(): Prefs {
   try {
