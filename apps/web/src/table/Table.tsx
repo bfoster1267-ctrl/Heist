@@ -246,7 +246,7 @@ export function Table({
         style={{ "--ts": prefs.textSize } as React.CSSProperties}
       >
         <motion.div className="shaker" animate={shake}>
-        <div className={`canvas l-${L.name}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
+        <div className={`canvas l-${L.name}${wide && settings.players >= 5 ? " crowd" : ""}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
           <LayoutGroup>
             <div className="felt">
               <div className="felt-inner" />
