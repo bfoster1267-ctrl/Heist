@@ -131,11 +131,13 @@ const COACH: Partial<Record<Ask["kind"], { title: string; text: string }>> = {
 export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
   const prefs = usePrefs();
   const tip = ask && !blocked && prefs.tips && !prefs.seen.includes(ask.kind) ? COACH[ask.kind] : undefined;
+  const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
   return (
     <AnimatePresence>
       {tip && ask && (
         <motion.div
           key={ask.kind}
+          ref={above}
           className={"coach" + (ask.kind === "keepRole" ? " top" : "")}
           role="note"
           initial={{ opacity: 0, y: 10 }}
@@ -157,4 +159,26 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
       )}
     </AnimatePresence>
   );
+}
+
+/** The action panel changes height with each decision (and with the text size), so sit the tip just
+ *  above it rather than at a fixed height that can cover the panel's title. */
+function useAbovePanel(on: boolean) {
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const parent = el?.offsetParent as HTMLElement | null;
+    const panel = parent?.querySelector<HTMLElement>(".action-panel");
+    if (!on || !el || !parent || !panel) return;
+    const place = () => {
+      const H = parent.clientHeight;
+      const bottom = Math.min(H - panel.offsetTop + 8, H - el.offsetHeight - 8);
+      el.style.bottom = `${Math.max(8, bottom)}px`;
+    };
+    place();
+    const ro = new ResizeObserver(place);
+    ro.observe(panel);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [on, el]);
+  return setEl;
 }

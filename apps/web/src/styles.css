@@ -1234,7 +1234,8 @@ button:disabled {
 }
 .job-note {
   text-align: center;
-  font-size: 12px;
+  font-size: 13px;
+  line-height: 1.25;
   color: #9fc3ff;
   margin-top: 4px;
 }
@@ -2973,4 +2974,39 @@ button:disabled {
 .ts-big {
   font-size: 19px;
   color: var(--muted);
+}
+/* the table's settings, opened from the lobby */
+.lobby-settings-back {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(0, 0, 0, 0.55);
+}
+.lobby-settings-back .settings {
+  position: fixed;
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  overflow-y: auto;
+}
+/* the text size slider reaches the lobby's small print too */
+.lobby.big-text .tagline {
+  font-size: calc(16px * min(var(--ts), 1.4));
+}
+.lobby.big-text .field > span {
+  font-size: calc(13px * min(var(--ts), 1.5));
+}
+.lobby.big-text .stake-buy,
+.lobby.big-text .stake-pot {
+  font-size: calc(13px * min(var(--ts), 1.5));
+}
+.lobby.big-text .fine {
+  font-size: calc(12px * min(var(--ts), 1.5));
+}
+.lobby.big-text .how-to,
+.lobby.big-text .lobby-row .btn {
+  font-size: calc(15px * min(var(--ts), 1.4));
+}
+.big-text .job-note {
+  font-size: calc(13px * min(var(--ts), 1.4));
 }
