@@ -125,3 +125,9 @@
   border: 1px solid var(--line);
   font-family: var(--cond);
 }
+
+.online-banner.top {
+  bottom: auto;
+  top: calc(64px + env(safe-area-inset-top));
+  color: var(--gold, #e7b53c);
+}

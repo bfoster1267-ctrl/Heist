@@ -84,9 +84,12 @@ describe("game server over WebSockets", () => {
 
     // Ben's connection drops after a few decisions; his client reconnects with its token and resumes
     await until(() => ben.answered() >= 3, 10_000);
+    const ups: boolean[] = [];
+    ben.c.onConnection((up) => ups.push(up));
     ben.c.drop();
     await until(() => ben.seen.filter((m) => m.t === "welcome").length >= 2, 10_000);
     expect(ben.c.seat).toBe(1);
+    expect(ups).toEqual([false, true]);
 
     const results = await Promise.all([ann.over, ben.over, cat.over]);
     expect(new Set(results.map((r) => JSON.stringify(r.winners))).size).toBe(1);

@@ -290,6 +290,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         onAgain={() => host && sess.client.start()}
       />
       <TurnClock sess={sess} />
+      {sess.status !== "online" && <div className="online-banner top">Reconnecting...</div>}
       {sess.seat === null && room.status !== "over" && <div className="online-banner">You're watching this table</div>}
       {room.status === "over" && !host && <div className="online-banner">Waiting for the host to deal again...</div>}
     </>

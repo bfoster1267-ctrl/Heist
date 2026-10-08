@@ -59,6 +59,12 @@ export class OnlineSession {
       },
     });
     this.client.onAny((m) => this.receive(m));
+    // a dropped socket reconnects by itself; show that while it does
+    this.client.onConnection((up) => {
+      this.status = up ? "online" : "connecting";
+      if (!up) this.ask = null;
+      this.emit();
+    });
   }
 
   get room(): RoomInfo | null {
