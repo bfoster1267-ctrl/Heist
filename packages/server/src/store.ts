@@ -9,7 +9,7 @@
 
 import { createWriteStream, mkdirSync, readFileSync, readdirSync, rename, type WriteStream } from "node:fs";
 import { join } from "node:path";
-import type { Answer } from "@heist/engine";
+import type { Answer, BotLevel, RuleOptions } from "@heist/engine";
 
 export interface StoredSeat {
   name: string;
@@ -29,6 +29,9 @@ export interface GameStart {
   isPrivate: boolean;
   hostId: string | null;
   turnSeconds: number;
+  /** missing in logs written before optional rules existed: all off */
+  rules?: RuleOptions;
+  botLevel?: BotLevel;
   at: number;
 }
 

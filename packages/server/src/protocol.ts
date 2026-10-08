@@ -5,7 +5,7 @@
 // and plays back the Frames it is sent. Every Frame's state has already been passed through viewFor
 // for the seat that receives it, so other hands, face-down showdown cards and the deck are never sent.
 
-import type { Answer, Ask, Frame, GameState } from "@heist/engine";
+import type { Answer, Ask, BotLevel, Frame, GameState, RuleOptions } from "@heist/engine";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -36,6 +36,10 @@ export interface RoomInfo {
   seats: SeatInfo[];
   spectators: number;
   turnSeconds: number;
+  /** optional rules this table plays with (see docs/ENGINE.md); a client must handle their Asks */
+  rules: RuleOptions;
+  /** how the bots that fill empty chairs play */
+  botLevel: BotLevel;
   /** how many games this room has played (a rematch starts the next one) */
   games: number;
 }
@@ -54,6 +58,10 @@ export interface CreateRoomOptions {
   isPrivate?: boolean;
   /** seconds a human has for each decision before a bot answers for them */
   turnSeconds?: number;
+  /** optional rules (default all off) */
+  rules?: Partial<RuleOptions>;
+  /** bots for empty chairs: "easy" | "normal" (default) | "hard" */
+  botLevel?: BotLevel;
 }
 
 /** A Frame numbered within the current game, with state already filtered for the receiver. */

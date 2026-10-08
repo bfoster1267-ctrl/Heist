@@ -5,7 +5,9 @@
 
 import { randomBytes, randomInt } from "node:crypto";
 import type { CreateRoomOptions, RoomSummary } from "./protocol";
-import { Room, type RoomDeps } from "./room";
+import { Room, type RoomConfig, type RoomDeps } from "./room";
+
+export type RoomOptions = Omit<RoomConfig, "id" | "code">;
 
 /** No 0/O, 1/I/L: codes are read aloud and typed on phones. */
 const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -21,13 +23,16 @@ export interface Limits {
 
 export const DEFAULT_LIMITS: Limits = { maxRooms: 2000, idleMs: 10 * 60_000, idlePlayingMs: 30 * 60_000 };
 
-export function roomOptions(o: Partial<CreateRoomOptions> | undefined): Required<CreateRoomOptions> | null {
+export function roomOptions(o: Partial<CreateRoomOptions> | undefined): RoomOptions | null {
   const players = o?.players;
   if (typeof players !== "number" || !Number.isInteger(players) || players < 3 || players > 6) return null;
   const stakes = typeof o?.stakes === "number" && Number.isInteger(o.stakes) && o.stakes >= 0 && o.stakes <= 1_000_000 ? o.stakes : 0;
   const t = o?.turnSeconds;
   const turnSeconds = typeof t === "number" && Number.isFinite(t) ? Math.round(Math.min(120, Math.max(10, t))) : 30;
-  return { players, stakes, isPrivate: o?.isPrivate === true, turnSeconds };
+  const r = o?.rules;
+  const rules = { bribes: r?.bribes === true, placeCrew: r?.placeCrew === true, openDeals: r?.openDeals === true };
+  const botLevel = o?.botLevel === "easy" || o?.botLevel === "hard" ? o.botLevel : "normal";
+  return { players, stakes, isPrivate: o?.isPrivate === true, turnSeconds, rules, botLevel };
 }
 
 export class Rooms {
@@ -45,7 +50,7 @@ export class Rooms {
     return this.byCode.size;
   }
 
-  create(o: Required<CreateRoomOptions>): Room | null {
+  create(o: RoomOptions): Room | null {
     if (this.byCode.size >= this.limits.maxRooms) return null;
     let code = "";
     do code = Array.from({ length: CODE_LEN }, () => CODE_CHARS[randomInt(CODE_CHARS.length)]).join("");

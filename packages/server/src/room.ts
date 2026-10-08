@@ -2,7 +2,7 @@
 // every connection only what its seat may see. Transport-agnostic: a Conn is anything with send(), and the
 // clock is injected, so the whole room runs in tests without sockets or real time.
 
-import { Bot, HeistGame, viewFor, type Ask, type Frame, type GameEvent, type GameState } from "@heist/engine";
+import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { randomInt } from "node:crypto";
 import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
@@ -61,6 +61,8 @@ export interface RoomConfig {
   stakes: number;
   isPrivate: boolean;
   turnSeconds: number;
+  rules: RuleOptions;
+  botLevel: BotLevel;
 }
 
 interface Seat {
@@ -92,6 +94,8 @@ export class Room {
   readonly players: number;
   readonly stakes: number;
   readonly isPrivate: boolean;
+  readonly rules: RuleOptions;
+  readonly botLevel: BotLevel;
   readonly turnMs: number;
   hostId: string | null = null;
   status: "lobby" | "playing" | "over" = "lobby";
@@ -121,6 +125,8 @@ export class Room {
     this.players = cfg.players;
     this.stakes = cfg.stakes;
     this.isPrivate = cfg.isPrivate;
+    this.rules = cfg.rules;
+    this.botLevel = cfg.botLevel;
     this.turnMs = cfg.turnSeconds * 1000;
     this.deps = { ...deps, graceMs: deps.graceMs ?? 20_000, lobbyHoldMs: deps.lobbyHoldMs ?? 60_000 };
     this.seats = Array.from({ length: cfg.players }, () => blankSeat());
@@ -148,6 +154,8 @@ export class Room {
       })),
       spectators: [...this.conns.values()].filter((c) => c.spectator).length,
       turnSeconds: this.turnMs / 1000,
+      rules: this.rules,
+      botLevel: this.botLevel,
       games: this.games,
     };
   }
@@ -282,6 +290,8 @@ export class Room {
       isPrivate: this.isPrivate,
       hostId: this.hostId,
       turnSeconds: this.turnMs / 1000,
+      rules: this.rules,
+      botLevel: this.botLevel,
       at: this.deps.clock.now(),
     });
     this.begin(seed);
@@ -291,9 +301,10 @@ export class Room {
   }
 
   private begin(seed: number, replay: StoredAnswer[] = []) {
-    this.game = new HeistGame({ seed, seats: this.seats.map((s) => ({ name: s.name, bot: s.kind === "bot" })) });
+    this.game = new HeistGame({ seed, rules: this.rules, seats: this.seats.map((s) => ({ name: s.name, bot: s.kind === "bot" })) });
     for (const [i, s] of this.seats.entries()) {
-      s.bot = new Bot(seed + 7919 * (i + 1));
+      // a bot standing in for a person plays at normal strength, whatever the table's fill level
+      s.bot = new Bot(seed + 7919 * (i + 1), { level: s.kind === "bot" ? this.botLevel : "normal" });
       s.timeouts = 0;
     }
     for (const r of replay) this.game.answer(r.seat, r.a);
@@ -308,7 +319,7 @@ export class Room {
   /** Rebuild a table the server was running when it stopped. Players reconnect with their tokens. */
   static restore(rec: GameRecord, deps: RoomDeps): Room {
     const st = rec.start;
-    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds }, deps);
+    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds, rules: st.rules ?? { bribes: false, placeCrew: false, openDeals: false }, botLevel: st.botLevel ?? "normal" }, deps);
     room.seats = st.seats.map((s) => ({ ...blankSeat(), kind: s.bot ? "bot" : "human", name: s.name, userId: s.userId }));
     room.hostId = st.hostId;
     room.games = st.game;

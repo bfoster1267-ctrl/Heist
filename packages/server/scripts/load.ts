@@ -4,13 +4,14 @@
 //
 //   npm run build -w packages/server && npm run load -w packages/server -- --tables 100 --players 6 --think 150
 
-import { isFighter, type Answer, type Ask, type GameState } from "@heist/engine";
+import type { GameState } from "@heist/engine";
 import { spawn } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { HeistClient } from "../src/client";
+import { simpleAnswer as answerFor } from "../test/helpers";
 
 const arg = (k: string, d: number) => {
   const i = process.argv.indexOf(`--${k}`);
@@ -21,31 +22,6 @@ const PLAYERS = arg("players", 6);
 const THINK = arg("think", 150); // ms a client waits before answering
 const PORT = arg("port", 8790);
 
-function answerFor(ask: Ask, view: GameState): Answer {
-  const me = view.players[ask.seat];
-  switch (ask.kind) {
-    case "keepRole": return { kind: "keepRole", role: ask.options[0] };
-    case "wildcard": return { kind: "wildcard", target: null };
-    case "fence": return { kind: "fence", cardId: null };
-    case "bank": return { kind: "bank", cardIds: me.hand.slice(0, Math.min(1, ask.max)).map((c) => c.id) };
-    case "hire": return { kind: "hire", count: ask.max };
-    case "action": return ask.canHit ? { kind: "action", choice: "hit" } : { kind: "action", choice: "pass" };
-    case "pickMark": return { kind: "pickMark", mark: ask.rivals[0] };
-    case "pickHideout": return { kind: "pickHideout", hideout: 0 };
-    case "send": return { kind: "send", count: ask.max };
-    case "join": return { kind: "join", B: 0, M: 0 };
-    case "doubleCross": return { kind: "doubleCross", target: null };
-    case "bet": return { kind: "bet", side: null };
-    case "hackerCall": return { kind: "hackerCall", n: ask.numbers[0] };
-    case "showdown": return { kind: "showdown", cardId: me.hand.find(isFighter)!.id };
-    case "forger": return { kind: "forger", n: null };
-    case "backup": return { kind: "backup", side: null };
-    case "dealOffer": return { kind: "dealOffer", offer: null };
-    case "dealAccept": return { kind: "dealAccept", accept: false };
-    case "again": return { kind: "again", again: false };
-    case "discard": return { kind: "discard", cardIds: me.hand.slice(0, ask.count).map((c) => c.id) };
-  }
-}
 
 const here = dirname(fileURLToPath(import.meta.url));
 const data = mkdtempSync(join(tmpdir(), "heist-load-"));
