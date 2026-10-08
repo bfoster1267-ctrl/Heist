@@ -28,6 +28,17 @@ export function onlineSource(sess: OnlineSession) {
     const queue = useRef<Frame[]>([]);
     const timer = useRef<number | null>(null);
     const game = useRef(0);
+    const late = useRef(new Map<number, () => void>());
+    /** Cancel frames still waiting on a card flight; returns the newest one. */
+    const dropLate = () => {
+      let newest: (() => void) | undefined;
+      late.current.forEach((apply, id) => {
+        clearTimeout(id);
+        newest = apply;
+      });
+      late.current.clear();
+      return newest;
+    };
 
     const record = (f: Frame) =>
       history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
@@ -55,8 +66,14 @@ export function onlineSource(sess: OnlineSession) {
       const before = shownRef.current?.state ?? f.state;
       const flightMs = flightHook.current ? flightHook.current(f.ev, before, f.state) : 0;
       sfx(f.ev, seat);
-      if (flightMs > 0) window.setTimeout(() => show(f), flightMs / sp);
-      else show(f);
+      if (flightMs > 0) {
+        // remembered so Skip can drop it: a late show would put an older frame back over the skipped-to one
+        const id = window.setTimeout(() => {
+          late.current.delete(id);
+          show(f);
+        }, flightMs / sp);
+        late.current.set(id, () => show(f));
+      } else show(f);
       timer.current = window.setTimeout(() => {
         timer.current = null;
         pump();
@@ -67,6 +84,7 @@ export function onlineSource(sess: OnlineSession) {
     const load = useCallback(() => {
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = null;
+      dropLate();
       const feed = sess.feed;
       game.current = feed.game;
       history.current = [];
@@ -112,6 +130,7 @@ export function onlineSource(sess: OnlineSession) {
       });
       return () => {
         off();
+        dropLate();
         if (timer.current !== null) clearTimeout(timer.current);
         timer.current = null;
       };
@@ -127,6 +146,7 @@ export function onlineSource(sess: OnlineSession) {
     const skip = useCallback(() => {
       if (timer.current !== null) clearTimeout(timer.current);
       timer.current = null;
+      const pending = dropLate();
       const rest = queue.current;
       queue.current = [];
       rest.forEach(record);
@@ -135,7 +155,7 @@ export function onlineSource(sess: OnlineSession) {
         const s: Shown = { state: last.state, msg: last.msg, ev: last.ev, key: ++counter.current };
         shownRef.current = s;
         setShown(s);
-      }
+      } else pending?.();
       pump();
     }, [pump]);
 

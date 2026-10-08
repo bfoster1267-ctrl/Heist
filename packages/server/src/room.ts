@@ -222,6 +222,22 @@ export class Room {
     return null;
   }
 
+  /** A spectator takes a seat between games: an open one, or a bot's chair from the last game. */
+  sit(connId: string): ErrorCode | null {
+    const c = this.conns.get(connId);
+    if (!c) return "bad_message";
+    if (this.status === "playing") return "bad_state";
+    if (this.seatOf(c.conn.userId) !== null) return null;
+    let seat = this.seats.findIndex((s) => s.kind === "open");
+    if (seat < 0 && this.status === "over") seat = this.seats.findIndex((s) => s.kind === "bot");
+    if (seat < 0) return "room_full";
+    Object.assign(this.seats[seat], { kind: "human", userId: c.conn.userId, name: c.conn.name, autopilot: false, timeouts: 0, bot: null });
+    c.spectator = false;
+    if (!this.hostId) this.hostId = c.conn.userId;
+    this.changed();
+    return null;
+  }
+
   /** The player chose to go: in the lobby the seat opens up; mid-game a bot plays it from here. */
   leave(connId: string) {
     const c = this.conns.get(connId);
@@ -518,11 +534,8 @@ export class Room {
     if (!c || typeof text !== "string") return "bad_message";
     const clean = text.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 200);
     if (!clean) return null;
+    if (!this.spend(c.conn.userId)) return "rate_limited";
     const now = this.deps.clock.now();
-    const recent = (this.chatTimes.get(c.conn.userId) ?? []).filter((t) => now - t < 10_000);
-    if (recent.length >= 5) return "rate_limited";
-    recent.push(now);
-    this.chatTimes.set(c.conn.userId, recent);
     const seat = c.spectator ? null : this.seatOf(c.conn.userId);
     this.broadcast({ t: "chat", seat, name: c.conn.name, text: clean, at: now });
     return null;
@@ -562,6 +575,16 @@ export class Room {
   /** Send everyone fresh room info (badges changed after a game settled). */
   touch() {
     this.changed();
+  }
+
+  /** Room-wide talk limit per user: 5 lines or drinks in 10 seconds. */
+  private spend(userId: string): boolean {
+    const now = this.deps.clock.now();
+    const recent = (this.chatTimes.get(userId) ?? []).filter((t) => now - t < 10_000);
+    if (recent.length >= 5) return false;
+    recent.push(now);
+    this.chatTimes.set(userId, recent);
+    return true;
   }
 
   // ------------------------------------------------------------------ sending

@@ -95,18 +95,16 @@
   cursor: pointer;
 }
 .turn-clock {
-  position: fixed;
-  top: calc(12px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  padding: 4px 14px;
+  float: right;
+  margin-left: 8px;
+  padding: 0 10px;
   border-radius: 999px;
   background: rgba(14, 16, 20, 0.9);
   border: 1px solid var(--gold);
   color: var(--gold2);
   font-family: var(--title);
-  font-size: 22px;
+  font-size: 16px;
+  line-height: 1.5;
   pointer-events: none;
 }
 .turn-clock.low {
@@ -118,10 +116,28 @@
   bottom: calc(16px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
-  z-index: 60;
+  z-index: 70;
   padding: 8px 16px;
   border-radius: 12px;
   background: rgba(14, 16, 20, 0.92);
   border: 1px solid var(--line);
   font-family: var(--cond);
+}
+
+.online-banner.top {
+  bottom: auto;
+  top: calc(64px + env(safe-area-inset-top));
+  color: var(--gold, #e7b53c);
+}
+
+.online-banner.autopilot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-color: var(--gold);
+}
+
+/* a spectator's view comes from seat 0, but that hand isn't theirs to see or hold */
+.my-hand.watching {
+  visibility: hidden;
 }

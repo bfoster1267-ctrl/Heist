@@ -263,6 +263,29 @@ describe("Room", () => {
     expect(room.status).toBe("over");
   });
 
+  it("lets a spectator take a bot's chair between games, and plays them in the rematch", () => {
+    const { room } = setup(3);
+    const a = new TestConn("c1", "u1", "Ann");
+    room.join(a);
+    room.start("u1", 1);
+    const w = new TestConn("c2", "u2", "Wes");
+    room.join(w);
+    expect(w.last("room").you.seat).toBeNull();
+    expect(room.sit("c2")).toBe("bad_state"); // not mid-game
+    room.autopilot("c1", true);
+    expect(room.status).toBe("over");
+    expect(room.sit("c2")).toBeNull();
+    const seat = w.last("room").you.seat;
+    expect(seat).not.toBeNull();
+    expect(room.info().seats[seat!]).toMatchObject({ kind: "human", name: "Wes", userId: "u2" });
+    room.autopilot("c1", false);
+    expect(room.start("u1", 2)).toBeNull();
+    // Wes is dealt in: his own hand arrives face up, and the game waits on people, not bots
+    const st = w.last("frames").frames.at(-1)!.state;
+    expect(st.players[seat!].hand.every((c) => c.id >= 0)).toBe(true);
+    expect(st.players[seat!].bot).toBe(false);
+  });
+
   it("rate-limits and cleans chat", () => {
     const { room } = setup(3);
     const a = new TestConn("c1", "u1", "Ann");
@@ -271,6 +294,27 @@ describe("Room", () => {
     expect(a.last("chat")).toMatchObject({ seat: 0, name: "Ann", text: "hi there" });
     for (let i = 0; i < 4; i++) room.chat("c1", "x");
     expect(room.chat("c1", "x")).toBe("rate_limited");
+  });
+
+  it("relays drinks between seated players only", () => {
+    const { room } = setup(3);
+    const a = new TestConn("c1", "u1", "Ann");
+    const b = new TestConn("c2", "u2", "Ben");
+    room.join(a);
+    room.join(b);
+    const w = new TestConn("c3", "u3", "Wes");
+    room.join(w, { spectate: true });
+    expect(room.drinkTargets("c1", 1)).toBe("bad_state"); // not before the game
+    room.start("u1", 5);
+    expect(room.drinkTargets("c1", 1)).toEqual({ from: 0, to: [1] });
+    room.sendDrink("c1", 0, [1], "whiskey");
+    expect(b.last("drink")).toMatchObject({ t: "drink", from: 0, to: [1], id: "whiskey", name: "Ann" });
+    expect(w.last("drink")).toMatchObject({ t: "drink", from: 0, to: [1], id: "whiskey" });
+    expect(room.drinkTargets("c1", 1)).toBe("rate_limited"); // one every few seconds
+    expect(room.drinkTargets("c2", 1)).toBe("bad_message"); // not to yourself
+    expect(room.drinkTargets("c2", 3)).toBe("bad_message"); // no such seat
+    expect(room.drinkTargets("c2", null)).toEqual({ from: 1, to: [0, 2] }); // a round for the table
+    expect(room.drinkTargets("c3", 0)).toBe("bad_state"); // spectators can't buy
   });
 });
 

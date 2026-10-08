@@ -1,6 +1,6 @@
 import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
 import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
@@ -55,19 +55,40 @@ export function Table({
   onGameOver,
   onAgain,
   buyDrink,
+  againLabel,
   seat = LOCAL_SEAT,
   useSource = useTable,
+  talk,
+  watching = false,
+  away,
+  clock,
 }: {
   settings: TableSettings;
   onExit: () => void;
   onGameOver: (won: number, answers: Answer[]) => void;
-  onAgain: () => void;
+  /** deal the next game; left out online when only the host can deal */
+  onAgain?: () => void;
+  /** the label on that button (default "Deal again") */
+  againLabel?: string;
   /** pay for a drink (coins) before it's sent; false = couldn't pay */
   buyDrink?: (emoji: string, count: number) => Promise<boolean>;
   /** The seat this player sits in. */
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
   useSource?: (settings: TableSettings) => TableSource;
+  /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
+  /** Watching, not playing (online): the table is drawn from `seat`, but it isn't yours. */
+  watching?: boolean;
+  /** online: seats whose player has dropped or is on autopilot */
+  away?: Record<number, "away" | "bot">;
+  /** online: the turn clock, shown on your action panel */
+  clock?: ReactNode;
+  talk?: {
+    send: (text: string) => void;
+    listen: (heard: (seat: number, text: string) => void) => () => void;
+    drink: (to: number, emoji: string) => void;
+    listenDrinks: (got: (from: number, to: number, emoji: string) => void) => () => void;
+  };
 }) {
   const HUMAN = seat;
   const t = useSource(settings);
@@ -87,6 +108,7 @@ export function Table({
   const evNow = t.shown?.ev;
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
+  useEffect(() => talk?.listen((seat, text) => chat.say(seat, text)), [talk, chat.say]);
   const nRef = useRef(settings.players);
   // Drinks sit on the rail just above the player's avatar.
   const seatAt = (seat: number): [number, number] => {
@@ -98,13 +120,14 @@ export function Table({
   const drinks = useDrinks(seatAt, (d) => {
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
-    // A bot raises the glass, and sometimes sends one back to you.
+    // A bot raises the glass, and sometimes sends one back to you (not online, where others wouldn't see it).
     window.setTimeout(() => chat.say(d.seat, Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), 300);
-    if (d.from === HUMAN && Math.random() < 0.35) {
+    if (!talk && d.from === HUMAN && Math.random() < 0.35) {
       const back = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
       window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);
     }
   });
+  useEffect(() => talk?.listenDrinks((from, to, emoji) => drinks.send(from, to, emoji)), [talk, drinks.send]);
   // the tour pauses nothing, so it only runs at a local table where the game waits for you
   const [walk, setWalk] = useState(() => !getPrefs().walked && useSource === useTable);
   const [potShown, setPotShown] = useState(0);
@@ -167,7 +190,7 @@ export function Table({
     if (s) {
       nRef.current = s.n;
       chat.react(ev, s);
-      const r = botRound(ev, s);
+      const r = talk ? null : botRound(ev, s);
       if (r) {
         const d = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
         window.setTimeout(() => drinks.send(r[0], r[1], d), 1600);
@@ -263,9 +286,11 @@ export function Table({
               <button className="icon-btn labeled" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
                 ⏭<span className="ib-k">Skip</span>
               </button>
-              <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
-                💬<span className="ib-k">Chat</span>
-              </button>
+              {!watching && (
+                <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
+                  💬<span className="ib-k">Chat</span>
+                </button>
+              )}
               <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
                 ☰<span className="ib-k">Log</span>
               </button>
@@ -323,13 +348,14 @@ export function Table({
                   seat={p.seat}
                   pos={pos}
                   grow={seatGrow(L, pos)}
-                  me={p.seat === HUMAN}
+                  me={!watching && p.seat === HUMAN}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
                   hideoutGlow={pickHide}
                   onHideout={pickHide ? (h) => t.answer({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
                   showBank={wide}
+                  away={away?.[p.seat]}
                 />
               );
             })}
@@ -350,7 +376,7 @@ export function Table({
                 </div>
               </div>
             )}
-            <div className="my-hand" data-anchor="my-hand" role="group" aria-label="Your hand">
+            <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label="Your hand" aria-hidden={watching || undefined}>
               {me.hand.map((c, i) => {
                 const n = me.hand.length;
                 const off = i - (n - 1) / 2;
@@ -384,6 +410,7 @@ export function Table({
                   ask={ask}
                   s={s}
                   seat={HUMAN}
+                  clock={clock}
                   sel={sel}
                   setSel={setSel}
                   answer={(a) => {
@@ -438,12 +465,13 @@ export function Table({
           <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
-            {showChat && (
+            {showChat && !watching && (
               <ChatTray
-                onSay={(text) => chat.say(HUMAN, text)}
+                onSay={(text) => (talk ? talk.send(text) : chat.say(HUMAN, text))}
                 rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
                 onDrink={async (to, emoji) => {
-                  if (!buyDrink || (await buyDrink(emoji, 1))) drinks.send(HUMAN, to, emoji);
+                  if (talk) talk.drink(to, emoji);
+                  else if (!buyDrink || (await buyDrink(emoji, 1))) drinks.send(HUMAN, to, emoji);
                 }}
                 onClose={() => setShowChat(false)}
               />
@@ -481,7 +509,7 @@ export function Table({
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching ? -1 : HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -527,7 +555,23 @@ function Confetti() {
   );
 }
 
-function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: number; pot: number; history: HistoryEntry[]; onAgain: () => void; onExit: () => void }) {
+function GameOver({
+  s,
+  me,
+  pot,
+  history,
+  onAgain,
+  againLabel = "Deal again",
+  onExit,
+}: {
+  s: GameState;
+  me: number;
+  pot: number;
+  history: HistoryEntry[];
+  onAgain?: () => void;
+  againLabel?: string;
+  onExit: () => void;
+}) {
   const won = s.winners!.includes(me);
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
@@ -549,9 +593,15 @@ function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: 
             </div>
           )}
           <div className="btns center">
-            <button className="btn primary big" onClick={onAgain} autoFocus>
-              Deal again
-            </button>
+            {onAgain ? (
+              <button className="btn primary big" onClick={onAgain} autoFocus>
+                {againLabel}
+              </button>
+            ) : (
+              <button className="btn big" disabled>
+                Waiting for the host to deal
+              </button>
+            )}
             <button className="btn ghost" onClick={onExit}>
               Lobby
             </button>

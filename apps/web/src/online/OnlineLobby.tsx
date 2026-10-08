@@ -4,6 +4,7 @@ import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
+import { DRINKS } from "../table/Drinks";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
@@ -258,6 +259,30 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
   const useSource = useMemo(() => onlineSource(sess), [sess]);
   const settings = useMemo(() => ({ players: room.players, name: sess.client.name ?? "", stakes: room.stakes }), [room.players, room.stakes, sess]);
   const host = room.hostId === sess.client.userId;
+  const talk = useMemo(
+    () => ({
+      send: (text: string) => sess.client.chat(text),
+      listen: (heard: (seat: number, text: string) => void) => sess.onMessage((m) => m.t === "chat" && m.seat !== null && heard(m.seat, m.text)),
+      drink: (to: number, emoji: string) => {
+        const d = DRINKS.find((x) => x.emoji === emoji);
+        // the server charges the coins; a "no_coins" error comes back like any other
+        if (d) sess.client.drink(d.id, to);
+      },
+      listenDrinks: (got: (from: number, to: number, emoji: string) => void) =>
+        sess.onMessage((m) => {
+          const d = m.t === "drink" && DRINKS.find((x) => x.id === m.id);
+          if (m.t === "drink" && d) for (const to of m.to) got(m.from, to, d.emoji);
+        }),
+    }),
+    [sess],
+  );
+  const seats = room.seats;
+  const mine = sess.seat === null ? null : seats[sess.seat];
+  const away = useMemo(() => {
+    const a: Record<number, "away" | "bot"> = {};
+    for (const s of seats) if (s.kind === "human" && (s.autopilot || !s.connected)) a[s.seat] = s.autopilot ? "bot" : "away";
+    return a;
+  }, [seats]);
   return (
     <>
       <Table
@@ -265,12 +290,28 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         settings={settings}
         seat={sess.seat ?? 0}
         useSource={useSource}
+        talk={talk}
+        watching={sess.seat === null}
+        away={away}
+        clock={<TurnClock sess={sess} />}
         onExit={onExit}
-        onGameOver={(won) => onWin(won)}
-        onAgain={() => host && sess.client.start()}
+        // a spectator sees the table from seat 0, but its winnings aren't theirs
+        onGameOver={(won) => won && sess.seat !== null && onWin(won)}
+        // a spectator can sit in for the next game; then only the host deals it
+        onAgain={host ? () => sess.client.start() : sess.seat === null ? () => sess.client.sit() : undefined}
+        againLabel={!host && sess.seat === null ? "Take a seat" : undefined}
       />
-      <TurnClock sess={sess} />
-      {room.status === "over" && !host && <div className="online-banner">Waiting for the host to deal again...</div>}
+      {sess.status !== "online" && <div className="online-banner top">Reconnecting...</div>}
+      {mine?.autopilot && room.status === "playing" && (
+        <div className="online-banner autopilot">
+          A bot is playing for you.
+          <button className="btn primary small" onClick={() => sess.client.autopilot(false)}>
+            I'm back
+          </button>
+        </div>
+      )}
+      {sess.seat === null && room.status !== "over" && <div className="online-banner">You're watching this table</div>}
+
     </>
   );
 }

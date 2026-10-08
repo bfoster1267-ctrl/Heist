@@ -50,6 +50,13 @@ export class HeistClient {
     return () => set.delete(h as (m: ServerMsg) => void);
   }
 
+  /** Told when the connection drops (false) and when the server welcomes us again (true). */
+  onConnection(h: (up: boolean) => void): () => void {
+    this.connHandlers.add(h);
+    return () => this.connHandlers.delete(h);
+  }
+  private connHandlers = new Set<(up: boolean) => void>();
+
   /** Every message, after the client has updated its own fields. */
   onAny(h: (m: ServerMsg) => void): () => void {
     this.any.add(h);
@@ -71,6 +78,7 @@ export class HeistClient {
           welcomed = true;
           this.retry = 0;
           resolve();
+          for (const h of this.connHandlers) h(true);
           // back after a drop: rejoin the table and pick up after the last frame we played
           if (this.room) this.send({ t: "join", code: this.room.code, spectate: this.spectating, since: this.game ? this.nextFrame : undefined });
         }
@@ -82,6 +90,7 @@ export class HeistClient {
       ws.onclose = () => {
         this.ws = null;
         this.ask = null;
+        if (welcomed && !this.closed) for (const h of this.connHandlers) h(false);
         if (!this.closed && welcomed && this.opts.reconnect !== false) this.reconnectLater();
       };
     });
@@ -164,6 +173,9 @@ export class HeistClient {
   answer(answer: Answer) {
     if (!this.ask) return;
     this.send({ t: "answer", askId: this.ask.askId, answer });
+  }
+  sit() {
+    this.send({ t: "sit" });
   }
   autopilot(on: boolean) {
     this.send({ t: "autopilot", on });
