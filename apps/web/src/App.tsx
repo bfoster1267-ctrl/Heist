@@ -84,6 +84,7 @@ function Game() {
         name: c.name,
         stakes: c.stakes,
         seed: t.seed,
+        levels: t.levels,
         gameId: t.gameId,
       });
       setRound((r) => r + 1);

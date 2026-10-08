@@ -1,5 +1,5 @@
-import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { createSoloGame } from "@heist/profile";
+import { Bot, runBots, type Answer, type BotLevel, type GameState } from "@heist/engine";
+import { botLevelsFor, createSoloGame } from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -37,8 +37,8 @@ const fakeFetch = async (url: string) => ({
 const verifier = () => new OAuth({ google: { clientIds: ["web-client"] } }, fakeFetch);
 
 /** Play a solo game from the server's seed with a bot in the player's chair, recording answers. */
-function playSolo(seed: number, players: number) {
-  const { game, bots } = createSoloGame(seed, players, "Me");
+function playSolo(seed: number, players: number, levels?: BotLevel[]) {
+  const { game, bots } = createSoloGame(seed, players, "Me", true, levels);
   const me = new Bot(seed + 99);
   const answers: Answer[] = [];
   for (;;) {
@@ -149,6 +149,56 @@ describe("accounts", () => {
     expect(s3.me.progress.stats.games).toBe(2);
     expect(s2.gameId).not.toBe(s3.gameId);
     await expect(svc.soloStart(await acct(), 3, 1_000_000)).rejects.toThrow(/chips/);
+  });
+
+  it("scales vs-bots tables to a hidden skill rating, replaying them with the same bots", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Solo");
+    const acct = () => svc.require(token);
+    // an older client (no `scaled`) gets the normal bots it knows how to build
+    expect((await svc.soloStart(await acct(), 4, 0)).levels).toBeUndefined();
+    const s = await svc.soloStart(await acct(), 4, 0, true);
+    // walking out of the first game cost some rating, so the bots ease off a little
+    expect(s.me.progress.rating).toBeLessThan(1000);
+    expect(s.levels).toEqual(botLevelsFor(s.me.progress.rating, 3));
+    expect(s.levels).toContain("easy");
+    const game = playSolo(s.seed, 4, s.levels);
+    const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
+    const p = done.me.progress;
+    expect(p.ratedGames).toBe(2);
+    if (game.won) expect(p.rating).toBeGreaterThan(s.me.progress.rating);
+    else expect(p.rating).toBeLessThanOrEqual(s.me.progress.rating);
+
+    // a strong player gets hard bots, a weak one easy bots
+    const x = await acct();
+    x.progress.rating = 1200;
+    await svc.store.put(x);
+    expect((await svc.soloStart(await acct(), 5, 0, true)).levels).toEqual(["hard", "hard", "hard", "hard"]);
+    expect(await svc.botLevel(x.id)).toBe("hard");
+    const y = await acct();
+    y.progress.rating = 900;
+    await svc.store.put(y);
+    expect((await svc.soloStart(await acct(), 3, 0, true)).levels).toEqual(["easy", "easy"]);
+  });
+
+  it("moves online ratings by who beat whom", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const a = await svc.register("win@example.com", "password1", "Win");
+    const b = await svc.register("lose@example.com", "password1", "Lose");
+    const out = await svc.recordOnline({
+      stakes: 0,
+      players: 3,
+      seats: [{ seat: 0, userId: a.me.id, bot: false }, { seat: 1, userId: b.me.id, bot: false }, { seat: 2, userId: null, bot: true }],
+      winners: [0],
+      events: [],
+      botLevel: "hard",
+    });
+    const win = out.get(a.me.id)!.me.progress;
+    const lose = out.get(b.me.id)!.me.progress;
+    expect(win.rating).toBeGreaterThan(1000);
+    expect(lose.rating).toBeLessThan(1000);
+    // the winner also beat the (hard) bot; the loser only lost to the winner
+    expect(win.rating - 1000).toBeGreaterThan(1000 - lose.rating);
   });
 
   it("keeps accounts in a file across restarts", async () => {

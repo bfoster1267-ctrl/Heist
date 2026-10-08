@@ -2,7 +2,7 @@ import { Bot, runBots, type Answer } from "@heist/engine";
 import { describe, expect, it } from "vitest";
 import {
   MAX_LEVEL, buy, canPrestige, createSoloGame, equip, failed, level, levelInfo, newProgress, owns, payForDrink, payout,
-  prestige, replaySolo, settle, summarize, xpForLevel, xpToNext, type GameResult, type GameSummary, type Progress,
+  prestige, replaySolo, settle, summarize, xpForLevel, rate, soloRivals, upgrade, botLevelsFor, botLevelFor, xpToNext, type GameResult, type GameSummary, type Progress,
 } from "../src";
 
 /** Play a solo game with a bot in the human seat, recording its answers like the table does. */
@@ -136,5 +136,55 @@ describe("prestige and cosmetics", () => {
     if (failed(r)) throw new Error(r.error);
     expect(r.coins).toBe(40);
     expect(failed(payForDrink({ ...p, coins: 3 }, "beer", 1))).toBe(true);
+  });
+});
+
+describe("skill rating", () => {
+  it("is zero-sum between two players and only moves on head-to-heads", () => {
+    const a = rate(1000, 50, true, [{ rating: 1000, won: false }]);
+    const b = rate(1000, 50, false, [{ rating: 1000, won: true }]);
+    expect(a - 1000).toBe(1000 - b);
+    // two losers at a table someone else won don't move each other
+    expect(rate(1000, 50, false, [{ rating: 1000, won: false }])).toBe(1000);
+    // beating a stronger table pays more than beating a weaker one
+    expect(rate(1000, 50, true, [{ rating: 1200, won: false }])).toBeGreaterThan(rate(1000, 50, true, [{ rating: 800, won: false }]));
+    // quitting loses to everyone
+    expect(rate(1000, 50, false, [{ rating: 1000, won: false }], true)).toBeLessThan(1000);
+    // new players move faster
+    expect(rate(1000, 0, true, [{ rating: 1000, won: false }])).toBeGreaterThan(a);
+  });
+
+  it("settles ratings from rivals, except coached games", () => {
+    const base: GameResult = { mode: "bots", players: 3, stakes: 0, won: true, payout: 0, summary: summarize([], 0), at: 0, rivals: soloRivals(3) };
+    const won = settle(newProgress(), base).progress;
+    expect(won.rating).toBeGreaterThan(1000);
+    expect(won.ratedGames).toBe(1);
+    const coached = settle(newProgress(), { ...base, coached: true }).progress;
+    expect(coached).toMatchObject({ rating: 1000, ratedGames: 0 });
+    expect(upgrade({ chips: 5 }).rating).toBe(1000);
+  });
+
+  it("picks bots from the rating in small steps", () => {
+    expect(botLevelsFor(1000, 4)).toEqual(["normal", "normal", "normal", "normal"]);
+    expect(botLevelsFor(800, 3)).toEqual(["easy", "easy", "easy"]);
+    expect(botLevelsFor(1300, 3)).toEqual(["hard", "hard", "hard"]);
+    expect(botLevelsFor(1030, 4).filter((l) => l === "hard").length).toBe(2);
+    expect(botLevelFor(1000)).toBe("normal");
+  });
+
+  it("replays a solo game with the same bot levels", () => {
+    const levels = botLevelsFor(1200, 3);
+    const { game, bots } = createSoloGame(7, 4, "Tester", true, levels);
+    const me = new Bot(1);
+    const answers: Answer[] = [];
+    for (;;) {
+      runBots(game, bots);
+      const p = game.pending;
+      if (!p) break;
+      const a = me.answer(game, p);
+      game.answer(p.seat, a);
+      answers.push(a);
+    }
+    expect(replaySolo(7, 4, answers, undefined, levels).winners).toEqual(game.s.winners);
   });
 });

@@ -2,7 +2,8 @@
 // can replay a solo game from its seed and the player's answers and check the result before it counts
 // toward a career: the bots' moves come from their own seeded randomness, never from the client.
 
-import { Bot, HeistGame, runBots, type Answer, type Ask, type GameEvent } from "@heist/engine";
+import { Bot, HeistGame, runBots, type Answer, type Ask, type BotLevel, type GameEvent } from "@heist/engine";
+import { BOT_RATING, type Rival } from "./rating";
 
 export const SOLO_SEAT = 0;
 const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
@@ -19,11 +20,12 @@ export function soloBotNames(seed: number, players: number): string[] {
   return names.slice(0, players - 1);
 }
 
-export function createSoloGame(seed: number, players: number, name: string, snapshots = true) {
+/** `levels` gives each bot seat (seat 1 up) its level, picked from the player's rating; missing = normal. */
+export function createSoloGame(seed: number, players: number, name: string, snapshots = true, levels: BotLevel[] = []) {
   const bots = soloBotNames(seed, players);
   const seats = Array.from({ length: players }, (_, i) => (i === SOLO_SEAT ? { name: name || "Ace", bot: false } : { name: bots[i - 1], bot: true }));
   const game = new HeistGame({ seed, seats, snapshots });
-  const botMap = new Map(game.s.players.filter((p) => p.bot).map((p) => [p.seat, new Bot(seed + p.seat * 31)]));
+  const botMap = new Map(game.s.players.filter((p) => p.bot).map((p) => [p.seat, new Bot(seed + p.seat * 31, { level: levels[p.seat - 1] ?? "normal" })]));
   return { game, bots: botMap };
 }
 
@@ -37,8 +39,14 @@ export interface SoloReplay {
  * Replay a finished solo game. Throws if the answers don't make a legal, finished game. Answers from the
  * network go through `clean` first (the server passes its answer sanitizer).
  */
-export function replaySolo(seed: number, players: number, answers: unknown[], clean: (ask: Ask, raw: unknown) => Answer | null = (_, a) => a as Answer): SoloReplay {
-  const { game, bots } = createSoloGame(seed, players, "You", false);
+export function replaySolo(
+  seed: number,
+  players: number,
+  answers: unknown[],
+  clean: (ask: Ask, raw: unknown) => Answer | null = (_, a) => a as Answer,
+  levels: BotLevel[] = [],
+): SoloReplay {
+  const { game, bots } = createSoloGame(seed, players, "You", false, levels);
   const events: GameEvent[] = [];
   const take = () => events.push(...game.drainFrames().map((f) => f.ev));
   take();
@@ -63,4 +71,9 @@ export function replaySolo(seed: number, players: number, answers: unknown[], cl
 /** The pot is every seat's buy-in; winners split it (bots' buy-ins are house money). */
 export function payout(stakes: number, players: number, winners: number[], seat: number): number {
   return winners.includes(seat) ? Math.floor((stakes * players) / winners.length) : 0;
+}
+
+/** The bots at a solo table, as rivals for the skill rating. */
+export function soloRivals(players: number, levels: BotLevel[] = [], winners: number[] = []): Rival[] {
+  return Array.from({ length: players - 1 }, (_, i) => ({ rating: BOT_RATING[levels[i] ?? "normal"], won: winners.includes(i + 1) }));
 }

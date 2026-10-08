@@ -6,6 +6,7 @@ import { COSMETICS, DEFAULT_EQUIPPED, cosmetic, drink, equippable, freeWith, unl
 import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForLevel } from "./levels";
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
 import { addPassXp, passLines, type PassResult, type PassState } from "./season";
+import { START_RATING, rate } from "./rating";
 
 export const START_CHIPS = 10_000;
 /** Enough for one cheap cosmetic straight away. */
@@ -34,12 +35,16 @@ export interface Progress {
   dailyDay: string | null;
   drinksSent: number;
   drinksReceived: number;
+  /** hidden skill rating (see rating.ts) and how many games have moved it */
+  rating: number;
+  ratedGames: number;
 }
 
 export function newProgress(): Progress {
   return {
     chips: START_CHIPS, coins: START_COINS, xp: 0, prestige: 0, stats: emptyStats(), owned: [],
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
+    rating: START_RATING, ratedGames: 0,
   };
 }
 
@@ -111,6 +116,11 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
   p.coins += coins;
   p.chips += r.payout;
   p.stats = addGame(p.stats, r, xp);
+  // coached games teach; they don't count toward skill
+  if (r.rivals?.length && !r.coached) {
+    p.rating = rate(p.rating, p.ratedGames, r.won, r.rivals, r.quit);
+    p.ratedGames++;
+  }
   const passXp = passLines(r, firstWin).reduce((t, l) => t + l.xp, 0);
   const pass = passXp ? addPassXp(p, passXp, r.at) : null;
   return {

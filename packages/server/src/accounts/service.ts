@@ -5,9 +5,9 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, settle, summarize, upgrade, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, settle, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
-import type { GameEvent } from "@heist/engine";
+import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
 import { sanitizeAnswer } from "../sanitize";
 import { OAuth, OAuthError, type OAuthConfig } from "./oauth";
@@ -40,6 +40,8 @@ export interface OnlineResult {
   /** players who weren't at the table at the end: they lose the buy-in and it counts as abandoned */
   abandoned?: number[];
   events: GameEvent[];
+  /** the table's bot level, for rating the bot seats */
+  botLevel?: BotLevel;
 }
 
 export interface AccountOptions {
@@ -320,6 +322,12 @@ export class AccountService {
     return (await this.store.get(userId))?.progress.coins ?? 0;
   }
 
+  /** Bot level for a table this player hosts, from their hidden rating. */
+  async botLevel(userId: string): Promise<BotLevel> {
+    const a = await this.store.get(userId);
+    return botLevelFor(a ? upgrade(a.progress).rating : 1000);
+  }
+
   async chips(userId: string): Promise<number> {
     return (await this.store.get(userId))?.progress.chips ?? 0;
   }
@@ -333,15 +341,17 @@ export class AccountService {
   // ------------------------------------------------------------------ games
 
   /** Start a vs-bots game: pay the buy-in and get a seed from the server. */
-  soloStart(a: Account, players: unknown, stakes: unknown) {
+  /** `scaled`: the client builds bots at the levels in the ticket (older cached clients don't, so they get normal bots). */
+  soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown) {
     if (typeof players !== "number" || !SOLO_PLAYERS.includes(players)) throw new ApiError(400, "Tables are for 3 to 6 players");
     if (typeof stakes !== "number" || !Number.isInteger(stakes) || stakes < 0 || stakes > MAX_STAKES) throw new ApiError(400, "Bad stakes");
     return this.update(a.id, (x) => {
       let quit: Reward | null = null;
       if (x.solo) quit = this.settleQuit(x);
       this.apply(x, buyIn(x.progress, stakes));
-      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes, startedAt: this.now() };
-      return { me: this.me(x), gameId: x.solo.gameId, seed: x.solo.seed, quit };
+      const levels = scaled === true ? botLevelsFor(x.progress.rating, players - 1) : undefined;
+      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes, startedAt: this.now(), levels };
+      return { me: this.me(x), gameId: x.solo.gameId, seed: x.solo.seed, levels, quit };
     });
   }
 
@@ -350,7 +360,7 @@ export class AccountService {
     const g = x.solo!;
     x.solo = null;
     const r = settle(x.progress, {
-      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(),
+      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g.levels),
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
     });
     x.progress = r.progress;
@@ -373,14 +383,16 @@ export class AccountService {
       if (!Array.isArray(answers) || answers.length > 5000) throw new ApiError(400, "Bad answers");
       let rep;
       try {
-        rep = replaySolo(g.seed, g.players, answers, sanitizeAnswer);
+        rep = replaySolo(g.seed, g.players, answers, sanitizeAnswer, g.levels);
       } catch {
         throw new ApiError(400, "That game doesn't check out");
       }
       x.solo = null;
       const won = rep.winners.includes(0);
       const pay = payout(g.stakes, g.players, rep.winners, 0);
-      const r = settle(x.progress, { mode: "bots", players: g.players, stakes: g.stakes, won, payout: pay, summary: summarize(rep.events, 0), at: this.now() });
+      const r = settle(x.progress, { mode: "bots", players: g.players, stakes: g.stakes, won, payout: pay, summary: summarize(rep.events, 0), at: this.now(),
+        rivals: soloRivals(g.players, g.levels, rep.winners),
+      });
       x.progress = r.progress;
       this.board = null;
       return { me: this.me(x), reward: r.reward, winners: rep.winners };
@@ -395,6 +407,12 @@ export class AccountService {
   /** Settle an online game for every signed-in player at the table. */
   async recordOnline(r: OnlineResult): Promise<Map<string, { reward: Reward; me: Me }>> {
     const out = new Map<string, { reward: Reward; me: Me }>();
+    // everyone's rating before this game, so the order players are settled in doesn't matter
+    const ratings = new Map<number, number>();
+    for (const s of r.seats) {
+      const acct = !s.bot && s.userId ? await this.store.get(s.userId) : null;
+      ratings.set(s.seat, acct ? upgrade(acct.progress).rating : BOT_RATING[s.bot ? (r.botLevel ?? "normal") : "normal"]);
+    }
     for (const s of r.seats) {
       if (s.bot || !s.userId || !(await this.store.get(s.userId))) continue;
       const res = await this.update(s.userId, (x) => {
@@ -403,7 +421,9 @@ export class AccountService {
         const pay = won ? payout(r.stakes, r.players, r.winners, s.seat) : 0;
         // online buy-ins are taken when the game settles; chips never go below zero
         x.progress = { ...x.progress, chips: Math.max(0, x.progress.chips - r.stakes) };
-        const st = settle(x.progress, { mode: "online", players: r.players, stakes: r.stakes, won, payout: pay, summary: summarize(r.events, s.seat), quit, at: this.now() });
+        const st = settle(x.progress, { mode: "online", players: r.players, stakes: r.stakes, won, payout: pay, summary: summarize(r.events, s.seat), quit, at: this.now(),
+          rivals: r.seats.filter((o) => o.seat !== s.seat).map((o) => ({ rating: ratings.get(o.seat)!, won: r.winners.includes(o.seat) && !r.abandoned?.includes(o.seat) })),
+        });
         x.progress = st.progress;
         return { reward: st.reward, me: this.me(x) };
       });

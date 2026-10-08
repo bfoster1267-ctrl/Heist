@@ -50,6 +50,8 @@ export interface GameOverReport {
   players: number;
   /** every event of the game, for career stats */
   events: GameEvent[];
+  /** how the bot seats played (for the skill rating) */
+  botLevel: BotLevel;
 }
 
 export interface RoomDeps {
@@ -496,6 +498,7 @@ export class Room {
       game: this.games,
       players: this.players,
       events: this.events,
+      botLevel: this.botLevel,
     });
     for (const s of this.seats) s.autopilot = false;
     this.changed();

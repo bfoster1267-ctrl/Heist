@@ -1,7 +1,7 @@
 // Runs a solo table in the browser: the engine, bot fillers, and a frame queue the table plays back
 // with pacing so every move can be seen. Online play will swap the engine for a server connection
 // that sends the same Frames.
-import { Bot, HeistGame, runBots, viewFor, type Answer, type Ask, type Frame, type GameEvent, type GameState } from "@heist/engine";
+import { Bot, HeistGame, runBots, viewFor, type Answer, type Ask, type BotLevel, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { createSoloGame } from "@heist/profile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sfx, yourTurn } from "./sound";
@@ -30,6 +30,8 @@ export interface TableSettings {
   name: string;
   stakes: number;
   seed?: number;
+  /** each bot's level, from the account's solo ticket */
+  levels?: BotLevel[];
 }
 
 export interface Shown {
@@ -134,7 +136,7 @@ export function useTable(settings: TableSettings) {
   const start = useCallback(() => {
     const seed = settings.seed ?? Math.floor(Math.random() * 2 ** 31);
     // built the same way the server replays it, so a finished game can be checked before it counts
-    const { game, bots } = createSoloGame(seed, settings.players, settings.name);
+    const { game, bots } = createSoloGame(seed, settings.players, settings.name, true, settings.levels);
     if (ref.current?.timer) clearTimeout(ref.current.timer);
     dropLate();
     ref.current = { game, bots, queue: game.drainFrames(), timer: null, answers: [] };
