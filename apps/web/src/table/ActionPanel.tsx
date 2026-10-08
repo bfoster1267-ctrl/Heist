@@ -233,30 +233,33 @@ export function ActionPanel({
     case "pickHideout":
       title = `Pick ${name(ask.mark)}'s hideout to hit`;
       body = (
-        <div className="btns hideout-picks">
-          {s.players[ask.mark].hideouts.map((h, i) => {
-            // who else already lives there, so you can see a rival's Foothold even if the table hides it
-            const others = h.map((k, seat) => ({ k, seat })).filter((e) => e.k > 0 && e.seat !== ask.mark);
-            return (
-              <Btn key={i} kind="hideout-pick" onClick={() => answer({ kind: "pickHideout", hideout: i })}>
-                <span>
-                  Hideout {i + 1} · {h[ask.mark]} guard{h[ask.mark] === 1 ? "" : "s"}
-                </span>
-                <span className="hp-others">
-                  {others.length === 0
-                    ? "no Footholds"
-                    : others.map(({ k, seat }) => (
-                        <span key={seat} className="hp-other">
-                          <Crew color={s.players[seat].color} size={14} />
-                          {seat === me ? "You" : s.players[seat].name}
-                          {k > 1 ? ` ×${k}` : ""}
-                        </span>
-                      ))}
-                </span>
-              </Btn>
-            );
-          })}
-        </div>
+        <>
+          <div className="btns hideout-picks">
+            {s.players[ask.mark].hideouts.map((h, i) => {
+              // who else already lives there, so you can see a rival's Foothold even if the table hides it
+              const others = h.map((k, seat) => ({ k, seat })).filter((e) => e.k > 0 && e.seat !== ask.mark);
+              return (
+                <Btn key={i} kind="hideout-pick" onClick={() => answer({ kind: "pickHideout", hideout: i })}>
+                  <span>
+                    Hideout {i + 1} · {h[ask.mark]} guard{h[ask.mark] === 1 ? "" : "s"}
+                  </span>
+                  <span className="hp-others">
+                    {others.length === 0
+                      ? "no Footholds"
+                      : others.map(({ k, seat }) => (
+                          <span key={seat} className="hp-other">
+                            <Crew color={s.players[seat].color} size={14} />
+                            {seat === me ? "You" : s.players[seat].name}
+                            {k > 1 ? ` ×${k}` : ""}
+                          </span>
+                        ))}
+                  </span>
+                </Btn>
+              );
+            })}
+          </div>
+          {s.players[ask.mark].hideouts.some((h) => h[me] > 0) && <div className="hint">Winning where you already have crew gets you no new Foothold.</div>}
+        </>
       );
       break;
     case "send":
