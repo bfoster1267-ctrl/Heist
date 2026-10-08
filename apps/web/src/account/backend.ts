@@ -368,6 +368,8 @@ export class ServerBackend implements Backend {
 }
 
 export async function openBackend(): Promise<Backend> {
-  const url = (import.meta.env.VITE_SERVER_URL as string | undefined)?.replace(/\/$/, "");
+  // "same-origin": the app is served by the game server itself (the Docker image builds it this way)
+  const set = import.meta.env.VITE_SERVER_URL as string | undefined;
+  const url = (set === "same-origin" ? location.origin : set)?.replace(/\/$/, "");
   return (url && (await ServerBackend.connect(url))) || new BrowserBackend();
 }

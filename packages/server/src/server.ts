@@ -7,6 +7,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
 import { accountsApi } from "./accounts/api";
+import { serveStatic } from "./static";
 import { ApiError, type AccountService } from "./accounts/service";
 import { GuestIdentity, type Identity, type IdentityProvider } from "./identity";
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
@@ -36,6 +37,8 @@ export interface ServerOptions {
    * account), the /api routes are served, online games settle chips, stats and XP, and drinks cost coins.
    */
   accounts?: AccountService;
+  /** a built web app to serve at / (so the game and its server share one address) */
+  webDir?: string;
 }
 
 export interface HeistServer {
@@ -101,6 +104,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
+    if (o.webDir && (await serveStatic(o.webDir, req, res))) return;
     res.writeHead(404).end();
   });
 

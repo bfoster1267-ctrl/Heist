@@ -8,6 +8,7 @@
 //   GOOGLE_CLIENT_IDS    Google OAuth client id(s), comma-separated: turns on Sign in with Google
 //   APPLE_CLIENT_IDS     Apple Services ID (web) and app bundle id, comma-separated: turns on Sign in with Apple
 //   FACEBOOK_APP_ID, FACEBOOK_APP_SECRET   turn on Continue with Facebook
+//   WEB_DIR         a built web app to serve at / (the Docker image sets this)
 //   DEV_LOGINS=1    sign in by name with no password (local testing only)
 
 import { AccountService } from "./accounts/service";
@@ -39,6 +40,7 @@ const server = await startServer({
   accounts,
   allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [],
   compression: env.COMPRESSION !== "0",
+  webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),

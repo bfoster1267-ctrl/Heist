@@ -89,18 +89,7 @@ export function SignIn() {
     return (
       <div className="acct-signin">
         <h3>Save your career to an account</h3>
-        <div className="acct-provider-row">
-          <button className="acct-provider apple" disabled>
-            Sign in with Apple
-          </button>
-          <button className="acct-provider google" disabled>
-            Sign in with Google
-          </button>
-          <button className="acct-provider facebook" disabled>
-            Continue with Facebook
-          </button>
-        </div>
-        <div className="dim">Accounts turn on when the game server is live. Until then your level, coins and stats are saved in this browser.</div>
+        <div className="dim">Email sign-up turns on when the game server is live. Until then your level, coins and stats are saved in this browser.</div>
       </div>
     );
 

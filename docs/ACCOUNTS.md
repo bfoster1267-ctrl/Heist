@@ -33,6 +33,18 @@ All of these rules live in `packages/profile` and are shared by the server and t
   (or if it can't be reached), progress is kept in that browser with the same rules, which is how the
   shared preview link works today.
 
+## Going live (email sign-up)
+
+The Docker image runs the game server and serves the web app from the same address, so one link does
+everything: the game, email accounts, career stats and online tables.
+
+1. Make an account at <https://render.com> and connect GitHub.
+2. **New > Blueprint**, pick this repo. Render reads `render.yaml` (Starter plan with a 1 GB disk, so
+   accounts survive restarts). Leave `ALLOWED_ORIGINS` blank for now.
+3. When it's live, open `https://<name>.onrender.com` on the phone and use Share > Add to Home Screen.
+
+Players can then create an account with an email and password. There's no password-reset email yet.
+
 ## Turning on each sign-in method
 
 Email sign-in works with no setup. Each of the others appears in the app as soon as its settings are on
