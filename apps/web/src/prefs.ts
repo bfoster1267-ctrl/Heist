@@ -15,8 +15,10 @@ export interface Prefs {
   motion: MotionPref;
   theme: Theme;
   haptics: boolean;
-  /** Bigger text and controls on the table. */
+  /** Old on/off larger-text switch; kept so saved prefs still load (true counts as textSize 1.2). */
   bigText: boolean;
+  /** Text size on the table, 1 = normal, up to 1.8. */
+  textSize: number;
   tips: boolean;
   /** The first-game walkthrough has been shown. */
   walked: boolean;
@@ -25,11 +27,13 @@ export interface Prefs {
 }
 
 const KEY = "heist.prefs";
-const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, tips: true, walked: false, seen: [] };
+const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: 1, tips: true, walked: false, seen: [] };
 
 function load(): Prefs {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(KEY) || "{}") };
+    const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+    if (saved.bigText && saved.textSize === undefined) saved.textSize = 1.2;
+    return { ...DEFAULTS, ...saved };
   } catch {
     return { ...DEFAULTS };
   }
