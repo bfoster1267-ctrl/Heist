@@ -1,7 +1,9 @@
 import { CREWS } from "@heist/engine";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Chips, CrewBadge } from "./table/pieces";
+import { isIOS, isStandalone } from "./appShell";
+import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 
 const FLOAT_POS = [
@@ -29,6 +31,7 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
     }
   });
   const [stake, setStake] = useState(1);
+  const prefs = usePrefs();
   const go = (i: number) => {
     try {
       localStorage.setItem("heist.name", name);
@@ -54,60 +57,132 @@ export function Lobby({ chips, onPlay, onRefill }: { chips: number; onPlay: (c: 
         ))}
       </div>
       <motion.div className="lobby-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-        <div className="logo">HEIST</div>
-        <div className="tagline">Plan the job. Pick your crew. Trust no one.</div>
-        <div className="wallet">
-          <Chips amount={chips} />
-          <span className="dim">play chips</span>
-          {chips < REFILL_TO && (
-            <button className="btn small" onClick={onRefill}>
-              Free refill
+        <div className="lobby-col">
+          <div className="logo">HEIST</div>
+          <div className="tagline">Plan the job. Pick your crew. Trust no one.</div>
+          <div className="wallet">
+            <Chips amount={chips} />
+            <span className="dim">play chips</span>
+            {chips < REFILL_TO && (
+              <button className="btn small" onClick={onRefill}>
+                Free refill
+              </button>
+            )}
+          </div>
+
+          <label className="field">
+            <span>Your name</span>
+            <input value={name} maxLength={14} placeholder="Ace" onChange={(e) => setName(e.target.value)} />
+          </label>
+
+          <div className="field">
+            <span>Players</span>
+            <div className="seg">
+              {[3, 4, 5, 6].map((n) => (
+                <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="lobby-col">
+          <div className="field">
+            <span>Table</span>
+            <div className="stakes-grid">
+              {STAKES.map((st, i) => (
+                <button key={st.name} className={"stake" + (stake === i ? " on" : "")} disabled={chips < st.buyIn} onClick={() => setStake(i)}>
+                  <span className="stake-name">{st.name}</span>
+                  <span className="stake-buy">Buy-in {st.buyIn.toLocaleString()}</span>
+                  <span className="stake-pot">Pot {(st.buyIn * players).toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button className="btn primary huge" disabled={chips < STAKES[stake].buyIn} onClick={() => go(stake)}>
+            Quick Match
+          </button>
+          <InstallHint />
+          <div className="lobby-row">
+            <button className="btn ghost" disabled title="Coming with online play">
+              Invite friends
             </button>
+            <button className="btn ghost" disabled title="Coming with online play">
+              Queue with friends
+            </button>
+          </div>
+          {prefs.walked ? (
+            <button className="btn ghost small learn" onClick={() => setPrefs({ walked: false, tips: true, seen: [] })}>
+              Show me the tour again next game
+            </button>
+          ) : (
+            <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
+          <div className="fine">Online tables are coming. Quick Match seats you with bots for now. Chips are play money only.</div>
         </div>
-
-        <label className="field">
-          <span>Your name</span>
-          <input value={name} maxLength={14} placeholder="Ace" onChange={(e) => setName(e.target.value)} />
-        </label>
-
-        <div className="field">
-          <span>Players</span>
-          <div className="seg">
-            {[3, 4, 5, 6].map((n) => (
-              <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
-                {n}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="field">
-          <span>Table</span>
-          <div className="stakes-grid">
-            {STAKES.map((st, i) => (
-              <button key={st.name} className={"stake" + (stake === i ? " on" : "")} disabled={chips < st.buyIn} onClick={() => setStake(i)}>
-                <span className="stake-name">{st.name}</span>
-                <span className="stake-buy">Buy-in {st.buyIn.toLocaleString()}</span>
-                <span className="stake-pot">Pot {(st.buyIn * players).toLocaleString()}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <button className="btn primary huge" disabled={chips < STAKES[stake].buyIn} onClick={() => go(stake)}>
-          Quick Match
-        </button>
-        <div className="lobby-row">
-          <button className="btn ghost" disabled title="Coming with online play">
-            Invite friends
-          </button>
-          <button className="btn ghost" disabled title="Coming with online play">
-            Queue with friends
-          </button>
-        </div>
-        <div className="fine">Online tables are coming. Quick Match seats you with bots for now. Chips are play money only.</div>
       </motion.div>
+    </div>
+  );
+}
+
+type InstallEvent = Event & { prompt(): Promise<void> };
+
+/** Nudge toward the home-screen app: Safari's Share menu on iPhone, the install prompt elsewhere. */
+function InstallHint() {
+  const [hidden, setHidden] = useState(() => {
+    try {
+      return localStorage.getItem("heist.installHint") === "off";
+    } catch {
+      return false;
+    }
+  });
+  const [deferred, setDeferred] = useState<InstallEvent | null>(null);
+  useEffect(() => {
+    const f = (e: Event) => {
+      e.preventDefault();
+      setDeferred(e as InstallEvent);
+    };
+    window.addEventListener("beforeinstallprompt", f);
+    return () => window.removeEventListener("beforeinstallprompt", f);
+  }, []);
+  if (hidden || isStandalone() || location.protocol === "file:") return null;
+  const close = () => {
+    setHidden(true);
+    try {
+      localStorage.setItem("heist.installHint", "off");
+    } catch {
+      /* storage blocked */
+    }
+  };
+  if (isIOS())
+    return (
+      <div className="install" role="note">
+        <span>
+          <b>Play it like an app.</b> Tap Share{" "}
+          <svg className="share" viewBox="0 0 14 16" aria-label="Share" fill="none" stroke="currentColor" strokeWidth="1.6">
+            <path d="M7 1v9M3.5 4.5 7 1l3.5 3.5M4 7H2v8h10V7h-2" />
+          </svg>{" "}
+          then <b>Add to Home Screen</b>. It opens full screen and works offline.
+        </span>
+        <button className="x" onClick={close} aria-label="Hide">
+          ✕
+        </button>
+      </div>
+    );
+  if (!deferred) return null;
+  return (
+    <div className="install" role="note">
+      <span>
+        <b>Install Heist</b> to play full screen, even offline.
+      </span>
+      <button className="btn small primary" onClick={() => void deferred.prompt().then(close)}>
+        Install
+      </button>
+      <button className="x" onClick={close} aria-label="Hide">
+        ✕
+      </button>
     </div>
   );
 }

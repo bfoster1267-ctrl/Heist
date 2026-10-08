@@ -1,6 +1,24 @@
 import { roleName, ROLES, type GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { CardBack, Crew, CrewBadge } from "./pieces";
+import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
+
+/** Click-or-keyboard props for a table element that acts like a button. */
+export function pressable(onClick?: () => void, label?: string) {
+  if (!onClick) return {};
+  return {
+    role: "button",
+    tabIndex: 0,
+    "aria-label": label,
+    onClick,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        e.stopPropagation();
+        onClick();
+      }
+    },
+  };
+}
 
 export function footholdsOf(s: GameState, p: number) {
   let k = 0;
@@ -32,8 +50,8 @@ export function Hideout({
     <div
       data-anchor={`hideout-${owner}-${h}`}
       className={"hideout" + (glow ? " glow" : "") + (targeted || busted ? " targeted" : "") + (onClick ? " clickable" : "") + (big ? " big" : "")}
-      onClick={onClick}
-      title={`Hideout ${h + 1}`}
+      data-tip={`${s.players[owner].name}'s hideout ${h + 1}\n${entries.map(({ k, seat }) => `${k} ${s.players[seat].name}${seat === owner ? " (home)" : " (Foothold)"}`).join(", ") || "Empty"}`}
+      {...pressable(onClick, `Hideout ${h + 1}`)}
     >
       <span className="hideout-num">{h + 1}</span>
       {entries.length === 0 && <span className="hideout-empty">empty</span>}
@@ -56,6 +74,8 @@ export function Seat({
   onClick,
   hideoutGlow,
   onHideout,
+  acting,
+  showBank,
 }: {
   s: GameState;
   seat: number;
@@ -65,6 +85,8 @@ export function Seat({
   onClick?: () => void;
   hideoutGlow?: boolean;
   onHideout?: (h: number) => void;
+  acting?: boolean;
+  showBank?: boolean;
 }) {
   const P = s.players[seat];
   const j = s.job;
@@ -77,14 +99,22 @@ export function Seat({
   const winner = s.winners?.includes(seat);
   return (
     <motion.div
-      className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "")}
+      className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "")}
       style={{ left: pos[0], top: pos[1] }}
-      onClick={onClick}
       layout={false}
+      data-anchor={me ? "my-seat" : undefined}
+      {...pressable(onClick, `Pick ${P.name} as the Mark`)}
     >
       <div className="seat-top">
         <div className="seat-avatar" data-anchor={`seat-${seat}`}>
           <CrewBadge color={P.color} size={42} />
+          {acting && !me && (
+            <span className="thinking" aria-hidden>
+              <span />
+              <span />
+              <span />
+            </span>
+          )}
           <AnimatePresence>
             {isBoss && (
               <motion.span key="boss" className="tag tag-boss" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
@@ -103,29 +133,29 @@ export function Seat({
             {P.name}
             {me && <span className="you-tag">YOU</span>}
           </div>
-          <div className="seat-role" title={role?.text}>
+          <div className="seat-role" data-tip-role={role?.id} tabIndex={role ? 0 : undefined}>
             {roleName(P.role)}
           </div>
         </div>
-        <div className="seat-fh" title={`${fh} of ${s.target} Footholds`}>
+        <div className="seat-fh" data-anchor={me ? "my-fh" : undefined} data-tip={`Footholds: ${fh} of ${s.target}\nCrew living in rival hideouts. ${s.target} wins.`} aria-label={`${fh} of ${s.target} Footholds`}>
           {Array.from({ length: s.target }, (_, i) => (
-            <span key={i} className={"pip" + (i < fh ? " on" : "")} />
+            <motion.span key={i + (i < fh ? "on" : "")} className={"pip" + (i < fh ? " on" : "")} initial={i < fh ? { scale: 2.4 } : false} animate={{ scale: 1 }} transition={{ type: "spring", stiffness: 300, damping: 12 }} />
           ))}
         </div>
       </div>
       <div className="seat-stats">
-        <span className="stat" title="Cards in hand">
+        <span className="stat" data-tip="Cards in hand">
           <span className="mini-back" />
           {P.hand.length}
         </span>
-        <span className="stat cash" title="Banked cash" data-anchor={`bank-${seat}`}>
-          ${cash}
+        <span className="stat cash" data-tip="Banked cash\nSpent on crew and bets. Thieves take loot from it." data-anchor={`bank-${seat}`}>
+          <CountUp value={cash} prefix="$" />
         </span>
-        <span className="stat" title="Crew at home" data-anchor={`home-${seat}`}>
+        <span className="stat" data-tip="Crew at home\nIn your own hideouts, ready to send." data-anchor={`home-${seat}`}>
           <Crew color={P.color} size={13} />
           {home}
         </span>
-        <span className="stat dim" title="In the Pen / in reserve">
+        <span className="stat dim" data-tip="In the Pen / in reserve\nOne crew leaves the Pen each turn. Reserve crew can be hired.">
           Pen {P.pen} · Res {P.reserve}
         </span>
       </div>
@@ -143,8 +173,8 @@ export function Seat({
           ))}
         </div>
       )}
-      {!me && P.bank.length > 0 && (
-        <div className="seat-bank" title="Banked cards (cash)">
+      {(!me || showBank) && P.bank.length > 0 && (
+        <div className="seat-bank">
           {P.bank.map((c) => (
             <motion.span key={c.id} className="bank-coin" initial={{ scale: 0 }} animate={{ scale: 1 }}>
               ${c.cash}
