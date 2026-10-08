@@ -95,18 +95,16 @@
   cursor: pointer;
 }
 .turn-clock {
-  position: fixed;
-  top: calc(12px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  padding: 4px 14px;
+  float: right;
+  margin-left: 8px;
+  padding: 0 10px;
   border-radius: 999px;
   background: rgba(14, 16, 20, 0.9);
   border: 1px solid var(--gold);
   color: var(--gold2);
   font-family: var(--title);
-  font-size: 22px;
+  font-size: 16px;
+  line-height: 1.5;
   pointer-events: none;
 }
 .turn-clock.low {

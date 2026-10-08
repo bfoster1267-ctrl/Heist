@@ -1,6 +1,6 @@
 import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buzz } from "../haptics";
 import { click } from "../sound";
 import { pressable } from "./Seat";
@@ -47,7 +47,24 @@ function Btn({ children, onClick, kind = "", disabled }: { children: React.React
   );
 }
 
-export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s: GameState; seat: number; sel: number[]; setSel: (x: number[]) => void; answer: (a: Answer) => void }) {
+export function ActionPanel({
+  ask,
+  s,
+  seat,
+  sel,
+  setSel,
+  answer,
+  clock,
+}: {
+  ask: Ask;
+  s: GameState;
+  seat: number;
+  sel: number[];
+  setSel: (x: number[]) => void;
+  answer: (a: Answer) => void;
+  /** shown in the title row (online: the turn clock) */
+  clock?: ReactNode;
+}) {
   const [n, setN] = useState(1);
   const [n2, setN2] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
@@ -456,6 +473,7 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
       <div className="action-title" id="action-title">
         <span className="your-move-dot" aria-hidden />
         {title}
+        {clock}
       </div>
       {body}
     </motion.div>

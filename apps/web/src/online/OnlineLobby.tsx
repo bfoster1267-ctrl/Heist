@@ -291,12 +291,12 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         talk={talk}
         watching={sess.seat === null}
         away={away}
+        clock={<TurnClock sess={sess} />}
         onExit={onExit}
         // a spectator sees the table from seat 0, but its winnings aren't theirs
         onGameOver={(won) => won && sess.seat !== null && onWin(won)}
         onAgain={() => host && sess.client.start()}
       />
-      <TurnClock sess={sess} />
       {sess.status !== "online" && <div className="online-banner top">Reconnecting...</div>}
       {sess.seat === null && room.status !== "over" && <div className="online-banner">You're watching this table</div>}
       {room.status === "over" && !host && <div className="online-banner">Waiting for the host to deal again...</div>}

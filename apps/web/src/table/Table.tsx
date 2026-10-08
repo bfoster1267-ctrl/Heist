@@ -1,6 +1,6 @@
 import { CREWS, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
 import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
@@ -59,6 +59,7 @@ export function Table({
   talk,
   watching = false,
   away,
+  clock,
 }: {
   settings: TableSettings;
   onExit: () => void;
@@ -73,6 +74,8 @@ export function Table({
   watching?: boolean;
   /** online: seats whose player has dropped or is on autopilot */
   away?: Record<number, "away" | "bot">;
+  /** online: the turn clock, shown on your action panel */
+  clock?: ReactNode;
   talk?: {
     send: (text: string) => void;
     listen: (heard: (seat: number, text: string) => void) => () => void;
@@ -399,6 +402,7 @@ export function Table({
                   ask={ask}
                   s={s}
                   seat={HUMAN}
+                  clock={clock}
                   sel={sel}
                   setSel={setSel}
                   answer={(a) => {
