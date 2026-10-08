@@ -8,6 +8,7 @@ import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN, useTable, type HistoryEntry, type TableSettings } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
+import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, Walkthrough } from "./Coach";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
@@ -37,6 +38,18 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
   const [showSettings, setShowSettings] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const chat = useBubbles(HUMAN);
+  const nRef = useRef(settings.players);
+  const seatAt = (seat: number) => seatPos(L, seat, nRef.current, HUMAN);
+  const drinks = useDrinks(seatAt, (d) => {
+    const st = t.shown?.state;
+    if (!st?.players[d.seat]?.bot) return;
+    // A bot raises the glass, and sometimes sends one back to you.
+    window.setTimeout(() => chat.say(d.seat, Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), 300);
+    if (d.from === HUMAN && Math.random() < 0.35) {
+      const back = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
+      window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);
+    }
+  });
   const [walk, setWalk] = useState(() => !getPrefs().walked);
   const [potShown, setPotShown] = useState(0);
   const [paidOut, setPaidOut] = useState(false);
@@ -95,7 +108,15 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
   }, [t.shown?.key]);
 
   useEffect(() => {
-    if (s) chat.react(ev, s);
+    if (s) {
+      nRef.current = s.n;
+      chat.react(ev, s);
+      const r = botRound(ev, s);
+      if (r) {
+        const d = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
+        window.setTimeout(() => drinks.send(r[0], r[1], d), 1600);
+      }
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t.shown?.key]);
 
@@ -346,7 +367,17 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
           <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
-          <AnimatePresence>{showChat && <ChatTray onSay={(text) => chat.say(HUMAN, text)} onClose={() => setShowChat(false)} />}</AnimatePresence>
+          <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
+          <AnimatePresence>
+            {showChat && (
+              <ChatTray
+                onSay={(text) => chat.say(HUMAN, text)}
+                rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
+                onDrink={(to, emoji) => drinks.send(HUMAN, to, emoji)}
+                onClose={() => setShowChat(false)}
+              />
+            )}
+          </AnimatePresence>
           <FlightLayer flights={flights} speed={t.speed} />
 
           <AnimatePresence>

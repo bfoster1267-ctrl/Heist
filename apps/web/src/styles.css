@@ -2423,6 +2423,44 @@ button:disabled {
   flex-wrap: wrap;
   gap: 5px;
 }
+.chat-drinks {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.chat-drinks .chat-emotes {
+  grid-template-columns: repeat(5, 1fr);
+  margin-bottom: 0;
+}
+.chat-head {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--dim, #9aa0aa);
+  margin-bottom: 6px;
+}
+/* drinks */
+.drink-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 37;
+}
+.drink {
+  position: absolute;
+  font-size: 26px;
+  line-height: 1;
+  translate: -50% -50%;
+  filter: drop-shadow(0 4px 4px rgba(0, 0, 0, 0.55));
+}
+.drink.sliding {
+  left: 0;
+  top: 0;
+  font-size: 30px;
+  z-index: 1;
+}
 /* recap */
 .modal {
   max-height: calc(100% - 30px);

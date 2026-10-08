@@ -106,6 +106,12 @@ export const pop = () => {
   tone(520, 0.08, 0, "sine", 0.08);
   tone(780, 0.1, 0.05, "sine", 0.06);
 };
+/** Two glasses touching: a drink lands. */
+export const clink = () => {
+  tone(1568, 0.5, 0, "triangle", 0.06);
+  tone(2093, 0.45, 0.04, "triangle", 0.05);
+  tone(3136, 0.25, 0.04, "sine", 0.02);
+};
 /** A riffle: a run of quick card flicks. */
 export const shuffle = () => {
   for (let i = 0; i < 14; i++) noise(0.05, 2000 + (i % 3) * 500, 0.18, i * 0.035);

@@ -5,6 +5,7 @@ import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pop } from "../sound";
+import { DRINKS } from "./Drinks";
 
 export interface Bubble {
   seat: number;
@@ -102,8 +103,19 @@ export function Bubbles({ bubbles, pos }: { bubbles: Bubble[]; pos: (seat: numbe
   );
 }
 
-export function ChatTray({ onSay, onClose }: { onSay: (t: string) => void; onClose: () => void }) {
+export function ChatTray({
+  onSay,
+  onDrink,
+  rivals,
+  onClose,
+}: {
+  onSay: (t: string) => void;
+  onDrink: (to: number, emoji: string) => void;
+  rivals: { seat: number; name: string }[];
+  onClose: () => void;
+}) {
   const [cool, setCool] = useState(false);
+  const [drink, setDrink] = useState<string | null>(null);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
@@ -131,6 +143,36 @@ export function ChatTray({ onSay, onClose }: { onSay: (t: string) => void; onClo
             {l}
           </button>
         ))}
+      </div>
+      <div className="chat-drinks">
+        <div className="chat-head">{drink ? `Send ${drink} to…` : "Send a drink"}</div>
+        {drink ? (
+          <div className="chat-lines">
+            {rivals.map((r) => (
+              <button
+                key={r.seat}
+                className="btn small"
+                onClick={() => {
+                  onDrink(r.seat, drink);
+                  onClose();
+                }}
+              >
+                {r.name}
+              </button>
+            ))}
+            <button className="btn small ghost" onClick={() => setDrink(null)} aria-label="Pick another drink">
+              ←
+            </button>
+          </div>
+        ) : (
+          <div className="chat-emotes">
+            {DRINKS.map((d) => (
+              <button key={d.id} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}`} title={d.name}>
+                {d.emoji}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </motion.div>
   );
