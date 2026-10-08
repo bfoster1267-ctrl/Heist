@@ -1,8 +1,12 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { STAGES } from "@heist/profile";
+import { Campaign } from "./Campaign";
 import { Chips, CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
+import { Settings } from "./table/Settings";
+import { createPortal } from "react-dom";
 import { isIOS, isStandalone } from "./appShell";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
@@ -20,30 +24,51 @@ export interface LobbyChoice {
   players: number;
   name: string;
   stakes: number;
+  /** a campaign stage (sets the table; no buy-in) */
+  campaign?: number;
 }
 
-export function Lobby({ chips, onPlay, onRefill, onOnline }: { chips: number; onPlay: (c: LobbyChoice) => void; onRefill: () => void; onOnline?: (name: string) => void }) {
+export function Lobby({
+  chips,
+  onPlay,
+  onRefill,
+  onOnline,
+  defaultName,
+  top,
+  cleared = 0,
+}: {
+  chips: number;
+  onPlay: (c: LobbyChoice) => void;
+  onRefill: () => void;
+  onOnline?: (name: string) => void;
+  defaultName?: string;
+  top?: ReactNode;
+  /** campaign stages cleared */
+  cleared?: number;
+}) {
   const [players, setPlayers] = useState(4);
   const [name, setName] = useState(() => {
     try {
-      return localStorage.getItem("heist.name") || "";
+      return defaultName || localStorage.getItem("heist.name") || "";
     } catch {
       return "";
     }
   });
   const [stake, setStake] = useState(1);
   const [rules, setRules] = useState(false);
+  const [camp, setCamp] = useState(false);
+  const [settings, setSettings] = useState(false);
   const prefs = usePrefs();
-  const go = (i: number) => {
+  const go = (i: number, campaign?: number) => {
     try {
       localStorage.setItem("heist.name", name);
     } catch {
       /* ignore */
     }
-    onPlay({ players, name: name.trim() || "Ace", stakes: STAKES[i].buyIn });
+    onPlay({ players, name: name.trim() || "Ace", stakes: campaign ? 0 : STAKES[i].buyIn, campaign });
   };
   return (
-    <div className="lobby">
+    <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
         {CREWS.map((c, i) => (
           <motion.span
@@ -59,6 +84,7 @@ export function Lobby({ chips, onPlay, onRefill, onOnline }: { chips: number; on
         ))}
       </div>
       <motion.div className="lobby-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+        {top && <div className="acct-in-lobby">{top}</div>}
         <div className="lobby-col">
           <div className="logo">HEIST</div>
           <div className="tagline">Plan the job. Pick your crew. Trust no one.</div>
@@ -108,14 +134,33 @@ export function Lobby({ chips, onPlay, onRefill, onOnline }: { chips: number; on
           </button>
           <InstallHint />
           <div className="lobby-row">
+            <button className="btn ghost" onClick={() => setCamp(true)}>
+              Campaign <span className="dim">{Math.min(cleared, STAGES.length)}/{STAGES.length}</span>
+            </button>
             <button className="btn ghost" disabled={!onOnline} onClick={() => onOnline?.(name.trim() || "Ace")}>
               Play with friends
             </button>
           </div>
+          <AnimatePresence>
+            {camp && (
+              <Campaign
+                cleared={cleared}
+                onClose={() => setCamp(false)}
+                onPlay={(n) => {
+                  setCamp(false);
+                  go(0, n);
+                }}
+              />
+            )}
+          </AnimatePresence>
           <button className="btn ghost how-to" onClick={() => setRules(true)}>
             <span className="how-to-q">?</span> New here? How to play
           </button>
           <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
+          <button className="btn ghost how-to" onClick={() => setSettings(true)}>
+            <span className="how-to-q">⚙</span> Settings: sound, text size, table color
+          </button>
+          <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
           {prefs.walked ? (
             <button className="btn ghost small learn" onClick={() => setPrefs({ walked: false, tips: true, seen: [] })}>
               Show me the tour again next game
@@ -123,7 +168,7 @@ export function Lobby({ chips, onPlay, onRefill, onOnline }: { chips: number; on
           ) : (
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
-          <div className="fine">Quick Match seats you with bots. Play with friends makes an online table you can share. Chips are play money only.</div>
+          <div className="fine">Quick Match seats you with bots. Campaign is twelve tougher tables in a row. Play with friends makes an online table you can share. Chips are play money only.</div>
         </div>
       </motion.div>
     </div>
@@ -187,5 +232,28 @@ function InstallHint() {
         ✕
       </button>
     </div>
+  );
+}
+
+/** The table's settings, opened from the lobby. The tour starts with the next game. */
+function LobbySettings({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  return createPortal(
+    <motion.div className="lobby-settings-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <Settings
+          onClose={onClose}
+          onTour={() => {
+            setPrefs({ walked: false, tips: true, seen: [] });
+            onClose();
+          }}
+        />
+      </div>
+    </motion.div>,
+    document.body,
   );
 }

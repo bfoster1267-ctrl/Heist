@@ -19,7 +19,8 @@
   },
   "dependencies": {
     "@heist/engine": "0.1.0",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "@heist/profile": "0.1.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",

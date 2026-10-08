@@ -6,6 +6,7 @@
 // for the seat that receives it, so other hands, face-down showdown cards and the deck are never sent.
 
 import type { Answer, Ask, BotLevel, Frame, GameState, RuleOptions } from "@heist/engine";
+import type { Badge, Progress, Reward } from "@heist/profile";
 
 export const PROTOCOL_VERSION = 1;
 
@@ -21,6 +22,8 @@ export interface SeatInfo {
   connected: boolean;
   /** a bot is playing this human's seat (they timed out twice, left, or asked for it) */
   autopilot: boolean;
+  /** level, prestige, frame and title of a signed-in player */
+  badge?: Badge | null;
 }
 
 export interface RoomInfo {
@@ -86,13 +89,9 @@ export type ClientMsg =
   | { t: "answer"; askId: number; answer: Answer }
   | { t: "autopilot"; on: boolean }
   | { t: "chat"; text: string }
-  /** buy a drink for another seat at the table (play-money cosmetic; seated players only) */
-  | { t: "drink"; to: number; drink: DrinkId }
+  /** buy a drink (coins) for one seat, or for everyone with a round (`to: null`) */
+  | { t: "drink"; id: string; to: number | null }
   | { t: "ping"; n?: number };
-
-/** The drinks a player can send across the table. */
-export const DRINK_IDS = ["martini", "whiskey", "champagne", "beer", "coffee"] as const;
-export type DrinkId = (typeof DRINK_IDS)[number];
 
 // ------------------------------------------------------------------ server -> client
 
@@ -107,6 +106,8 @@ export type ErrorCode =
   | "stale_ask"
   | "illegal"
   | "bad_state"
+  | "no_chips"
+  | "no_coins"
   | "version";
 
 export type ServerMsg =
@@ -126,7 +127,10 @@ export type ServerMsg =
    * abandoned: players who weren't there at the end, who lose their buy-in */
   | { t: "gameOver"; game: number; winners: number[]; paid: number[]; abandoned: number[]; reason: "footholds" | "last_call"; stakes: number }
   | { t: "chat"; seat: number | null; name: string; text: string; at: number }
-  | { t: "drink"; from: number; to: number; drink: DrinkId }
+  /** someone bought a drink: `to` lists every seat it goes to */
+  | { t: "drink"; from: number; to: number[]; id: string; name: string; at: number }
+  /** your XP, coins and level after a game (signed-in players only), and your updated progress */
+  | { t: "reward"; game: number; reward: Reward; progress: Progress }
   | { t: "left" }
   /** you're in the quick queue: how many are waiting, and when the table starts regardless (epoch ms) */
   | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number }

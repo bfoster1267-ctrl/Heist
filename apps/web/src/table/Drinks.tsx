@@ -1,19 +1,14 @@
 // Send a drink: pick one, pick a player, and it slides across the felt to their seat and stays by
 // their name for a while. Bots raise a glass back, and now and then buy a round themselves.
-// Online, the server will relay drinks (and charge for premium ones once the coin economy exists).
+// Drinks cost coins (coffee is free); the app charges before the drink is sent.
 import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { reducedMotion } from "../prefs";
 import { clink } from "../sound";
 
-export const DRINKS = [
-  { id: "martini", emoji: "🍸", name: "Martini" },
-  { id: "whiskey", emoji: "🥃", name: "Whiskey" },
-  { id: "champagne", emoji: "🍾", name: "Champagne" },
-  { id: "beer", emoji: "🍺", name: "Beer" },
-  { id: "coffee", emoji: "☕", name: "Coffee" },
-];
+// the menu, with prices in coins, is shared with the shop rules in @heist/profile
+export { DRINKS } from "@heist/profile";
 
 export interface Drink {
   seat: number;

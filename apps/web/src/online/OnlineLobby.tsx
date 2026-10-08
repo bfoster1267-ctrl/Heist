@@ -4,8 +4,7 @@ import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
-import { DRINK_IDS, type DrinkId } from "@heist/server/protocol";
-import { DRINKS } from "../table/Drinks";
+import { ALL_DRINKS } from "@heist/profile";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
@@ -41,6 +40,7 @@ export function OnlineLobby({
   onExit,
   onBuyIn,
   onWin,
+  onEnd,
 }: {
   name: string;
   chips: number;
@@ -48,7 +48,10 @@ export function OnlineLobby({
   join?: string | null;
   onExit: () => void;
   onBuyIn: (stakes: number) => void;
+  /** the table has played out to the end (won = chips won, 0 if not) */
   onWin: (won: number) => void;
+  /** any game you sat in has finished, won or not (the account shows its rewards card) */
+  onEnd?: () => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
   const room = sess.room;
@@ -91,7 +94,7 @@ export function OnlineLobby({
   }, [room, sess.seat]);
 
   if (room && room.status !== "lobby" && sess.feed.game > 0) {
-    return <OnlineTable sess={sess} onExit={leave} onWin={onWin} />;
+    return <OnlineTable sess={sess} onExit={leave} onWin={onWin} onEnd={onEnd} />;
   }
 
   return (
@@ -341,7 +344,7 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
   );
 }
 
-function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () => void; onWin: (won: number) => void }) {
+function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onExit: () => void; onWin: (won: number) => void; onEnd?: () => void }) {
   const room = sess.room!;
   const useSource = useMemo(() => onlineSource(sess), [sess]);
   const settings = useMemo(() => ({ players: room.players, name: sess.client.name ?? "", stakes: room.stakes }), [room.players, room.stakes, sess]);
@@ -351,13 +354,14 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
       send: (text: string) => sess.client.chat(text),
       listen: (heard: (seat: number, text: string) => void) => sess.onMessage((m) => m.t === "chat" && m.seat !== null && heard(m.seat, m.text)),
       drink: (to: number, emoji: string) => {
-        const d = DRINKS.find((x) => x.emoji === emoji);
-        if (d && (DRINK_IDS as readonly string[]).includes(d.id)) sess.client.drink(to, d.id as DrinkId);
+        const d = ALL_DRINKS.find((x) => x.emoji === emoji);
+        // the server charges the coins; a "no_coins" error comes back like any other
+        if (d) sess.client.drink(d.id, to);
       },
       listenDrinks: (got: (from: number, to: number, emoji: string) => void) =>
         sess.onMessage((m) => {
-          const d = m.t === "drink" && DRINKS.find((x) => x.id === m.drink);
-          if (m.t === "drink" && d) got(m.from, m.to, d.emoji);
+          const d = m.t === "drink" && ALL_DRINKS.find((x) => x.id === m.id);
+          if (m.t === "drink" && d) for (const to of m.to) got(m.from, to, d.emoji);
         }),
     }),
     [sess],
@@ -385,6 +389,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         onGameOver={() => {
           const go = sess.gameOver;
           if (go && sess.seat !== null && go.paid.includes(sess.seat)) onWin(Math.floor((room.stakes * room.players) / go.paid.length));
+          if (sess.seat !== null) onEnd?.();
         }}
         // a spectator can sit in for the next game; then only the host deals it
         onAgain={host ? () => sess.client.start() : sess.seat === null ? () => sess.client.sit() : undefined}

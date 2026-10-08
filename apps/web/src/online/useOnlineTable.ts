@@ -161,6 +161,6 @@ export function onlineSource(sess: OnlineSession) {
 
     const restart = useCallback(() => {}, []);
 
-    return { shown, ask: shown && !queue.current.length ? ask : null, answer, log, speed, setSpeed, restart, skip, flightHook, history, game: null };
+    return { shown, ask: shown && !queue.current.length ? ask : null, answer, log, speed, setSpeed, restart, skip, flightHook, history, game: null, answers: () => [] as Answer[] };
   };
 }

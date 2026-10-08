@@ -3,7 +3,7 @@
 // so after a dropped connection it reconnects on its own and resumes the table where it left off.
 
 import type { Answer, Ask } from "@heist/engine";
-import { PROTOCOL_VERSION, type ClientMsg, type CreateRoomOptions, type DrinkId, type RoomInfo, type ServerMsg } from "./protocol";
+import { PROTOCOL_VERSION, type ClientMsg, type CreateRoomOptions, type RoomInfo, type ServerMsg } from "./protocol";
 
 type Handler<T extends ServerMsg["t"]> = (m: Extract<ServerMsg, { t: T }>) => void;
 
@@ -190,9 +190,11 @@ export class HeistClient {
   chat(text: string) {
     this.send({ t: "chat", text });
   }
-  drink(to: number, drink: DrinkId) {
-    this.send({ t: "drink", to, drink });
+  /** buy a drink for one seat, or a round for the table (`to` null) */
+  drink(id: string, to: number | null) {
+    this.send({ t: "drink", id, to });
   }
+
   leave() {
     this.send({ t: "leave" });
   }

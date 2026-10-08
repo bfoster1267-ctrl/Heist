@@ -4,8 +4,9 @@
 
 import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { randomInt } from "node:crypto";
-import { DRINK_IDS, type DrinkId, type ErrorCode, type RoomInfo, type SeatInfo, type SeenFrame, type ServerMsg } from "./protocol";
+import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
+import type { Badge } from "@heist/profile";
 import { deadWeight } from "./deadweight";
 import type { GameRecord, GameStore, StoredAnswer } from "./store";
 
@@ -44,6 +45,13 @@ export interface GameOverReport {
   /** players who weren't there at the end (left, dropped, or on autopilot): they lose their buy-in */
   abandoned: number[];
   reason: "footholds" | "last_call";
+  /** which game of this room (matches the `game` on gameOver) */
+  game: number;
+  players: number;
+  /** every event of the game, for career stats */
+  events: GameEvent[];
+  /** how the bot seats played (for the skill rating) */
+  botLevel: BotLevel;
 }
 
 export interface RoomDeps {
@@ -54,6 +62,8 @@ export interface RoomDeps {
   /** called whenever the room's public summary changes (lobby lists, matchmaking) */
   onChange?: (room: Room) => void;
   log?: (msg: string, extra?: object) => void;
+  /** level, prestige and look of a signed-in player, shown on their seat */
+  badge?: (userId: string) => Badge | undefined;
   /** a disconnected player's decisions wait this long before a bot answers (ms) */
   graceMs?: number;
   /** a disconnected player's lobby seat is held this long (ms) */
@@ -94,6 +104,8 @@ const PLAYBACK_MS: Partial<Record<GameEvent["t"], number>> = {
   stuck: 1300, flip: 1300, wildcard: 1300, forged: 1300, deal: 1300,
 };
 const PLAYBACK_DEFAULT_MS = 700;
+/** one drink per player every few seconds */
+const DRINK_GAP_MS = 3_000;
 const PLAYBACK_CAP_MS = 30_000;
 
 export class Room {
@@ -126,6 +138,9 @@ export class Room {
   /** the current decision was given the short clock because its player wasn't connected */
   private askShort = false;
   private chatTimes = new Map<string, number[]>();
+  private drinkTimes = new Map<string, number>();
+  /** this game's events, for career stats when it ends */
+  private events: GameEvent[] = [];
 
   constructor(cfg: RoomConfig, deps: RoomDeps) {
     this.id = cfg.id;
@@ -159,6 +174,7 @@ export class Room {
         userId: s.userId,
         connected: s.userId !== null && this.isConnected(s.userId),
         autopilot: s.autopilot,
+        badge: s.kind === "human" && s.userId ? (this.deps.badge?.(s.userId) ?? null) : null,
       })),
       spectators: [...this.conns.values()].filter((c) => c.spectator).length,
       turnSeconds: this.turnMs / 1000,
@@ -335,6 +351,7 @@ export class Room {
     }
     for (const r of replay) this.game.answer(r.seat, r.a);
     this.recent = [];
+    this.events = [];
     this.frameCount = 0;
     this.log = [];
     this.status = "playing";
@@ -363,6 +380,7 @@ export class Room {
     this.recent.push(...frames);
     if (this.recent.length > FRAME_BUFFER) this.recent.splice(0, this.recent.length - FRAME_BUFFER);
     for (const f of frames) {
+      this.events.push(f.ev);
       this.log.push(f.msg);
       this.playbackMs += PLAYBACK_MS[f.ev.t] ?? PLAYBACK_DEFAULT_MS;
     }
@@ -477,6 +495,10 @@ export class Room {
       tableWinners: winners,
       abandoned,
       reason,
+      game: this.games,
+      players: this.players,
+      events: this.events,
+      botLevel: this.botLevel,
     });
     for (const s of this.seats) s.autopilot = false;
     this.changed();
@@ -539,16 +561,40 @@ export class Room {
     return null;
   }
 
-  /** Send a drink to another seat. Shares the chat limit, so drinks can't flood the table either. */
-  drink(connId: string, to: unknown, drink: unknown): ErrorCode | null {
+  /**
+   * Who a drink from this connection goes to: one seat, or every other seat for a round (`to` null).
+   * Seated players only, one drink every few seconds. The caller charges for it, then calls sendDrink.
+   */
+  drinkTargets(connId: string, to: unknown): { from: number; to: number[] } | ErrorCode {
     const c = this.conns.get(connId);
-    if (!c || typeof to !== "number" || !Number.isInteger(to) || to < 0 || to >= this.players) return "bad_message";
-    if (!DRINK_IDS.includes(drink as DrinkId)) return "bad_message";
-    const from = c.spectator ? null : this.seatOf(c.conn.userId);
-    if (from === null || from === to) return "bad_message";
-    if (!this.spend(c.conn.userId)) return "rate_limited";
-    this.broadcast({ t: "drink", from, to, drink: drink as DrinkId });
-    return null;
+    const from = c && !c.spectator ? this.seatOf(c.conn.userId) : null;
+    if (from === null || this.status === "lobby") return "bad_state";
+    const now = this.deps.clock.now();
+    if (now - (this.drinkTimes.get(c!.conn.userId) ?? -Infinity) < DRINK_GAP_MS) return "rate_limited";
+    let targets: number[];
+    if (to === null) targets = this.seats.map((_, i) => i).filter((i) => i !== from);
+    else if (typeof to === "number" && Number.isInteger(to) && to >= 0 && to < this.seats.length && to !== from && this.seats[to].kind !== "open") targets = [to];
+    else return "bad_message";
+    return { from, to: targets };
+  }
+
+  sendDrink(connId: string, from: number, to: number[], id: string) {
+    const c = this.conns.get(connId);
+    if (!c) return;
+    const at = this.deps.clock.now();
+    this.drinkTimes.set(c.conn.userId, at);
+    this.broadcast({ t: "drink", from, to, id, name: c.conn.name, at });
+  }
+
+  /** The user id sitting at a seat (humans only). */
+  userAt(seat: number): string | null {
+    const s = this.seats[seat];
+    return s?.kind === "human" ? s.userId : null;
+  }
+
+  /** Send everyone fresh room info (badges changed after a game settled). */
+  touch() {
+    this.changed();
   }
 
   /** Room-wide talk limit per user: 5 lines or drinks in 10 seconds. */

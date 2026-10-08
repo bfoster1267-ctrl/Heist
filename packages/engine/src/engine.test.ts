@@ -187,4 +187,37 @@ describe("Heist engine", () => {
     expect(v.players[1].hand.every((c) => c.color === -1)).toBe(true);
     expect(v.players[0].hand.every((c) => c.color >= 0)).toBe(true);
   });
+
+  it("gives a human Boss who wins a Foothold, just like a bot (or says why not)", () => {
+    let wins = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const n = 3 + (seed % 4);
+      const g = new HeistGame({ seed, seats: Array.from({ length: n }, (_, k) => ({ name: `P${k}`, bot: k !== 0 })) });
+      const bots = new Map(g.s.players.map((p) => [p.seat, new Bot(seed + p.seat)]));
+      const r = new Rng(seed);
+      let job: GameState["job"] = null;
+      let before: number[] = [];
+      for (let i = 0; i < 20000 && g.pending; i++) {
+        const a = g.pending;
+        g.answer(a.seat, a.seat === 0 ? randomAnswer(g, a, r) : bots.get(a.seat)!.answer(g, a));
+        for (const f of g.drainFrames()) {
+          if (f.ev.t === "result" && f.ev.winner === "B" && f.state.job?.kind === "hit") {
+            job = f.state.job;
+            before = f.state.players[job.mark].hideouts[job.hideout];
+          }
+          if (f.ev.t === "loot" && job) {
+            const H = f.state.players[job.mark].hideouts[job.hideout];
+            job.side.B.forEach((k, p) => {
+              if (!k) return;
+              if (p === 0) wins++;
+              expect(H[p]).toBeGreaterThan(0);
+              if (before[p] > 0) expect(f.msg).toContain(`P${p} `);
+            });
+            job = null;
+          }
+        }
+      }
+    }
+    expect(wins).toBeGreaterThan(20);
+  });
 });

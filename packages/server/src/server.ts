@@ -5,6 +5,10 @@
 import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
+import { DRINKS } from "@heist/profile";
+import { accountsApi } from "./accounts/api";
+import { serveStatic } from "./static";
+import { ApiError, type AccountService } from "./accounts/service";
 import { GuestIdentity, type Identity, type IdentityProvider } from "./identity";
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
 import { realClock, type Clock, type Conn, type GameOverReport, type Room } from "./room";
@@ -31,6 +35,13 @@ export interface ServerOptions {
   rate?: { burst: number; perSec: number };
   onGameOver?: (r: GameOverReport) => void;
   log?: (msg: string, extra?: object) => void;
+  /**
+   * Accounts and progression. When set, sockets sign in with account session tokens (guests get a guest
+   * account), the /api routes are served, online games settle chips, stats and XP, and drinks cost coins.
+   */
+  accounts?: AccountService;
+  /** a built web app to serve at / (so the game and its server share one address) */
+  webDir?: string;
 }
 
 export interface HeistServer {
@@ -45,6 +56,7 @@ const MAX_MESSAGE_BYTES = 16 * 1024;
 /** default token bucket per socket: a burst of 30 messages, refilling 10 per second */
 const RATE = { burst: 30, perSec: 10 };
 const HEARTBEAT_MS = 30_000;
+const DRINK_IDS = new Set(DRINKS.map((d) => d.id));
 
 interface Client {
   conn: Conn | null;
@@ -58,27 +70,51 @@ interface Client {
 
 export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const clock = o.clock ?? realClock;
-  const identity = o.identity ?? new GuestIdentity();
+  const accounts = o.accounts;
+  const identity = o.identity ?? accounts?.identity() ?? new GuestIdentity();
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now() }) : null;
   const store = o.store ?? new MemoryStore();
   const log = o.log ?? (() => {});
   const rate = o.rate ?? RATE;
-  const rooms = new Rooms({ store, clock, log, onGameOver: o.onGameOver, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
+  const onGameOver = (r: GameOverReport) => {
+    o.onGameOver?.(r);
+    if (accounts) void settleOnline(r);
+  };
+  const badge = accounts ? (userId: string) => accounts.badge(userId) : undefined;
+  const rooms = new Rooms({ store, clock, log, onGameOver, badge, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
   /** each signed-in connection's way into a room, for the matchmaker */
   const entrances = new Map<string, (room: Room) => ReturnType<Room["join"]>>();
   const queue = new Matchmaker(rooms, clock, (conn, room) => {
     const enter = entrances.get(conn.id);
     return enter ? enter(room) : "bad_state";
   }, o.queueWaitMs, log);
+
+  /** Pay out an online game to every signed-in player and tell them what they earned. */
+  async function settleOnline(r: GameOverReport) {
+    try {
+      const results = await accounts!.recordOnline(r);
+      for (const ws of wss.clients) {
+        const c = (ws as WebSocket & { heist?: Client }).heist;
+        const res = c?.id ? results.get(c.id.userId) : undefined;
+        if (res && ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: "reward", game: r.game, reward: res.reward, progress: res.me.progress } satisfies ServerMsg));
+      }
+      rooms.byId(r.roomId)?.touch();
+    } catch (e) {
+      log("settle failed", { game: r.gameId, err: String(e) });
+    }
+  }
   const restored = rooms.restore();
   if (restored) log("restored tables", { count: restored });
 
-  const http = createServer((req, res) => {
+  const http = createServer(async (req, res) => {
+    if (api && (await api(req, res))) return;
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
       const cpu = process.cpuUsage();
       res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
+    if (o.webDir && (await serveStatic(o.webDir, req, res))) return;
     res.writeHead(404).end();
   });
 
@@ -152,6 +188,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           return send({ t: "rooms", rooms: rooms.list() });
         case "queue": {
           if (c.room?.status === "playing" && c.room.seatOf(conn.userId) !== null) return err("bad_state", "Finish or leave your game first");
+          if (accounts && typeof m.stakes === "number" && !(await accounts.canAfford(conn.userId, m.stakes))) return err("no_chips", "Not enough chips for that table");
           const e = queue.join(conn, m.players, m.stakes);
           if (e) return err(e, "Pick 3 to 6 players and a buy-in");
           return;
@@ -162,6 +199,9 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           queue.leave(conn.id);
           const opts = roomOptions(m.options);
           if (!opts) return err("bad_message", "Tables are for 3 to 6 players");
+          // no level picked: the bots play to the host's skill
+          if (accounts && !m.options?.botLevel) opts.botLevel = await accounts.botLevel(conn.userId);
+          if (accounts && !(await accounts.canAfford(conn.userId, opts.stakes))) return err("no_chips", "Not enough chips for that table");
           const room = rooms.create(opts);
           if (!room) return err("bad_state", "The server is full right now");
           enter(room, {});
@@ -171,6 +211,8 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           queue.leave(conn.id);
           const room = rooms.get(m.code);
           if (!room) return err("no_room", "No table with that code");
+          const takesSeat = m.spectate !== true && room.status === "lobby" && room.seatOf(conn.userId) === null;
+          if (accounts && takesSeat && !(await accounts.canAfford(conn.userId, room.stakes))) return err("no_chips", "Not enough chips for that table");
           enter(room, { spectate: m.spectate === true, since: m.since });
           return;
         }
@@ -199,9 +241,25 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         case "chat":
           e = room.chat(conn.id, m.text);
           break;
-        case "drink":
-          e = room.drink(conn.id, m.to, m.drink);
-          break;
+        case "drink": {
+          if (typeof m.id !== "string") return err("bad_message");
+          const d = room.drinkTargets(conn.id, m.to);
+          if (typeof d === "string") return err(d);
+          if (accounts) {
+            if (accounts.drinkPrice(m.id, d.to.length) === null) return err("bad_message", "No such drink");
+            try {
+              await accounts.payForDrink(conn.userId, m.id, d.to.length);
+            } catch (x) {
+              return err(x instanceof ApiError ? "no_coins" : "bad_state", x instanceof ApiError ? x.message : undefined);
+            }
+            for (const seat of d.to) {
+              const uid = room.userAt(seat);
+              if (uid) void accounts.drinkReceived(uid).catch(() => {});
+            }
+          } else if (!DRINK_IDS.has(m.id)) return err("bad_message", "No such drink");
+          room.sendDrink(conn.id, d.from, d.to, m.id);
+          return;
+        }
         default:
           return err("bad_message", "Unknown message");
       }
@@ -255,6 +313,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       await new Promise<void>((r) => wss.close(() => r()));
       await new Promise<void>((r) => http.close(() => r()));
       await store.flush();
+      await accounts?.store.flush();
     },
   };
 }

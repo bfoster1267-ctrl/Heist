@@ -6,12 +6,14 @@ import { HeistClient } from "@heist/server/client";
 import type { RoomInfo, SeenFrame, ServerMsg } from "@heist/server/protocol";
 import type { GameState } from "@heist/engine";
 
-const TOKEN_KEY = "heist.serverToken";
+// the same session token the account uses, so online games count toward the player's career
+const TOKEN_KEY = "heist.session";
 
 /** Where the game server is: VITE_SERVER_URL, the dev server on localhost, or the page's own host. */
 export function serverUrl(): string {
   const env = import.meta.env.VITE_SERVER_URL as string | undefined;
-  if (env) return env;
+  // an http(s) address is the server itself (as the accounts code uses it); a ws(s) one is the socket
+  if (env && env !== "same-origin") return /^http/.test(env) ? env.replace(/^http/, "ws").replace(/\/?$/, "/ws") : env;
   const { protocol, hostname, host } = location;
   if (hostname === "localhost" || hostname === "127.0.0.1") return `ws://${hostname}:8787/ws`;
   // the GitHub Pages build talks to the hosted server; the server also serves the app at its own address

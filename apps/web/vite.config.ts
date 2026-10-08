@@ -27,11 +27,15 @@ self.addEventListener("activate", (e) => {
 });
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
+  const url = new URL(req.url);
+  // never cache the account API: it must always be live
+  if (req.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
         .then((res) => {
+          // a 502 while the server restarts must not replace the saved app, and the saved app beats it
+          if (!res.ok) return caches.match("./").then((hit) => hit || res);
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put("./", copy));
           return res;

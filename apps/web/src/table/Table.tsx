@@ -1,4 +1,5 @@
-import { CREWS, type GameState } from "@heist/engine";
+import { stage } from "@heist/profile";
+import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
@@ -7,6 +8,7 @@ import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN as LOCAL_SEAT, useTable, type HistoryEntry, type TableSettings, type TableSource } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
+import { useLook } from "../account/useAccount";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, Walkthrough } from "./Coach";
@@ -54,6 +56,7 @@ export function Table({
   onExit,
   onGameOver,
   onAgain,
+  buyDrink,
   againLabel,
   forfeit,
   seat = LOCAL_SEAT,
@@ -65,11 +68,13 @@ export function Table({
 }: {
   settings: TableSettings;
   onExit: () => void;
-  onGameOver: (won: number) => void;
+  onGameOver: (won: number, answers: Answer[]) => void;
   /** deal the next game; left out online when only the host can deal */
   onAgain?: () => void;
   /** the label on that button (default "Deal again") */
   againLabel?: string;
+  /** pay for a drink (coins) before it's sent; false = couldn't pay */
+  buyDrink?: (emoji: string, count: number) => Promise<boolean>;
   /** online: you weren't at the table when the game ended, so it counts as abandoned */
   forfeit?: boolean;
   /** The seat this player sits in. */
@@ -108,12 +113,14 @@ export function Table({
   const evNow = t.shown?.ev;
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
+  const look = useLook();
   useEffect(() => talk?.listen((seat, text) => chat.say(seat, text)), [talk, chat.say]);
   const nRef = useRef(settings.players);
   // Drinks sit on the rail just above the player's avatar.
   const seatAt = (seat: number): [number, number] => {
     const a = anchorAt(`seat-${seat}`);
-    if (a) return [a.x - 8, a.y - 32];
+    // above the avatar, or beside it for a seat at the top edge, where above is off the table
+    if (a) return a.y - 32 < 18 ? [a.x - 40, a.y] : [a.x - 8, a.y - 32];
     const p = seatPos(L, seat, nRef.current, HUMAN);
     return [p[0], p[1] - 70];
   };
@@ -168,7 +175,7 @@ export function Table({
       for (const w of s.winners) ms = Math.max(ms, fly("pot", `seat-${w}`, { kind: "chip", color: "#e7b53c" }, 10, 45));
       window.setTimeout(() => setPotShown(0), ms * 0.6);
       window.setTimeout(() => setPaidOut(true), ms + 250);
-      onGameOver(s.winners.includes(HUMAN) ? Math.floor(pot / s.winners.length) : 0);
+      onGameOver(s.winners.includes(HUMAN) ? Math.floor(pot / s.winners.length) : 0, t.answers());
     }
     if (!s?.winners) {
       paid.current = false;
@@ -269,7 +276,7 @@ export function Table({
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  Stakes {settings.stakes.toLocaleString()} · First to {s.target}
+                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : `Stakes ${settings.stakes.toLocaleString()}`} · First to {s.target}
                 </span>
                 {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
               </div>
@@ -349,6 +356,7 @@ export function Table({
                   pos={pos}
                   grow={seatGrow(L, pos)}
                   me={!watching && p.seat === HUMAN}
+                  cigar={!watching && p.seat === HUMAN ? look.equipped?.cigar : undefined}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
                   hideoutGlow={pickHide}
@@ -462,14 +470,17 @@ export function Table({
           </AnimatePresence>
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
-          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
+          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} mine={watching ? undefined : HUMAN} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
             {showChat && !watching && (
               <ChatTray
                 onSay={(text) => (talk ? talk.send(text) : chat.say(HUMAN, text))}
                 rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
-                onDrink={(to, emoji) => (talk ? talk.drink(to, emoji) : drinks.send(HUMAN, to, emoji))}
+                onDrink={async (to, emoji) => {
+                  if (talk) talk.drink(to, emoji);
+                  else if (!buyDrink || (await buyDrink(emoji, 1))) drinks.send(HUMAN, to, emoji);
+                }}
                 onClose={() => setShowChat(false)}
               />
             )}
