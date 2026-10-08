@@ -11,6 +11,7 @@ import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
 import { sanitizeAnswer } from "../sanitize";
 import { OAuth, OAuthError, type OAuthConfig } from "./oauth";
+import { MemoryActivityLog, type ActivityEvent, type ActivityLog } from "./activity";
 import { MemoryAccountStore, type Account, type AccountStore, type Login, type Provider } from "./store";
 import { Tokens, checkPassword, hashPassword } from "./tokens";
 
@@ -32,6 +33,8 @@ export interface Me {
 }
 
 export interface OnlineResult {
+  gameId?: string;
+  roomId?: string;
   stakes: number;
   players: number;
   seats: { seat: number; userId: string | null; bot: boolean }[];
@@ -54,6 +57,8 @@ export interface AccountOptions {
   now?: () => number;
   /** swap for tests (real provider checks need the network) */
   verifier?: OAuth;
+  /** where everything players do is recorded (for the admin panel) */
+  activity?: ActivityLog;
 }
 
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
@@ -64,6 +69,7 @@ export class AccountService {
   readonly store: AccountStore;
   readonly oauth: OAuth;
   readonly devLogins: boolean;
+  readonly activity: ActivityLog;
   private tokens: Tokens;
   private now: () => number;
   private locks = new Map<string, Promise<unknown>>();
@@ -76,6 +82,12 @@ export class AccountService {
     this.oauth = o.verifier ?? new OAuth(o.oauth ?? {});
     this.devLogins = o.devLogins === true;
     this.now = o.now ?? Date.now;
+    this.activity = o.activity ?? new MemoryActivityLog();
+  }
+
+  /** Record something a player did. */
+  track(e: Omit<ActivityEvent, "at"> & { at?: number }) {
+    this.activity.add({ at: this.now(), ...e });
   }
 
   // ------------------------------------------------------------------ helpers
@@ -366,11 +378,14 @@ export class AccountService {
   private settleQuit(x: Account): Reward {
     const g = x.solo!;
     x.solo = null;
+    this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage },
+      answers: [], startedAt: g.startedAt, endedAt: this.now(), quit: true, winners: [] });
     const r = settle(x.progress, {
       mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
     });
     x.progress = r.progress;
+    this.track({ kind: "game.solo", userId: x.id, name: x.name, data: { gameId: g.gameId, players: g.players, stakes: g.stakes, stage: g.stage, won: false, quit: true, payout: 0, xp: r.reward.xp, coins: r.reward.coins, minutes: Math.round((this.now() - g.startedAt) / 6000) / 10 } });
     return r.reward;
   }
 
@@ -402,6 +417,9 @@ export class AccountService {
       });
       x.progress = r.progress;
       this.board = null;
+      this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage },
+        answers: answers as never, startedAt: g.startedAt, endedAt: this.now(), quit: false, winners: rep.winners });
+      this.track({ kind: "game.solo", userId: x.id, name: x.name, data: { gameId: g.gameId, players: g.players, stakes: g.stakes, stage: g.stage, won, quit: false, payout: pay, xp: r.reward.xp, coins: r.reward.coins, moves: answers.length, minutes: Math.round((this.now() - g.startedAt) / 6000) / 10 } });
       return { me: this.me(x), reward: r.reward, winners: rep.winners };
     });
   }
@@ -432,6 +450,7 @@ export class AccountService {
           rivals: r.seats.filter((o) => o.seat !== s.seat).map((o) => ({ rating: ratings.get(o.seat)!, won: r.winners.includes(o.seat) && !r.abandoned?.includes(o.seat) })),
         });
         x.progress = st.progress;
+        this.track({ kind: "game.online", userId: x.id, name: x.name, data: { gameId: r.gameId, roomId: r.roomId, seat: s.seat, players: r.players, stakes: r.stakes, won, abandoned: quit, payout: pay, xp: st.reward.xp, coins: st.reward.coins } });
         return { reward: st.reward, me: this.me(x) };
       });
       out.set(s.userId, res);

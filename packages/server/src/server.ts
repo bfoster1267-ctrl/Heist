@@ -6,6 +6,8 @@ import { randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
+import { scrub } from "./accounts/activity";
+import { AdminAuth, AdminService } from "./accounts/admin";
 import { accountsApi } from "./accounts/api";
 import { serveStatic } from "./static";
 import { ApiError, type AccountService } from "./accounts/service";
@@ -42,6 +44,8 @@ export interface ServerOptions {
   accounts?: AccountService;
   /** a built web app to serve at / (so the game and its server share one address) */
   webDir?: string;
+  /** the owner's admin panel at /admin (needs accounts); off without a password */
+  admin?: { user: string; password: string; secret?: string };
 }
 
 export interface HeistServer {
@@ -57,6 +61,8 @@ const MAX_MESSAGE_BYTES = 16 * 1024;
 const RATE = { burst: 30, perSec: 10 };
 const HEARTBEAT_MS = 30_000;
 const DRINK_IDS = new Set(DRINKS.map((d) => d.id));
+/** messages that don't go in the activity log: moves are in the game's own record */
+const QUIET = new Set(["ping", "hello", "answer", "list"]);
 
 interface Client {
   conn: Conn | null;
@@ -66,13 +72,34 @@ interface Client {
   last: number;
   alive: boolean;
   queue: Promise<void>;
+  ip: string;
+  /** the error this message got, if any (for the activity log) */
+  failed?: string;
 }
 
 export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const clock = o.clock ?? realClock;
   const accounts = o.accounts;
   const identity = o.identity ?? accounts?.identity() ?? new GuestIdentity();
-  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now() }) : null;
+  const started = clock.now();
+  const admin =
+    accounts && o.admin?.password
+      ? {
+          auth: new AdminAuth(o.admin.user, o.admin.password, o.admin.secret, () => clock.now()),
+          svc: new AdminService(accounts, accounts.activity, {
+            now: () => clock.now(),
+            game: (id) => store.game?.(id),
+            live: () => ({
+              sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), uptimeS: Math.round((clock.now() - started) / 1000),
+              rooms: rooms.all().map((r) => r.info()),
+            }),
+          }),
+        }
+      : undefined;
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin }) : null;
+  /** table activity, for the admin panel's log (moves themselves are in each game's record) */
+  const track = (c: Client, kind: string, data?: Record<string, unknown>, error?: string) =>
+    accounts && c.id && accounts.track({ kind, userId: c.id.userId, name: c.id.name, ip: c.ip, ok: !error, error, data: { ...data, ...(c.room ? { table: c.room.code } : {}) } });
   const store = o.store ?? new MemoryStore();
   const log = o.log ?? (() => {});
   const rate = o.rate ?? RATE;
@@ -131,15 +158,20 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     verifyClient: ({ origin }: { origin: string }) => !o.allowedOrigins?.length || o.allowedOrigins.includes(origin),
   });
 
-  wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
-    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve() };
+  wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+    const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
+    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip };
     const send = (m: ServerMsg) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
     };
-    const err = (code: Parameters<typeof errMsg>[0], msg?: string) => send(errMsg(code, msg));
+    const err = (code: Parameters<typeof errMsg>[0], msg?: string) => {
+      c.failed = msg ?? code;
+      send(errMsg(code, msg));
+    };
 
     ws.on("pong", () => (c.alive = true));
     ws.on("close", () => {
+      track(c, "online.disconnect");
       if (c.conn) {
         queue.leave(c.conn.id, false);
         entrances.delete(c.conn.id);
@@ -163,12 +195,17 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       }
       if (!m || typeof m !== "object" || typeof m.t !== "string") return err("bad_message");
       // one message at a time per socket, in arrival order (hello is async)
-      c.queue = c.queue.then(() =>
-        handle(m).catch((e) => {
+      c.queue = c.queue.then(async () => {
+        c.failed = undefined;
+        await handle(m).catch((e) => {
           log("handler error", { t: m.t, err: String(e) });
           err("bad_state");
-        }),
-      );
+        });
+        if (!QUIET.has(m.t)) {
+          const { t, ...rest } = m as ClientMsg & Record<string, unknown>;
+          track(c, `table.${t}`, scrub(rest) as Record<string, unknown>, c.failed);
+        }
+      });
     });
 
     async function handle(m: ClientMsg) {
@@ -179,6 +216,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         c.id = await identity.authenticate(m.token, m.name);
         c.conn = { id: randomBytes(8).toString("base64url"), userId: c.id.userId, name: c.id.name, send };
         entrances.set(c.conn.id, (room) => enter(room, {}));
+        track(c, "online.connect");
         return send({ t: "welcome", v: PROTOCOL_VERSION, userId: c.id.userId, name: c.id.name, token: c.id.token });
       }
       const conn = c.conn;
@@ -314,6 +352,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       await new Promise<void>((r) => http.close(() => r()));
       await store.flush();
       await accounts?.store.flush();
+      await accounts?.activity.flush();
     },
   };
 }

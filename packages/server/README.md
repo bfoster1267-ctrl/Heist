@@ -70,6 +70,27 @@ Settings:
 One server process holds all its tables in memory. Running more than one machine later needs rooms
 pinned to a machine by code.
 
+## Admin panel
+
+The owner's back office lives at `/admin` on the same server. It is off until `ADMIN_PASSWORD` is set (12
+characters or more); sign in with `ADMIN_USER` (default `admin`) and that password. Admin sessions last
+8 hours, are separate from every player account, and changing the password signs them all out. Ten wrong
+tries from one address lock it for 15 minutes, and every attempt is in the activity log.
+
+It shows every account (search, sort, full record minus the password hash), the activity log, live tables,
+and any game replayed move by move. It is read-only.
+
+The activity log (`src/accounts/activity.ts`) records every API call and table message a player makes
+(request bodies with password, token and credential fields removed), every finished game, chat lines, and
+the screens and taps the web app reports to `POST /api/track`. It is written to
+`DATA_DIR/activity/YYYY-MM.jsonl`; games against bots are saved to `DATA_DIR/games/solo/` so they can be
+replayed like online games. The app links its privacy policy (`apps/web/public/privacy.html`) from sign-up.
+
+Admin routes (all `GET` with `Authorization: Bearer <admin token>` except login):
+`POST /api/admin/login {user, password}`, `/api/admin/overview`, `/api/admin/accounts?q=&sort=&show=&offset=`,
+`/api/admin/accounts/:id`, `/api/admin/activity?user=&kinds=&text=&from=&to=&before=&limit=`,
+`/api/admin/games/:id`, `/api/admin/live`.
+
 ## Load test
 
 `npm run build -w packages/server && npm run load -w packages/server -- --tables 100 --players 6 --think 300`

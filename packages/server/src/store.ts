@@ -61,6 +61,8 @@ export interface GameStore {
   ended(gameId: string, e: GameEnd): void;
   /** games that started but never ended (the server stopped mid-game) */
   unfinished(): GameRecord[];
+  /** one game's record, running or finished (the admin panel's move list) */
+  game?(gameId: string): GameRecord | undefined;
   /** wait for pending writes (shutdown) */
   flush(): Promise<void>;
 }
@@ -79,6 +81,9 @@ export class MemoryStore implements GameStore {
   }
   unfinished() {
     return [...this.games.values()].filter((g) => !g.end);
+  }
+  game(id: string) {
+    return this.games.get(id);
   }
   async flush() {}
 }
@@ -124,6 +129,18 @@ export class FileStore implements GameStore {
       if (rec && !rec.end) out.push(rec);
     }
     return out;
+  }
+
+  game(id: string): GameRecord | undefined {
+    if (!/^[\w-]{1,40}$/.test(id)) return undefined;
+    for (const f of [join(this.dir, "done", `${id}.jsonl`), join(this.dir, `${id}.jsonl`)]) {
+      try {
+        return FileStore.parse(readFileSync(f, "utf8")) ?? undefined;
+      } catch {
+        // not in this folder
+      }
+    }
+    return undefined;
   }
 
   static parse(text: string): GameRecord | null {

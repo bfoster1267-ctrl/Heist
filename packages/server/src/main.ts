@@ -10,9 +10,12 @@
 //   APPLE_CLIENT_IDS     Apple Services ID (web) and app bundle id, comma-separated: turns on Sign in with Apple
 //   FACEBOOK_APP_ID, FACEBOOK_APP_SECRET   turn on Continue with Facebook
 //   WEB_DIR         a built web app to serve at / (the Docker image sets this)
+//   ADMIN_PASSWORD  turns on the admin panel at /admin (sign in with ADMIN_USER, default "admin")
+//   ADMIN_USER      the admin panel's username
 //   DEV_LOGINS=1    sign in by name with no password (local testing only)
 
 import { AccountService } from "./accounts/service";
+import { FileActivityLog } from "./accounts/activity";
 import { FileAccountStore } from "./accounts/store";
 import { startServer } from "./server";
 import { FileStore } from "./store";
@@ -27,12 +30,15 @@ const accounts = new AccountService({
   store: new FileAccountStore(dataDir),
   secret: env.TOKEN_SECRET,
   devLogins: env.DEV_LOGINS === "1",
+  activity: new FileActivityLog(dataDir),
   oauth: {
     google: { clientIds: list(env.GOOGLE_CLIENT_IDS) },
     apple: { clientIds: list(env.APPLE_CLIENT_IDS) },
     facebook: env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET ? { appId: env.FACEBOOK_APP_ID, appSecret: env.FACEBOOK_APP_SECRET } : undefined,
   },
 });
+const adminPassword = env.ADMIN_PASSWORD ?? "";
+if (adminPassword.length < 12) log("ADMIN_PASSWORD missing or under 12 characters: the admin panel is off");
 log("sign-in providers", { providers: [...accounts.oauth.providers(), "email", ...(accounts.devLogins ? ["dev"] : [])] });
 
 const server = await startServer({
@@ -43,6 +49,7 @@ const server = await startServer({
   compression: env.COMPRESSION !== "0",
   webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
+  admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET } : undefined,
   queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
