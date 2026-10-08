@@ -72,7 +72,7 @@ export function Table({
   const prefs = usePrefs();
   const reduce = reducedMotion(prefs);
   const canvas = useRef<HTMLDivElement>(null);
-  const { flights, launch, fly } = useFlights(canvas, scale);
+  const { flights, launch, fly, at: anchorAt } = useFlights(canvas, scale);
   t.flightHook.current = launch;
   const [sel, setSel] = useState<number[]>([]);
   const [showLog, setShowLog] = useState(false);
@@ -85,7 +85,13 @@ export function Table({
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
   const nRef = useRef(settings.players);
-  const seatAt = (seat: number) => seatPos(L, seat, nRef.current, HUMAN);
+  // Drinks sit on the rail just above the player's avatar.
+  const seatAt = (seat: number): [number, number] => {
+    const a = anchorAt(`seat-${seat}`);
+    if (a) return [a.x - 8, a.y - 32];
+    const p = seatPos(L, seat, nRef.current, HUMAN);
+    return [p[0], p[1] - 70];
+  };
   const drinks = useDrinks(seatAt, (d) => {
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
@@ -519,26 +525,29 @@ function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: 
     <motion.div className="modal-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
       {won && !reducedMotion() && <Confetti />}
       <motion.div className="modal" role="dialog" aria-modal="true" aria-labelledby="go-title" initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
-        <div id="go-title" className={"modal-title" + (won ? " gold" : "")}>
-          {won ? "YOU PULLED IT OFF" : "THE JOB'S OVER"}
-        </div>
-        <div className="modal-sub">
-          {s.winners!.map((w) => s.players[w].name).join(" & ")} win{s.winners!.length > 1 ? "" : "s"} {s.endReason === "last_call" ? "at Last Call" : `with ${s.target} Footholds`}
-        </div>
-        {won && (
-          <div className="modal-pot">
-            <Chips amount={share} counting /> <span>added to your chips</span>
+        {/* The result and the buttons come first, so nothing needs scrolling to leave or deal again. */}
+        <div className="go-side">
+          <div id="go-title" className={"modal-title" + (won ? " gold" : "")}>
+            {won ? "YOU PULLED IT OFF" : "THE JOB'S OVER"}
           </div>
-        )}
-        <Recap h={history} s={s} />
-        <div className="btns center">
-          <button className="btn primary big" onClick={onAgain} autoFocus>
-            Deal again
-          </button>
-          <button className="btn ghost" onClick={onExit}>
-            Lobby
-          </button>
+          <div className="modal-sub">
+            {s.winners!.map((w) => s.players[w].name).join(" & ")} win{s.winners!.length > 1 ? "" : "s"} {s.endReason === "last_call" ? "at Last Call" : `with ${s.target} Footholds`}
+          </div>
+          {won && (
+            <div className="modal-pot">
+              <Chips amount={share} counting /> <span>added to your chips</span>
+            </div>
+          )}
+          <div className="btns center">
+            <button className="btn primary big" onClick={onAgain} autoFocus>
+              Deal again
+            </button>
+            <button className="btn ghost" onClick={onExit}>
+              Lobby
+            </button>
+          </div>
         </div>
+        <Recap h={history} s={s} />
       </motion.div>
     </motion.div>
   );
