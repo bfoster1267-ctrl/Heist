@@ -2564,6 +2564,14 @@ button:disabled {
 .rules-back {
   z-index: 80;
 }
+.rules-back.fixed {
+  position: fixed;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.rules-back.fixed .rules {
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
 .rules {
   width: 640px;
   max-width: calc(100% - 40px);

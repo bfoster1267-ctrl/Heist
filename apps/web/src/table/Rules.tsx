@@ -2,6 +2,7 @@
 // table uses (Boss, Mark, Foothold, Pen) so a new player can match what they read to what they see.
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 const TABS = [
   {
@@ -123,7 +124,7 @@ const TABS = [
   },
 ];
 
-export function Rules({ target, onClose }: { target: number; onClose: () => void }) {
+export function Rules({ target, onClose, fixed }: { target: number; onClose: () => void; fixed?: boolean }) {
   const [tab, setTab] = useState(TABS[0].id);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -131,8 +132,8 @@ export function Rules({ target, onClose }: { target: number; onClose: () => void
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
   const t = TABS.find((x) => x.id === tab)!;
-  return (
-    <motion.div className="modal-back rules-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+  const sheet = (
+    <motion.div className={"modal-back rules-back" + (fixed ? " fixed" : "")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div
         className="rules"
         role="dialog"
@@ -161,4 +162,6 @@ export function Rules({ target, onClose }: { target: number; onClose: () => void
       </motion.div>
     </motion.div>
   );
+  // Outside the table (the lobby), cover the whole window rather than a transformed parent.
+  return fixed ? createPortal(sheet, document.body) : sheet;
 }
