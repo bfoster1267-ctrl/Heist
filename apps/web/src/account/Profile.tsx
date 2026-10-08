@@ -10,6 +10,7 @@ import { useEffect, useState } from "react";
 import { Chips } from "../table/pieces";
 import { Avatar, Coins, Stars, XpBar } from "./bits";
 import type { LeaderRow, Me } from "./backend";
+import type { PublicProfile } from "@heist/profile";
 import { SignIn } from "./SignIn";
 import { useAccount } from "./useAccount";
 
@@ -352,6 +353,7 @@ function Board({ me }: { me: Me }) {
   const { backend } = useAccount();
   const [by, setBy] = useState<"winnings" | "level" | "wins">("winnings");
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
     setRows(null);
     backend?.leaderboard(by).then(setRows, () => setRows([]));
@@ -379,7 +381,7 @@ function Board({ me }: { me: Me }) {
       ) : (
         <ol className="acct-board-rows">
           {rows.map((r, i) => (
-            <li key={r.id} className={r.id === me.id ? "me" : ""}>
+            <li key={r.id} className={r.id === me.id ? "me" : ""} role="button" tabIndex={0} onClick={() => setOpen(r.id)} onKeyDown={(e) => e.key === "Enter" && setOpen(r.id)}>
               <span className="acct-board-rank">{i + 1}</span>
               <Avatar name={r.name} frame={r.frame} level={r.level} size={34} />
               <span className="acct-board-name">
@@ -390,7 +392,67 @@ function Board({ me }: { me: Me }) {
           ))}
         </ol>
       )}
+      <AnimatePresence>{open && <PlayerCard id={open} onClose={() => setOpen(null)} />}</AnimatePresence>
     </div>
+  );
+}
+
+/** A player's public card, opened from the leaderboard. */
+function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
+  const { backend } = useAccount();
+  const [p, setP] = useState<PublicProfile | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => {
+    backend?.player(id).then(setP, (e) => setErr(e instanceof Error ? e.message : "Couldn't load that player"));
+  }, [backend, id]);
+  const s = p?.stats;
+  const title = p ? cosmetic(p.equipped.title) : undefined;
+  return (
+    <motion.div className="acct-card-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+      <motion.div className="acct-card" initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, opacity: 0 }} role="dialog" aria-label="Player card">
+        <button className="acct-x acct-card-x" onClick={onClose} aria-label="Close player card">
+          ✕
+        </button>
+        {err ? (
+          <div className="dim">{err}</div>
+        ) : !p || !s ? (
+          <div className="dim">Loading…</div>
+        ) : (
+          <>
+            <div className="acct-card-head">
+              <Avatar name={p.name} frame={p.equipped.frame} level={p.level} size={56} />
+              <div>
+                <div className="acct-card-name">
+                  {p.name} <Stars prestige={p.prestige} size={12} />
+                </div>
+                <div className="dim">
+                  Level {p.level} · {p.rank}
+                  {title?.text ? ` · ${title.text}` : ""}
+                </div>
+                <div className="dim acct-card-joined">Playing since {new Date(p.joined).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</div>
+              </div>
+            </div>
+            <div className="acct-card-stats">
+              {(
+                [
+                  ["Games", s.games.toLocaleString()],
+                  ["Win rate", pct(winRate(s))],
+                  ["Winnings", s.winnings.toLocaleString()],
+                  ["Biggest pot", s.biggestPot.toLocaleString()],
+                  ["Best streak", `${s.bestStreak}W`],
+                  ["Online wins", `${s.byMode.online.w}/${s.byMode.online.g}`],
+                ] as [string, string][]
+              ).map(([k, v]) => (
+                <div key={k}>
+                  <b>{v}</b>
+                  <span>{k}</span>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }
 

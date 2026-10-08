@@ -62,6 +62,8 @@ export interface Backend {
   /** email accounts on the server only */
   changePassword(current: string, next: string): Promise<Me>;
   leaderboard(by: "winnings" | "level" | "wins"): Promise<LeaderRow[]>;
+  /** another player's public card */
+  player(id: string): Promise<PublicProfile>;
   // signing in (server only)
   register(email: string, password: string, name: string): Promise<Me>;
   login(email: string, password: string): Promise<Me>;
@@ -230,6 +232,10 @@ export class BrowserBackend implements Backend {
   async leaderboard(): Promise<LeaderRow[]> {
     return [];
   }
+  async player(id: string): Promise<PublicProfile> {
+    if (id !== this.save.id) throw new BackendError("Player cards need the game server");
+    return this.view().profile;
+  }
   async changePassword(): Promise<Me> {
     throw new BackendError("Passwords need the game server");
   }
@@ -351,6 +357,9 @@ export class ServerBackend implements Backend {
   }
   async leaderboard(by: string) {
     return (await this.call<{ rows: LeaderRow[] }>(`/api/leaderboard?by=${by}`)).rows;
+  }
+  player(id: string) {
+    return this.call<PublicProfile>(`/api/players/${encodeURIComponent(id)}`);
   }
   async register(email: string, password: string, name: string) {
     return this.signedIn(await this.call("/api/auth/register", { email, password, name }));
