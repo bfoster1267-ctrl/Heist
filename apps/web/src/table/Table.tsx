@@ -1,4 +1,4 @@
-import { CREWS, type GameState } from "@heist/engine";
+import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, motion } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { isMuted, setMuted } from "../sound";
@@ -21,7 +21,7 @@ function useScale() {
   return scale;
 }
 
-export function Table({ settings, onExit, onGameOver, onAgain }: { settings: TableSettings; onExit: () => void; onGameOver: (won: number) => void; onAgain: () => void }) {
+export function Table({ settings, onExit, onGameOver, onAgain }: { settings: TableSettings; onExit: () => void; onGameOver: (won: number, answers: Answer[]) => void; onAgain: () => void }) {
   const t = useTable(settings);
   const scale = useScale();
   const canvas = useRef<HTMLDivElement>(null);
@@ -38,7 +38,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
   useEffect(() => {
     if (s?.winners && !paid.current) {
       paid.current = true;
-      onGameOver(s.winners.includes(HUMAN) ? Math.floor(pot / s.winners.length) : 0);
+      onGameOver(s.winners.includes(HUMAN) ? Math.floor(pot / s.winners.length) : 0, t.answers());
     }
     if (!s?.winners) paid.current = false;
   }, [s?.winners, pot, onGameOver]);
