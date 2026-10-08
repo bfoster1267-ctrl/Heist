@@ -40,7 +40,7 @@ everything: the game, email accounts, career stats and online tables.
 
 1. Make an account at <https://render.com> and connect GitHub.
 2. **New > Blueprint**, pick this repo. Render reads `render.yaml` (Starter plan with a 1 GB disk, so
-   accounts survive restarts). Leave `ALLOWED_ORIGINS` blank for now.
+   accounts survive restarts).
 3. When it's live, open `https://<name>.onrender.com` on the phone and use Share > Add to Home Screen.
 
 Players can then create an account with an email and password. There's no password-reset email yet.
