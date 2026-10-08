@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  buy, buyIn, daily, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -61,7 +61,8 @@ export interface Backend {
   readonly kind: "server" | "browser";
   readonly config: Config;
   me(): Promise<Me>;
-  soloStart(players: number, stakes: number, name: string, campaign?: number): Promise<SoloTicket>;
+  /** campaign: play that stage; coached: Coached play (free, small XP, kept out of the career) */
+  soloStart(players: number, stakes: number, name: string, campaign?: number, coached?: boolean): Promise<SoloTicket>;
   soloFinish(gameId: string, answers: unknown[]): Promise<{ me: Me; reward: Reward }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
@@ -121,7 +122,7 @@ interface LocalSave {
   name: string;
   joined: number;
   progress: Progress;
-  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number } | null;
+  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number; coached?: boolean } | null;
 }
 
 const LOCAL_KEY = "heist.profile";
@@ -174,6 +175,7 @@ export class BrowserBackend implements Backend {
     const g = this.save.solo;
     if (!g) return null;
     this.save.solo = null;
+    if (g.coached) return null;
     const r = settle(this.save.progress, {
       mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: Date.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
@@ -182,18 +184,19 @@ export class BrowserBackend implements Backend {
     return r.reward;
   }
 
-  async soloStart(players: number, stakes: number, name: string, campaign?: number): Promise<SoloTicket> {
+  async soloStart(players: number, stakes: number, name: string, campaign?: number, coached = false): Promise<SoloTicket> {
     const st = campaign ? stage(campaign) : undefined;
     if (campaign && (!st || st.n > this.save.progress.campaign + 1)) throw new BackendError("Clear the stage before that one first");
     if (st) [players, stakes] = [st.players, 0];
     const quit = this.quit();
+    if (coached) stakes = 0;
     if (name) this.save.name = name;
     const p = buyIn(this.save.progress, stakes);
     if (failed(p)) throw new BackendError(p.error);
     this.save.progress = p;
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const levels = st ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
-    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n };
+    const levels = st || coached ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
+    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true } : {}) };
     this.write();
     return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, me: this.view(), quit };
   }
@@ -204,6 +207,13 @@ export class BrowserBackend implements Backend {
     const rep = replaySolo(g.seed, g.players, answers, undefined, g);
     this.save.solo = null;
     const won = rep.winners.includes(0);
+    this.save.progress = addMistakes(this.save.progress, rep.mistakes);
+    if (g.coached) {
+      const c = settleCoached(this.save.progress, won);
+      this.save.progress = c.progress;
+      this.write();
+      return { me: this.view(), reward: c.reward };
+    }
     const r = settle(this.save.progress, {
       mode: "bots", players: g.players, stakes: g.stakes, won, payout: payout(g.stakes, g.players, rep.winners, 0), summary: summarize(rep.events, 0), at: Date.now(),
       rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
@@ -359,8 +369,8 @@ export class ServerBackend implements Backend {
     return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "" }));
   }
 
-  soloStart(players: number, stakes: number, _name: string, campaign?: number) {
-    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign });
+  soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached });
   }
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });

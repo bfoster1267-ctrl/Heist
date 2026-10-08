@@ -26,6 +26,8 @@ export interface LobbyChoice {
   stakes: number;
   /** a campaign stage (sets the table; no buy-in) */
   campaign?: number;
+  /** Coached play: a real game vs bots with a coach; free, small XP, not in the career */
+  coached?: boolean;
 }
 
 export function Lobby({
@@ -66,6 +68,14 @@ export function Lobby({
       /* ignore */
     }
     onPlay({ players, name: name.trim() || "Ace", stakes: campaign ? 0 : STAKES[i].buyIn, campaign });
+  };
+  const coach = () => {
+    try {
+      localStorage.setItem("heist.name", name);
+    } catch {
+      /* ignore */
+    }
+    onPlay({ players, name: name.trim() || "Ace", stakes: 0, coached: true });
   };
   return (
     <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
@@ -141,6 +151,9 @@ export function Lobby({
               Play with friends
             </button>
           </div>
+          <button className="btn ghost" onClick={coach} data-tip="A real game against bots with a coach who explains every move. Free to play, small XP, doesn't count in your career.">
+            Coached play <span className="dim">learn with a coach</span>
+          </button>
           <AnimatePresence>
             {camp && (
               <Campaign
@@ -168,7 +181,7 @@ export function Lobby({
           ) : (
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
-          <div className="fine">Quick Match seats you with bots. Campaign is twelve tougher tables in a row. Play with friends makes an online table you can share. Chips are play money only.</div>
+          <div className="fine">Quick Match seats you with bots. Campaign is twelve tougher tables in a row. Coached play is a free game with a coach at your side. Play with friends makes an online table you can share. Chips are play money only.</div>
         </div>
       </motion.div>
     </div>

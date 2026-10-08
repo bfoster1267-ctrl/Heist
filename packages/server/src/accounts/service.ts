@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, settle, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -340,32 +340,39 @@ export class AccountService {
 
   // ------------------------------------------------------------------ games
 
-  /** Start a vs-bots game: pay the buy-in and get a seed from the server. */
   /**
+   * Start a vs-bots game: pay the buy-in and get a seed from the server.
    * `scaled`: the client builds bots at the levels in the ticket (older cached clients don't, so they get
-   * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in).
+   * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in). `coached`: Coached play
+   * (normal bots, no buy-in, small XP, kept out of the career and the rating).
    */
-  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown) {
+  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown) {
     const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
     if (campaign !== undefined && campaign !== null && !st) throw new ApiError(400, "No such stage");
     if (st) [players, stakes] = [st.players, 0];
     if (typeof players !== "number" || !SOLO_PLAYERS.includes(players)) throw new ApiError(400, "Tables are for 3 to 6 players");
     if (typeof stakes !== "number" || !Number.isInteger(stakes) || stakes < 0 || stakes > MAX_STAKES) throw new ApiError(400, "Bad stakes");
+    const coach = !st && coached === true;
+    const n = players;
+    const buy = coach ? 0 : stakes;
     return this.update(a.id, (x) => {
       if (st && st.n > x.progress.campaign + 1) throw new ApiError(403, "Clear the stage before that one first");
       let quit: Reward | null = null;
       if (x.solo) quit = this.settleQuit(x);
-      this.apply(x, buyIn(x.progress, stakes));
-      const levels = !st && scaled === true ? botLevelsFor(x.progress.rating, players - 1) : undefined;
-      x.solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players, stakes, startedAt: this.now(), levels, stage: st?.n };
-      return { me: this.me(x), gameId: x.solo.gameId, seed: x.solo.seed, players, levels, stage: st?.n, quit };
+      this.apply(x, buyIn(x.progress, buy));
+      const levels = !st && !coach && scaled === true ? botLevelsFor(x.progress.rating, n - 1) : undefined;
+      const solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players: n, stakes: buy, startedAt: this.now(), levels, stage: st?.n, ...(coach ? { coached: true } : {}) };
+      x.solo = solo;
+      return { me: this.me(x), gameId: solo.gameId, seed: solo.seed, players: n, levels, stage: st?.n, quit };
     });
   }
 
-  /** A solo game left unfinished counts as a loss (so quitting can't protect a win rate). */
-  private settleQuit(x: Account): Reward {
+  /** A solo game left unfinished counts as a loss (so quitting can't protect a win rate). Coached games
+   * aren't in the career, so leaving one costs nothing. */
+  private settleQuit(x: Account): Reward | null {
     const g = x.solo!;
     x.solo = null;
+    if (g.coached) return null;
     const r = settle(x.progress, {
       mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
@@ -396,6 +403,13 @@ export class AccountService {
       }
       x.solo = null;
       const won = rep.winners.includes(0);
+      // every vs-bots game feeds the rookie-mistake tally the coach leans on
+      x.progress = addMistakes(x.progress, rep.mistakes);
+      if (g.coached) {
+        const c = settleCoached(x.progress, won);
+        x.progress = c.progress;
+        return { me: this.me(x), reward: c.reward, winners: rep.winners };
+      }
       const pay = payout(g.stakes, g.players, rep.winners, 0);
       const r = settle(x.progress, { mode: "bots", players: g.players, stakes: g.stakes, won, payout: pay, summary: summarize(rep.events, 0), at: this.now(),
         rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
@@ -438,6 +452,19 @@ export class AccountService {
     }
     this.board = null;
     return out;
+  }
+
+  // ------------------------------------------------------------------ rookie mistakes
+
+  /** How often players make each rookie mistake, across every account (no names): which warnings matter. */
+  async mistakes(): Promise<{ players: number; coachGames: number; counts: { id: string; title: string; count: number; players: number }[] }> {
+    const all = (await this.store.all()).map((a) => upgrade(a.progress));
+    let total: MistakeCounts = {};
+    for (const p of all) total = addCounts(total, p.mistakes);
+    const counts = MISTAKE_IDS.map((id) => ({ id, title: MISTAKES[id].title, count: total[id] ?? 0, players: all.filter((p) => (p.mistakes[id] ?? 0) > 0).length })).sort(
+      (a, b) => b.count - a.count,
+    );
+    return { players: all.length, coachGames: all.reduce((t, p) => t + p.coachGames, 0), counts };
   }
 
   // ------------------------------------------------------------------ leaderboards

@@ -54,13 +54,14 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/season/pack": async (b, t) => svc.openPack(await me(t), b.paid),
     "POST /api/chips/refill": async (_, t) => svc.refill(await me(t)),
     "POST /api/chips/daily": async (_, t) => svc.daily(await me(t)),
-    "POST /api/solo/start": async (b, t) => svc.soloStart(await me(t), b.players, b.stakes, b.scaled, b.campaign),
+    "POST /api/solo/start": async (b, t) => svc.soloStart(await me(t), b.players, b.stakes, b.scaled, b.campaign, b.coached),
     "POST /api/solo/finish": async (b, t) => svc.soloFinish(await me(t), b.gameId, b.answers),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
       return svc.payForDrink((await me(t)).id, b.id, count);
     },
+    "GET /api/coach/mistakes": async () => svc.mistakes(),
     "GET /api/leaderboard": async (_, __, q) => ({ rows: await svc.leaderboard(q.get("by")) }),
     "GET /api/players/:id": async (_, __, ___, id) => svc.publicProfile(id),
   };

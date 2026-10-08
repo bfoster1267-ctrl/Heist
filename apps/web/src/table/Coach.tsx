@@ -1,6 +1,7 @@
 // First-game help: a short walkthrough of the table, then one coach tip the first time each kind of
 // decision comes up. Both remember what you've seen; the settings menu can replay or turn them off.
 import type { Ask, GameState } from "@heist/engine";
+import { MISTAKES, coachTip, type MistakeId } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
@@ -158,6 +159,45 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
         </motion.div>
       )}
     </AnimatePresence>
+  );
+}
+
+/** Coached play: the coach's read of every decision, docked beside your action panel. */
+export function LiveCoach({ s, ask }: { s: GameState; ask: Ask | null }) {
+  const tip = ask ? coachTip(s, ask) : "";
+  const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
+  return (
+    <AnimatePresence>
+      {tip && ask && (
+        <motion.div key={JSON.stringify(ask)} ref={above} className={"coach live" + (ask.kind === "keepRole" ? " top" : "")} role="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+          <div className="coach-title">Coach</div>
+          <div className="coach-text">{tip}</div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Coached play: a rookie mistake is caught before it's played. You can still play it. */
+export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId; before: number; onAnyway: () => void; onChange: () => void }) {
+  const m = MISTAKES[id];
+  const above = useAbovePanel(true);
+  return (
+    <motion.div ref={above} className="coach live mistake" role="alertdialog" aria-label={m.title} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}>
+      <div className="coach-title">Hold on: {m.title.toLowerCase()}</div>
+      <div className="coach-text">
+        {m.why}
+        {before > 0 && <> You've made this one {before} time{before === 1 ? "" : "s"} before.</>}
+      </div>
+      <div className="btns">
+        <button className="btn small primary" autoFocus onClick={onChange}>
+          Change my move
+        </button>
+        <button className="btn small ghost" onClick={onAnyway}>
+          Do it anyway
+        </button>
+      </div>
+    </motion.div>
   );
 }
 
