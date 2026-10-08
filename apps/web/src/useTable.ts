@@ -175,3 +175,6 @@ export function useTable(settings: TableSettings) {
 
   return { shown, ask: shown && !ref.current?.queue.length ? ask : null, answer, log, speed, setSpeed, restart: start, skip, flightHook, history, game: ref.current?.game ?? null, answers: () => ref.current?.answers ?? [] };
 }
+
+/** What the table renders from. The local game vs bots is one source; online play plugs in another. */
+export type TableSource = ReturnType<typeof useTable>;
