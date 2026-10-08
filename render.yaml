@@ -1,0 +1,23 @@
+# Render Blueprint for the Heist game server: in Render, New > Blueprint, pick this repo.
+# A disk needs a paid instance (Starter); on the free plan drop the disk and games won't survive restarts.
+services:
+  - type: web
+    name: heist-server
+    runtime: docker
+    dockerfilePath: packages/server/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /healthz
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: DATA_DIR
+        value: /data
+      - key: TOKEN_SECRET
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false
+    disk:
+      name: heist-data
+      mountPath: /data
+      sizeGB: 1

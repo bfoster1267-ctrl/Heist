@@ -1788,6 +1788,20 @@ button:disabled {
   text-align: center;
 }
 
+.away-tag {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: var(--paper);
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 6px;
+  vertical-align: 2px;
+  opacity: 0.75;
+}
+
 .you-tag {
   font-family: var(--cond);
   font-weight: 800;
