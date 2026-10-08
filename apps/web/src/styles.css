@@ -2605,6 +2605,8 @@ button:disabled {
 /* rules sheet */
 .rules-back {
   z-index: 80;
+  /* a full-height row so the sheet's max-height resolves and long tabs scroll inside it */
+  grid-template-rows: minmax(0, 1fr);
 }
 .rules-back.fixed {
   position: fixed;
@@ -2661,6 +2663,7 @@ button:disabled {
 }
 .rules-body {
   overflow-y: auto;
+  min-height: 0;
   font-size: 16px;
   line-height: 1.45;
   text-align: left;
@@ -2671,7 +2674,7 @@ button:disabled {
 .rules-body ol,
 .rules-body ul {
   margin: 0 0 10px;
-  padding-left: 22px;
+  padding-left: 1.5em;
 }
 .rules-body li {
   margin-bottom: 6px;
