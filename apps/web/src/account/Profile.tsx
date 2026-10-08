@@ -336,6 +336,7 @@ function Board({ me }: { me: Me }) {
 function Account({ me }: { me: Me }) {
   const { act, backend } = useAccount();
   const [name, setName] = useState(me.name);
+  useEffect(() => setName(me.name), [me.name]);
   const [sure, setSure] = useState(false);
   const p = me.progress;
   const today = new Date().toISOString().slice(0, 10);
