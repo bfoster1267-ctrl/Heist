@@ -215,6 +215,42 @@ button:disabled {
 .topbar.right {
   right: 10px;
 }
+.topbar-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.turn-steps {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+.turn-who {
+  color: var(--gold2);
+  margin-right: 4px;
+}
+.turn-step {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: rgba(242, 232, 211, 0.35);
+  background: rgba(255, 255, 255, 0.04);
+  transition: color 0.25s, background 0.25s;
+}
+.turn-step.done {
+  color: rgba(242, 232, 211, 0.6);
+}
+.turn-step.on {
+  color: #1a1408;
+  background: var(--gold);
+}
+.l-wide .turn-steps {
+  font-size: 14px;
+}
 .stakes {
   font-family: var(--cond);
   font-size: 14px;
@@ -2034,7 +2070,7 @@ button:disabled {
 .settings {
   position: absolute;
   right: 10px;
-  top: 44px;
+  top: 54px;
   width: 280px;
   z-index: 70;
   padding: 12px 14px;
@@ -2206,6 +2242,11 @@ button:disabled {
 }
 .l-wide .ticker {
   font-size: 19px;
+  /* the top seat sits where the ticker is on the desk layout, so it lives between the pot and the hand */
+  top: 408px;
+  width: 560px;
+  height: 28px;
+  z-index: 6;
 }
 /* bigger type in the wide canvas, since it's drawn small on a phone */
 .l-wide .seat-name {
@@ -2218,6 +2259,10 @@ button:disabled {
 .l-wide .stat-k,
 .l-wide .seat-sub {
   font-size: 11px;
+}
+.l-wide .settings,
+.l-wide .chat-tray {
+  top: 64px;
 }
 .l-wide .icon-btn {
   height: 50px;
@@ -2467,7 +2512,7 @@ button:disabled {
 .chat-tray {
   position: absolute;
   right: 10px;
-  top: 44px;
+  top: 54px;
   width: 300px;
   z-index: 70;
   padding: 10px;
@@ -2514,6 +2559,93 @@ button:disabled {
   text-transform: uppercase;
   color: var(--dim, #9aa0aa);
   margin-bottom: 6px;
+}
+/* rules sheet */
+.rules-back {
+  z-index: 80;
+}
+.rules-back.fixed {
+  position: fixed;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.rules-back.fixed .rules {
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+}
+.rules {
+  width: 640px;
+  max-width: calc(100% - 40px);
+  max-height: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #1c1f26, #101216);
+  border: 1px solid var(--gold);
+  border-radius: 18px;
+  padding: 16px 20px 18px;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+}
+.rules-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.rules-title {
+  font-family: var(--title);
+  font-size: 32px;
+  letter-spacing: 2px;
+  color: var(--gold2);
+}
+.rules-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.rules-tabs button {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--muted);
+}
+.rules-tabs button.on {
+  border-color: var(--gold);
+  color: var(--gold2);
+  background: rgba(231, 181, 60, 0.12);
+}
+.rules-body {
+  overflow-y: auto;
+  font-size: 16px;
+  line-height: 1.45;
+  text-align: left;
+}
+.rules-body p {
+  margin: 0 0 10px;
+}
+.rules-body ol,
+.rules-body ul {
+  margin: 0 0 10px;
+  padding-left: 22px;
+}
+.rules-body li {
+  margin-bottom: 6px;
+}
+.rules-body b {
+  color: var(--paper);
+}
+.l-wide .rules {
+  width: 760px;
+}
+.l-wide .rules-body {
+  font-size: 19px;
+}
+.l-wide .rules-tabs button {
+  font-size: 17px;
+  padding: 10px 14px;
 }
 /* drinks */
 .drink-layer {

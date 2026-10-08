@@ -16,11 +16,35 @@ import { seatPos, useLayout } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
+import { Rules } from "./Rules";
 import { Settings } from "./Settings";
 import { Showdown } from "./Showdown";
 import { TooltipLayer } from "./Tooltip";
 
 const CHIP_COLORS = ["#c8372d", "#2f78c4", "#1d1f24", "#3a9a4a", "#8a4fbf"];
+
+const STEPS = ["Regroup", "Hit", "Crew up", "Showdown", "Payoff"];
+const STEP_OF: Partial<Record<string, number>> = {
+  ...Object.fromEntries(["turn", "draw", "penReturn", "fence", "bank", "hire", "stuck"].map((k) => [k, 0])),
+  ...Object.fromEntries(["flip", "mark", "target", "bust"].map((k) => [k, 1])),
+  ...Object.fromEntries(["send", "bribe", "pass", "doubleCross", "bet"].map((k) => [k, 2])),
+  ...Object.fromEntries(["hackerCall", "facedown", "reveal", "hacked", "forged", "backup"].map((k) => [k, 3])),
+  ...Object.fromEntries(["result", "fixerFixer", "deal", "dealOffer", "giveCards", "toPen", "foothold", "loot", "cut", "betPaid", "bustResult", "placeCrew", "again"].map((k) => [k, 4])),
+};
+
+/** Where we are in the Boss's turn: whose turn, then the five steps with the current one lit. */
+function TurnSteps({ who, step }: { who: string; step: number }) {
+  return (
+    <div className="turn-steps" data-tip={"The Boss's turn, in order\nRegroup: draw, bank, hire. Hit: pick the Mark. Crew up: everyone picks a side. Showdown: cards flip. Payoff: winners and losers settle."}>
+      <span className="turn-who">{who}</span>
+      {STEPS.map((x, i) => (
+        <span key={x} className={"turn-step" + (i === step ? " on" : i < step ? " done" : "")}>
+          {x}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 /** Events that shake the table a little. */
 const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
@@ -54,6 +78,11 @@ export function Table({
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [showRules, setShowRules] = useState(false);
+  // Which part of the Boss's turn we're in, from the latest event (kept when an event doesn't say).
+  const stepRef = useRef(0);
+  const evNow = t.shown?.ev;
+  if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
   const nRef = useRef(settings.players);
   const seatAt = (seat: number) => seatPos(L, seat, nRef.current, HUMAN);
@@ -202,9 +231,12 @@ export function Table({
               <button className="icon-btn labeled" onClick={onExit} aria-label="Leave table" data-tip="Leave table">
                 ←<span className="ib-k">Lobby</span>
               </button>
-              <span className="stakes">
-                Stakes {settings.stakes.toLocaleString()} · First to {s.target}
-              </span>
+              <div className="topbar-info">
+                <span className="stakes">
+                  Stakes {settings.stakes.toLocaleString()} · First to {s.target}
+                </span>
+                {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
+              </div>
             </div>
             <div className="topbar right" role="toolbar" aria-label="Table controls">
               <button
@@ -223,6 +255,9 @@ export function Table({
               </button>
               <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
                 ☰<span className="ib-k">Log</span>
+              </button>
+              <button className={"icon-btn labeled" + (showRules ? " on" : "")} aria-pressed={showRules} onClick={() => setShowRules(!showRules)} aria-label="How to play" data-tip="How to play">
+                ?<span className="ib-k">Rules</span>
               </button>
               <button className={"icon-btn labeled" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label="Settings" data-tip="Sound, motion and tips">
                 ⚙<span className="ib-k">Settings</span>
@@ -414,6 +449,7 @@ export function Table({
               </motion.div>
             )}
           </AnimatePresence>
+          <AnimatePresence>{showRules && <Rules target={s.target} onClose={() => setShowRules(false)} />}</AnimatePresence>
           <AnimatePresence>
             {showSettings && (
               <Settings
