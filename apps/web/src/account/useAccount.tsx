@@ -8,6 +8,8 @@ import { BackendError, openBackend, type Backend, type Me } from "./backend";
 interface AccountCtx {
   backend: Backend | null;
   me: Me | null;
+  /** the account couldn't load (server unreachable after retries) */
+  failed: boolean;
   /** the last error from an action, for a toast */
   error: string | null;
   clearError(): void;
@@ -25,6 +27,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<Me | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [reward, showReward] = useState<Reward | null>(null);
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -33,6 +36,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
       if (!live) return;
       setBackend(b);
       setMe(m);
+      setFailed(!m);
     });
     return () => {
       live = false;
@@ -61,7 +65,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [error]);
 
-  const value = useMemo(() => ({ backend, me, error, clearError: () => setError(null), act, reward, showReward }), [backend, me, error, act, reward]);
+  const value = useMemo(() => ({ backend, me, failed, error, clearError: () => setError(null), act, reward, showReward }), [backend, me, failed, error, act, reward]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

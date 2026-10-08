@@ -27,7 +27,7 @@ interface Seated extends TableSettings {
 }
 
 function Game() {
-  const { me, act, showReward, error, clearError } = useAccount();
+  const { me, failed, act, showReward, error, clearError } = useAccount();
   const [table, setTable] = useState<Seated | null>(null);
   const [round, setRound] = useState(0);
   // the profile sheet and which tab it opens on (false = closed)
@@ -107,7 +107,18 @@ function Game() {
     [act],
   );
 
-  if (!me) return <div className="loading">Opening the vault…</div>;
+  if (!me)
+    return failed ? (
+      <div className="loading loading-failed">
+        <div>Can't reach the vault</div>
+        <p>The game server didn't answer. Your account and chips are safe.</p>
+        <button className="btn primary big" onClick={() => location.reload()}>
+          Try again
+        </button>
+      </div>
+    ) : (
+      <div className="loading">Opening the vault…</div>
+    );
   const chips = me.progress.chips;
 
   // Online games settle chips, XP and stats on the server (the socket signs in as this account), so the

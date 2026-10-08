@@ -93,7 +93,12 @@ const store = {
   },
 };
 
-export class BackendError extends Error {}
+export class BackendError extends Error {
+  /** the HTTP status, when the server answered */
+  constructor(message: string, readonly status = 0) {
+    super(message);
+  }
+}
 
 // ------------------------------------------------------------------ this browser
 
@@ -301,7 +306,7 @@ export class ServerBackend implements Backend {
       body: body ? JSON.stringify(body) : undefined,
     });
     const out = await r.json().catch(() => ({ error: "The server sent something odd" }));
-    if (!r.ok) throw new BackendError(out.error ?? "Something went wrong");
+    if (!r.ok) throw new BackendError(out.error ?? "Something went wrong", r.status);
     return out as T;
   }
 
@@ -313,10 +318,16 @@ export class ServerBackend implements Backend {
 
   async me(): Promise<Me> {
     if (this.session) {
-      try {
-        return await this.call<Me>("/api/me");
-      } catch {
-        /* expired or signed out elsewhere: fall through to a guest */
+      // Only a 401 (expired, or signed out everywhere) drops the session for a guest. A blip while the
+      // server restarts after a deploy must not swap a signed-in player's token for a fresh guest.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await this.call<Me>("/api/me");
+        } catch (e) {
+          if (e instanceof BackendError && e.status === 401) break;
+          if (attempt >= 3) throw e;
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+        }
       }
     }
     return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "" }));
