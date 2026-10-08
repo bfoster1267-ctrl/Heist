@@ -163,6 +163,23 @@ describe("accounts", () => {
   });
 });
 
+describe("season packs", () => {
+  it("sells a pack for chips, keeps a top-up's worth back, and opens free packs", async () => {
+    const svc = new AccountService({ secret: "s", now: () => Date.UTC(2026, 10, 1) });
+    const { me } = await svc.register("packs@x.com", "longenough", "Packer");
+    const a = await svc.require((await svc.login("packs@x.com", "longenough")).token);
+    // a new player has 10,000 chips: two packs, then not a third
+    const r1 = await svc.openPack(a, true);
+    expect(r1.items.length).toBe(3);
+    expect(r1.me.progress.chips).toBe(me.progress.chips - 3000);
+    await svc.openPack(a, true);
+    await expect(svc.openPack(a, true)).rejects.toThrow(/2,500 left/);
+    await expect(svc.openPack(a, false)).rejects.toThrow(/free pack/);
+    const owned = (await svc.store.get(a.id))!.progress.owned;
+    expect(new Set(owned).size).toBe(6);
+  });
+});
+
 describe("accounts over HTTP and the game socket", () => {
   it("serves the API, settles an online game with XP and stats, and sells drinks for coins", async () => {
     const accounts = new AccountService({ secret: "s", devLogins: true });

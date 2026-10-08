@@ -1,6 +1,6 @@
 // What other players can see of you: your name, level, prestige, look and headline stats.
 
-import type { Slot } from "./cosmetics";
+import type { EquipSlot } from "./cosmetics";
 import { cosmetic } from "./cosmetics";
 import { levelInfo, rankName } from "./levels";
 import type { Progress } from "./progress";
@@ -12,6 +12,9 @@ export interface Badge {
   prestige: number;
   frame: string;
   title: string | null;
+  /** chat bubble and cigar ids, so other players see them */
+  chat?: string;
+  cigar?: string;
 }
 
 export interface PublicProfile {
@@ -20,7 +23,7 @@ export interface PublicProfile {
   level: number;
   prestige: number;
   rank: string;
-  equipped: Record<Slot, string>;
+  equipped: Record<EquipSlot, string>;
   joined: number;
   stats: Pick<CareerStats, "games" | "wins" | "losses" | "winnings" | "biggestPot" | "bestStreak" | "footholds" | "byMode">;
 }
@@ -31,6 +34,8 @@ export function badgeOf(p: Progress): Badge {
     prestige: p.prestige,
     frame: p.equipped.frame,
     title: cosmetic(p.equipped.title)?.text ?? null,
+    chat: p.equipped.chat,
+    cigar: p.equipped.cigar,
   };
 }
 

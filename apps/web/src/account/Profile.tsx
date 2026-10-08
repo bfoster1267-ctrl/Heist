@@ -3,8 +3,10 @@
 import { ROLES, type RoleId } from "@heist/engine";
 import {
   COSMETICS, DAILY_CHIPS, MAX_LEVEL, cosmetic, levelInfo, owns, prestigeCoins, prestigeName, rankName, unlocked, winRate,
-  type Cosmetic, type Slot,
+  type Cosmetic, type EquipSlot, type Slot,
 } from "@heist/profile";
+import { Cigar, Preview, bannerStyle } from "./items";
+import { Season } from "./Season";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Chips } from "../table/pieces";
@@ -14,7 +16,7 @@ import type { PublicProfile } from "@heist/profile";
 import { SignIn } from "./SignIn";
 import { useAccount } from "./useAccount";
 
-type Tab = "career" | "shop" | "board" | "account";
+type Tab = "career" | "season" | "shop" | "board" | "account";
 
 export function Profile({ onClose, tab: start = "career" }: { onClose: () => void; tab?: Tab }) {
   const { me } = useAccount();
@@ -55,6 +57,7 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
           {(
             [
               ["career", "Career"],
+              ["season", "Season"],
               ["shop", "Shop"],
               ["board", "Leaderboard"],
               ["account", me.guest ? "Sign in" : "Account"],
@@ -67,6 +70,7 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
         </nav>
         <div className="acct-body">
           {tab === "career" && <Career me={me} />}
+          {tab === "season" && <Season me={me} />}
           {tab === "shop" && <Shop me={me} />}
           {tab === "board" && <Board me={me} />}
           {tab === "account" && <Account me={me} />}
@@ -88,8 +92,11 @@ function Header({ me }: { me: Me }) {
     if (r) showReward({ xp: 0, coins: r.coins, lines: [{ label: prestigeName(r.me.progress.prestige), xp: 0, coins: r.coins }], payout: 0, levelBefore: MAX_LEVEL, levelAfter: 1, xpBefore: 0, xpAfter: 0, unlocked: r.unlocked, canPrestige: false });
   };
   return (
-    <header className="acct-head">
-      <Avatar name={me.name} frame={p.equipped.frame} level={li.level} size={84} />
+    <header className={"acct-head" + (bannerStyle(p.equipped.banner) ? " bannered" : "")} style={bannerStyle(p.equipped.banner)}>
+      <span className="acct-head-avatar">
+        <Avatar name={me.name} frame={p.equipped.frame} level={li.level} size={84} />
+        <Cigar id={p.equipped.cigar} size={44} />
+      </span>
       <div className="acct-head-id">
         <div className="acct-head-name">
           {me.name} <Stars prestige={p.prestige} />
@@ -275,7 +282,8 @@ function Bars({ rows }: { rows: [string, { g: number; w: number }][] }) {
   );
 }
 
-const SLOTS: [Slot, string][] = [
+// the shop sells these; season items live in the Season tab
+const SLOTS: [EquipSlot, string][] = [
   ["felt", "Table felt"],
   ["cardBack", "Card backs"],
   ["frame", "Avatar frames"],
@@ -335,26 +343,6 @@ function Shop({ me }: { me: Me }) {
   );
 }
 
-function Preview({ c, name }: { c: Cosmetic; name: string }) {
-  const [a, b] = c.colors ?? ["#333", "#111"];
-  if (c.slot === "felt") return <div className="acct-prev acct-prev-felt" style={{ background: `radial-gradient(ellipse at 50% 40%, ${a}, ${b})` }} />;
-  if (c.slot === "cardBack")
-    return (
-      <div className="acct-prev acct-prev-backwrap">
-        <div className="acct-prev-back" data-pattern={c.pattern} style={{ ["--back" as string]: a, ["--back2" as string]: b }}>
-          <span>H</span>
-        </div>
-      </div>
-    );
-  if (c.slot === "frame")
-    return (
-      <div className="acct-prev acct-prev-frame">
-        <Avatar name={name} frame={c.id} size={50} />
-      </div>
-    );
-  return <div className="acct-prev acct-prev-title">{c.text ? `“${c.text}”` : "—"}</div>;
-}
-
 function Board({ me }: { me: Me }) {
   const { backend } = useAccount();
   const [by, setBy] = useState<"winnings" | "level" | "wins">("winnings");
@@ -408,7 +396,7 @@ function Board({ me }: { me: Me }) {
 
 /** The next cosmetic the player's level (or prestige) will open up, to aim for. */
 function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
-  const slotName: Record<Slot, string> = { felt: "felt", cardBack: "card back", frame: "frame", title: "title" };
+  const slotName: Partial<Record<Slot, string>> = { felt: "felt", cardBack: "card back", frame: "frame", title: "title" };
   const next =
     prestige === 0
       ? COSMETICS.filter((c) => c.unlock?.level !== undefined && c.unlock.prestige === undefined && c.unlock.level > level).sort((a, b) => a.unlock!.level! - b.unlock!.level!)[0]
@@ -455,7 +443,7 @@ function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
           <div className="dim">Loading…</div>
         ) : (
           <>
-            <div className="acct-card-head">
+            <div className="acct-card-head" style={bannerStyle(p.equipped.banner)}>
               <Avatar name={p.name} frame={p.equipped.frame} level={p.level} size={56} />
               <div>
                 <div className="acct-card-name">

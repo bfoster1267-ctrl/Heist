@@ -113,7 +113,8 @@ JSON over HTTPS on the game server. Send the session token as `Authorization: Be
 | `POST /api/me/name` | `{name}` |
 | `POST /api/me/delete` | Delete the account for good. |
 | `POST /api/prestige` | Prestige at level 50. |
-| `POST /api/shop/buy`, `POST /api/shop/equip` | `{id}` of a cosmetic. |
+| `POST /api/shop/buy`, `POST /api/shop/equip` | `{id}` of a cosmetic. Season items can't be bought; equip works once owned. |
+| `POST /api/season/pack` | `{paid}`: `true` buys a pack for 3,000 chips (you must keep 2,500 after), `false` opens a free pack from the pass. Returns `{me, items, dupeXp}`. |
 | `POST /api/chips/refill`, `POST /api/chips/daily` | Top up when low; daily free chips. |
 | `POST /api/solo/start` | `{players, stakes}`: pay the buy-in, get `{gameId, seed}`. |
 | `POST /api/solo/finish` | `{gameId, answers}`: replayed and paid out; returns the reward. |
@@ -125,3 +126,14 @@ JSON over HTTPS on the game server. Send the session token as `Authorization: Be
 On the game socket, `{t: "drink", id, to}` buys a drink for a seat (or a round with `to: null`) and
 everyone receives `{t: "drink", from, to, id, name}`. After an online game each signed-in player gets
 `{t: "reward", reward, progress}`, and seats carry a `badge` (level, prestige, frame, title).
+
+## Seasons
+
+A season is a side track next to career XP (rules in `packages/profile/src/season.ts`, items in
+`season1.ts`). Every settled game adds season XP (150 played, +100 won, +50 online, +200 first win of
+the day; quits earn nothing). 800 XP per tier, 50 tiers: items on most tiers, 150 coins every fifth,
+a free pack every tenth, three packs at tier 50. Packs hold 3 common items from the season's pack pool,
+only ones the player doesn't own; once the pool is complete a pack pays 200 season XP per slot.
+Season items can only be earned while their season runs (Season 1 "Opening Night": 2026-10-08 to
+2027-01-05) and are kept for good. `Progress.pass` holds `{season, xp, packs}` and resets when a new
+season starts. Rarity tiers above common are a hook (`Rarity`, `PACK_ODDS`) waiting on design.

@@ -51,6 +51,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/prestige": async (_, t) => svc.prestige(await me(t)),
     "POST /api/shop/buy": async (b, t) => svc.buy(await me(t), b.id),
     "POST /api/shop/equip": async (b, t) => svc.equip(await me(t), b.id),
+    "POST /api/season/pack": async (b, t) => svc.openPack(await me(t), b.paid),
     "POST /api/chips/refill": async (_, t) => svc.refill(await me(t)),
     "POST /api/chips/daily": async (_, t) => svc.daily(await me(t)),
     "POST /api/solo/start": async (b, t) => svc.soloStart(await me(t), b.players, b.stakes),

@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  buy, buyIn, daily, equip, failed, newProgress, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  buy, buyIn, daily, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 
@@ -34,6 +34,12 @@ export interface SoloTicket {
   quit: Reward | null;
 }
 
+export interface PackOpened {
+  me: Me;
+  items: string[];
+  dupeXp: number;
+}
+
 export interface LeaderRow {
   id: string;
   name: string;
@@ -54,6 +60,8 @@ export interface Backend {
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
+  /** open a season pack: a free one from the pass, or one bought with chips */
+  openPack(paid: boolean): Promise<PackOpened>;
   prestige(): Promise<{ me: Me; coins: number; unlocked: string[] }>;
   refill(): Promise<Me>;
   daily(): Promise<{ me: Me; chips: number }>;
@@ -206,6 +214,13 @@ export class BrowserBackend implements Backend {
   async equip(id: string) {
     return this.apply(equip(this.save.progress, id));
   }
+  async openPack(paid: boolean): Promise<PackOpened> {
+    const r = openPack(this.save.progress, Date.now(), (n) => Math.floor(Math.random() * n), paid);
+    if (failed(r)) throw new BackendError(r.error);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), items: r.items, dupeXp: r.dupeXp };
+  }
   async prestige() {
     const r = prestige(this.save.progress);
     if (failed(r)) throw new BackendError(r.error);
@@ -347,6 +362,9 @@ export class ServerBackend implements Backend {
   }
   equip(id: string) {
     return this.call<Me>("/api/shop/equip", { id });
+  }
+  openPack(paid: boolean) {
+    return this.call<PackOpened>("/api/season/pack", { paid });
   }
   prestige() {
     return this.call<{ me: Me; coins: number; unlocked: string[] }>("/api/prestige", {});

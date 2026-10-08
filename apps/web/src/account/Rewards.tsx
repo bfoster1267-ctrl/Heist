@@ -80,6 +80,22 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
           Unlocked: {r.unlocked.map((id) => cosmetic(id)?.name).filter(Boolean).join(", ")}. Equip in the Shop.
         </div>
       )}
+      {r.pass && r.pass.xp > 0 && (
+        <div className="acct-reward-season">
+          <span>
+            Season pass +{r.pass.xp} XP{r.pass.tierAfter > r.pass.tierBefore ? ` · tier ${r.pass.tierAfter}!` : ` · tier ${r.pass.tierAfter}`}
+          </span>
+          {r.pass.rewards.length > 0 && (
+            <span className="acct-reward-season-got">
+              Got:{" "}
+              {r.pass.rewards
+                .map((x) => (x.kind === "item" ? cosmetic(x.id)?.name : x.kind === "coins" ? `${x.coins} coins` : x.packs > 1 ? `${x.packs} free packs` : "a free pack"))
+                .join(", ")}
+              . See the Season tab.
+            </span>
+          )}
+        </div>
+      )}
       {r.canPrestige && <div className="acct-reward-unlock">Level 50! You can prestige from your profile.</div>}
       {onSave && (
         <button className="btn primary acct-reward-save" onClick={onSave}>

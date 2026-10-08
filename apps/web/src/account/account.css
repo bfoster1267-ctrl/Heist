@@ -1095,3 +1095,246 @@
     font-size: 15px;
   }
 }
+
+/* ---------------------------------------------------------------- season pass, packs, locker */
+.bubble.mine {
+  background: var(--chat-bg, var(--paper));
+  color: var(--chat-ink, #16181d);
+  box-shadow: 0 0 0 2px var(--chat-edge, transparent);
+}
+.bubble.mine::after {
+  border-top-color: var(--chat-bg, var(--paper));
+}
+.acct-head.bannered {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.acct-head.bannered .acct-head-rank,
+.acct-head.bannered .acct-next {
+  color: rgba(255, 255, 255, 0.85);
+}
+.acct-head-avatar {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+.acct-head-avatar .cigar {
+  position: absolute;
+  right: -16px;
+  bottom: 22px;
+  transform: rotate(-12deg);
+}
+.seat-cigar {
+  position: absolute;
+  right: -20px;
+  bottom: -2px;
+  transform: rotate(-12deg);
+  pointer-events: none;
+}
+.cigar-smoke {
+  animation: cigar-smoke 3.2s ease-in-out infinite;
+}
+@keyframes cigar-smoke {
+  0%, 100% { opacity: 0.2; transform: translateY(2px); }
+  50% { opacity: 0.8; transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cigar-smoke { animation: none; }
+}
+.acct-prev-banner {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.acct-prev-chat {
+  display: inline-block;
+  padding: 5px 11px;
+  border-radius: 12px;
+  background: var(--chat-bg, var(--paper));
+  color: var(--chat-ink, #16181d);
+  box-shadow: 0 0 0 2px var(--chat-edge, transparent);
+  font-style: normal;
+  font-weight: 700;
+  font-size: 14px;
+}
+.acct-prev-emoji {
+  font-size: 36px;
+  font-style: normal;
+}
+.season {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.season-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+.season-name {
+  font-family: var(--title);
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: var(--gold2);
+}
+.season-tier {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+}
+.season-tier-n {
+  font-family: var(--title);
+  font-size: 40px;
+  color: var(--gold);
+}
+.season-xp-fill {
+  background: linear-gradient(90deg, #7a4bd6, #d65bd0);
+}
+.season-how {
+  font-size: 12px;
+}
+.season-track {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 4px 2px 10px;
+  scroll-behavior: smooth;
+}
+.season-tier-card {
+  position: relative;
+  flex: none;
+  width: 112px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: center;
+}
+.season-tier-card .acct-prev {
+  height: 52px;
+}
+.season-tier-card.got {
+  background: rgba(122, 75, 214, 0.16);
+  border-color: rgba(214, 91, 208, 0.5);
+}
+.season-tier-card.next {
+  border-color: var(--gold);
+  box-shadow: 0 0 14px rgba(231, 181, 60, 0.3);
+}
+.season-tier-num {
+  font-family: var(--title);
+  font-size: 15px;
+  color: var(--muted);
+}
+.season-tier-what {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.1;
+}
+.season-tier-slot,
+.season-rarity {
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.season-tier-check {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  color: #d65bd0;
+  font-weight: 700;
+}
+.season-tier-bonus {
+  font-style: normal;
+}
+.season-pack-mini,
+.season-pack-art {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 46px;
+  border-radius: 6px;
+  font-family: var(--title);
+  color: #fff;
+  background: linear-gradient(150deg, #7a4bd6, #2a1550);
+  border: 2px solid #d65bd0;
+}
+.season-pack-art {
+  width: 46px;
+  height: 62px;
+  font-size: 22px;
+  flex: none;
+}
+.season-pack-art.buy {
+  background: linear-gradient(150deg, #b8761a, #3d2504);
+  border-color: var(--gold);
+}
+.season-pack-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.season-pack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.season-pack > div:nth-child(2) {
+  flex: 1;
+  font-size: 13px;
+}
+.season-slot {
+  margin: 14px 0 8px;
+  font-family: var(--cond);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.season-reveal {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 22px;
+  max-width: 560px;
+  width: calc(100% - 32px);
+  border-radius: 18px;
+  background: #15121d;
+  border: 1px solid rgba(214, 91, 208, 0.5);
+  box-shadow: 0 0 40px rgba(122, 75, 214, 0.35);
+}
+.season-reveal-title {
+  font-family: var(--title);
+  font-size: 28px;
+  color: var(--gold2);
+}
+.season-reveal-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  width: 100%;
+  perspective: 800px;
+}
+.acct-reward-season {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(122, 75, 214, 0.18);
+  font-size: 13px;
+}
+.acct-reward-season-got {
+  color: var(--gold2);
+}

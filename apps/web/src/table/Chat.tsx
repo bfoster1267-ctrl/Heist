@@ -4,8 +4,9 @@
 import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
+import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
-import { DRINKS } from "./Drinks";
 
 export interface Bubble {
   seat: number;
@@ -90,7 +91,8 @@ function keepOnTable(el: HTMLElement, x: number, bottom: number) {
   el.style.setProperty("--tail", `${Math.max(14, Math.min(x - left, w - 14))}px`);
 }
 
-export function Bubbles({ bubbles, pos }: { bubbles: Bubble[]; pos: (seat: number) => [number, number] }) {
+/** `mine`: your seat, whose bubbles wear your equipped chat style */
+export function Bubbles({ bubbles, pos, mine }: { bubbles: Bubble[]; pos: (seat: number) => [number, number]; mine?: number }) {
   return (
     <AnimatePresence>
       {bubbles.map((b) => {
@@ -99,7 +101,7 @@ export function Bubbles({ bubbles, pos }: { bubbles: Bubble[]; pos: (seat: numbe
         return (
           <motion.div
             key={b.key}
-            className={"bubble" + (emoji ? " emoji" : "")}
+            className={"bubble" + (emoji ? " emoji" : "") + (b.seat === mine ? " mine" : "")}
             style={{ left: x, top: y - 62 }}
             ref={(el) => {
               if (el) keepOnTable(el, x, y - 62);
@@ -131,6 +133,10 @@ export function ChatTray({
 }) {
   const [cool, setCool] = useState(false);
   const [drink, setDrink] = useState<string | null>(null);
+  // season emotes and drinks the player owns join the tray
+  const { owned } = useLook();
+  const emotes = [...EMOTES, ...owned.flatMap((id) => (cosmetic(id)?.slot === "emote" ? [cosmetic(id)!.emoji!] : []))];
+  const drinks = [...DRINKS, ...ALL_DRINKS.filter((d) => owned.includes(d.id))];
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
@@ -146,7 +152,7 @@ export function ChatTray({
   return (
     <motion.div className="chat-tray" role="dialog" aria-label="Emotes and quick chat" initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }}>
       <div className="chat-emotes">
-        {EMOTES.map((e) => (
+        {emotes.map((e) => (
           <button key={e} onClick={() => send(e)} aria-label={`Send ${e}`}>
             {e}
           </button>
@@ -181,7 +187,7 @@ export function ChatTray({
           </div>
         ) : (
           <div className="chat-emotes">
-            {DRINKS.map((d) => (
+            {drinks.map((d) => (
               <button key={d.id} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
                 {d.emoji}
                 <span className="chat-price">{d.price || "free"}</span>

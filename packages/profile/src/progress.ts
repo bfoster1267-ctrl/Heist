@@ -2,9 +2,10 @@
 // rules that change them. The game server stores one of these per account; the web app keeps one in
 // the browser when no server is configured. Both run these same functions, so rewards always match.
 
-import { COSMETICS, DEFAULT_EQUIPPED, cosmetic, drink, freeWith, unlocked, type Slot } from "./cosmetics";
+import { COSMETICS, DEFAULT_EQUIPPED, cosmetic, drink, equippable, freeWith, unlocked, type EquipSlot } from "./cosmetics";
 import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForLevel } from "./levels";
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
+import { addPassXp, passLines, type PassResult, type PassState } from "./season";
 
 export const START_CHIPS = 10_000;
 /** Enough for one cheap cosmetic straight away. */
@@ -23,7 +24,10 @@ export interface Progress {
   stats: CareerStats;
   /** cosmetics bought with coins (free unlocks aren't listed; they're worked out from level and prestige) */
   owned: string[];
-  equipped: Record<Slot, string>;
+  equipped: Record<EquipSlot, string>;
+  /** this season's pass (season XP and unopened free packs); null before the first season game */
+  pass: PassState | null;
+  packsBought: number;
   /** UTC day (YYYY-MM-DD) of the last first-win-of-the-day bonus */
   winBonusDay: string | null;
   /** UTC day of the last daily chip bonus */
@@ -35,7 +39,7 @@ export interface Progress {
 export function newProgress(): Progress {
   return {
     chips: START_CHIPS, coins: START_COINS, xp: 0, prestige: 0, stats: emptyStats(), owned: [],
-    equipped: { ...DEFAULT_EQUIPPED }, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
+    equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
   };
 }
 
@@ -61,6 +65,8 @@ export interface Reward {
   /** cosmetics that became free with this game's level-ups */
   unlocked: string[];
   canPrestige: boolean;
+  /** the season pass: XP earned, tiers reached and what they gave (null between seasons) */
+  pass?: PassResult | null;
 }
 
 /** Work out XP and coins for a game. */
@@ -105,12 +111,14 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
   p.coins += coins;
   p.chips += r.payout;
   p.stats = addGame(p.stats, r, xp);
+  const passXp = passLines(r, firstWin).reduce((t, l) => t + l.xp, 0);
+  const pass = passXp ? addPassXp(p, passXp, r.at) : null;
   return {
     progress: p,
     reward: {
       xp, coins, lines, payout: r.payout,
       levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
-      unlocked: unlockedNow, canPrestige: canPrestige(p),
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
     },
   };
 }
@@ -145,6 +153,7 @@ export function buy(prev: Progress, id: string): Progress | Fail {
   if (!c) return { error: "No such item." };
   if (owns(prev, id)) return { error: "You already own that." };
   if (!unlocked(c, level(prev), prev.prestige)) return { error: "That one's still locked." };
+  if (c.season) return { error: "Season items come from the season pass and packs." };
   if (c.price <= 0) return { error: "That one isn't for sale." };
   if (prev.coins < c.price) return { error: "Not enough coins." };
   const p: Progress = structuredClone(prev);
@@ -157,6 +166,7 @@ export function equip(prev: Progress, id: string): Progress | Fail {
   const c = cosmetic(id);
   if (!c) return { error: "No such item." };
   if (!owns(prev, id)) return { error: "You don't own that yet." };
+  if (!equippable(c)) return { error: "That one's always on: find it in your chat tray or drink menu." };
   const p: Progress = structuredClone(prev);
   p.equipped[c.slot] = id;
   return p;
@@ -166,6 +176,7 @@ export function equip(prev: Progress, id: string): Progress | Fail {
 export function payForDrink(prev: Progress, id: string, count: number): Progress | Fail {
   const d = drink(id);
   if (!d) return { error: "No such drink." };
+  if (cosmetic(id)?.season && !prev.owned.includes(id)) return { error: "You haven't got that drink yet." };
   const cost = d.price * (d.round ? 1 : count);
   if (prev.coins < cost) return { error: "Not enough coins." };
   const p: Progress = structuredClone(prev);
