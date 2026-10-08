@@ -18,6 +18,13 @@ type Tab = "career" | "shop" | "board" | "account";
 export function Profile({ onClose, tab: start = "career" }: { onClose: () => void; tab?: Tab }) {
   const { me } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
+  // signing in from here lands on the career that just loaded
+  const guest = me?.guest;
+  const [wasGuest, setWasGuest] = useState(guest);
+  if (guest !== wasGuest) {
+    setWasGuest(guest);
+    if (wasGuest && guest === false) setTab("career");
+  }
   useEffect(() => {
     const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", key);
@@ -189,6 +196,7 @@ function Career({ me }: { me: Me }) {
           <h3>By Role</h3>
           {roles.length ? <Bars rows={roles.map(([r, v]) => [roleName(r), v])} /> : <div className="dim">Roles show up after your first game.</div>}
           <h3>Recent games</h3>
+          {s.recent.length > 1 && <Trend games={s.recent} />}
           <div className="acct-recent">
             {s.recent.map((g, i) => (
               <div key={i} className={g.won ? "won" : "lost"}>
@@ -198,7 +206,7 @@ function Career({ me }: { me: Me }) {
                   {g.role ? ` · ${roleName(g.role)}` : ""}
                 </span>
                 <span className={g.net >= 0 ? "good" : "bad"}>{(g.net >= 0 ? "+" : "") + g.net.toLocaleString()}</span>
-                <span className="dim">+{g.xp} XP</span>
+                <span className="dim">{ago(g.at)}</span>
               </div>
             ))}
           </div>
@@ -206,6 +214,42 @@ function Career({ me }: { me: Me }) {
       </div>
     </div>
   );
+}
+
+/** Chips up or down over the recent games, oldest on the left. */
+function Trend({ games }: { games: Me["progress"]["stats"]["recent"] }) {
+  const pts = [0];
+  for (const g of [...games].reverse()) pts.push(pts[pts.length - 1] + g.net);
+  const lo = Math.min(...pts);
+  const hi = Math.max(...pts);
+  const W = 300;
+  const H = 64;
+  const x = (i: number) => (i / (pts.length - 1)) * W;
+  const y = (v: number) => (hi === lo ? H / 2 : 4 + (1 - (v - lo) / (hi - lo)) * (H - 8));
+  const d = pts.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join("");
+  const end = pts[pts.length - 1];
+  return (
+    <div className="acct-trend">
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden>
+        <line x1={0} x2={W} y1={y(0)} y2={y(0)} className="acct-trend-zero" />
+        <motion.path d={d} className={end >= 0 ? "up" : "down"} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} />
+      </svg>
+      <div className="acct-trend-k">
+        <span>Last {games.length} games</span>
+        <b className={end >= 0 ? "good" : "bad"}>{(end >= 0 ? "+" : "") + end.toLocaleString()} chips</b>
+      </div>
+    </div>
+  );
+}
+
+function ago(at: number) {
+  const m = Math.max(0, Math.round((Date.now() - at) / 60_000));
+  if (m < 1) return "just now";
+  if (m < 60) return `${m}m ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.round(h / 24);
+  return d < 30 ? `${d}d ago` : new Date(at).toLocaleDateString();
 }
 
 function Bars({ rows }: { rows: [string, { g: number; w: number }][] }) {

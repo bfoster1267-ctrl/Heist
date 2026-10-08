@@ -456,6 +456,43 @@
   color: var(--muted);
   text-align: right;
 }
+.acct-trend {
+  margin-bottom: 8px;
+  padding: 8px 10px 6px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.acct-trend svg {
+  display: block;
+  width: 100%;
+  height: 64px;
+  overflow: visible;
+}
+.acct-trend path {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+.acct-trend path.up {
+  stroke: #6fd38a;
+}
+.acct-trend path.down {
+  stroke: #e8735c;
+}
+.acct-trend-zero {
+  stroke: rgba(255, 255, 255, 0.18);
+  stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
+}
+.acct-trend-k {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
 .acct-recent {
   display: flex;
   flex-direction: column;
@@ -463,13 +500,16 @@
 }
 .acct-recent div {
   display: grid;
-  grid-template-columns: 46px 1fr auto auto;
+  grid-template-columns: 46px 1fr 56px 64px;
   gap: 10px;
   align-items: center;
   font-size: 13px;
   padding: 5px 8px;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.03);
+}
+.acct-recent div > span:nth-child(n + 3) {
+  text-align: right;
 }
 .acct-recent-wl {
   font-family: var(--cond);
@@ -666,6 +706,42 @@
   background: #1877f2;
   color: #fff;
 }
+.acct-pw {
+  position: relative;
+  display: flex;
+}
+.acct-pw input {
+  flex: 1;
+  padding-right: 64px !important;
+}
+.acct-pw-eye {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.acct-link {
+  background: none;
+  border: 0;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+  align-self: center;
+  padding: 4px;
+}
+.acct-forgot {
+  font-size: 13px;
+  text-align: center;
+}
 .acct-email {
   display: flex;
   flex-direction: column;
@@ -678,7 +754,7 @@
   border-radius: 9px;
   padding: 9px 11px;
   color: var(--paper);
-  font-size: 15px;
+  font-size: 16px; /* under 16px makes iPhones zoom in on focus */
 }
 .acct-note {
   color: #e8735c;

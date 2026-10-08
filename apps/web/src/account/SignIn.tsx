@@ -40,6 +40,8 @@ export function SignIn() {
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [show, setShow] = useState(false);
+  const [forgot, setForgot] = useState(false);
 
   const run = async (f: () => Promise<unknown>) => {
     setBusy(true);
@@ -132,11 +134,26 @@ export function SignIn() {
           </button>
         </div>
         <input type="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        <input type="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder="Password (8+ characters)" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
+        <div className="acct-pw">
+          <input type={show ? "text" : "password"} autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? "Password (8+ characters)" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
+          <button type="button" className="acct-pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"}>
+            {show ? "Hide" : "Show"}
+          </button>
+        </div>
         {mode === "register" && <input placeholder="Display name" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />}
         <button className="btn primary big" disabled={busy}>
           {mode === "register" ? "Create account" : "Sign in"}
         </button>
+        {mode === "login" && (
+          <button type="button" className="acct-link" onClick={() => setForgot((v) => !v)}>
+            Forgot your password?
+          </button>
+        )}
+        {mode === "login" && forgot && (
+          <div className="dim acct-forgot">
+            Reset by email is coming soon. For now, open the game on a device where you're still signed in and change it under Account.
+          </div>
+        )}
       </form>
       {has("dev") && (
         <form

@@ -131,7 +131,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       return true;
     }
     try {
-      if (key.startsWith("POST /api/auth/")) {
+      if (key.startsWith("POST /api/auth/") || key === "POST /api/me/password") {
         const who = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
         if (limited(who)) throw new ApiError(429, "Too many tries. Wait a few minutes and try again.");
       }
