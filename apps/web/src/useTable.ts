@@ -37,6 +37,25 @@ export interface Shown {
   key: number;
 }
 
+/** One line of the hand history, kept for the recap after the game. */
+export interface HistoryEntry {
+  turn: number;
+  ev: GameEvent;
+  msg: string;
+  /** Footholds per seat after this event. */
+  fh: number[];
+  boss: number;
+  mark: number | null;
+}
+
+function footholds(s: GameState) {
+  return s.players.map((p) => {
+    let k = 0;
+    for (const q of s.players) if (q.seat !== p.seat) for (const h of q.hideouts) if (h[p.seat] > 0) k++;
+    return k;
+  });
+}
+
 export type FlightHook = (ev: GameEvent, before: GameState, after: GameState) => number;
 
 export function useTable(settings: TableSettings) {
@@ -51,6 +70,8 @@ export function useTable(settings: TableSettings) {
   const shownRef = useRef<Shown | null>(null);
   const counter = useRef(0);
   const lastAsk = useRef(-1e9);
+  const history = useRef<HistoryEntry[]>([]);
+  const record = (f: Frame) => history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
 
   const pump = useCallback(() => {
     const r = ref.current;
@@ -70,6 +91,7 @@ export function useTable(settings: TableSettings) {
       return;
     }
     const f = r.queue.shift()!;
+    record(f);
     const sp = speedRef.current;
     const after = viewFor(f.state, HUMAN);
     const before = shownRef.current?.state ?? after;
@@ -98,6 +120,7 @@ export function useTable(settings: TableSettings) {
     if (ref.current?.timer) clearTimeout(ref.current.timer);
     ref.current = { game, bots, queue: game.drainFrames(), timer: null };
     shownRef.current = null;
+    history.current = [];
     setShown(null);
     setAsk(null);
     setLog([]);
@@ -139,6 +162,7 @@ export function useTable(settings: TableSettings) {
       r.timer = null;
     }
     const last = r.queue[r.queue.length - 1];
+    r.queue.forEach(record);
     r.queue = [];
     if (last) {
       const s: Shown = { state: viewFor(last.state, HUMAN), msg: last.msg, ev: last.ev, key: ++counter.current };
@@ -148,5 +172,5 @@ export function useTable(settings: TableSettings) {
     pump();
   }, [pump]);
 
-  return { shown, ask: shown && !ref.current?.queue.length ? ask : null, answer, log, speed, setSpeed, restart: start, skip, flightHook, game: ref.current?.game ?? null };
+  return { shown, ask: shown && !ref.current?.queue.length ? ask : null, answer, log, speed, setSpeed, restart: start, skip, flightHook, history, game: ref.current?.game ?? null };
 }

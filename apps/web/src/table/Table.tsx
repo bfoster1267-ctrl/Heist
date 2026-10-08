@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useWakeLock } from "../appShell";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
-import { BANNER, HUMAN, useTable, type TableSettings } from "../useTable";
+import { BANNER, HUMAN, useTable, type HistoryEntry, type TableSettings } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { Coach, Walkthrough } from "./Coach";
@@ -12,6 +12,7 @@ import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
 import { seatPos, useLayout } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
+import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
 import { Settings } from "./Settings";
 import { Showdown } from "./Showdown";
@@ -359,7 +360,7 @@ export function Table({ settings, onExit, onGameOver, onAgain }: { settings: Tab
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} pot={pot} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -405,7 +406,7 @@ function Confetti() {
   );
 }
 
-function GameOver({ s, pot, onAgain, onExit }: { s: GameState; pot: number; onAgain: () => void; onExit: () => void }) {
+function GameOver({ s, pot, history, onAgain, onExit }: { s: GameState; pot: number; history: HistoryEntry[]; onAgain: () => void; onExit: () => void }) {
   const won = s.winners!.includes(HUMAN);
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
@@ -424,19 +425,7 @@ function GameOver({ s, pot, onAgain, onExit }: { s: GameState; pot: number; onAg
             <Chips amount={share} counting /> <span>added to your chips</span>
           </div>
         )}
-        <table className="standings">
-          <tbody>
-            {rows.map((p) => (
-              <tr key={p.seat} className={s.winners!.includes(p.seat) ? "win" : ""}>
-                <td>
-                  <Crew color={p.color} size={16} /> {p.name}
-                </td>
-                <td>{footholdsOf(s, p.seat)} Footholds</td>
-                <td>${p.bank.reduce((a, c) => a + c.cash, 0)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <Recap h={history} s={s} />
         <div className="btns center">
           <button className="btn primary big" onClick={onAgain} autoFocus>
             Deal again

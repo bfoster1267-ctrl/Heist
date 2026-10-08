@@ -2400,3 +2400,99 @@ button:disabled {
   flex-wrap: wrap;
   gap: 5px;
 }
+/* recap */
+.modal {
+  max-height: calc(100% - 30px);
+  overflow-y: auto;
+}
+.modal:has(.recap) {
+  width: 620px;
+}
+.recap {
+  margin: 4px 0 14px;
+  text-align: left;
+}
+.recap-tabs {
+  justify-content: center;
+  margin-bottom: 8px;
+}
+.recap-tabs button {
+  flex: 0 0 auto;
+  padding: 5px 16px;
+}
+.race {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+}
+.race-axis {
+  font-family: var(--cond);
+  font-size: 11px;
+  fill: var(--muted);
+}
+.recap-stats {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-family: var(--cond);
+  font-size: 15px;
+}
+.recap-stats th {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--muted);
+  text-align: right;
+  padding: 2px 6px;
+}
+.recap-stats td {
+  padding: 4px 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  text-align: right;
+}
+.recap-stats td:first-child {
+  text-align: left;
+}
+.recap-stats tr.win td {
+  color: var(--gold2);
+  font-weight: 700;
+}
+.recap-stats .crew {
+  vertical-align: middle;
+  margin-right: 4px;
+}
+.moments {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.moments li {
+  padding: 3px 0;
+}
+.moments .dim {
+  font-family: var(--cond);
+  font-weight: 700;
+  margin-right: 6px;
+}
+.history {
+  max-height: 300px;
+  overflow-y: auto;
+  user-select: text;
+  font-size: 13px;
+  padding-right: 6px;
+}
+.history-head {
+  font-family: var(--cond);
+  font-weight: 800;
+  color: var(--gold);
+  letter-spacing: 1px;
+  margin: 8px 0 2px;
+}
+.history-line {
+  padding: 2px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
