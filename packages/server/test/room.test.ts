@@ -1,15 +1,17 @@
-import { HeistGame, type GameState } from "@heist/engine";
+import { Bot, HeistGame, runBots, viewFor, type GameState } from "@heist/engine";
 import { describe, expect, it } from "vitest";
-import { Room } from "../src/room";
+import { Room, frameView } from "../src/room";
 import { sanitizeAnswer } from "../src/sanitize";
 import { MemoryStore } from "../src/store";
 import { FakeClock, TestConn, simpleAnswer } from "./helpers";
 
-function setup(players = 4, turnSeconds = 30) {
+const NO_RULES = { bribes: false, placeCrew: false, openDeals: false };
+
+function setup(players = 4, turnSeconds = 30, rules = NO_RULES) {
   const clock = new FakeClock();
   const store = new MemoryStore();
   const overs: unknown[] = [];
-  const room = new Room({ id: "r_test", code: "ABCDE", players, stakes: 100, isPrivate: false, turnSeconds }, { store, clock, onGameOver: (r) => overs.push(r) });
+  const room = new Room({ id: "r_test", code: "ABCDE", players, stakes: 100, isPrivate: false, turnSeconds, rules, botLevel: "normal" }, { store, clock, onGameOver: (r) => overs.push(r) });
   return { clock, store, room, overs };
 }
 
@@ -97,6 +99,28 @@ describe("Room", () => {
     expect(g.s).toEqual(room["game"]!.s);
     expect(rec.answers.some((x) => x.by === "player")).toBe(true);
     expect(rec.answers.some((x) => x.by === "bot")).toBe(true);
+  });
+
+  it("plays with every optional rule on: bribes, crew placement and open Fixer deals", () => {
+    const kinds = new Set<string>();
+    for (const seed of [1, 2, 3, 4]) {
+      const { room, store } = setup(4, 30, { bribes: true, placeCrew: true, openDeals: true });
+      const a = new TestConn("c1", "u1", "Ann");
+      const b = new TestConn("c2", "u2", "Ben");
+      room.join(a);
+      room.join(b);
+      room.start("u1", seed);
+      playAll(room, [a, b]);
+      expect(room.status).toBe("over");
+      for (const [c, seat] of [[a, 0], [b, 1]] as const) for (const f of c.of("frames").flatMap((m) => m.frames)) expect(leaks(f.state, seat)).toEqual([]);
+      for (const c of [a, b]) for (const m of c.of("ask")) kinds.add(m.ask.kind);
+      const rec = [...store.games.values()][0];
+      const g = new HeistGame({ seed: rec.start.seed, seats: rec.start.seats, rules: rec.start.rules });
+      for (const x of rec.answers) g.answer(x.seat, x.a);
+      expect(g.s).toEqual(room["game"]!.s);
+    }
+    // people were asked the new questions, not just the bots
+    expect(kinds.has("placeCrew") && kinds.has("bribe")).toBe(true);
   });
 
   it("rejects stale, out-of-turn and malformed answers", () => {
@@ -250,6 +274,18 @@ describe("Room", () => {
   });
 });
 
+describe("frameView", () => {
+  it("matches the engine's viewFor on every frame, for every seat and a spectator", () => {
+    for (const n of [3, 6]) {
+      for (let seed = 1; seed <= 6; seed++) {
+        const g = new HeistGame({ seed, seats: Array.from({ length: n }, (_, k) => ({ name: `B${k}`, bot: true })) });
+        runBots(g, new Map(g.s.players.map((p) => [p.seat, new Bot(seed + p.seat)])));
+        for (const f of g.frames) for (let seat = -1; seat < n; seat++) expect(JSON.parse(JSON.stringify(frameView(f.state, seat)))).toEqual(viewFor(f.state, seat));
+      }
+    }
+  });
+});
+
 describe("sanitizeAnswer", () => {
   it("keeps only the fields an answer uses and rejects wrong types", () => {
     const ask = { kind: "bet", seat: 0 } as const;
@@ -257,7 +293,7 @@ describe("sanitizeAnswer", () => {
     expect(sanitizeAnswer(ask, { kind: "bet", side: "Z", cardId: 3 })).toBeNull();
     expect(sanitizeAnswer(ask, { kind: "bet", side: null })).toEqual({ kind: "bet", side: null });
     expect(sanitizeAnswer({ kind: "bank", seat: 0, max: 2 }, { kind: "bank", cardIds: ["1"] })).toBeNull();
-    expect(sanitizeAnswer({ kind: "again", seat: 0 }, { kind: "again", again: "yes" })).toBeNull();
+    expect(sanitizeAnswer({ kind: "again", seat: 0, wanted: [] }, { kind: "again", again: "yes" })).toBeNull();
     expect(sanitizeAnswer({ kind: "hire", seat: 0, max: 2, cost: 3 }, { kind: "send", count: 1 })).toBeNull();
   });
 });

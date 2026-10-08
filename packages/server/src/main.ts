@@ -3,6 +3,7 @@
 //   DATA_DIR        where game logs go (default ./data); unfinished games are rebuilt from here on start
 //   TOKEN_SECRET    signs guest tokens; set it in production so players keep their seats across restarts
 //   ALLOWED_ORIGINS comma-separated browser origins allowed to connect (default: any)
+//   COMPRESSION     set to 0 to turn off WebSocket compression
 //   TURN_GRACE_MS   how long a dropped player's decision waits before a bot answers (default 20000)
 //   GOOGLE_CLIENT_IDS    Google OAuth client id(s), comma-separated: turns on Sign in with Google
 //   APPLE_CLIENT_IDS     Apple Services ID (web) and app bundle id, comma-separated: turns on Sign in with Apple
@@ -37,6 +38,7 @@ const server = await startServer({
   store: new FileStore(dataDir),
   accounts,
   allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [],
+  compression: env.COMPRESSION !== "0",
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),

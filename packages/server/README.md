@@ -50,7 +50,12 @@ Frames arrive in the same shape the solo table already plays back (`ev`, `msg`, 
 ## Deploying
 
 The `Dockerfile` builds a small image (`docker build -f packages/server/Dockerfile .` from the repo root).
-It runs on Fly.io, Render or any host that runs a container with WebSockets. Settings:
+It runs on any host that runs a container with WebSockets. Ready-made configs at the repo root:
+
+- **Fly.io**: `fly.toml` (steps in its header: launch, create a 1 GB volume, set `TOKEN_SECRET`, deploy).
+- **Render**: `render.yaml` (New > Blueprint; it generates `TOKEN_SECRET` and adds a 1 GB disk).
+
+Settings:
 
 | Variable | What it does |
 |---|---|
@@ -60,5 +65,22 @@ It runs on Fly.io, Render or any host that runs a container with WebSockets. Set
 | `ALLOWED_ORIGINS` | Comma-separated web origins allowed to connect, e.g. `https://heist.example.com`. |
 | `TURN_GRACE_MS` | How long a dropped player's decision waits before a bot answers (default 20000). |
 
-One server process holds all its tables in memory, which is plenty for launch. Running more than one
-machine later needs rooms pinned to a machine by code.
+One server process holds all its tables in memory. Running more than one machine later needs rooms
+pinned to a machine by code.
+
+## Load test
+
+`npm run build -w packages/server && npm run load -w packages/server -- --tables 100 --players 6 --think 300`
+starts the bundled server in its own process and plays that many tables at once over real sockets, every
+seat a client that answers after about `think` ms. Results on the dev container (one process, 600 sockets,
+all six seats people, so every decision goes over the network):
+
+| | |
+|---|---|
+| Errors | 0 |
+| Server reply to an answer | median 8 ms, 95th percentile under 0.8 s at peak load |
+| Server CPU per 6-player game | about 1.3 CPU-seconds (~550 decisions) |
+| Memory | about 6.5 MB per busy 6-player table (sockets included): ~650 MB at 100 tables |
+
+Real players take seconds per decision, so one CPU keeps up with well over a thousand tables; memory is
+the limit, roughly 140 busy 6-player tables per GB. `fly.toml` asks for 1 GB.

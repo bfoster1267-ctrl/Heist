@@ -16,6 +16,10 @@ export function simpleAnswer(ask: Ask, view: GameState): Answer {
     case "pickHideout": return { kind: "pickHideout", hideout: 0 };
     case "send": return { kind: "send", count: ask.max };
     case "join": return { kind: "join", B: 0, M: 0 };
+    case "bribe": return { kind: "bribe", offers: [] };
+    case "placeCrew": return { kind: "placeCrew", to: [ask.count, 0, 0] };
+    case "giveCards": return { kind: "giveCards", cardIds: me.hand.slice(0, ask.count).map((c) => c.id) };
+    case "deal": return ask.offer ? { kind: "deal", action: "accept" } : { kind: "deal", action: "reject" };
     case "doubleCross": return { kind: "doubleCross", target: null };
     case "bet": return { kind: "bet", side: null };
     case "hackerCall": return { kind: "hackerCall", n: ask.numbers[0] };

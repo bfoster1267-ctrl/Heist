@@ -10,6 +10,7 @@ The online version of **Heist**, the double-cross card game: 3 to 6 players, pok
 | `apps/web` | The table: lobby, seats around a felt table, the job zone, card and crew animations, sound, play-money chips. Solo vs bots today. |
 | `packages/server` | The online game server: rooms with share codes, seats, bots for empty chairs, turn clocks, reconnect, spectators, chat, and an action log that rebuilds tables after a restart. Sends each player only their own view. See its README. |
 | `docs/PLAN.md` | The roadmap and the workstreams (one branch each). |
+| `docs/ENGINE.md` | The engine API: Asks and Answers, optional rules, bot levels, the sim. |
 
 ## Run it
 

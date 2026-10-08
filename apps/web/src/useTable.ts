@@ -15,6 +15,8 @@ const HOLD: Record<GameEvent["t"], number> = {
   doubleCross: 1600, bet: 700, hackerCall: 1100, facedown: 550, reveal: 1700, hacked: 1600, forged: 1300,
   backup: 1100, result: 1800, fixerFixer: 1400, deal: 1300, toPen: 650, foothold: 1000, loot: 900, cut: 550,
   betPaid: 600, bust: 1100, bustResult: 1400, again: 800, discard: 450, gameOver: 600,
+  // optional rules (engine RuleOptions): not switched on at this table yet
+  bribe: 900, dealOffer: 1100, giveCards: 700, placeCrew: 500,
 };
 
 /** Events worth a big banner in the middle of the table. */

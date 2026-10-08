@@ -2,7 +2,7 @@
 // every connection only what its seat may see. Transport-agnostic: a Conn is anything with send(), and the
 // clock is injected, so the whole room runs in tests without sockets or real time.
 
-import { Bot, HeistGame, viewFor, type Ask, type Frame, type GameEvent } from "@heist/engine";
+import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { randomInt } from "node:crypto";
 import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
@@ -69,6 +69,8 @@ export interface RoomConfig {
   stakes: number;
   isPrivate: boolean;
   turnSeconds: number;
+  rules: RuleOptions;
+  botLevel: BotLevel;
 }
 
 interface Seat {
@@ -83,7 +85,7 @@ interface Seat {
 
 const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
 /** Frames kept for clients that reconnect and resume (older ones get a full sync instead). */
-const FRAME_BUFFER = 400;
+const FRAME_BUFFER = 150;
 /** Two missed decisions in a row and a bot keeps playing the seat until the player is back. */
 const TIMEOUTS_TO_AUTOPILOT = 2;
 /** Rough time the table spends animating a frame, so a player's clock starts after they've seen the play. */
@@ -102,6 +104,8 @@ export class Room {
   readonly players: number;
   readonly stakes: number;
   readonly isPrivate: boolean;
+  readonly rules: RuleOptions;
+  readonly botLevel: BotLevel;
   readonly turnMs: number;
   hostId: string | null = null;
   status: "lobby" | "playing" | "over" = "lobby";
@@ -134,6 +138,8 @@ export class Room {
     this.players = cfg.players;
     this.stakes = cfg.stakes;
     this.isPrivate = cfg.isPrivate;
+    this.rules = cfg.rules;
+    this.botLevel = cfg.botLevel;
     this.turnMs = cfg.turnSeconds * 1000;
     this.deps = { ...deps, graceMs: deps.graceMs ?? 20_000, lobbyHoldMs: deps.lobbyHoldMs ?? 60_000 };
     this.seats = Array.from({ length: cfg.players }, () => blankSeat());
@@ -162,6 +168,8 @@ export class Room {
       })),
       spectators: [...this.conns.values()].filter((c) => c.spectator).length,
       turnSeconds: this.turnMs / 1000,
+      rules: this.rules,
+      botLevel: this.botLevel,
       games: this.games,
     };
   }
@@ -296,6 +304,8 @@ export class Room {
       isPrivate: this.isPrivate,
       hostId: this.hostId,
       turnSeconds: this.turnMs / 1000,
+      rules: this.rules,
+      botLevel: this.botLevel,
       at: this.deps.clock.now(),
     });
     this.begin(seed);
@@ -305,9 +315,10 @@ export class Room {
   }
 
   private begin(seed: number, replay: StoredAnswer[] = []) {
-    this.game = new HeistGame({ seed, seats: this.seats.map((s) => ({ name: s.name, bot: s.kind === "bot" })) });
+    this.game = new HeistGame({ seed, rules: this.rules, seats: this.seats.map((s) => ({ name: s.name, bot: s.kind === "bot" })) });
     for (const [i, s] of this.seats.entries()) {
-      s.bot = new Bot(seed + 7919 * (i + 1));
+      // a bot standing in for a person plays at normal strength, whatever the table's fill level
+      s.bot = new Bot(seed + 7919 * (i + 1), { level: s.kind === "bot" ? this.botLevel : "normal" });
       s.timeouts = 0;
     }
     for (const r of replay) this.game.answer(r.seat, r.a);
@@ -323,7 +334,7 @@ export class Room {
   /** Rebuild a table the server was running when it stopped. Players reconnect with their tokens. */
   static restore(rec: GameRecord, deps: RoomDeps): Room {
     const st = rec.start;
-    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds }, deps);
+    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds, rules: st.rules ?? { bribes: false, placeCrew: false, openDeals: false }, botLevel: st.botLevel ?? "normal" }, deps);
     room.seats = st.seats.map((s) => ({ ...blankSeat(), kind: s.bot ? "bot" : "human", name: s.name, userId: s.userId }));
     room.hostId = st.hostId;
     room.games = st.game;
@@ -605,5 +616,21 @@ function blankSeat(): Seat {
 }
 
 function seen(f: Frame, i: number, seat: number): SeenFrame {
-  return { i, ev: f.ev, msg: f.msg, state: viewFor(f.state, seat) };
+  return { i, ev: f.ev, msg: f.msg, state: frameView(f.state, seat) };
+}
+
+const HIDDEN = { kind: "S", score: 0, cash: 0, color: -1 } as const;
+
+/** The same view as the engine's viewFor, for a frame snapshot that is never changed again: it shares
+ * everything public with the snapshot instead of deep-copying it, which was most of the server's CPU.
+ * Only ever serialised, never mutated. Tested against viewFor on every frame of whole games. */
+export function frameView(st: GameState, seat: number): GameState {
+  const players = st.players.map((p) => (p.seat === seat ? p : { ...p, hand: p.hand.map((_, k) => ({ ...HIDDEN, id: -1000 - p.seat * 100 - k })) }));
+  let job = st.job;
+  if (job && !job.revealed) {
+    const hideB = job.boss !== seat && job.bossCard;
+    const hideM = job.mark !== seat && job.markCard;
+    if (hideB || hideM) job = { ...job, bossCard: hideB ? { ...HIDDEN, id: -1 } : job.bossCard, markCard: hideM ? { ...HIDDEN, id: -2 } : job.markCard };
+  }
+  return { ...st, deck: [], players, job };
 }

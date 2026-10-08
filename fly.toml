@@ -1,0 +1,37 @@
+# Fly.io config for the Heist game server. First deploy (needs a Fly account and flyctl):
+#   fly launch --no-deploy --copy-config     # pick an app name and region
+#   fly volumes create heist_data --size 1   # game logs; tables mid-game survive restarts
+#   fly secrets set TOKEN_SECRET=$(openssl rand -hex 32) ALLOWED_ORIGINS=https://your-site.example
+#   fly deploy
+app = "heist-server"
+primary_region = "iad"
+
+[build]
+  dockerfile = "packages/server/Dockerfile"
+
+[env]
+  PORT = "8080"
+  DATA_DIR = "/data"
+
+[mounts]
+  source = "heist_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # tables live in memory on one machine: keep it running and don't spread rooms over several
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    path = "/healthz"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "1gb"
