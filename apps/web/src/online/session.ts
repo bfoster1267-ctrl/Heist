@@ -39,6 +39,8 @@ export class OnlineSession {
   error: string | null = null;
   status: "idle" | "connecting" | "online" | "offline" = "idle";
   gameOver: Extract<ServerMsg, { t: "gameOver" }> | null = null;
+  /** waiting in the quick queue */
+  queue: Extract<ServerMsg, { t: "queue" }> | null = null;
   private listeners = new Set<Listener>();
   private frameListeners = new Set<(m: ServerMsg) => void>();
 
@@ -97,6 +99,15 @@ export class OnlineSession {
         break;
       case "rooms":
         this.rooms = m.rooms;
+        break;
+      case "queue":
+        this.queue = m;
+        break;
+      case "unqueued":
+        this.queue = null;
+        break;
+      case "room":
+        this.queue = null;
         break;
       case "sync":
         this.feed = { game: m.game, base: { state: m.state, log: m.log }, frames: [] };

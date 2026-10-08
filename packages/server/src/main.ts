@@ -10,6 +10,7 @@
 //   FACEBOOK_APP_ID, FACEBOOK_APP_SECRET   turn on Continue with Facebook
 //   WEB_DIR         a built web app to serve at / (the Docker image sets this)
 //   DEV_LOGINS=1    sign in by name with no password (local testing only)
+//   QUEUE_WAIT_MS   quick queue: how long the first in line waits before bots fill the table (default 120000)
 
 import { AccountService } from "./accounts/service";
 import { FileAccountStore } from "./accounts/store";
@@ -42,6 +43,7 @@ const server = await startServer({
   compression: env.COMPRESSION !== "0",
   webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
+  queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
 });

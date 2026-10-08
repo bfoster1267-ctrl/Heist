@@ -84,5 +84,23 @@ all six seats people, so every decision goes over the network):
 | Server CPU per 6-player game | about 1.3 CPU-seconds (~550 decisions) |
 | Memory | about 6.5 MB per busy 6-player table (sockets included): ~650 MB at 100 tables |
 
-Real players take seconds per decision, so one CPU keeps up with well over a thousand tables; memory is
-the limit, roughly 140 busy 6-player tables per GB. `fly.toml` asks for 1 GB.
+That run plays at bot speed, which is far busier than people.
+
+### Capacity: how many people one server holds
+
+`npm run load -w packages/server -- --tables 500 --players 6 --think 4000 --seconds 30 --core 0` deals every
+table, then measures 30 s of play at people speed (about 4 s per decision), with the server pinned to one CPU
+core. Heist is turn-based, so a table has one decision in flight at a time. Results on the dev container,
+all six seats people:
+
+| Players at once | Reply p50 / p99 | Server CPU (one core) | Server memory |
+|---|---|---|---|
+| 1,200 | 2 / 19 ms | 8% | 255 MB |
+| 3,000 | 2 / 70 ms | 22% | 511 MB |
+| 6,000 | 2.5 / 112 ms | 40% | 985 MB |
+| 3,000, compression off (`COMPRESSION=0`) | 0.6 / 8 ms | 8% | 184 MB |
+
+Memory is the limit: about 0.16 MB per connected player with compression on, most of it each socket's
+compressor. A 512 MB instance (Render Starter) holds roughly 2,500 players at once. Compression off
+triples that and cuts CPU by more than half, but each player then downloads about 5 MB per game instead
+of a fraction of that, which matters on phone data.

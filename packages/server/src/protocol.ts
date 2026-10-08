@@ -80,6 +80,9 @@ export type ClientMsg =
   | { t: "join"; code: string; spectate?: boolean; /** last frame index this client has, to resume without a full sync */ since?: number }
   | { t: "leave" }
   | { t: "list" }
+  /** quick queue: get dealt into the next table of this size and stakes (bots fill seats after a wait) */
+  | { t: "queue"; players: number; stakes: number }
+  | { t: "unqueue" }
   | { t: "start" }
   /** a spectator takes a free seat (or a bot's chair) before the next game */
   | { t: "sit" }
@@ -129,5 +132,8 @@ export type ServerMsg =
   /** your XP, coins and level after a game (signed-in players only), and your updated progress */
   | { t: "reward"; game: number; reward: Reward; progress: Progress }
   | { t: "left" }
+  /** you're in the quick queue: how many are waiting, and when the table starts regardless (epoch ms) */
+  | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number }
+  | { t: "unqueued" }
   | { t: "error"; code: ErrorCode; msg: string }
   | { t: "pong"; n?: number; at: number };

@@ -163,4 +163,22 @@ describe("game server over WebSockets", () => {
     await until(() => back.c.seat === 0);
     await back.over;
   }, 30_000);
+
+  it("quick queue: two people wait, bots fill the table, and both play it to the end", async () => {
+    const srv = await startServer({ port: 0, host: "127.0.0.1", rate: FAST, queueWaitMs: 300 });
+    servers.push(srv);
+    const url = `ws://127.0.0.1:${srv.port()}/ws`;
+    const a = player(url, "Ann");
+    const b = player(url, "Ben");
+    await a.c.connect();
+    await b.c.connect();
+    a.c.queue(4, 250);
+    b.c.queue(4, 250);
+    await until(() => b.seen.some((m) => m.t === "queue" && m.waiting === 2));
+    const [ra, rb] = await Promise.all([a.over, b.over]);
+    expect(ra.winners).toEqual(rb.winners);
+    expect(a.c.room?.code).toBe(b.c.room?.code);
+    expect(a.c.room?.seats.filter((s) => s.kind === "bot").length).toBe(2);
+    expect(srv.queue.size).toBe(0);
+  }, 30_000);
 });

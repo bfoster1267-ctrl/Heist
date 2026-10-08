@@ -322,10 +322,15 @@ export class AccountService {
     return (await this.store.get(userId))?.progress.coins ?? 0;
   }
 
+  /** A player's hidden skill rating (for matchmaking). */
+  async rating(userId: string): Promise<number> {
+    const a = await this.store.get(userId);
+    return a ? upgrade(a.progress).rating : 1000;
+  }
+
   /** Bot level for a table this player hosts, from their hidden rating. */
   async botLevel(userId: string): Promise<BotLevel> {
-    const a = await this.store.get(userId);
-    return botLevelFor(a ? upgrade(a.progress).rating : 1000);
+    return botLevelFor(await this.rating(userId));
   }
 
   async chips(userId: string): Promise<number> {
