@@ -99,6 +99,7 @@ function Header({ me }: { me: Me }) {
           {cosmetic(p.equipped.title)?.text ? ` · “${cosmetic(p.equipped.title)!.text}”` : ""}
         </div>
         <XpBar xp={p.xp} />
+        <NextUnlock level={li.level} prestige={p.prestige} />
       </div>
       <div className="acct-head-wallet">
         <Chips amount={p.chips} />
@@ -397,6 +398,23 @@ function Board({ me }: { me: Me }) {
   );
 }
 
+/** The next cosmetic the player's level (or prestige) will open up, to aim for. */
+function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
+  const slotName: Record<Slot, string> = { felt: "felt", cardBack: "card back", frame: "frame", title: "title" };
+  const next =
+    prestige === 0
+      ? COSMETICS.filter((c) => c.unlock?.level !== undefined && c.unlock.prestige === undefined && c.unlock.level > level).sort((a, b) => a.unlock!.level! - b.unlock!.level!)[0]
+      : undefined;
+  const nextP = next ? undefined : COSMETICS.filter((c) => c.unlock?.prestige !== undefined && c.unlock.prestige > prestige).sort((a, b) => a.unlock!.prestige! - b.unlock!.prestige!)[0];
+  const c = next ?? nextP;
+  if (!c) return null;
+  return (
+    <div className="acct-next">
+      Next: {c.name} {slotName[c.slot]} at {next ? `level ${c.unlock!.level}` : prestigeName(c.unlock!.prestige!)}
+    </div>
+  );
+}
+
 /** A player's public card, opened from the leaderboard. */
 function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
   const { backend } = useAccount();
@@ -405,6 +423,16 @@ function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
   useEffect(() => {
     backend?.player(id).then(setP, (e) => setErr(e instanceof Error ? e.message : "Couldn't load that player"));
   }, [backend, id]);
+  useEffect(() => {
+    // Esc closes just this card, not the whole profile under it
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopImmediatePropagation();
+      onClose();
+    };
+    window.addEventListener("keydown", key, true);
+    return () => window.removeEventListener("keydown", key, true);
+  }, [onClose]);
   const s = p?.stats;
   const title = p ? cosmetic(p.equipped.title) : undefined;
   return (

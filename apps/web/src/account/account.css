@@ -664,6 +664,11 @@
 .acct-board-rows li {
   cursor: pointer;
 }
+.acct-next {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
 .acct-card-back {
   position: fixed;
   inset: 0;
@@ -1015,6 +1020,10 @@
 
 /* phones held sideways: full screen too, with a shorter header so the stats get the room */
 @media (max-height: 500px) {
+  /* sideways phones: keep the header short */
+  .acct-next {
+    display: none;
+  }
   .acct-screen {
     padding: 0 env(safe-area-inset-right) 0 env(safe-area-inset-left);
   }
