@@ -55,6 +55,7 @@ export function Table({
   onGameOver,
   onAgain,
   againLabel,
+  forfeit,
   seat = LOCAL_SEAT,
   useSource = useTable,
   talk,
@@ -69,6 +70,8 @@ export function Table({
   onAgain?: () => void;
   /** the label on that button (default "Deal again") */
   againLabel?: string;
+  /** online: you weren't at the table when the game ended, so it counts as abandoned */
+  forfeit?: boolean;
   /** The seat this player sits in. */
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
@@ -502,7 +505,7 @@ export function Table({
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching ? -1 : HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -555,6 +558,7 @@ function GameOver({
   history,
   onAgain,
   againLabel = "Deal again",
+  forfeit,
   onExit,
 }: {
   s: GameState;
@@ -563,6 +567,7 @@ function GameOver({
   history: HistoryEntry[];
   onAgain?: () => void;
   againLabel?: string;
+  forfeit?: boolean;
   onExit: () => void;
 }) {
   const won = s.winners!.includes(me);
@@ -575,11 +580,12 @@ function GameOver({
         {/* The result and the buttons come first, so nothing needs scrolling to leave or deal again. */}
         <div className="go-side">
           <div id="go-title" className={"modal-title" + (won ? " gold" : "")}>
-            {won ? "YOU PULLED IT OFF" : "THE JOB'S OVER"}
+            {won ? "YOU PULLED IT OFF" : forfeit ? "YOU WALKED OUT" : "THE JOB'S OVER"}
           </div>
           <div className="modal-sub">
             {s.winners!.map((w) => s.players[w].name).join(" & ")} win{s.winners!.length > 1 ? "" : "s"} {s.endReason === "last_call" ? "at Last Call" : `with ${s.target} Footholds`}
           </div>
+          {forfeit && <div className="modal-sub">You weren't at the table when it ended, so this game counts as abandoned and your buy-in is lost.</div>}
           {won && (
             <div className="modal-pot">
               <Chips amount={share} counting /> <span>added to your chips</span>

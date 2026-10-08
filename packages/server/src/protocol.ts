@@ -119,7 +119,9 @@ export type ServerMsg =
   /** who everyone is waiting on (sent to all, without the private details of the Ask) */
   | { t: "waiting"; seat: number; kind: Ask["kind"]; deadline: number }
   | { t: "timeout"; seat: number; autopilot: boolean }
-  | { t: "gameOver"; game: number; winners: number[]; reason: "footholds" | "last_call"; stakes: number }
+  /** winners: who won on the table; paid: who takes the pot (winners still at the table, or the next best);
+   * abandoned: players who weren't there at the end, who lose their buy-in */
+  | { t: "gameOver"; game: number; winners: number[]; paid: number[]; abandoned: number[]; reason: "footholds" | "last_call"; stakes: number }
   | { t: "chat"; seat: number | null; name: string; text: string; at: number }
   | { t: "drink"; from: number; to: number; drink: DrinkId }
   | { t: "left" }

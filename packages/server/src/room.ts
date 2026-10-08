@@ -6,6 +6,7 @@ import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, typ
 import { randomInt } from "node:crypto";
 import { DRINK_IDS, type DrinkId, type ErrorCode, type RoomInfo, type SeatInfo, type SeenFrame, type ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
+import { deadWeight } from "./deadweight";
 import type { GameRecord, GameStore, StoredAnswer } from "./store";
 
 export interface Conn {
@@ -36,7 +37,12 @@ export interface GameOverReport {
   gameId: string;
   stakes: number;
   seats: { seat: number; userId: string | null; bot: boolean }[];
+  /** who takes the pot: the table's winners who were still there, else the best-placed seat still there */
   winners: number[];
+  /** who won the game on the table, including anyone who wasn't there at the end */
+  tableWinners: number[];
+  /** players who weren't there at the end (left, dropped, or on autopilot): they lose their buy-in */
+  abandoned: number[];
   reason: "footholds" | "last_call";
 }
 
@@ -73,6 +79,8 @@ interface Seat {
   timeouts: number;
   bot: Bot | null;
   holdTimer: unknown;
+  /** left this game on purpose: the seat plays dead weight to the end and can't be taken back */
+  left: boolean;
 }
 
 const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
@@ -169,7 +177,7 @@ export class Room {
   }
 
   seatOf(userId: string): number | null {
-    const i = this.seats.findIndex((s) => s.kind === "human" && s.userId === userId);
+    const i = this.seats.findIndex((s) => s.kind === "human" && s.userId === userId && !s.left);
     return i < 0 ? null : i;
   }
 
@@ -231,8 +239,10 @@ export class Room {
     this.conns.delete(connId);
     const seat = this.seatOf(c.conn.userId);
     if (seat !== null && !this.isConnected(c.conn.userId)) {
-      if (this.status === "playing") this.setAutopilot(seat, true);
-      else this.freeSeat(seat);
+      if (this.status === "playing") {
+        this.seats[seat].left = true;
+        this.setAutopilot(seat, true);
+      } else this.freeSeat(seat);
     }
     this.afterDisconnect();
   }
@@ -284,9 +294,9 @@ export class Room {
     if (this.status === "playing") return "bad_state";
     const taken = new Set<string>();
     for (const s of this.seats) {
-      if (s.kind === "human" && this.status === "over" && s.userId && !this.isConnected(s.userId)) {
+      if (s.kind === "human" && (s.left || (this.status === "over" && s.userId && !this.isConnected(s.userId)))) {
         // left after the last game: a bot takes the chair for the rematch
-        Object.assign(s, { kind: "open", userId: null });
+        Object.assign(s, { kind: "open", userId: null, left: false });
       }
       if (s.kind !== "open") taken.add(s.name);
     }
@@ -388,7 +398,8 @@ export class Room {
     const g = this.game!;
     const s = this.seats[p.seat];
     try {
-      const a = s.bot!.answer(g, p);
+      // a person's seat with nobody playing it gets no help: see deadweight.ts
+      const a = s.kind === "human" ? deadWeight(p, g.s) : s.bot!.answer(g, p);
       g.answer(p.seat, a);
       this.deps.store.answered(this.gameId, { seat: p.seat, a, by });
     } catch (e) {
@@ -451,14 +462,20 @@ export class Room {
     this.status = "over";
     const winners = g.s.winners ?? [];
     const reason = g.s.endReason ?? "last_call";
+    // anyone not at the table when it ends abandoned it, however the game went
+    const abandoned = this.seats.flatMap((s, seat) => (s.kind === "human" && (s.left || s.autopilot || !s.userId || !this.isConnected(s.userId)) ? [seat] : []));
+    const paid = payees(g.s, winners, abandoned);
     this.deps.store.ended(this.gameId, { winners, reason, at: this.deps.clock.now() });
-    this.broadcast({ t: "gameOver", game: this.games, winners, reason, stakes: this.stakes });
+    this.lastOver = { t: "gameOver", game: this.games, winners, paid, abandoned, reason, stakes: this.stakes };
+    this.broadcast(this.lastOver);
     this.deps.onGameOver?.({
       roomId: this.id,
       gameId: this.gameId,
       stakes: this.stakes,
       seats: this.seats.map((s, seat) => ({ seat, userId: s.userId, bot: s.kind === "bot" })),
-      winners,
+      winners: paid,
+      tableWinners: winners,
+      abandoned,
       reason,
     });
     for (const s of this.seats) s.autopilot = false;
@@ -546,6 +563,9 @@ export class Room {
 
   // ------------------------------------------------------------------ sending
 
+  /** the result of the last game, for anyone who comes back to the table after it ended */
+  private lastOver: Extract<ServerMsg, { t: "gameOver" }> | null = null;
+
   private catchUp(conn: Conn, since: number | undefined) {
     const c = this.conns.get(conn.id);
     conn.send({ t: "room", room: this.info(), you: { seat: c && !c.spectator ? this.seatOf(conn.userId) : null } });
@@ -564,6 +584,7 @@ export class Room {
       if (seat === p.seat && !this.seats[seat].autopilot) conn.send({ t: "ask", askId: this.askId, ask: p, deadline: this.deadline });
       conn.send({ t: "waiting", seat: p.seat, kind: p.kind, deadline: this.deadline });
     }
+    if (this.status === "over" && this.lastOver?.game === this.games) conn.send(this.lastOver);
   }
 
   private broadcast(msg: ServerMsg) {
@@ -592,7 +613,7 @@ export class Room {
 }
 
 function blankSeat(): Seat {
-  return { kind: "open", userId: null, name: "", autopilot: false, timeouts: 0, bot: null, holdTimer: null };
+  return { kind: "open", userId: null, name: "", autopilot: false, timeouts: 0, bot: null, holdTimer: null, left: false };
 }
 
 function seen(f: Frame, i: number, seat: number): SeenFrame {
@@ -613,4 +634,18 @@ export function frameView(st: GameState, seat: number): GameState {
     if (hideB || hideM) job = { ...job, bossCard: hideB ? { ...HIDDEN, id: -1 } : job.bossCard, markCard: hideM ? { ...HIDDEN, id: -2 } : job.markCard };
   }
   return { ...st, deck: [], players, job };
+}
+
+/** Who takes the pot: the winners who were still at the table; if none were, the best-placed seats that were
+ * (Footholds, then banked cash, as at Last Call). */
+export function payees(s: GameState, winners: number[], abandoned: number[]): number[] {
+  const here = winners.filter((w) => !abandoned.includes(w));
+  if (here.length || !winners.length) return here;
+  const footholds = (p: number) => s.players.reduce((k, q) => k + (q.seat === p ? 0 : q.hideouts.filter((h) => h[p] > 0).length), 0);
+  const cash = (p: number) => s.players[p].bank.reduce((a, c) => a + c.cash, 0);
+  const rest = s.players.map((p) => p.seat).filter((p) => !abandoned.includes(p));
+  if (!rest.length) return [];
+  const key = (p: number) => footholds(p) * 1000 + cash(p);
+  const best = Math.max(...rest.map(key));
+  return rest.filter((p) => key(p) === best);
 }
