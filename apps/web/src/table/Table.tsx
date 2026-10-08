@@ -232,7 +232,8 @@ export function Table({
     else if (sel.length < hs.max) setSel([...sel, id]);
   };
   const banner = ev && BANNER[ev.t] ? t.shown : null;
-  const flipShow = ev && (ev.t === "flip" || ev.t === "mark") && s.flip ? s.flip : null;
+  // the flipped Job card sits over the top seat, so it steps aside while you pick a hideout
+  const flipShow = ev && (ev.t === "flip" || ev.t === "mark") && s.flip && t.ask?.kind !== "pickHideout" ? s.flip : null;
   const penCrew = s.players.filter((p) => p.pen > 0);
   const discardTop = s.discard[s.discard.length - 1];
   const actor = t.ask ? HUMAN : ev && "seat" in ev && typeof ev.seat === "number" ? ev.seat : (s.job?.boss ?? s.boss);
@@ -348,7 +349,7 @@ export function Table({
                   s={s}
                   seat={p.seat}
                   pos={pos}
-                  grow={seatGrow(L, pos)}
+                  grow={seatGrow(L, pos, s.n)}
                   me={!watching && p.seat === HUMAN}
                   glow={pickMark || s.boss === p.seat}
                   onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
