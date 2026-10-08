@@ -165,6 +165,9 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         case "autopilot":
           e = room.autopilot(conn.id, m.on === true);
           break;
+        case "sit":
+          e = room.sit(conn.id);
+          break;
         case "chat":
           e = room.chat(conn.id, m.text);
           break;

@@ -174,6 +174,9 @@ export class HeistClient {
     if (!this.ask) return;
     this.send({ t: "answer", askId: this.ask.askId, answer });
   }
+  sit() {
+    this.send({ t: "sit" });
+  }
   autopilot(on: boolean) {
     this.send({ t: "autopilot", on });
   }

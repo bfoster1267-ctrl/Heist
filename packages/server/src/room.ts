@@ -208,6 +208,22 @@ export class Room {
     return null;
   }
 
+  /** A spectator takes a seat between games: an open one, or a bot's chair from the last game. */
+  sit(connId: string): ErrorCode | null {
+    const c = this.conns.get(connId);
+    if (!c) return "bad_message";
+    if (this.status === "playing") return "bad_state";
+    if (this.seatOf(c.conn.userId) !== null) return null;
+    let seat = this.seats.findIndex((s) => s.kind === "open");
+    if (seat < 0 && this.status === "over") seat = this.seats.findIndex((s) => s.kind === "bot");
+    if (seat < 0) return "room_full";
+    Object.assign(this.seats[seat], { kind: "human", userId: c.conn.userId, name: c.conn.name, autopilot: false, timeouts: 0, bot: null });
+    c.spectator = false;
+    if (!this.hostId) this.hostId = c.conn.userId;
+    this.changed();
+    return null;
+  }
+
   /** The player chose to go: in the lobby the seat opens up; mid-game a bot plays it from here. */
   leave(connId: string) {
     const c = this.conns.get(connId);

@@ -78,6 +78,8 @@ export type ClientMsg =
   | { t: "leave" }
   | { t: "list" }
   | { t: "start" }
+  /** a spectator takes a free seat (or a bot's chair) before the next game */
+  | { t: "sit" }
   | { t: "answer"; askId: number; answer: Answer }
   | { t: "autopilot"; on: boolean }
   | { t: "chat"; text: string }

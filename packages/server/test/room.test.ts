@@ -263,6 +263,29 @@ describe("Room", () => {
     expect(room.status).toBe("over");
   });
 
+  it("lets a spectator take a bot's chair between games, and plays them in the rematch", () => {
+    const { room } = setup(3);
+    const a = new TestConn("c1", "u1", "Ann");
+    room.join(a);
+    room.start("u1", 1);
+    const w = new TestConn("c2", "u2", "Wes");
+    room.join(w);
+    expect(w.last("room").you.seat).toBeNull();
+    expect(room.sit("c2")).toBe("bad_state"); // not mid-game
+    room.autopilot("c1", true);
+    expect(room.status).toBe("over");
+    expect(room.sit("c2")).toBeNull();
+    const seat = w.last("room").you.seat;
+    expect(seat).not.toBeNull();
+    expect(room.info().seats[seat!]).toMatchObject({ kind: "human", name: "Wes", userId: "u2" });
+    room.autopilot("c1", false);
+    expect(room.start("u1", 2)).toBeNull();
+    // Wes is dealt in: his own hand arrives face up, and the game waits on people, not bots
+    const st = w.last("frames").frames.at(-1)!.state;
+    expect(st.players[seat!].hand.every((c) => c.id >= 0)).toBe(true);
+    expect(st.players[seat!].bot).toBe(false);
+  });
+
   it("rate-limits and cleans chat", () => {
     const { room } = setup(3);
     const a = new TestConn("c1", "u1", "Ann");

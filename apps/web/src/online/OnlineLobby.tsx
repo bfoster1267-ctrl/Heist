@@ -296,7 +296,9 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         onExit={onExit}
         // a spectator sees the table from seat 0, but its winnings aren't theirs
         onGameOver={(won) => won && sess.seat !== null && onWin(won)}
-        onAgain={host ? () => sess.client.start() : undefined}
+        // a spectator can sit in for the next game; then only the host deals it
+        onAgain={host ? () => sess.client.start() : sess.seat === null ? () => sess.client.sit() : undefined}
+        againLabel={!host && sess.seat === null ? "Take a seat" : undefined}
       />
       {sess.status !== "online" && <div className="online-banner top">Reconnecting...</div>}
       {mine?.autopilot && room.status === "playing" && (
@@ -308,6 +310,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         </div>
       )}
       {sess.seat === null && room.status !== "over" && <div className="online-banner">You're watching this table</div>}
+
     </>
   );
 }

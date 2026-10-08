@@ -54,6 +54,7 @@ export function Table({
   onExit,
   onGameOver,
   onAgain,
+  againLabel,
   seat = LOCAL_SEAT,
   useSource = useTable,
   talk,
@@ -66,6 +67,8 @@ export function Table({
   onGameOver: (won: number) => void;
   /** deal the next game; left out online when only the host can deal */
   onAgain?: () => void;
+  /** the label on that button (default "Deal again") */
+  againLabel?: string;
   /** The seat this player sits in. */
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
@@ -499,7 +502,7 @@ export function Table({
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching ? -1 : HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching ? -1 : HUMAN} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -545,7 +548,23 @@ function Confetti() {
   );
 }
 
-function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: number; pot: number; history: HistoryEntry[]; onAgain?: () => void; onExit: () => void }) {
+function GameOver({
+  s,
+  me,
+  pot,
+  history,
+  onAgain,
+  againLabel = "Deal again",
+  onExit,
+}: {
+  s: GameState;
+  me: number;
+  pot: number;
+  history: HistoryEntry[];
+  onAgain?: () => void;
+  againLabel?: string;
+  onExit: () => void;
+}) {
   const won = s.winners!.includes(me);
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
@@ -569,7 +588,7 @@ function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: 
           <div className="btns center">
             {onAgain ? (
               <button className="btn primary big" onClick={onAgain} autoFocus>
-                Deal again
+                {againLabel}
               </button>
             ) : (
               <button className="btn big" disabled>
