@@ -29,6 +29,7 @@ import type {
   Ask,
   BustOption,
   Card,
+  Deal,
   Frame,
   GameConfig,
   GameEvent,
@@ -36,9 +37,11 @@ import type {
   JobState,
   PlayerState,
   RoleId,
+  RuleOptions,
   Side,
   WantedOption,
 } from "./types";
+import { NO_DEAL_TERMS } from "./types";
 
 type Flow<T = void> = Generator<Ask, T, Answer>;
 type AnswerOf<K extends Answer["kind"]> = Extract<Answer, { kind: K }>;
@@ -83,11 +86,13 @@ export class HeistGame {
   pending: Ask | null = null;
   private gen: Flow;
   private roleOffers: RoleId[][] = [];
+  private snapshots: boolean;
 
   constructor(cfg: GameConfig) {
     const n = cfg.seats.length;
     if (n < 3 || n > 6) throw new Error("Heist is for 3 to 6 players");
     this.seed = cfg.seed;
+    this.snapshots = cfg.snapshots ?? true;
     this.rng = new Rng(cfg.seed);
     const free = this.rng.shuffle([0, 1, 2, 3, 4, 5].filter((c) => !cfg.seats.some((s) => s.color === c)));
     const players: PlayerState[] = cfg.seats.map((sc, seat) => ({
@@ -105,11 +110,15 @@ export class HeistGame {
         h[seat] = PER_HIDEOUT;
         return h;
       }),
+      returning: 0,
       forgeUsed: false,
       wildUsed: false,
     }));
+    const rules: RuleOptions = { bribes: false, placeCrew: false, openDeals: false, ...cfg.rules };
     this.s = {
       n,
+      rules,
+      history: [],
       players,
       deck: this.rng.shuffle(makeJobDeck()),
       deckCount: 64,
@@ -166,7 +175,7 @@ export class HeistGame {
 
   private emit(ev: GameEvent, msg: string) {
     this.s.deckCount = this.s.deck.length;
-    this.frames.push({ ev, msg, state: snapshot(this.s) });
+    this.frames.push({ ev, msg, state: this.snapshots ? snapshot(this.s) : this.s });
   }
 
   private *ask<K extends Ask["kind"]>(a: Extract<Ask, { kind: K }>): Flow<AnswerOf<K>> {
@@ -257,8 +266,13 @@ export class HeistGame {
     return k;
   }
 
-  private takeHome(p: number, k: number): number {
+  /** Take k crew out of p's hideouts: from the given hideouts (from[h] each), else from the fullest. */
+  private takeHome(p: number, k: number, from?: number[]): number {
     const hs = this.s.players[p].hideouts;
+    if (from) {
+      from.forEach((x, h) => (hs[h][p] -= x));
+      return from.reduce((a, b) => a + b, 0);
+    }
     let got = 0;
     for (let i = 0; i < k; i++) {
       const h = hs.reduce((m, x) => (x[p] > m[p] ? x : m));
@@ -269,9 +283,28 @@ export class HeistGame {
     return got;
   }
 
+  /** Crew going home. With rules.placeCrew they wait in `returning` until their owner places them. */
   private putHome(p: number, k: number) {
+    if (k <= 0) return;
+    if (this.s.rules.placeCrew) {
+      this.s.players[p].returning += k;
+      return;
+    }
     const hs = this.s.players[p].hideouts;
     for (let i = 0; i < k; i++) hs.reduce((m, x) => (x[p] < m[p] ? x : m))[p]++;
+  }
+
+  /** Ask everyone with crew on the way home (Boss first, then to the left) where they go. */
+  private *placeReturning(): Flow {
+    const s = this.s;
+    for (let i = 0; i < s.n; i++) {
+      const P = s.players[(s.boss + i) % s.n];
+      if (!P.returning) continue;
+      const a = yield* this.ask({ kind: "placeCrew", seat: P.seat, count: P.returning });
+      a.to.forEach((k, h) => (P.hideouts[h][P.seat] += k));
+      P.returning = 0;
+      this.emit({ t: "placeCrew", seat: P.seat, to: a.to }, `${P.name} moves crew into their hideouts.`);
+    }
   }
 
   private toPen(p: number, k: number) {
@@ -414,6 +447,7 @@ export class HeistGame {
       }
       if (a.count) this.emit({ t: "hire", seat: b, count: a.count }, `${P.name} hires ${a.count} crew for $${HIRE_COST * a.count}.`);
     }
+    yield* this.placeReturning();
     if (!this.hasFighter(b)) {
       s.discard.push(...P.hand);
       P.hand = [];
@@ -430,16 +464,19 @@ export class HeistGame {
     } else if (a.choice === "bust") {
       yield* this.bust(b, a.hideout, a.rival);
       if (this.checkWin()) return;
+      yield* this.placeReturning();
     } else {
       const won = yield* this.hit(b, a.choice === "wanted" ? { mark: a.mark, hideout: a.hideout } : null);
       if (s.winners) return;
-      // 7. AGAIN?
+      yield* this.placeReturning();
+      // 7. AGAIN? (the second hit may be Wanted too)
       if (won && s.againAllowed && this.homeCrew(b) > 0 && this.hasFighter(b)) {
-        const g = yield* this.ask({ kind: "again", seat: b });
+        const g = yield* this.ask({ kind: "again", seat: b, wanted: this.wantedOptions(b) });
         if (g.again) {
           this.emit({ t: "again", seat: b }, `${P.name} goes again.`);
-          yield* this.hit(b, null);
+          yield* this.hit(b, g.wanted ?? null);
           if (s.winners) return;
+          yield* this.placeReturning();
         }
       }
     }
@@ -465,6 +502,7 @@ export class HeistGame {
       forged: { B: null, M: null },
       backups: { B: 0, M: 0 },
       hackerCall: null,
+      bribes: [],
       bTotal: 0,
       mTotal: 0,
       result: null,
@@ -547,8 +585,23 @@ export class HeistGame {
 
     // 3. CREW UP
     const send = yield* this.ask({ kind: "send", seat: b, max: Math.min(4, this.homeCrew(b)) });
-    j.side.B[b] = this.takeHome(b, send.count);
+    j.side.B[b] = this.takeHome(b, send.count, send.from);
     this.emit({ t: "send", seat: b, side: "B", count: j.side.B[b] }, `${this.name(b)} sends ${j.side.B[b]} crew.`);
+    if (s.rules.bribes) {
+      for (const [p, side] of [[b, "B"], [mark, "M"]] as [number, Side][]) {
+        const targets = this.rivals(p).filter((q) => q !== b && q !== mark && this.homeCrew(q) > 0);
+        if (!targets.length || !s.players[p].bank.length) continue;
+        const a = yield* this.ask({ kind: "bribe", seat: p, side, targets });
+        for (const o of a.offers) {
+          const P = s.players[p];
+          const cards = o.cardIds.map((id) => P.bank.splice(P.bank.findIndex((c) => c.id === id), 1)[0]);
+          s.players[o.to].bank.push(...cards);
+          const amount = cashOf(cards);
+          j.bribes.push({ from: p, to: o.to, side, amount });
+          this.emit({ t: "bribe", seat: p, to: o.to, side, amount }, `${P.name} slips ${this.name(o.to)} $${amount} to join the ${side === "B" ? "Boss" : "Mark"}.`);
+        }
+      }
+    }
     for (let i = 1; i < s.n; i++) {
       const p = (b + i) % s.n;
       if (p === mark) continue;
@@ -559,9 +612,22 @@ export class HeistGame {
         this.emit({ t: "pass", seat: p }, `${this.name(p)} stays out.`);
         continue;
       }
+      const from = a.from ? [...a.from] : undefined;
       for (const side of ["B", "M"] as Side[]) {
         if (!a[side]) continue;
-        j.side[side][p] += this.takeHome(p, a[side]);
+        // split an explicit `from` between the two sides (Inside Man): Boss side takes from the first hideouts
+        let part: number[] | undefined;
+        if (from) {
+          part = from.map(() => 0);
+          let need = a[side];
+          for (let h = 0; h < from.length && need; h++) {
+            const t = Math.min(need, from[h]);
+            part[h] = t;
+            from[h] -= t;
+            need -= t;
+          }
+        }
+        j.side[side][p] += this.takeHome(p, a[side], part);
         this.emit({ t: "send", seat: p, side, count: a[side] }, `${this.name(p)} joins the ${side === "B" ? "Boss" : "Mark"} with ${a[side]} crew.`);
       }
     }
@@ -677,8 +743,17 @@ export class HeistGame {
     for (const c of [j.bossCard, j.markCard]) if (c) this.s.discard.push(c);
   }
 
+  private record(j: JobState) {
+    const allies = (sd: Side) => j.side[sd].flatMap((k, q) => (k > 0 && q !== j.boss && q !== j.mark ? [q] : []));
+    this.s.history.push({
+      turn: this.s.turn, kind: j.kind, boss: j.boss, mark: j.mark, wanted: j.wanted, result: j.result!,
+      bossCard: j.bossCard, markCard: j.markCard, allies: { B: allies("B"), M: allies("M") },
+    });
+  }
+
   private settle(j: JobState, win: Side) {
     const s = this.s;
+    this.record(j);
     const { boss, mark } = j;
     const H = s.players[mark].hideouts[j.hideout];
     const lose: Side = win === "B" ? "M" : "B";
@@ -768,14 +843,9 @@ export class HeistGame {
     const H = s.players[mark].hideouts[j.hideout];
     const inJob = s.players.map((p) => p.seat === boss || p.seat === mark || j.side.B[p.seat] + j.side.M[p.seat] > 0);
     this.emit({ t: "fixerFixer" }, "Fixer vs. Fixer: time to make a deal.");
-    const o = yield* this.ask({ kind: "dealOffer", seat: boss });
-    let accepted = false;
-    if (o.offer) {
-      const a = yield* this.ask({ kind: "dealAccept", seat: mark, offer: o.offer });
-      accepted = a.accept;
-      this.emit({ t: "deal", offer: o.offer, accepted }, accepted ? `${this.name(mark)} takes the deal.` : `${this.name(mark)} turns the deal down.`);
-    }
-    j.result = accepted ? "deal" : "nodeal";
+    const terms = s.rules.openDeals ? yield* this.negotiate(j) : yield* this.setOffer(j);
+    j.result = terms ? "deal" : "nodeal";
+    this.record(j);
     // allies go home and bets come back either way
     for (const p of s.players) {
       if (p.seat === boss) continue;
@@ -786,14 +856,17 @@ export class HeistGame {
     for (const bet of j.bets) s.players[bet.seat].bank.push(bet.card);
     const sent = j.side.B[boss];
     j.side.B[boss] = 0;
-    if (accepted && o.offer === "foothold") {
-      const stay = H[boss] === 0 ? 1 : 0;
+    if (terms) {
+      const stay = terms.foothold && H[boss] === 0 ? 1 : 0;
       H[boss] += stay;
       this.putHome(boss, sent - stay);
-      const paid = this.pay(boss, LOOT, mark);
-      if (stay) this.emit({ t: "foothold", seat: boss, owner: mark, hideout: j.hideout }, `${this.name(boss)} pays $${paid} to leave 1 crew behind.`);
-    } else if (accepted) {
-      this.putHome(boss, sent);
+      const bp = terms.bossPays ? this.pay(boss, terms.bossPays, mark) : 0;
+      const mp = terms.markPays ? this.pay(mark, terms.markPays, boss) : 0;
+      if (stay) this.emit({ t: "foothold", seat: boss, owner: mark, hideout: j.hideout }, `${this.name(boss)} ${bp ? `pays $${bp} to leave` : "leaves"} 1 crew behind.`);
+      if (mp) this.emit({ t: "loot", from: mark, to: boss, amount: mp }, `${this.name(mark)} pays $${mp}.`);
+      if (bp && !stay) this.emit({ t: "loot", from: boss, to: mark, amount: bp }, `${this.name(boss)} pays $${bp}.`);
+      yield* this.giveCards(boss, mark, terms.bossCards);
+      yield* this.giveCards(mark, boss, terms.markCards);
     } else {
       const lb = Math.min(2, sent);
       this.putHome(boss, sent - lb);
@@ -806,6 +879,47 @@ export class HeistGame {
     if (bookie && !inJob[bookie.seat]) this.bankTop(bookie.seat, "the house always gets paid");
     this.discardShowdown(j);
     this.checkWin();
+  }
+
+  /** The two set offers: "walk" (both walk away) or "foothold" (the Boss pays $3 and leaves 1 crew). */
+  private *setOffer(j: JobState): Flow<Deal | null> {
+    const o = yield* this.ask({ kind: "dealOffer", seat: j.boss });
+    if (!o.offer) return null;
+    const a = yield* this.ask({ kind: "dealAccept", seat: j.mark, offer: o.offer });
+    this.emit({ t: "deal", offer: o.offer, accepted: a.accept }, a.accept ? `${this.name(j.mark)} takes the deal.` : `${this.name(j.mark)} turns the deal down.`);
+    if (!a.accept) return null;
+    return o.offer === "foothold" ? { ...NO_DEAL_TERMS, bossPays: LOOT, foothold: true } : { ...NO_DEAL_TERMS };
+  }
+
+  /** Open negotiation: the Boss proposes, then each side accepts, rejects or counters, up to DEAL_OFFERS offers. */
+  private *negotiate(j: JobState): Flow<Deal | null> {
+    let offer: Deal | null = null;
+    let seat = j.boss;
+    for (let left = DEAL_OFFERS; ; ) {
+      const a: AnswerOf<"deal"> = yield* this.ask({ kind: "deal", seat, as: seat === j.boss ? "boss" : "mark", offer, offersLeft: left });
+      if (a.action === "accept" && offer) {
+        this.emit({ t: "deal", offer: offer.foothold ? "foothold" : "walk", accepted: true }, `${this.name(seat)} takes the deal.`);
+        return offer;
+      }
+      if (a.action !== "propose") {
+        this.emit({ t: "deal", offer: offer?.foothold ? "foothold" : "walk", accepted: false }, `${this.name(seat)} walks away from the table. No deal.`);
+        return null;
+      }
+      const made: Deal = { ...a.deal! };
+      offer = made;
+      left--;
+      this.emit({ t: "dealOffer", seat, deal: made }, `${this.name(seat)} offers: ${describeDeal(made, this.name(j.boss), this.name(j.mark))}.`);
+      seat = seat === j.boss ? j.mark : j.boss;
+    }
+  }
+
+  private *giveCards(from: number, to: number, count: number): Flow {
+    const P = this.s.players[from];
+    const k = Math.min(count, P.hand.length);
+    if (!k) return;
+    const a = yield* this.ask({ kind: "giveCards", seat: from, to, count: k });
+    for (const id of a.cardIds) this.s.players[to].hand.push(P.hand.splice(P.hand.findIndex((c) => c.id === id), 1)[0]);
+    this.emit({ t: "giveCards", seat: from, to, count: k }, `${P.name} hands ${this.name(to)} ${k} card${k > 1 ? "s" : ""}.`);
   }
 
   private *bust(b: number, hideout: number, rival: number): Flow {
@@ -821,6 +935,7 @@ export class HeistGame {
     this.emit({ t: "reveal", bTotal: j.bTotal, mTotal: j.mTotal }, `Bust: ${j.bTotal} vs ${j.mTotal} (a Fixer counts as 0, tie goes to ${this.name(b)}).`);
     const win = j.bTotal >= j.mTotal;
     j.result = win ? "B" : "M";
+    this.record(j);
     if (win) {
       const k = H[rival];
       H[rival] = 0;
@@ -873,15 +988,23 @@ export class HeistGame {
         return Number.isInteger(h) && h >= 0 && h < HIDEOUTS ? null : "Pick a hideout";
       }
       case "send": {
-        const k = (a as AnswerOf<"send">).count;
-        return Number.isInteger(k) && k >= 1 && k <= p.max ? null : `Send 1 to ${p.max}`;
+        const x = a as AnswerOf<"send">;
+        if (!(Number.isInteger(x.count) && x.count >= 1 && x.count <= p.max)) return `Send 1 to ${p.max}`;
+        return this.badFrom(p.seat, x.from, x.count);
+      }
+      case "bribe": {
+        const offers = (a as AnswerOf<"bribe">).offers;
+        const ids = offers.flatMap((o) => o.cardIds);
+        if (!distinct(ids) || !ids.every((id) => P.bank.some((c) => c.id === id))) return "Bribe with your own banked cards";
+        if (!offers.every((o) => p.targets.includes(o.to) && o.cardIds.length > 0)) return "You can't bribe that player";
+        return distinct(offers.map((o) => o.to)) ? null : "One bribe per player";
       }
       case "join": {
         const x = a as AnswerOf<"join">;
         if (!(Number.isInteger(x.B) && Number.isInteger(x.M) && x.B >= 0 && x.M >= 0)) return "Bad crew count";
         if (x.B + x.M > p.max) return `Send at most ${p.max}`;
         if (!p.split && x.B && x.M) return "Only the Inside Man joins both sides";
-        return null;
+        return x.B + x.M ? this.badFrom(p.seat, x.from, x.B + x.M) : null;
       }
       case "doubleCross": {
         const t = (a as AnswerOf<"doubleCross">).target;
@@ -906,13 +1029,50 @@ export class HeistGame {
         return null;
       case "dealOffer":
       case "dealAccept":
-      case "again":
         return null;
+      case "again": {
+        const w = (a as AnswerOf<"again">).wanted;
+        return !w || p.wanted.some((o) => o.mark === w.mark && o.hideout === w.hideout) ? null : "Not a Wanted target";
+      }
+      case "deal": {
+        const x = a as AnswerOf<"deal">;
+        if (x.action === "accept") return p.offer ? null : "There's no offer to accept";
+        if (x.action === "reject") return null;
+        if (p.offersLeft <= 0) return "No more counter-offers: accept or walk away";
+        return x.deal ? this.badDeal(x.deal) : "Make an offer";
+      }
+      case "giveCards": {
+        const ids = (a as AnswerOf<"giveCards">).cardIds;
+        return ids.length === p.count && distinct(ids) && ids.every(inHand) ? null : `Give exactly ${p.count} cards from your hand`;
+      }
+      case "placeCrew": {
+        const to = (a as AnswerOf<"placeCrew">).to;
+        const ok = Array.isArray(to) && to.length === HIDEOUTS && to.every((k) => Number.isInteger(k) && k >= 0);
+        return ok && to.reduce((x, y) => x + y, 0) === p.count ? null : `Place all ${p.count} crew in your hideouts`;
+      }
       case "discard": {
         const ids = (a as AnswerOf<"discard">).cardIds;
         return ids.length === p.count && distinct(ids) && ids.every(inHand) ? null : `Discard exactly ${p.count}`;
       }
     }
+  }
+
+  /** Is `from` (crew per hideout) a legal way to take `count` of p's crew from home? */
+  private badFrom(p: number, from: number[] | undefined, count: number): string | null {
+    if (from === undefined) return null;
+    const hs = this.s.players[p].hideouts;
+    const ok = Array.isArray(from) && from.length === HIDEOUTS && from.every((k, h) => Number.isInteger(k) && k >= 0 && k <= hs[h][p]);
+    return ok && from.reduce((x, y) => x + y, 0) === count ? null : "Take crew you have from your hideouts";
+  }
+
+  private badDeal(d: Deal): string | null {
+    const j = this.s.job!;
+    const nat = (k: unknown) => Number.isInteger(k) && (k as number) >= 0;
+    if (!(nat(d.bossPays) && nat(d.markPays) && nat(d.bossCards) && nat(d.markCards))) return "Bad deal";
+    if (d.bossPays > this.cash(j.boss) || d.markPays > this.cash(j.mark)) return "Nobody can pay more than they have banked";
+    if (d.bossCards > this.s.players[j.boss].hand.length || d.markCards > this.s.players[j.mark].hand.length) return "Nobody can give more cards than they hold";
+    if (d.foothold && this.s.players[j.mark].hideouts[j.hideout][j.boss] > 0) return "The Boss already has a Foothold there";
+    return null;
   }
 
   // ------------------------------------------------------------------ views
@@ -933,6 +1093,18 @@ export function jobBases(s: GameState, j: JobState): { b: number; m: number } {
   if (role(j.mark) === "muscle") m += 1;
   if (role(j.mark) === "lookout") m += 4;
   return { b, m };
+}
+
+export const DEAL_OFFERS = 4;
+
+export function describeDeal(d: Deal, boss: string, mark: string): string {
+  const parts: string[] = [];
+  if (d.foothold) parts.push(`${boss} leaves 1 crew behind`);
+  if (d.bossPays) parts.push(`${boss} pays $${d.bossPays}`);
+  if (d.markPays) parts.push(`${mark} pays $${d.markPays}`);
+  if (d.bossCards) parts.push(`${boss} gives ${d.bossCards} card${d.bossCards > 1 ? "s" : ""}`);
+  if (d.markCards) parts.push(`${mark} gives ${d.markCards} card${d.markCards > 1 ? "s" : ""}`);
+  return parts.length ? parts.join(", ") : "both walk away";
 }
 
 const HIDDEN: Omit<Card, "id"> = { kind: "S", score: 0, cash: 0, color: -1 };
