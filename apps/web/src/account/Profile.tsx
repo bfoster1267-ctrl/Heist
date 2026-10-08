@@ -375,6 +375,7 @@ function Account({ me }: { me: Me }) {
           </button>
         </div>
       </label>
+      {!me.guest && me.logins.includes("email") && <ChangePassword />}
       <div className="btns wrap">
         <button className="btn" disabled={p.dailyDay === today} onClick={() => act((b) => b.daily())}>
           {p.dailyDay === today ? "Daily chips collected" : `Collect ${DAILY_CHIPS} daily chips`}
@@ -409,5 +410,42 @@ function Account({ me }: { me: Me }) {
         )}
       </div>
     </div>
+  );
+}
+
+function ChangePassword() {
+  const { act } = useAccount();
+  const [open, setOpen] = useState(false);
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [done, setDone] = useState(false);
+  if (!open)
+    return (
+      <button className="btn ghost small" onClick={() => (setOpen(true), setDone(false))}>
+        {done ? "Password changed" : "Change password"}
+      </button>
+    );
+  return (
+    <form
+      className="acct-email"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (await act((b) => b.changePassword(current, next))) {
+          setOpen(false);
+          setDone(true);
+          setCurrent("");
+          setNext("");
+        }
+      }}
+    >
+      <input type="password" autoComplete="current-password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
+      <input type="password" autoComplete="new-password" placeholder="New password (8+ characters)" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
+      <div className="btns">
+        <button className="btn gold">Save password</button>
+        <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </button>
+      </div>
+    </form>
   );
 }

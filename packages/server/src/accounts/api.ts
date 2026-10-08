@@ -46,6 +46,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/auth/signout-everywhere": async (_, t) => svc.signOutEverywhere(await me(t)),
     "GET /api/me": async (_, t) => svc.me(await me(t)),
     "POST /api/me/name": async (b, t) => svc.rename(await me(t), b.name),
+    "POST /api/me/password": async (b, t) => svc.changePassword(await me(t), b.current, b.password),
     "POST /api/me/delete": async (_, t) => (await svc.remove(await me(t)), { ok: true }),
     "POST /api/prestige": async (_, t) => svc.prestige(await me(t)),
     "POST /api/shop/buy": async (b, t) => svc.buy(await me(t), b.id),

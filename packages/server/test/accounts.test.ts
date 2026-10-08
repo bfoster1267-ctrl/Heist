@@ -83,6 +83,16 @@ describe("accounts", () => {
     await expect(svc.oauthSignIn("apple", idToken({ sub: "g-1" }), undefined)).rejects.toThrow(/set up/);
   });
 
+  it("changes an email account's password only with the current one", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const r = await svc.register("pw@example.com", "firstpass1", "Pat");
+    await expect(svc.changePassword(await svc.require(r.token), "wrongpass", "secondpass2")).rejects.toThrow(/current password/);
+    await expect(svc.changePassword(await svc.require(r.token), "firstpass1", "short")).rejects.toThrow(/8 characters/);
+    await svc.changePassword(await svc.require(r.token), "firstpass1", "secondpass2");
+    await expect(svc.login("pw@example.com", "firstpass1")).rejects.toThrow(/Wrong/);
+    expect((await svc.login("pw@example.com", "secondpass2")).me.id).toBe(r.me.id);
+  });
+
   it("signs out everywhere and deletes accounts", async () => {
     const svc = new AccountService({ secret: "s", devLogins: true });
     const a = await svc.dev("Dana");

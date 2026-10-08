@@ -59,6 +59,8 @@ export interface Backend {
   daily(): Promise<{ me: Me; chips: number }>;
   drink(id: string, count: number): Promise<Me>;
   rename(name: string): Promise<Me>;
+  /** email accounts on the server only */
+  changePassword(current: string, next: string): Promise<Me>;
   leaderboard(by: "winnings" | "level" | "wins"): Promise<LeaderRow[]>;
   // signing in (server only)
   register(email: string, password: string, name: string): Promise<Me>;
@@ -228,6 +230,9 @@ export class BrowserBackend implements Backend {
   async leaderboard(): Promise<LeaderRow[]> {
     return [];
   }
+  async changePassword(): Promise<Me> {
+    throw new BackendError("Passwords need the game server");
+  }
   private offline(): never {
     throw new BackendError("Accounts turn on when the game server is live.");
   }
@@ -340,6 +345,9 @@ export class ServerBackend implements Backend {
   }
   rename(name: string) {
     return this.call<Me>("/api/me/name", { name });
+  }
+  changePassword(current: string, password: string) {
+    return this.call<Me>("/api/me/password", { current, password });
   }
   async leaderboard(by: string) {
     return (await this.call<{ rows: LeaderRow[] }>(`/api/leaderboard?by=${by}`)).rows;

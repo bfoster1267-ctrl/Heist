@@ -243,6 +243,15 @@ export class AccountService {
     a.progress = r;
   }
 
+  /** Email accounts: change the password (needs the current one). Other devices stay signed in. */
+  async changePassword(a: Account, current: unknown, next: unknown) {
+    if (!a.password) throw new ApiError(400, "This account doesn't sign in with a password");
+    if (typeof current !== "string" || !(await checkPassword(current, a.password))) throw new ApiError(401, "That's not your current password");
+    if (typeof next !== "string" || next.length < 8 || next.length > 200) throw new ApiError(400, "Use a password of at least 8 characters");
+    const hash = await hashPassword(next);
+    return this.update(a.id, (x) => ((x.password = hash), this.me(x)));
+  }
+
   rename(a: Account, name: unknown) {
     const n = cleanName(name, "");
     if (!n) throw new ApiError(400, "Pick a name");
