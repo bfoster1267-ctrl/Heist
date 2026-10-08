@@ -18,10 +18,30 @@ type Tab = "career" | "shop" | "board" | "account";
 export function Profile({ onClose, tab: start = "career" }: { onClose: () => void; tab?: Tab }) {
   const { me } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", key);
+    return () => window.removeEventListener("keydown", key);
+  }, [onClose]);
   if (!me) return null;
   return (
-    <motion.div className="acct-screen" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+    <motion.div
+      className="acct-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      // a tap on the dimmed backdrop closes it, like any sheet
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
       <motion.div className="acct-panel" initial={{ y: 30, scale: 0.98 }} animate={{ y: 0, scale: 1 }} role="dialog" aria-label="Your profile">
+        <div className="acct-topbar">
+          <button className="acct-back" onClick={onClose}>
+            <span aria-hidden>←</span> Lobby
+          </button>
+          <button className="acct-x" onClick={onClose} aria-label="Close profile">
+            ✕
+          </button>
+        </div>
         <Header me={me} />
         <nav className="acct-tabs">
           {(
@@ -36,9 +56,6 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
               {label}
             </button>
           ))}
-          <button className="acct-close" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
         </nav>
         <div className="acct-body">
           {tab === "career" && <Career me={me} />}
