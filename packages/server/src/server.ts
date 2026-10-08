@@ -168,6 +168,9 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         case "chat":
           e = room.chat(conn.id, m.text);
           break;
+        case "drink":
+          e = room.drink(conn.id, m.to, m.drink);
+          break;
         default:
           return err("bad_message", "Unknown message");
       }

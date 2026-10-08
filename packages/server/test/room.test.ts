@@ -272,6 +272,25 @@ describe("Room", () => {
     for (let i = 0; i < 4; i++) room.chat("c1", "x");
     expect(room.chat("c1", "x")).toBe("rate_limited");
   });
+
+  it("relays drinks between seated players only", () => {
+    const { room } = setup(3);
+    const a = new TestConn("c1", "u1", "Ann");
+    const b = new TestConn("c2", "u2", "Ben");
+    room.join(a);
+    room.join(b);
+    const w = new TestConn("c3", "u3", "Wes");
+    room.join(w, { spectate: true });
+    expect(room.drink("c1", 1, "whiskey")).toBeNull();
+    expect(b.last("drink")).toEqual({ t: "drink", from: 0, to: 1, drink: "whiskey" });
+    expect(w.last("drink")).toEqual({ t: "drink", from: 0, to: 1, drink: "whiskey" });
+    expect(room.drink("c1", 0, "beer")).toBe("bad_message"); // not to yourself
+    expect(room.drink("c1", 3, "beer")).toBe("bad_message"); // no such seat
+    expect(room.drink("c1", 2, "absinthe")).toBe("bad_message");
+    expect(room.drink("c3", 0, "beer")).toBe("bad_message"); // spectators can't buy
+    for (let i = 0; i < 4; i++) room.drink("c1", 2, "beer");
+    expect(room.drink("c1", 2, "beer")).toBe("rate_limited");
+  });
 });
 
 describe("frameView", () => {

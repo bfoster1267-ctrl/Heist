@@ -4,7 +4,7 @@
 
 import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { randomInt } from "node:crypto";
-import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
+import { DRINK_IDS, type DrinkId, type ErrorCode, type RoomInfo, type SeatInfo, type SeenFrame, type ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
 import type { GameRecord, GameStore, StoredAnswer } from "./store";
 
@@ -499,14 +499,33 @@ export class Room {
     if (!c || typeof text !== "string") return "bad_message";
     const clean = text.replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 200);
     if (!clean) return null;
+    if (!this.spend(c.conn.userId)) return "rate_limited";
     const now = this.deps.clock.now();
-    const recent = (this.chatTimes.get(c.conn.userId) ?? []).filter((t) => now - t < 10_000);
-    if (recent.length >= 5) return "rate_limited";
-    recent.push(now);
-    this.chatTimes.set(c.conn.userId, recent);
     const seat = c.spectator ? null : this.seatOf(c.conn.userId);
     this.broadcast({ t: "chat", seat, name: c.conn.name, text: clean, at: now });
     return null;
+  }
+
+  /** Send a drink to another seat. Shares the chat limit, so drinks can't flood the table either. */
+  drink(connId: string, to: unknown, drink: unknown): ErrorCode | null {
+    const c = this.conns.get(connId);
+    if (!c || typeof to !== "number" || !Number.isInteger(to) || to < 0 || to >= this.players) return "bad_message";
+    if (!DRINK_IDS.includes(drink as DrinkId)) return "bad_message";
+    const from = c.spectator ? null : this.seatOf(c.conn.userId);
+    if (from === null || from === to) return "bad_message";
+    if (!this.spend(c.conn.userId)) return "rate_limited";
+    this.broadcast({ t: "drink", from, to, drink: drink as DrinkId });
+    return null;
+  }
+
+  /** Room-wide talk limit per user: 5 lines or drinks in 10 seconds. */
+  private spend(userId: string): boolean {
+    const now = this.deps.clock.now();
+    const recent = (this.chatTimes.get(userId) ?? []).filter((t) => now - t < 10_000);
+    if (recent.length >= 5) return false;
+    recent.push(now);
+    this.chatTimes.set(userId, recent);
+    return true;
   }
 
   // ------------------------------------------------------------------ sending

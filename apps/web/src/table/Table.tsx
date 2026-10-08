@@ -70,7 +70,12 @@ export function Table({
   /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
   /** Watching, not playing (online): the table is drawn from `seat`, but it isn't yours. */
   watching?: boolean;
-  talk?: { send: (text: string) => void; listen: (heard: (seat: number, text: string) => void) => () => void };
+  talk?: {
+    send: (text: string) => void;
+    listen: (heard: (seat: number, text: string) => void) => () => void;
+    drink: (to: number, emoji: string) => void;
+    listenDrinks: (got: (from: number, to: number, emoji: string) => void) => () => void;
+  };
 }) {
   const HUMAN = seat;
   const t = useSource(settings);
@@ -102,13 +107,14 @@ export function Table({
   const drinks = useDrinks(seatAt, (d) => {
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
-    // A bot raises the glass, and sometimes sends one back to you.
+    // A bot raises the glass, and sometimes sends one back to you (not online, where others wouldn't see it).
     window.setTimeout(() => chat.say(d.seat, Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), 300);
-    if (d.from === HUMAN && Math.random() < 0.35) {
+    if (!talk && d.from === HUMAN && Math.random() < 0.35) {
       const back = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
       window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);
     }
   });
+  useEffect(() => talk?.listenDrinks((from, to, emoji) => drinks.send(from, to, emoji)), [talk, drinks.send]);
   // the tour pauses nothing, so it only runs at a local table where the game waits for you
   const [walk, setWalk] = useState(() => !getPrefs().walked && useSource === useTable);
   const [potShown, setPotShown] = useState(0);
@@ -171,7 +177,7 @@ export function Table({
     if (s) {
       nRef.current = s.n;
       chat.react(ev, s);
-      const r = botRound(ev, s);
+      const r = talk ? null : botRound(ev, s);
       if (r) {
         const d = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
         window.setTimeout(() => drinks.send(r[0], r[1], d), 1600);
@@ -447,7 +453,7 @@ export function Table({
               <ChatTray
                 onSay={(text) => (talk ? talk.send(text) : chat.say(HUMAN, text))}
                 rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
-                onDrink={(to, emoji) => drinks.send(HUMAN, to, emoji)}
+                onDrink={(to, emoji) => (talk ? talk.drink(to, emoji) : drinks.send(HUMAN, to, emoji))}
                 onClose={() => setShowChat(false)}
               />
             )}

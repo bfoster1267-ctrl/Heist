@@ -4,6 +4,8 @@ import { motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
+import { DRINK_IDS, type DrinkId } from "@heist/server/protocol";
+import { DRINKS } from "../table/Drinks";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
@@ -261,6 +263,15 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
     () => ({
       send: (text: string) => sess.client.chat(text),
       listen: (heard: (seat: number, text: string) => void) => sess.onMessage((m) => m.t === "chat" && m.seat !== null && heard(m.seat, m.text)),
+      drink: (to: number, emoji: string) => {
+        const d = DRINKS.find((x) => x.emoji === emoji);
+        if (d && (DRINK_IDS as readonly string[]).includes(d.id)) sess.client.drink(to, d.id as DrinkId);
+      },
+      listenDrinks: (got: (from: number, to: number, emoji: string) => void) =>
+        sess.onMessage((m) => {
+          const d = m.t === "drink" && DRINKS.find((x) => x.id === m.drink);
+          if (m.t === "drink" && d) got(m.from, m.to, d.emoji);
+        }),
     }),
     [sess],
   );

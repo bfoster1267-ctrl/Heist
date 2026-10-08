@@ -81,7 +81,13 @@ export type ClientMsg =
   | { t: "answer"; askId: number; answer: Answer }
   | { t: "autopilot"; on: boolean }
   | { t: "chat"; text: string }
+  /** buy a drink for another seat at the table (play-money cosmetic; seated players only) */
+  | { t: "drink"; to: number; drink: DrinkId }
   | { t: "ping"; n?: number };
+
+/** The drinks a player can send across the table. */
+export const DRINK_IDS = ["martini", "whiskey", "champagne", "beer", "coffee"] as const;
+export type DrinkId = (typeof DRINK_IDS)[number];
 
 // ------------------------------------------------------------------ server -> client
 
@@ -113,6 +119,7 @@ export type ServerMsg =
   | { t: "timeout"; seat: number; autopilot: boolean }
   | { t: "gameOver"; game: number; winners: number[]; reason: "footholds" | "last_call"; stakes: number }
   | { t: "chat"; seat: number | null; name: string; text: string; at: number }
+  | { t: "drink"; from: number; to: number; drink: DrinkId }
   | { t: "left" }
   | { t: "error"; code: ErrorCode; msg: string }
   | { t: "pong"; n?: number; at: number };
