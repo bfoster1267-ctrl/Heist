@@ -5,6 +5,8 @@ import { STAGES } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { Chips, CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
+import { Settings } from "./table/Settings";
+import { createPortal } from "react-dom";
 import { isIOS, isStandalone } from "./appShell";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
@@ -55,6 +57,7 @@ export function Lobby({
   const [stake, setStake] = useState(1);
   const [rules, setRules] = useState(false);
   const [camp, setCamp] = useState(false);
+  const [settings, setSettings] = useState(false);
   const prefs = usePrefs();
   const go = (i: number, campaign?: number) => {
     try {
@@ -65,7 +68,7 @@ export function Lobby({
     onPlay({ players, name: name.trim() || "Ace", stakes: campaign ? 0 : STAKES[i].buyIn, campaign });
   };
   return (
-    <div className="lobby">
+    <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
         {CREWS.map((c, i) => (
           <motion.span
@@ -154,6 +157,10 @@ export function Lobby({
             <span className="how-to-q">?</span> New here? How to play
           </button>
           <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
+          <button className="btn ghost how-to" onClick={() => setSettings(true)}>
+            <span className="how-to-q">⚙</span> Settings: sound, text size, table color
+          </button>
+          <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
           {prefs.walked ? (
             <button className="btn ghost small learn" onClick={() => setPrefs({ walked: false, tips: true, seen: [] })}>
               Show me the tour again next game
@@ -225,5 +232,28 @@ function InstallHint() {
         ✕
       </button>
     </div>
+  );
+}
+
+/** The table's settings, opened from the lobby. The tour starts with the next game. */
+function LobbySettings({ onClose }: { onClose: () => void }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  return createPortal(
+    <motion.div className="lobby-settings-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()}>
+        <Settings
+          onClose={onClose}
+          onTour={() => {
+            setPrefs({ walked: false, tips: true, seen: [] });
+            onClose();
+          }}
+        />
+      </div>
+    </motion.div>,
+    document.body,
   );
 }

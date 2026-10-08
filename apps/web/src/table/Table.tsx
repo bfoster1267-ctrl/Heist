@@ -1,3 +1,4 @@
+import { stage } from "@heist/profile";
 import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -118,7 +119,8 @@ export function Table({
   // Drinks sit on the rail just above the player's avatar.
   const seatAt = (seat: number): [number, number] => {
     const a = anchorAt(`seat-${seat}`);
-    if (a) return [a.x - 8, a.y - 32];
+    // above the avatar, or beside it for a seat at the top edge, where above is off the table
+    if (a) return a.y - 32 < 18 ? [a.x - 40, a.y] : [a.x - 8, a.y - 32];
     const p = seatPos(L, seat, nRef.current, HUMAN);
     return [p[0], p[1] - 70];
   };
@@ -274,7 +276,7 @@ export function Table({
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  Stakes {settings.stakes.toLocaleString()} · First to {s.target}
+                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : `Stakes ${settings.stakes.toLocaleString()}`} · First to {s.target}
                 </span>
                 {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
               </div>
