@@ -64,7 +64,8 @@ export function Table({
   settings: TableSettings;
   onExit: () => void;
   onGameOver: (won: number) => void;
-  onAgain: () => void;
+  /** deal the next game; left out online when only the host can deal */
+  onAgain?: () => void;
   /** The seat this player sits in. */
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
@@ -544,7 +545,7 @@ function Confetti() {
   );
 }
 
-function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: number; pot: number; history: HistoryEntry[]; onAgain: () => void; onExit: () => void }) {
+function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: number; pot: number; history: HistoryEntry[]; onAgain?: () => void; onExit: () => void }) {
   const won = s.winners!.includes(me);
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
@@ -566,9 +567,15 @@ function GameOver({ s, me, pot, history, onAgain, onExit }: { s: GameState; me: 
             </div>
           )}
           <div className="btns center">
-            <button className="btn primary big" onClick={onAgain} autoFocus>
-              Deal again
-            </button>
+            {onAgain ? (
+              <button className="btn primary big" onClick={onAgain} autoFocus>
+                Deal again
+              </button>
+            ) : (
+              <button className="btn big" disabled>
+                Waiting for the host to deal
+              </button>
+            )}
             <button className="btn ghost" onClick={onExit}>
               Lobby
             </button>
