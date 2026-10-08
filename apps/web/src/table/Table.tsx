@@ -212,7 +212,10 @@ export function Table({
 
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
-      <div className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.bigText ? " big-text" : "")}>
+      <div
+        className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.textSize > 1 ? " big-text" : "")}
+        style={{ "--ts": prefs.textSize } as React.CSSProperties}
+      >
         <motion.div className="shaker" animate={shake}>
         <div className={`canvas l-${L.name}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
           <LayoutGroup>
