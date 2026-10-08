@@ -78,6 +78,18 @@ export function useBubbles(human: number) {
   return { bubbles, say, react };
 }
 
+/** Big text makes bubbles wide and tall, so a seat near the edge would push its bubble off the
+ *  table. Keep it inside the canvas and point the tail back at the seat. */
+function keepOnTable(el: HTMLElement, x: number, bottom: number) {
+  const W = (el.offsetParent as HTMLElement | null)?.clientWidth ?? 1280;
+  const w = el.offsetWidth, h = el.offsetHeight, pad = 8;
+  const left = Math.max(pad, Math.min(x - w / 2, W - pad - w));
+  el.style.translate = "0 0";
+  el.style.left = `${left}px`;
+  el.style.top = `${Math.max(pad, bottom - h)}px`;
+  el.style.setProperty("--tail", `${Math.max(14, Math.min(x - left, w - 14))}px`);
+}
+
 export function Bubbles({ bubbles, pos }: { bubbles: Bubble[]; pos: (seat: number) => [number, number] }) {
   return (
     <AnimatePresence>
@@ -89,6 +101,9 @@ export function Bubbles({ bubbles, pos }: { bubbles: Bubble[]; pos: (seat: numbe
             key={b.key}
             className={"bubble" + (emoji ? " emoji" : "")}
             style={{ left: x, top: y - 62 }}
+            ref={(el) => {
+              if (el) keepOnTable(el, x, y - 62);
+            }}
             initial={{ scale: 0.3, opacity: 0, y: 10 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -14 }}
