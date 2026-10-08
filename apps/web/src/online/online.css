@@ -129,3 +129,15 @@
   top: calc(64px + env(safe-area-inset-top));
   color: var(--gold, #e7b53c);
 }
+
+.online-banner.autopilot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-color: var(--gold);
+}
+
+/* a spectator's view comes from seat 0, but that hand isn't theirs to see or hold */
+.my-hand.watching {
+  visibility: hidden;
+}

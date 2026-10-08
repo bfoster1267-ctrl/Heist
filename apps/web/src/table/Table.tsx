@@ -369,7 +369,7 @@ export function Table({
                 </div>
               </div>
             )}
-            <div className="my-hand" data-anchor="my-hand" role="group" aria-label="Your hand">
+            <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label="Your hand" aria-hidden={watching || undefined}>
               {me.hand.map((c, i) => {
                 const n = me.hand.length;
                 const off = i - (n - 1) / 2;

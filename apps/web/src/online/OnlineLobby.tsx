@@ -276,6 +276,7 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
     [sess],
   );
   const seats = room.seats;
+  const mine = sess.seat === null ? null : seats[sess.seat];
   const away = useMemo(() => {
     const a: Record<number, "away" | "bot"> = {};
     for (const s of seats) if (s.kind === "human" && (s.autopilot || !s.connected)) a[s.seat] = s.autopilot ? "bot" : "away";
@@ -298,6 +299,14 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         onAgain={host ? () => sess.client.start() : undefined}
       />
       {sess.status !== "online" && <div className="online-banner top">Reconnecting...</div>}
+      {mine?.autopilot && room.status === "playing" && (
+        <div className="online-banner autopilot">
+          A bot is playing for you.
+          <button className="btn primary small" onClick={() => sess.client.autopilot(false)}>
+            I'm back
+          </button>
+        </div>
+      )}
       {sess.seat === null && room.status !== "over" && <div className="online-banner">You're watching this table</div>}
     </>
   );
