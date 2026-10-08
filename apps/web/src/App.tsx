@@ -1,16 +1,15 @@
-import { soloBotNames } from "@heist/profile";
+import type { Answer } from "@heist/engine";
+import { DRINKS } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
-import { Drinks } from "./account/Drinks";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
 import { AccountProvider, useAccount } from "./account/useAccount";
+import "./account/account.css";
 import { Lobby, type LobbyChoice } from "./Lobby";
 import { Table } from "./table/Table";
 import type { TableSettings } from "./useTable";
-import type { Answer } from "@heist/engine";
-import "./account/account.css";
 
 export function App() {
   return (
@@ -23,15 +22,17 @@ export function App() {
 interface Seated extends TableSettings {
   seed: number;
   gameId: string;
-  key: number;
 }
 
 function Game() {
   const { me, act, showReward, error, clearError } = useAccount();
   const [table, setTable] = useState<Seated | null>(null);
+  const [round, setRound] = useState(0);
   const [profile, setProfile] = useState(false);
   const finished = useRef(false);
 
+  // The buy-in is paid and the seed comes from the account (the server, when there is one), so the
+  // finished game can be checked and counted toward the career.
   const sit = useCallback(
     async (c: LobbyChoice) => {
       if (me && c.name && c.name !== me.name) await act((b) => b.rename(c.name));
@@ -39,7 +40,8 @@ function Game() {
       if (!t) return;
       if (t.quit) showReward(t.quit);
       finished.current = false;
-      setTable((old) => ({ ...c, seed: t.seed, gameId: t.gameId, key: (old?.key ?? 0) + 1 }));
+      setTable({ players: c.players, name: c.name, stakes: c.stakes, seed: t.seed, gameId: t.gameId });
+      setRound((r) => r + 1);
     },
     [me, act, showReward],
   );
@@ -54,12 +56,20 @@ function Game() {
     [table, act, showReward],
   );
 
+  // Walking out mid-game counts as a loss: the buy-in is already in the pot.
   const exit = useCallback(() => {
-    // walking out mid-game counts as a loss (the buy-in is already in the pot)
     if (!finished.current) void act((b) => b.soloQuit());
     finished.current = true;
     setTable(null);
   }, [act]);
+
+  const buyDrink = useCallback(
+    async (emoji: string, count: number) => {
+      const d = DRINKS.find((x) => x.emoji === emoji);
+      return !!d && !!(await act((b) => b.drink(d.id, count)));
+    },
+    [act],
+  );
 
   if (!me) return <div className="loading">Opening the vault…</div>;
   const chips = me.progress.chips;
@@ -74,19 +84,17 @@ function Game() {
           </div>
         </>
       ) : (
-        <>
-          <Table
-            key={table.key}
-            settings={table}
-            onExit={exit}
-            onGameOver={gameOver}
-            onAgain={() => {
-              if (chips < table.stakes) return exit();
-              void sit(table);
-            }}
-          />
-          <Drinks names={[table.name || "You", ...soloBotNames(table.seed, table.players)]} />
-        </>
+        <Table
+          key={round}
+          settings={table}
+          onExit={exit}
+          onGameOver={gameOver}
+          buyDrink={buyDrink}
+          onAgain={() => {
+            if (chips < table.stakes) return exit();
+            void sit(table);
+          }}
+        />
       )}
       <AnimatePresence>{profile && !table && <Profile onClose={() => setProfile(false)} />}</AnimatePresence>
       <Rewards />

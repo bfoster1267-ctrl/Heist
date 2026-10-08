@@ -81,8 +81,9 @@ function useEquippedLook(me: Me | null) {
     const b = cosmetic(back ?? "");
     const fr = cosmetic(frame ?? "")?.colors;
     const set = (k: string, v: string | undefined) => (v ? root.setProperty(k, v) : root.removeProperty(k));
-    set("--felt", f?.[0]);
-    set("--felt2", f?.[1]);
+    set("--cfelt", f?.[0]);
+    set("--cfelt2", f?.[1]);
+    document.documentElement.dataset.felt = felt && felt !== "felt.classic" ? "custom" : "house";
     set("--back", b?.colors?.[0]);
     set("--back2", b?.colors?.[1]);
     set("--frame", fr?.[0]);

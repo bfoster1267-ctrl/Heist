@@ -1,8 +1,10 @@
 import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
 import { motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { buzz } from "../haptics";
 import { click } from "../sound";
-import { CardFace } from "./pieces";
+import { pressable } from "./Seat";
+import { CardFace, RoleCard } from "./pieces";
 
 /** Which hand cards the current ask lets you select, and how many. */
 export function handSelect(ask: Ask | null, s: GameState, seat: number): { max: number; allow: (id: number) => boolean } | null {
@@ -17,11 +19,11 @@ export function handSelect(ask: Ask | null, s: GameState, seat: number): { max: 
 function Stepper({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (v: number) => void }) {
   return (
     <span className="stepper">
-      <button disabled={value <= min} onClick={() => onChange(value - 1)}>
+      <button aria-label="Fewer" disabled={value <= min} onClick={() => onChange(value - 1)}>
         −
       </button>
-      <span className="stepper-v">{value}</span>
-      <button disabled={value >= max} onClick={() => onChange(value + 1)}>
+      <span className="stepper-v" aria-live="polite">{value}</span>
+      <button aria-label="More" disabled={value >= max} onClick={() => onChange(value + 1)}>
         +
       </button>
     </span>
@@ -36,6 +38,7 @@ function Btn({ children, onClick, kind = "", disabled }: { children: React.React
       disabled={disabled}
       onClick={() => {
         click();
+        buzz("tap");
         onClick();
       }}
     >
@@ -47,6 +50,15 @@ function Btn({ children, onClick, kind = "", disabled }: { children: React.React
 export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s: GameState; seat: number; sel: number[]; setSel: (x: number[]) => void; answer: (a: Answer) => void }) {
   const [n, setN] = useState(1);
   const [n2, setN2] = useState(0);
+  const panel = useRef<HTMLDivElement>(null);
+  // Move keyboard focus to the first choice so the game plays from the keyboard.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (document.activeElement && document.activeElement !== document.body && !panel.current?.contains(document.activeElement)) return;
+      panel.current?.querySelector<HTMLElement>(".btn.primary:not(:disabled), button:not(:disabled)")?.focus({ preventScroll: true });
+    }, 60);
+    return () => clearTimeout(t);
+  }, [ask]);
   const P = s.players[seat];
   const name = (p: number) => s.players[p].name;
   useEffect(() => {
@@ -73,15 +85,25 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
       title = "Pick your Role";
       body = (
         <div className="role-pick">
-          {ask.options.map((r) => {
-            const R = ROLES.find((x) => x.id === r)!;
-            return (
-              <motion.button key={r} className="role-card" whileHover={{ y: -6 }} onClick={() => answer({ kind: "keepRole", role: r })}>
-                <span className="role-name">{R.name}</span>
-                <span className="role-text">{R.text}</span>
-              </motion.button>
-            );
-          })}
+          {ask.options.map((r, i) => (
+            <motion.button
+              key={r}
+              className="role-card"
+              aria-label={`Keep ${ROLES.find((x) => x.id === r)!.name}`}
+              initial={{ rotateY: 90, y: 20 }}
+              animate={{ rotateY: 0, y: 0 }}
+              transition={{ delay: 0.15 + i * 0.15, type: "spring", stiffness: 200, damping: 20 }}
+              whileHover={{ y: -8 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                click();
+                buzz("bump");
+                answer({ kind: "keepRole", role: r });
+              }}
+            >
+              <RoleCard role={r} />
+            </motion.button>
+          ))}
         </div>
       );
       break;
@@ -106,7 +128,7 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
         <>
           <div className="pick-row">
             {[...s.discard].reverse().slice(0, 12).map((c) => (
-              <span key={c.id} className="clickable" onClick={() => answer({ kind: "fence", cardId: c.id })}>
+              <span key={c.id} className="clickable" {...pressable(() => answer({ kind: "fence", cardId: c.id }), `Buy ${cardLabel(c)}`)}>
                 <CardFace card={c} size="sm" />
               </span>
             ))}
@@ -276,7 +298,7 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
           {oddsLine}
           <div className="pick-row">
             {P.bank.map((c) => (
-              <span key={c.id} className={"clickable" + (pick && pick.id === c.id ? " picked" : "")} onClick={() => setSel([c.id])}>
+              <span key={c.id} className={"clickable" + (pick && pick.id === c.id ? " picked" : "")} {...pressable(() => setSel([c.id]), `Bet $${c.cash}`)}>
                 <CardFace card={c} size="xs" />
               </span>
             ))}
@@ -421,8 +443,20 @@ export function ActionPanel({ ask, s, seat, sel, setSel, answer }: { ask: Ask; s
       break;
   }
   return (
-    <motion.div className={"action-panel" + (ask.kind === "keepRole" ? " wide" : "")} key={ask.kind} initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.25 }}>
-      <div className="action-title">{title}</div>
+    <motion.div
+      ref={panel}
+      className={"action-panel" + (ask.kind === "keepRole" ? " wide" : "")}
+      key={ask.kind}
+      role="group"
+      aria-labelledby="action-title"
+      initial={{ y: 30, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
+      <div className="action-title" id="action-title">
+        <span className="your-move-dot" aria-hidden />
+        {title}
+      </div>
       {body}
     </motion.div>
   );

@@ -1,6 +1,6 @@
 import { HOME_TURF, jobBases, type GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { Crew, FlipCard } from "./pieces";
+import { CountUp, Crew, FlipCard } from "./pieces";
 
 function CrewRow({ s, counts, extra }: { s: GameState; counts: { seat: number; k: number }[]; extra?: React.ReactNode }) {
   return (
@@ -25,7 +25,9 @@ export function JobZone({ s }: { s: GameState }) {
       {j && (
         <motion.div
           key={`${j.kind}-${j.boss}-${j.mark}-${j.hideout}-${s.turn}`}
-          className="job"
+          className={"job" + (j.revealed ? " revealed" : "")}
+          role="region"
+          aria-label="Current job"
           initial={{ opacity: 0, scale: 0.85 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.9 }}
@@ -59,7 +61,7 @@ function JobBody({ s }: { s: GameState }) {
           <div className="job-who">{bust ? P[j.boss].name : `Boss · ${P[j.boss].name}`}</div>
           <CrewRow s={s} counts={bCounts} extra={j.backups.B ? <span className="bonus">+{j.backups.B} backup</span> : null} />
           <FlipCard card={j.bossCard} revealed={j.revealed} size="sm" />
-          <div className="job-total">{j.revealed ? j.bTotal : base.b}<span className="job-total-q">{j.revealed ? "" : " + ?"}</span></div>
+          <div className="job-total" data-tip={j.revealed ? "Boss total\nCard + crew + bonuses" : "Boss side so far\nCrew and bonuses. The card is still face down."}>{j.revealed ? <CountUp value={j.bTotal} /> : base.b}<span className="job-total-q">{j.revealed ? "" : " + ?"}</span></div>
         </div>
         <div className="job-vs">VS</div>
         <div className={"job-side side-m" + (done && j.result === "M" ? " won" : "") + (done && j.result === "B" ? " lost" : "")} data-anchor="job-M">
@@ -75,7 +77,7 @@ function JobBody({ s }: { s: GameState }) {
             }
           />
           <FlipCard card={j.markCard} revealed={j.revealed} size="sm" />
-          <div className="job-total">{j.revealed ? j.mTotal : base.m}<span className="job-total-q">{j.revealed ? "" : " + ?"}</span></div>
+          <div className="job-total" data-tip={j.revealed ? "Mark total\nCard + crew + home turf. Ties go to the Mark." : "Mark side so far\nCrew plus home turf. The card is still face down."}>{j.revealed ? <CountUp value={j.mTotal} /> : base.m}<span className="job-total-q">{j.revealed ? "" : " + ?"}</span></div>
         </div>
       </div>
       {j.bets.length > 0 && (
@@ -90,7 +92,7 @@ function JobBody({ s }: { s: GameState }) {
       {j.hackerCall && <div className="job-note">Hacker called {j.hackerCall.n}</div>}
       <AnimatePresence>
         {j.result && (
-          <motion.div className={"job-result r-" + j.result} initial={{ scale: 2.2, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}>
+          <motion.div className={"job-result r-" + j.result} initial={{ scale: 2.6, opacity: 0, rotate: -14 }} animate={{ scale: 1, opacity: 1, rotate: -6 }} transition={{ type: "spring", stiffness: 320, damping: 16 }}>
             {j.result === "B" ? (bust ? "CLEARED OUT" : "BOSS WINS") : j.result === "M" ? (bust ? "HELD ON" : "MARK HOLDS") : j.result === "deal" ? "DEAL" : "NO DEAL"}
           </motion.div>
         )}

@@ -15,7 +15,7 @@ export interface Cosmetic {
   /** title text shown under the name at the table */
   text?: string;
   /** card back pattern */
-  pattern?: "classic" | "stripes" | "diamonds" | "noir" | "gold";
+  pattern?: "classic" | "red" | "stripes" | "diamonds" | "noir" | "gold";
 }
 
 export const COSMETICS: Cosmetic[] = [
@@ -29,7 +29,8 @@ export const COSMETICS: Cosmetic[] = [
   { id: "felt.obsidian", slot: "felt", name: "Obsidian", price: 0, unlock: { prestige: 5 }, colors: ["#262626", "#050505"] },
 
   // card backs
-  { id: "back.classic", slot: "cardBack", name: "House Red", price: 0, colors: ["#8e1b25", "#f3e3c3"], pattern: "classic" },
+  { id: "back.classic", slot: "cardBack", name: "House", price: 0, colors: ["#232832", "#e7b53c"], pattern: "classic" },
+  { id: "back.red", slot: "cardBack", name: "Casino Red", price: 250, colors: ["#8e1b25", "#f3e3c3"], pattern: "red" },
   { id: "back.navy", slot: "cardBack", name: "Navy Stripes", price: 300, colors: ["#1b3a6b", "#d9e2f0"], pattern: "stripes" },
   { id: "back.emerald", slot: "cardBack", name: "Emerald Diamonds", price: 500, colors: ["#16613f", "#e7d9a8"], pattern: "diamonds" },
   { id: "back.noir", slot: "cardBack", name: "Noir", price: 800, unlock: { level: 10 }, colors: ["#141414", "#c9a54b"], pattern: "noir" },
