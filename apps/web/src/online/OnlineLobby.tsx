@@ -40,6 +40,7 @@ export function OnlineLobby({
   onExit,
   onBuyIn,
   onWin,
+  onEnd,
 }: {
   name: string;
   chips: number;
@@ -49,6 +50,8 @@ export function OnlineLobby({
   onBuyIn: (stakes: number) => void;
   /** the table has played out to the end (won = chips won, 0 if not) */
   onWin: (won: number) => void;
+  /** any game you sat in has finished, won or not (the account shows its rewards card) */
+  onEnd?: () => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
   const room = sess.room;
@@ -69,19 +72,29 @@ export function OnlineLobby({
   const paid = useRef(0);
   const seated = room && sess.seat !== null;
   useEffect(() => {
-    if (room && seated && room.status === "playing" && sess.feed.game > 0 && paid.current !== sess.feed.game) {
+    // (coming back to a game you were already dealt into starts from a sync: that buy-in was paid then)
+    if (room && seated && room.status === "playing" && sess.feed.game > 0 && !sess.feed.base && paid.current !== sess.feed.game) {
       paid.current = sess.feed.game;
       onBuyIn(room.stakes);
     }
   }, [room, seated, sess.feed.game, onBuyIn]);
 
   const leave = () => {
+    const r = sess.room;
+    if (r?.status === "playing" && sess.seat !== null && !window.confirm("Leave this game? You'll lose your buy-in, and you can't come back to this game.")) return;
+    forgetTable();
     sess.leave();
     onExit();
   };
 
+  // remember the table while you're dealt in, so you can get back to it after closing the app
+  useEffect(() => {
+    if (room && sess.seat !== null && room.status === "playing") rememberTable(room.code);
+    else if (room?.status === "over") forgetTable();
+  }, [room, sess.seat]);
+
   if (room && room.status !== "lobby" && sess.feed.game > 0) {
-    return <OnlineTable sess={sess} onExit={leave} onWin={onWin} />;
+    return <OnlineTable sess={sess} onExit={leave} onWin={onWin} onEnd={onEnd} />;
   }
 
   return (
@@ -98,8 +111,32 @@ export function OnlineLobby({
   );
 }
 
+const TABLE_KEY = "heist.table";
+function rememberTable(code: string) {
+  try {
+    localStorage.setItem(TABLE_KEY, code);
+  } catch {
+    /* private mode */
+  }
+}
+function forgetTable() {
+  try {
+    localStorage.removeItem(TABLE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+function lastTable(): string | null {
+  try {
+    return localStorage.getItem(TABLE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onBack: () => void }) {
   const [players, setPlayers] = useState(4);
+  const [back, setBack] = useState(lastTable);
   const [stake, setStake] = useState(0);
   const [isPrivate, setPrivate] = useState(true);
   const [code, setCode] = useState("");
@@ -120,6 +157,19 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
           <Chips amount={chips} />
           <span className="dim">play chips</span>
         </div>
+        {back && (
+          <button
+            className="btn gold big"
+            disabled={!online}
+            onClick={() => {
+              sess.client.join(back);
+              forgetTable();
+              setBack(null);
+            }}
+          >
+            Back to your table ({back})
+          </button>
+        )}
         <div className="field">
           <span>Join a table</span>
           <div className="code-row">
@@ -254,7 +304,7 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
   );
 }
 
-function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () => void; onWin: (won: number) => void }) {
+function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onExit: () => void; onWin: (won: number) => void; onEnd?: () => void }) {
   const room = sess.room!;
   const useSource = useMemo(() => onlineSource(sess), [sess]);
   const settings = useMemo(() => ({ players: room.players, name: sess.client.name ?? "", stakes: room.stakes }), [room.players, room.stakes, sess]);
@@ -295,11 +345,16 @@ function OnlineTable({ sess, onExit, onWin }: { sess: OnlineSession; onExit: () 
         away={away}
         clock={<TurnClock sess={sess} />}
         onExit={onExit}
-        // a spectator sees the table from seat 0, but its winnings aren't theirs
-        onGameOver={(won) => won && sess.seat !== null && onWin(won)}
+        // the server says who takes the pot: never a player who wasn't there at the end, nor a spectator
+        onGameOver={() => {
+          const go = sess.gameOver;
+          if (go && sess.seat !== null && go.paid.includes(sess.seat)) onWin(Math.floor((room.stakes * room.players) / go.paid.length));
+          if (sess.seat !== null) onEnd?.();
+        }}
         // a spectator can sit in for the next game; then only the host deals it
         onAgain={host ? () => sess.client.start() : sess.seat === null ? () => sess.client.sit() : undefined}
         againLabel={!host && sess.seat === null ? "Take a seat" : undefined}
+        forfeit={sess.seat !== null && !!sess.gameOver?.abandoned.includes(sess.seat)}
       />
       {sess.status !== "online" && <div className="online-banner top">Reconnecting...</div>}
       {mine?.autopilot && room.status === "playing" && (

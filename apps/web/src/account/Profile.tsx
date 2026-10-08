@@ -167,6 +167,7 @@ function Career({ me }: { me: Me }) {
     ["Loot collected", s.loot],
     ["Busts won", s.bustsWon],
     ["Bets won", s.betsWon],
+    ["Games abandoned", s.quits],
   ];
   const roles = Object.entries(s.byRole).sort((a, b) => b[1]!.g - a[1]!.g) as [RoleId, { g: number; w: number }][];
   return (
@@ -202,7 +203,7 @@ function Career({ me }: { me: Me }) {
           <div className="acct-recent">
             {s.recent.map((g, i) => (
               <div key={i} className={g.won ? "won" : "lost"}>
-                <span className="acct-recent-wl">{g.quit ? "LEFT" : g.won ? "WIN" : "LOSS"}</span>
+                <span className="acct-recent-wl">{g.quit ? "QUIT" : g.won ? "WIN" : "LOSS"}</span>
                 <span>
                   {g.players}p {g.mode === "online" ? "online" : "vs bots"}
                   {g.role ? ` · ${roleName(g.role)}` : ""}

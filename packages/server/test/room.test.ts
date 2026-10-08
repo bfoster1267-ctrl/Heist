@@ -1,6 +1,7 @@
 import { Bot, HeistGame, runBots, viewFor, type GameState } from "@heist/engine";
 import { describe, expect, it } from "vitest";
-import { Room, frameView } from "../src/room";
+import { deadWeight } from "../src/deadweight";
+import { Room, frameView, payees } from "../src/room";
 import { sanitizeAnswer } from "../src/sanitize";
 import { MemoryStore } from "../src/store";
 import { FakeClock, TestConn, simpleAnswer } from "./helpers";
@@ -204,8 +205,8 @@ describe("Room", () => {
     expect(room.status).toBe("over");
   });
 
-  it("hands a leaver's seat to a bot mid-game and gives it back when they return", () => {
-    const { room } = setup(3);
+  it("a player who leaves on purpose is out for the rest of the game, and abandons it", () => {
+    const { room, overs } = setup(3);
     const a = new TestConn("c1", "u1", "Ann");
     const b = new TestConn("c2", "u2", "Ben");
     room.join(a);
@@ -216,9 +217,50 @@ describe("Room", () => {
     playAll(room, [a], 15);
     const b2 = new TestConn("c3", "u2", "Ben");
     room.join(b2);
-    expect(room.info().seats[1].autopilot).toBe(false);
-    playAll(room, [a, b2]);
+    expect(b2.last("room").you.seat).toBeNull(); // back only as a spectator
+    expect(room.info().seats[1].autopilot).toBe(true);
+    playAll(room, [a]);
     expect(room.status).toBe("over");
+    const over = overs[0] as { abandoned: number[]; winners: number[] };
+    expect(over.abandoned).toEqual([1]);
+    expect(over.winners).not.toContain(1);
+    expect(b2.last("gameOver").abandoned).toEqual([1]);
+    // the rematch deals a bot into that chair
+    expect(room.start("u1", 13)).toBeNull();
+    expect(room.info().seats[1].kind).toBe("bot");
+  });
+
+  it("a dropped player gets their seat back any time before the end; away at the end is abandoned", () => {
+    const { room, clock, overs } = setup(3);
+    const a = new TestConn("c1", "u1", "Ann");
+    const b = new TestConn("c2", "u2", "Ben");
+    room.join(a);
+    room.join(b);
+    room.start("u1", 12);
+    room.disconnect("c2");
+    // his turns run out on the short clock and the seat goes to dead weight
+    for (let i = 0; i < 40 && !room.info().seats[1].autopilot; i++) {
+      playAll(room, [a], 1);
+      clock.advance(25_000);
+    }
+    expect(room.info().seats[1].autopilot).toBe(true);
+    const b2 = new TestConn("c3", "u2", "Ben");
+    room.join(b2, { since: 0 });
+    expect(b2.last("room").you.seat).toBe(1);
+    expect(room.info().seats[1].autopilot).toBe(false);
+    // and drops again for good
+    room.disconnect("c3");
+    for (let i = 0; i < 500 && room.status === "playing"; i++) {
+      playAll(room, [a]);
+      clock.advance(25_000);
+    }
+    expect(room.status).toBe("over");
+    expect((overs[0] as { abandoned: number[] }).abandoned).toEqual([1]);
+    // coming back after the end shows the result, abandoned and all
+    const b3 = new TestConn("c4", "u2", "Ben");
+    room.join(b3);
+    expect(b3.last("gameOver")).toMatchObject({ abandoned: [1] });
+    expect(b3.last("gameOver").paid).not.toContain(1);
   });
 
   it("rebuilds a table from the stored log after a restart", () => {
@@ -315,6 +357,46 @@ describe("Room", () => {
     expect(room.drinkTargets("c2", 3)).toBe("bad_message"); // no such seat
     expect(room.drinkTargets("c2", null)).toEqual({ from: 1, to: [0, 2] }); // a round for the table
     expect(room.drinkTargets("c3", 0)).toBe("bad_state"); // spectators can't buy
+  });
+});
+
+describe("dead weight and payouts", () => {
+  it("absent seats never hit, join, bank or deal, and play their weakest card", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const g = new HeistGame({ seed, seats: [0, 1, 2, 3].map((i) => ({ name: `P${i}`, bot: false })) });
+      const bots = [1, 2, 3].map((i) => new Bot(seed * 10 + i));
+      for (let guard = 0; guard < 5000 && g.pending; guard++) {
+        const p = g.pending;
+        if (p.seat === 0) {
+          const a = deadWeight(p, g.s);
+          if (p.kind === "action") expect(a).toEqual({ kind: "action", choice: "pass" });
+          if (p.kind === "join") expect(a).toMatchObject({ B: 0, M: 0 });
+          if (p.kind === "bank") expect(a).toMatchObject({ cardIds: [] });
+          if (p.kind === "hire") expect(a).toMatchObject({ count: 0 });
+          if (p.kind === "showdown") {
+            const vals = g.s.players[0].hand.filter((c) => c.kind === "S" || c.kind === "F").map((c) => (c.kind === "S" ? c.score : 0));
+            const played = g.s.players[0].hand.find((c) => c.id === (a as { cardId: number }).cardId)!;
+            expect(played.kind === "S" ? played.score : 0).toBe(Math.min(...vals));
+          }
+          g.answer(0, a); // the engine accepts every one of them
+        } else g.answer(p.seat, bots[p.seat - 1].answer(g, p));
+      }
+      expect(g.pending).toBeNull();
+      expect(g.s.winners).not.toContain(0);
+    }
+  });
+
+  it("pays the winners who stayed, or else the best-placed seat still at the table", () => {
+    const g = new HeistGame({ seed: 3, seats: [0, 1, 2].map((i) => ({ name: `P${i}`, bot: true })) });
+    runBots(g, new Map([0, 1, 2].map((i) => [i, new Bot(i)])));
+    const w = g.s.winners!;
+    expect(payees(g.s, w, [])).toEqual(w);
+    const gone = w[0];
+    const others = [0, 1, 2].filter((p) => p !== gone);
+    const paid = payees(g.s, [gone], [gone]);
+    expect(paid.length).toBeGreaterThan(0);
+    expect(paid.every((p) => others.includes(p))).toBe(true);
+    expect(payees(g.s, [gone], [0, 1, 2])).toEqual([]);
   });
 });
 

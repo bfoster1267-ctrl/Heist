@@ -93,6 +93,29 @@ describe("accounts", () => {
     expect((await svc.login("pw@example.com", "secondpass2")).me.id).toBe(r.me.id);
   });
 
+  it("counts an abandoned online game as a quit: buy-in lost, no pot, no win", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const a = await svc.register("stay@example.com", "password1", "Stay");
+    const b = await svc.register("walk@example.com", "password1", "Walk");
+    const chips = a.me.progress.chips;
+    const out = await svc.recordOnline({
+      stakes: 250,
+      players: 3,
+      seats: [{ seat: 0, userId: a.me.id, bot: false }, { seat: 1, userId: b.me.id, bot: false }, { seat: 2, userId: null, bot: true }],
+      // seat 1 won on the table but had left, so the pot went to seat 0
+      winners: [0],
+      abandoned: [1],
+      events: [],
+    });
+    const stay = out.get(a.me.id)!.me.progress;
+    const walk = out.get(b.me.id)!.me.progress;
+    expect(stay.chips).toBe(chips - 250 + 750);
+    expect(stay.stats.wins).toBe(1);
+    expect(walk.chips).toBe(chips - 250);
+    expect(walk.stats).toMatchObject({ games: 1, wins: 0, losses: 1, quits: 1 });
+    expect(walk.stats.recent[0]).toMatchObject({ won: false, quit: true, net: -250 });
+  });
+
   it("signs out everywhere and deletes accounts", async () => {
     const svc = new AccountService({ secret: "s", devLogins: true });
     const a = await svc.dev("Dana");

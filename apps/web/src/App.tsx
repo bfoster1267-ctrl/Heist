@@ -144,7 +144,8 @@ function Game() {
             void act((b) => b.me());
           }}
           onBuyIn={() => void act((b) => b.me())}
-          onWin={() => {
+          onWin={() => {}}
+          onEnd={() => {
             onlineTableEnded();
             void act((b) => b.me());
           }}

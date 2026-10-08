@@ -65,7 +65,7 @@ export interface Reward {
 
 /** Work out XP and coins for a game. */
 export function rewardLines(r: GameResult, firstWinToday: boolean): RewardLine[] {
-  if (r.quit) return [{ label: "Left the table", xp: 0, coins: 0 }];
+  if (r.quit) return [{ label: "Abandoned the game", xp: 0, coins: 0 }];
   const s = r.summary;
   const lines: RewardLine[] = [{ label: "Played a game", xp: 50, coins: 5 }];
   if (r.won) lines.push({ label: "Won", xp: 100, coins: 20 });

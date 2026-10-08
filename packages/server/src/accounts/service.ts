@@ -35,7 +35,10 @@ export interface OnlineResult {
   stakes: number;
   players: number;
   seats: { seat: number; userId: string | null; bot: boolean }[];
+  /** who takes the pot (never a player who abandoned the game) */
   winners: number[];
+  /** players who weren't at the table at the end: they lose the buy-in and it counts as abandoned */
+  abandoned?: number[];
   events: GameEvent[];
 }
 
@@ -385,11 +388,12 @@ export class AccountService {
     for (const s of r.seats) {
       if (s.bot || !s.userId || !(await this.store.get(s.userId))) continue;
       const res = await this.update(s.userId, (x) => {
-        const won = r.winners.includes(s.seat);
-        const pay = payout(r.stakes, r.players, r.winners, s.seat);
+        const quit = !!r.abandoned?.includes(s.seat);
+        const won = !quit && r.winners.includes(s.seat);
+        const pay = won ? payout(r.stakes, r.players, r.winners, s.seat) : 0;
         // online buy-ins are taken when the game settles; chips never go below zero
         x.progress = { ...x.progress, chips: Math.max(0, x.progress.chips - r.stakes) };
-        const st = settle(x.progress, { mode: "online", players: r.players, stakes: r.stakes, won, payout: pay, summary: summarize(r.events, s.seat), at: this.now() });
+        const st = settle(x.progress, { mode: "online", players: r.players, stakes: r.stakes, won, payout: pay, summary: summarize(r.events, s.seat), quit, at: this.now() });
         x.progress = st.progress;
         return { reward: st.reward, me: this.me(x) };
       });
