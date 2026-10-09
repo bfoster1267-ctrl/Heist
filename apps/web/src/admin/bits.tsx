@@ -66,7 +66,7 @@ export function Columns({ title, rows, total }: { title: string; rows: { label: 
           <g key={t}>
             <line x1={pad.l} x2={W - pad.r} y1={y(t)} y2={y(t)} className="grid" />
             <text x={pad.l - 6} y={y(t) + 4} className="tick" textAnchor="end">
-              {num(t)}
+              {tick(t)}
             </text>
           </g>
         ))}
@@ -97,6 +97,9 @@ export function Columns({ title, rows, total }: { title: string; rows: { label: 
     </div>
   );
 }
+
+/** Axis numbers stay short: 40k, 1.5M. */
+const tick = (n: number) => (n >= 1e6 ? `${+(n / 1e6).toFixed(1)}M` : n >= 1e4 ? `${+(n / 1e3).toFixed(1)}k` : num(n));
 
 function niceStep(max: number) {
   const raw = max / 3;
@@ -178,6 +181,8 @@ const LABELS: Record<string, string> = {
   "admin.tags": "You set tags",
   "admin.flag": "You flagged / cleared",
   "admin.ban": "You suspended / lifted",
+  "admin.team": "Added an admin",
+  "admin.unteam": "Removed an admin",
 };
 
 export const labelOf = (kind: string) => LABELS[kind] ?? kind;
@@ -233,6 +238,9 @@ export function detailOf(e: ActivityEvent): string {
       return String(d.user ?? "");
     case "admin.note":
       return `“${d.text ?? ""}”`;
+    case "admin.team":
+    case "admin.unteam":
+      return String(d.user ?? "");
     case "admin.tags":
       return Array.isArray(d.tags) ? d.tags.join(", ") : "";
     case "admin.flag":

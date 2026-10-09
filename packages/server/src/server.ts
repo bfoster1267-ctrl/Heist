@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
 import { scrub } from "./accounts/activity";
-import { AdminAuth, AdminService } from "./accounts/admin";
+import { AdminAuth, AdminService, type AdminTeam } from "./accounts/admin";
 import { accountsApi } from "./accounts/api";
 import { serveStatic } from "./static";
 import { ApiError, type AccountService } from "./accounts/service";
@@ -46,7 +46,7 @@ export interface ServerOptions {
   /** a built web app to serve at / (so the game and its server share one address) */
   webDir?: string;
   /** the owner's admin panel at /admin (needs accounts); off without a password */
-  admin?: { user: string; password: string; secret?: string };
+  admin?: { user: string; password: string; secret?: string; team?: AdminTeam };
   /** server and Render stats for the admin panel */
   hosting?: Hosting;
 }
@@ -88,7 +88,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const admin =
     accounts && o.admin?.password
       ? {
-          auth: new AdminAuth(o.admin.user, o.admin.password, o.admin.secret, () => clock.now()),
+          auth: new AdminAuth(o.admin.user, o.admin.password, o.admin.secret, () => clock.now(), o.admin.team),
           svc: new AdminService(accounts, accounts.activity, {
             now: () => clock.now(),
             game: (id) => store.game?.(id),

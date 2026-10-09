@@ -51,6 +51,7 @@ function outcome(key: string, out: unknown): Record<string, unknown> {
   if (me?.progress) x.balance = { chips: me.progress.chips, coins: me.progress.coins };
   if (key === "POST /api/season/pack") Object.assign(x, { items: o.items, dupeXp: o.dupeXp });
   if (key === "POST /api/chips/daily") x.chips = o.chips;
+  if (key === "POST /api/chips/refill") x.chips = o.refilled;
   if (key === "POST /api/prestige") Object.assign(x, { coins: o.coins, unlocked: o.unlocked });
   if (key === "POST /api/solo/start") Object.assign(x, { gameId: o.gameId, players: o.players, stage: o.stage });
   if (key === "POST /api/solo/finish" || key === "POST /api/solo/quit") x.reward = o.reward && { xp: o.reward.xp, coins: o.reward.coins, payout: o.reward.payout };
@@ -135,13 +136,26 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (req.method === "POST" && path === "/login") {
         if (!within(adminTries, ip, 15 * 60_000, ADMIN_TRIES)) throw new ApiError(429, "Too many tries. Wait 15 minutes.");
         const b = await readBody(req, BODY_LIMIT);
-        const s = admin.auth.login(b.user, b.password);
-        svc.track({ kind: "admin.login", ip, device: deviceOf(req), ok: !!s, error: s ? undefined : "wrong username or password", data: { user: typeof b.user === "string" ? b.user.slice(0, 60) : null } });
+        const s = await admin.auth.login(b.user, b.password);
+        svc.track({ kind: "admin.login", ip, device: deviceOf(req), ok: !!s, error: s ? undefined : "wrong username or password", data: { user: typeof b.user === "string" ? b.user.slice(0, 60) : null, role: s?.role } });
         if (!s) throw new ApiError(401, "Wrong username or password");
         return send(res, 200, s);
       }
       const auth = req.headers.authorization;
-      if (!admin.auth.check(auth?.startsWith("Bearer ") ? auth.slice(7) : undefined)) throw new ApiError(401, "Please sign in");
+      const who = admin.auth.check(auth?.startsWith("Bearer ") ? auth.slice(7) : undefined);
+      if (!who) throw new ApiError(401, "Please sign in");
+      const team = admin.auth.team;
+      if (req.method === "POST" && (path === "/team" || path === "/team/remove" || path === "/layout")) {
+        const b = await readBody(req, BODY_LIMIT);
+        if (path === "/layout") {
+          const layout = Array.isArray(b.layout) ? b.layout.filter((x): x is string => typeof x === "string" && /^[\w.-]{1,40}$/.test(x)).slice(0, 60) : null;
+          team.setLayout(who.user, layout);
+          return send(res, 200, { layout });
+        }
+        const members = path === "/team" ? await admin.auth.addMember(who, b.user, b.password) : admin.auth.removeMember(who, b.user);
+        svc.track({ kind: path === "/team" ? "admin.team" : "admin.unteam", ip, data: { by: who.user, user: typeof b.user === "string" ? b.user.slice(0, 40) : null } });
+        return send(res, 200, { members });
+      }
       const act = path.match(/^\/accounts\/([\w-]{1,60})\/(note|unnote|tags|flag|ban)$/);
       if (req.method === "POST" && act) {
         const b = await readBody(req, BODY_LIMIT);
@@ -154,12 +168,18 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
           : what === "tags" ? await svc.setTags(uid, b.tags)
           : what === "flag" ? await svc.setFlag(uid, b.reason)
           : await svc.ban(uid, b.reason, b.days === undefined ? null : b.days);
-        svc.track({ kind: `admin.${what}`, userId: uid, name: target.name, ip, data: scrub(b) as Record<string, unknown> });
+        svc.track({ kind: `admin.${what}`, userId: uid, name: target.name, ip, data: { ...(scrub(b) as Record<string, unknown>), by: who.user } });
         return send(res, 200, { crm });
       }
       if (req.method !== "GET") throw new ApiError(404, "Not found");
       const q = url.searchParams;
       const id = path.match(/^\/(accounts|games)\/([\w-]{1,60})$/);
+      if (path === "/me") return send(res, 200, { ...who, layout: team.layout(who.user) });
+      if (path === "/team") {
+        if (who.role !== "owner") throw new ApiError(403, "Only the owner can manage admins");
+        return send(res, 200, { members: team.list() });
+      }
+      if (path === "/economy") return send(res, 200, await admin.svc.economy());
       if (path === "/overview") return send(res, 200, await admin.svc.overview());
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
       if (path === "/activity") return send(res, 200, admin.svc.activity(q));

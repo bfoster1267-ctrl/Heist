@@ -17,6 +17,7 @@
 
 import { AccountService } from "./accounts/service";
 import { FileActivityLog } from "./accounts/activity";
+import { AdminTeam } from "./accounts/admins";
 import { Hosting } from "./accounts/hosting";
 import { FileAccountStore } from "./accounts/store";
 import { startServer } from "./server";
@@ -51,7 +52,7 @@ const server = await startServer({
   compression: env.COMPRESSION !== "0",
   webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
-  admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET } : undefined,
+  admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET, team: AdminTeam.inDir(dataDir) } : undefined,
   hosting: new Hosting({ dataDir, renderKey: env.RENDER_API_KEY || undefined, serviceId: env.RENDER_SERVICE_ID || undefined, plan: "starter", diskGb: 1 }),
   queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
