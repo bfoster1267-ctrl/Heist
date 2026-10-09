@@ -84,7 +84,7 @@ describe("admin panel API", () => {
     const base = `http://127.0.0.1:${srv.port()}`;
     const call = async (method: string, path: string, body?: object, token?: string) => {
       const r = await fetch(base + path, {
-        method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined,
+        method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...(path === "/api/admin/login" ? { "x-forwarded-for": "10.9.9.9" } : {}) }, body: body ? JSON.stringify(body) : undefined,
       });
       return { status: r.status, body: await r.json() };
     };
@@ -179,7 +179,7 @@ describe("admin panel API", () => {
     const base = `http://127.0.0.1:${srv.port()}`;
     const call = async (method: string, path: string, body?: object, token?: string) => {
       const r = await fetch(base + path, {
-        method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined,
+        method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}), ...(path === "/api/admin/login" ? { "x-forwarded-for": "10.9.9.9" } : {}) }, body: body ? JSON.stringify(body) : undefined,
       });
       return { status: r.status, body: await r.json() };
     };
@@ -230,6 +230,51 @@ describe("admin panel API", () => {
     const log = (await call("GET", `/api/admin/activity?user=${sam.me.id}&kinds=admin.`, undefined, token)).body.events.map((e: { kind: string }) => e.kind);
     expect(log).toEqual(["admin.ban", "admin.ban", "admin.flag", "admin.tags", "admin.unnote", "admin.note", "admin.note"]);
   }, 20_000);
+
+  it("counts people, not accounts: one device or one address of guests is one person, and the owner is left out", async () => {
+    const accounts = new AccountService({ secret: "s" });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, admin: { user: "admin", password: "a-long-admin-password" }, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const call = async (path: string, body: object, where: { ip: string; device?: string }, token?: string) => {
+      const r = await fetch(base + path, {
+        method: body ? "POST" : "GET",
+        headers: { "content-type": "application/json", "x-forwarded-for": where.ip, ...(where.device ? { "x-heist-device": where.device } : {}), ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(body),
+      });
+      return r.json();
+    };
+    const get = async (path: string, token: string) => (await fetch(base + path, { headers: { authorization: `Bearer ${token}` } })).json();
+
+    // the owner, on their own wifi and phone, opens a pile of guests
+    const home = { ip: "10.0.0.1", device: "owner-phone-1" };
+    for (let i = 0; i < 4; i++) await call("/api/auth/guest", {}, home);
+    await call("/api/auth/guest", {}, { ip: "10.0.0.1" });
+    // a stranger opens three guests in one browser (no device id yet) from one address
+    for (let i = 0; i < 3; i++) await call("/api/auth/guest", {}, { ip: "2.2.2.2" });
+    // another plays as a guest, then signs up on the same install from a new address
+    await call("/api/auth/guest", {}, { ip: "3.3.3.3", device: "bob-laptop-1" });
+    await call("/api/auth/register", { email: "bob@x.com", password: "bobs-password", name: "Bob" }, { ip: "4.4.4.4", device: "bob-laptop-1" });
+    // two housemates sign up on one address: still two people
+    await call("/api/auth/register", { email: "cat@x.com", password: "cats-password", name: "Cat" }, { ip: "5.5.5.5", device: "cat-phone-01" });
+    await call("/api/auth/register", { email: "dan@x.com", password: "dans-password", name: "Dan" }, { ip: "5.5.5.5", device: "dan-phone-01" });
+
+    const { token } = await call("/api/admin/login", { user: "admin", password: "a-long-admin-password" }, home);
+    const ov = await get("/api/admin/overview", token);
+    expect(ov.accounts).toMatchObject({ total: 12, guests: 9, registered: 3, people: 4, yours: 5, signedUp: 3 });
+    expect(ov.active.day).toBe(4);
+    expect(ov.daily.at(-1)).toMatchObject({ people: 4, active: 4 });
+
+    const people = (await get("/api/admin/accounts?show=people", token)).rows;
+    expect(people.map((r: { name: string }) => r.name).sort()).toContain("Bob");
+    expect(people.length).toBe(4);
+    const bob = people.find((r: { name: string }) => r.name === "Bob");
+    expect(bob.personAccounts).toBe(2);
+    expect((await get("/api/admin/accounts?show=all", token)).rows.length).toBe(7);
+    expect((await get("/api/admin/accounts?show=all&mine=1", token)).rows.length).toBe(12);
+    const detail = await get(`/api/admin/accounts/${bob.id}`, token);
+    expect(detail.samePerson.length).toBe(1);
+  });
 
   it("is off without an admin password", async () => {
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts: new AccountService({ secret: "s" }) });

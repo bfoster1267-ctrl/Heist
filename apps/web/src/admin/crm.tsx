@@ -173,6 +173,19 @@ export function CrmPanel({ s, onAuth, d }: { s: Session; onAuth: (e: unknown) =>
         ))}
       </ul>
 
+      <h4>Same person ({d.samePerson.length + 1} accounts)</h4>
+      {d.samePerson.length ? (
+        <div className="chips-row">
+          {d.samePerson.map((x) => (
+            <Link key={x.id} to={`/players/${x.id}`} className="tag">
+              {x.name} · {x.guest ? "guest" : "account"} · {x.games} games · {day(x.createdAt)}
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <span className="dim small">Only this account (same app install, or a guest on the same address, counts as the same person).</span>
+      )}
+
       <h4>Played from</h4>
       <div className="chips-row">
         {d.ips.slice(0, 8).map((x) => (

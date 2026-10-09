@@ -21,6 +21,8 @@ export interface ActivityEvent {
   /** the player's name at the time */
   name?: string;
   ip?: string;
+  /** the app install it came from (a random id the app keeps), when it sent one */
+  device?: string;
   /** "app" for things the app reports about itself (screens, taps); everything else comes from the server */
   source?: "app";
   ok?: boolean;

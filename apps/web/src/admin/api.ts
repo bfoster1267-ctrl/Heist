@@ -1,6 +1,8 @@
 // Talks to the game server's /api/admin routes. The admin session lives in this tab only (sessionStorage)
 // and is separate from any player account.
 
+import { deviceId } from "../device";
+
 const set = import.meta.env.VITE_SERVER_URL as string | undefined;
 export const BASE = (set === "same-origin" || !set ? location.origin : set).replace(/\/$/, "");
 const KEY = "heist.admin";
@@ -30,7 +32,8 @@ export function forget() {
 export class AuthError extends Error {}
 
 export async function login(user: string, password: string): Promise<Session> {
-  const r = await fetch(`${BASE}/api/admin/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ user, password }) });
+  // the same install id the game uses in this browser, so your own accounts are left out of the numbers
+  const r = await fetch(`${BASE}/api/admin/login`, { method: "POST", headers: { "content-type": "application/json", "x-heist-device": deviceId() }, body: JSON.stringify({ user, password }) });
   const body = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(r.status === 404 ? "The admin panel is turned off on this server (no ADMIN_PASSWORD set)." : (body.error ?? "Couldn't sign in"));
   try {
@@ -79,6 +82,9 @@ export interface AccountRow {
   flagged: boolean;
   banned: boolean;
   notes: number;
+  person: string;
+  personAccounts: number;
+  you: boolean;
 }
 
 export interface Crm {
@@ -120,10 +126,23 @@ export interface Live {
 
 export interface Overview {
   at: number;
-  accounts: { total: number; registered: number; guests: number };
+  accounts: {
+    total: number;
+    registered: number;
+    guests: number;
+    /** unique people (accounts grouped by device, guests also by address), not counting you */
+    people: number;
+    /** signed-up accounts that aren't yours */
+    signedUp: number;
+    /** guest accounts with no device or address on record, which can't be told apart */
+    untrackedGuests: number;
+    emptyGuests: number;
+    /** accounts seen on your devices or address */
+    yours: number;
+  };
   active: { day: number; week: number; month: number };
   economy: { chips: number; coins: number; packsBought: number; gamesPlayed: number; drinksSent: number };
-  daily: { day: string; signups: number; guests: number; games: number; active: number }[];
+  daily: { day: string; signups: number; people: number; games: number; active: number }[];
   today: { kind: string; count: number }[];
   newest: AccountRow[];
   live: Live | null;
@@ -162,6 +181,7 @@ export interface AccountDetail {
   };
   counts: Record<string, number>;
   ips: { ip: string; at: number }[];
+  samePerson: { id: string; name: string; guest: boolean; games: number; createdAt: number }[];
   sameIp: { id: string; name: string }[];
   tagsInUse: { tag: string; count: number }[];
 }

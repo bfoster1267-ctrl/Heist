@@ -2,6 +2,8 @@
 // activity log (see the privacy page). Only with a game server and a signed-in session; never what's
 // typed into a field. Sent in small batches.
 
+import { deviceId } from "./device";
+
 const set = import.meta.env.VITE_SERVER_URL as string | undefined;
 const base = set === "same-origin" ? "" : set?.replace(/\/$/, "");
 const TOKEN_KEY = "heist.session";
@@ -34,7 +36,7 @@ function flush(leaving = false) {
   void fetch(`${base}/api/track`, {
     method: "POST",
     keepalive: leaving,
-    headers: { "content-type": "application/json", authorization: `Bearer ${t}` },
+    headers: { "content-type": "application/json", authorization: `Bearer ${t}`, "x-heist-device": deviceId() },
     body: JSON.stringify({ events }),
   }).catch(() => {});
 }
