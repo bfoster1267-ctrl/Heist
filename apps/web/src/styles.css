@@ -3399,6 +3399,7 @@ button:disabled {
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 0.3px;
+  white-space: nowrap;
 }
 .lobby-dock button:active {
   background: rgba(231, 181, 60, 0.16);

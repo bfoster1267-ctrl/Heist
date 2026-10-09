@@ -182,7 +182,7 @@ export class AdminService {
       games: p.stats.games, wins: p.stats.wins, winnings: p.stats.winnings, rating: Math.round(p.rating),
       tags: a.crm?.tags ?? [], flagged: !!a.crm?.flag, banned: !!this.accounts.banOf(a), notes: a.crm?.notes.length ?? 0,
       person, personAccounts: ppl?.members.get(person)?.length ?? 1, you: !!ppl?.owner.has(person),
-      claude: !!ppl?.claude.has(person) && !ppl.owner.has(person),
+      claude: !!ppl?.claude.has(person) && !ppl?.owner.has(person),
     };
   }
 
