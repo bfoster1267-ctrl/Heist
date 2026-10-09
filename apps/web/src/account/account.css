@@ -816,6 +816,14 @@
   font-size: 13px;
   text-align: center;
 }
+.acct-privacy {
+  font-size: 12px;
+  text-align: center;
+  user-select: text;
+}
+.acct-privacy a {
+  color: var(--gold2);
+}
 .acct-email {
   display: flex;
   flex-direction: column;

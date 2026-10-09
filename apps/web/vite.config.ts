@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
@@ -11,7 +12,7 @@ function serviceWorker(): Plugin {
     name: "heist-sw",
     apply: "build",
     generateBundle(_, bundle) {
-      const files = ["./", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", ...Object.keys(bundle).map((f) => "./" + f)];
+      const files = ["./", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", ...Object.keys(bundle).filter((f) => !/admin/.test(f)).map((f) => "./" + f)];
       const version = Date.now().toString(36);
       this.emitFile({
         type: "asset",
@@ -28,8 +29,8 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const req = e.request;
   const url = new URL(req.url);
-  // never cache the account API: it must always be live
-  if (req.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
+  // never cache the account API (it must always be live) or the owner's back office
+  if (req.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/") || /\/admin/.test(url.pathname)) return;
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
@@ -77,5 +78,10 @@ function stripAppTags(): Plugin {
 export default defineConfig(({ mode }) => ({
   base: "./",
   plugins: [react(), ...(mode === "single" ? [viteSingleFile(), stripAppTags()] : [serviceWorker()])],
-  build: { outDir: mode === "single" ? "dist-single" : "dist", copyPublicDir: mode !== "single" },
+  build: {
+    outDir: mode === "single" ? "dist-single" : "dist",
+    copyPublicDir: mode !== "single",
+    // the normal build also makes the owner's back office (admin.html, served at /admin)
+    rollupOptions: mode === "single" ? undefined : { input: { main: resolve(__dirname, "index.html"), admin: resolve(__dirname, "admin.html") } },
+  },
 }));

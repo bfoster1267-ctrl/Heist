@@ -35,8 +35,10 @@ export const LAYOUTS: Record<LayoutName, Layout> = {
     opp: {
       2: [[300, 150], [980, 150]],
       3: [[200, 225], [640, 82], [1080, 225]],
-      4: [[175, 250], [415, 80], [865, 80], [1105, 250]],
-      5: [[150, 300], [300, 92], [640, 82], [980, 92], [1130, 300]],
+      // 5 and 6 players: the top seats sit between the two halves of the top bar, the right-hand
+      // seat tucks under the buttons, and everything below it is left for the decision panel
+      4: [[140, 230], [420, 95], [760, 95], [1150, 155]],
+      5: [[130, 332], [130, 150], [420, 95], [760, 95], [1150, 155]],
     },
     human: [175, 515],
   },
@@ -54,7 +56,7 @@ export function seatGrow(L: Layout, [x, y]: [number, number], n: number): React.
   const h = x < L.W * 0.25 ? "left" : x > L.W * 0.75 ? "right" : "center";
   const v = y < L.H * 0.3 ? "top" : y > L.H * 0.7 ? "bottom" : "center";
   // at 5 and 6 players the seats sit shoulder to shoulder, so none of them can grow much
-  const max = n >= 5 ? 1.08 : h === "center" ? 1.1 : undefined;
+  const max = n >= 5 ? (L.name === "wide" ? 1 : 1.08) : h === "center" ? 1.1 : undefined;
   return { transformOrigin: `${h} ${v}`, ...(max ? { "--seat-max": max } : {}) } as React.CSSProperties;
 }
 

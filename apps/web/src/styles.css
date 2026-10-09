@@ -3170,3 +3170,35 @@ button:disabled {
   gap: 4px;
   color: #e3e6ec;
 }
+
+/* Phones held sideways at 5 and 6 players: the top seats sit right beside the top bar, so it
+   shows only the step we're on, and the deck and discard drop a little to clear the top seats. */
+.l-wide.crowd .turn-step:not(.on) {
+  display: none;
+}
+.l-wide.crowd .deck,
+.l-wide.crowd .discard {
+  top: 245px;
+}
+/* the right-hand seat sits against the edge, so its cards fan out on its inner side */
+.l-wide.crowd .seat.at-right .seat-hand {
+  right: auto;
+  left: -38px;
+}
+/* The decision panel has the space under the right-hand seat and no more, so at 5 and 6 players
+   its text stops growing at 1.3x and anything longer scrolls rather than covering that seat. */
+.l-wide.crowd .action-panel:not(.wide) {
+  max-height: 342px;
+  overflow-y: auto;
+}
+.big-text .l-wide.crowd .action-title {
+  font-size: calc(22px * min(var(--ts), 1.3));
+  line-height: 1.1;
+}
+.big-text .l-wide.crowd .action-panel .btn {
+  font-size: calc(17px * min(var(--ts), 1.3));
+  padding: calc(7px * min(var(--ts), 1.3)) calc(12px * min(var(--ts), 1.3));
+}
+.big-text .l-wide.crowd .action-panel .hint {
+  font-size: calc(13.5px * min(var(--ts), 1.3));
+}
