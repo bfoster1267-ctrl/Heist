@@ -5,7 +5,7 @@
 //  - coachTip is the coach's one-line read of the decision in front of you.
 // Advice lives only here, in Coached play. Regular and online tables show facts, never advice.
 
-import { isFighter, jobBases, type Answer, type Ask, type GameState } from "@heist/engine";
+import { Bot, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type HeistGame } from "@heist/engine";
 
 export type MistakeId = "alreadyIn" | "allCrewOut" | "layLowStrong" | "fixerWithScore" | "bankLastFighter" | "skippedBackup";
 
@@ -151,7 +151,7 @@ export function coachTip(s: GameState, ask: Ask): string {
       return "Call a number your opponent is likely to hold: the middle Scores (8, 10, 12) are the most common.";
     case "showdown": {
       if (ask.as === "bust" || ask.as === "rival") return `A Fixer counts as 0 here. Play a Score: your best is ${Math.max(best, 0)}.`;
-      return best >= 0 ? `A Score beats any Fixer. Your best is ${best}. Save the 30 for a fight that decides the game.` : "No Scores in hand: your Fixer only wins if they play a Fixer too.";
+      return best >= 0 ? `A Score beats any Fixer. Your best is ${best}.` : "No Scores in hand: your Fixer only wins if they play a Fixer too.";
     }
     case "forger":
       return "Change your card if a higher number from the discard pile wins the fight.";
@@ -181,6 +181,84 @@ export function coachTip(s: GameState, ask: Ask): string {
       return "Put crew where rivals have Footholds, so you can bust them out.";
     case "bribe":
       return "A bribe isn't binding. Pay players who need the cash, and don't count on them.";
+  }
+  return "";
+}
+
+/**
+ * The coach's pick for the decision in front of you: what the strongest bot would play from your seat. It
+ * sees only your hand and the table, like you. Never a move checkMove would flag.
+ */
+export function coachPick(g: HeistGame, ask: Ask): Answer | null {
+  let a: Answer;
+  try {
+    a = new Bot(g.s.turn * 977 + ask.seat, { level: "hard" }).answer(g, ask);
+  } catch {
+    return null;
+  }
+  // the strong bot often sits out its first turn; with gentle bots a learner does better hitting, and it's
+  // what the coach's tip says
+  if (ask.kind === "action" && a.kind === "action" && a.choice === "pass" && ask.canHit) a = { kind: "action", choice: "hit" };
+  if (!checkMove(g.s, ask, a)) return a;
+  // the strong bot sometimes empties its hideouts or holds a Score back; the coach doesn't
+  if (a.kind === "send" && a.count > 1) a = { ...a, count: a.count - 1, from: undefined };
+  else if (a.kind === "join" && a.B + a.M > 1) a = { ...a, B: a.B > 0 ? a.B - 1 : 0, M: a.B > 0 ? a.M : a.M - 1, from: undefined };
+  else if (a.kind === "showdown") {
+    const top = g.s.players[ask.seat].hand.filter((c) => c.kind === "S").sort((x, y) => y.score - x.score)[0];
+    if (top) a = { kind: "showdown", cardId: top.id };
+  }
+  return checkMove(g.s, ask, a) ? null : a;
+}
+
+/** The coach's pick in words, for the coach card ("" when there's nothing worth saying). */
+export function describePick(s: GameState, ask: Ask, a: Answer): string {
+  const me = s.players[ask.seat];
+  const name = (p: number) => s.players[p].name;
+  const card = (id: number) => {
+    const c = me.hand.find((x) => x.id === id) ?? me.bank.find((x) => x.id === id);
+    return c ? cardLabel(c) : "a card";
+  };
+  const list = (ids: number[]) => ids.map(card).join(", ");
+  const crew = (n: number) => `${n} crew`;
+  switch (a.kind) {
+    case "bank":
+      return a.cardIds.length ? `Bank ${list(a.cardIds)}.` : "Bank nothing this turn.";
+    case "hire":
+      return a.count ? `Hire ${crew(a.count)}.` : "Don't hire.";
+    case "action":
+      if (a.choice === "hit") return "Hit.";
+      if (a.choice === "pass") return "Lay low.";
+      if (a.choice === "bust") return `Bust ${name(a.rival)} out of your hideout ${a.hideout + 1}.`;
+      return `Wanted: hit ${name(a.mark)}'s hideout ${a.hideout + 1}.`;
+    case "again":
+      return a.again ? "Hit again." : "Stop here.";
+    case "pickMark":
+      return `Hit ${name(a.mark)}.`;
+    case "pickHideout":
+      return `Hideout ${a.hideout + 1}.`;
+    case "send":
+      return `Send ${crew(a.count)}.`;
+    case "join":
+      if (a.B && a.M) return `Join both sides: ${a.B} with the Boss, ${a.M} with the Mark.`;
+      if (a.B) return `Back the Boss with ${crew(a.B)}.`;
+      if (a.M) return `Defend the Mark with ${crew(a.M)}.`;
+      return "Stay out.";
+    case "bet":
+      return a.side ? `Bet on the ${a.side === "B" ? "Boss" : "Mark"}.` : "Don't bet.";
+    case "showdown":
+      return `Play your ${card(a.cardId)}.`;
+    case "doubleCross":
+      return a.target === null ? "Keep your Double-Cross." : `Double-Cross ${name(a.target)}.`;
+    case "backup":
+      return a.side ? `Play Backup for the ${a.side === "B" ? "Boss" : "Mark"}.` : "Keep your Backup.";
+    case "discard":
+      return `Throw away ${list(a.cardIds)}.`;
+    case "fence":
+      return a.cardId === null ? "Don't buy anything back." : "Buy it back.";
+    case "hackerCall":
+      return `Call ${a.n}.`;
+    case "dealAccept":
+      return a.accept ? "Take the deal." : "Refuse it.";
   }
   return "";
 }

@@ -11,12 +11,16 @@ import { BOT_RATING, type Rival } from "./rating";
 export interface SoloSetup {
   levels?: BotLevel[];
   stage?: number;
+  /** Coached play: easy bots that go easy on you (see BotOptions.soft). Only set for clients that build
+   *  them, so an older cached client's game still replays. */
+  gentle?: boolean;
 }
 
 /** The bots and rules a solo table is built with. */
 export function soloTable(players: number, setup: SoloSetup = {}): { players: number; bots: BotOptions[]; rules?: Partial<RuleOptions> } {
   const st = setup.stage ? stage(setup.stage) : undefined;
   if (st) return { players: st.players, bots: st.bots, rules: st.rules };
+  if (setup.gentle) return { players, bots: Array.from({ length: players - 1 }, () => ({ level: "easy", soft: SOLO_SEAT })) };
   return { players, bots: Array.from({ length: players - 1 }, (_, i) => ({ level: setup.levels?.[i] ?? "normal" })) };
 }
 

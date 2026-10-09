@@ -84,6 +84,7 @@ function Game() {
         name: c.name,
         stakes: t.stage || c.coached ? 0 : c.stakes,
         coached: c.coached,
+        gentle: t.gentle,
         seed: t.seed,
         levels: t.levels,
         stage: t.stage,

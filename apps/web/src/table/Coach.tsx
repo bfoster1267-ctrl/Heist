@@ -1,7 +1,7 @@
 // First-game help: a short walkthrough of the table, then one coach tip the first time each kind of
 // decision comes up. Both remember what you've seen; the settings menu can replay or turn them off.
-import type { Ask, GameState } from "@heist/engine";
-import { MISTAKES, coachTip, type MistakeId } from "@heist/profile";
+import type { Answer, Ask, GameState } from "@heist/engine";
+import { MISTAKES, coachTip, describePick, type MistakeId } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
@@ -163,8 +163,9 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
 }
 
 /** Coached play: the coach's read of every decision, docked beside your action panel. */
-export function LiveCoach({ s, ask }: { s: GameState; ask: Ask | null }) {
+export function LiveCoach({ s, ask, pick, onPick }: { s: GameState; ask: Ask | null; pick: Answer | null; onPick: (a: Answer) => void }) {
   const tip = ask ? coachTip(s, ask) : "";
+  const said = ask && pick ? describePick(s, ask, pick) : "";
   const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
   return (
     <AnimatePresence>
@@ -172,6 +173,16 @@ export function LiveCoach({ s, ask }: { s: GameState; ask: Ask | null }) {
         <motion.div key={JSON.stringify(ask)} ref={above} className={"coach live" + (ask.kind === "keepRole" ? " top" : "")} role="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
           <div className="coach-title">Coach</div>
           <div className="coach-text">{tip}</div>
+          {said && pick && (
+            <div className="coach-pick">
+              <span>
+                <b>Coach's pick:</b> {said}
+              </span>
+              <button className="btn small primary" onClick={() => onPick(pick)}>
+                Do it
+              </button>
+            </div>
+          )}
         </motion.div>
       )}
     </AnimatePresence>

@@ -351,7 +351,7 @@ export class AccountService {
    * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in). `coached`: Coached play
    * (normal bots, no buy-in, small XP, kept out of the career and the rating).
    */
-  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown) {
+  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown, gentle?: unknown) {
     const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
     if (campaign !== undefined && campaign !== null && !st) throw new ApiError(400, "No such stage");
     if (st) [players, stakes] = [st.players, 0];
@@ -366,9 +366,9 @@ export class AccountService {
       if (x.solo) quit = this.settleQuit(x);
       this.apply(x, buyIn(x.progress, buy));
       const levels = !st && !coach && scaled === true ? botLevelsFor(x.progress.rating, n - 1) : undefined;
-      const solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players: n, stakes: buy, startedAt: this.now(), levels, stage: st?.n, ...(coach ? { coached: true } : {}) };
+      const solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), players: n, stakes: buy, startedAt: this.now(), levels, stage: st?.n, ...(coach ? { coached: true } : {}), ...(coach && gentle === true ? { gentle: true } : {}) };
       x.solo = solo;
-      return { me: this.me(x), gameId: solo.gameId, seed: solo.seed, players: n, levels, stage: st?.n, quit };
+      return { me: this.me(x), gameId: solo.gameId, seed: solo.seed, players: n, levels, stage: st?.n, gentle: solo.gentle, quit };
     });
   }
 

@@ -167,6 +167,13 @@ describe("accounts", () => {
     expect(report.coachGames).toBe(1);
     expect(report.counts.map((c) => c.id)).toContain("alreadyIn");
 
+    // newer clients ask for the gentle bots, and the server replays with them
+    const soft = await svc.soloStart(await acct(), 4, 0, true, undefined, true, true);
+    expect(soft.gentle).toBe(true);
+    expect(soft.levels).toBeUndefined();
+    const g2 = playSolo(soft.seed, 4, { gentle: true });
+    expect((await svc.soloFinish(await acct(), soft.gameId, g2.answers)).me.progress.coachGames).toBe(2);
+
     // walking out of a coached game costs nothing and isn't a quit
     await svc.soloStart(await acct(), 3, 0, undefined, undefined, true);
     const next = await svc.soloStart(await acct(), 3, 100);

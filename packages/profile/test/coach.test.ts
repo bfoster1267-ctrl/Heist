@@ -1,6 +1,6 @@
 import { HeistGame, Rng, randomAnswer, runBots, type Answer, type Ask, type Card, type GameState } from "@heist/engine";
 import { describe, expect, it } from "vitest";
-import { addMistakes, checkMove, coachTip, createSoloGame, newProgress, replaySolo, settleCoached, type MistakeId } from "../src";
+import { addMistakes, checkMove, coachPick, coachTip, createSoloGame, describePick, newProgress, replaySolo, settleCoached, type MistakeId } from "../src";
 
 const fresh = (): GameState => structuredClone(new HeistGame({ seed: 7, seats: [0, 1, 2, 3].map((i) => ({ name: `P${i}`, bot: i > 0 })) }).s);
 const score = (id: number, n: number): Card => ({ id, kind: "S", score: n, cash: 2, color: 0 });
@@ -93,5 +93,30 @@ describe("the coach", () => {
     expect(c.progress.chips).toBe(p.chips);
     expect(c.progress.stats).toEqual(p.stats);
     expect(c.progress.coachGames).toBe(1);
+  });
+
+  it("follows the coach's pick through a whole game against gentle bots: legal, never flagged, and the tips only name cards you hold", () => {
+    let won = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const { game, bots } = createSoloGame(seed, 4, "Tester", false, { gentle: true });
+      const answers: Answer[] = [];
+      for (let i = 0; i < 100_000; i++) {
+        runBots(game, bots);
+        const p = game.pending;
+        if (!p) break;
+        const best = Math.max(-1, ...game.s.players[0].hand.filter((c) => c.kind === "S").map((c) => c.score));
+        for (const n of coachTip(game.s, p).match(/\b(?:a|your|the) (\d+)\b/g) ?? []) expect(Number(n.split(" ")[1])).toBeLessThanOrEqual(Math.max(best, 0));
+        const pick = coachPick(game, p);
+        if (pick) expect(checkMove(game.s, p, pick)).toBeNull();
+        if (pick) describePick(game.s, p, pick);
+        const a = pick ?? randomAnswer(game, p, new Rng(seed));
+        game.answer(0, a);
+        answers.push(a);
+      }
+      // the server replays it the same way
+      expect(replaySolo(seed, 4, answers, undefined, { gentle: true }).winners).toEqual(game.s.winners);
+      if (game.s.winners!.includes(0)) won++;
+    }
+    expect(won).toBeGreaterThanOrEqual(12);
   });
 });

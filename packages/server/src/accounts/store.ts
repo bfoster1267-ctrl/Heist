@@ -24,6 +24,8 @@ export interface SoloGame {
   startedAt: number;
   /** Coached play: free, small XP, kept out of the career */
   coached?: boolean;
+  /** Coached play bots that go easy on the player (clients that build them say so) */
+  gentle?: boolean;
   /** each bot's level, picked from the player's rating at the start (missing on older games: all normal) */
   levels?: BotLevel[];
   /** a campaign stage */

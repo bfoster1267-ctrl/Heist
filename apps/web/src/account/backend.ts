@@ -35,6 +35,8 @@ export interface SoloTicket {
   /** a campaign stage, which sets the seat count (older servers don't send players) */
   stage?: number;
   players?: number;
+  /** Coached play: the bots go easy on you */
+  gentle?: boolean;
   me: Me;
   /** the reward for a game walked away from (it counts as a loss) */
   quit: Reward | null;
@@ -122,7 +124,7 @@ interface LocalSave {
   name: string;
   joined: number;
   progress: Progress;
-  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number; coached?: boolean } | null;
+  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number; coached?: boolean; gentle?: boolean } | null;
 }
 
 const LOCAL_KEY = "heist.profile";
@@ -196,9 +198,9 @@ export class BrowserBackend implements Backend {
     this.save.progress = p;
     const seed = Math.floor(Math.random() * 2 ** 31);
     const levels = st || coached ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
-    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true } : {}) };
+    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true, gentle: true } : {}) };
     this.write();
-    return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, me: this.view(), quit };
+    return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, me: this.view(), quit };
   }
 
   async soloFinish(gameId: string, answers: unknown[]) {
@@ -370,7 +372,7 @@ export class ServerBackend implements Backend {
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
-    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached });
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached });
   }
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });

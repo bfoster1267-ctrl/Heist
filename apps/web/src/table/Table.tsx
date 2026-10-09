@@ -12,7 +12,7 @@ import { useLook } from "../account/useAccount";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, LiveCoach, MistakeCheck, Walkthrough } from "./Coach";
-import { checkMove, type MistakeCounts, type MistakeId } from "@heist/profile";
+import { checkMove, coachPick, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
 import { seatGrow, seatPos, useLayout } from "./layout";
@@ -453,7 +453,7 @@ export function Table({
                   t.answer(a);
                 }} />
               ) : (
-                !s.winners && <LiveCoach s={s} ask={ask} />
+                !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} onPick={play} />
               )
             ) : (
               <Coach ask={ask} blocked={walk || !!s.winners} />
