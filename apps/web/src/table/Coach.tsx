@@ -214,8 +214,17 @@ function useAbovePanel(on: boolean) {
     if (!on || !el || !parent || !panel) return;
     const place = () => {
       const H = parent.clientHeight;
-      const bottom = Math.min(H - panel.offsetTop + 8, H - el.offsetHeight - 8);
-      el.style.bottom = `${Math.max(8, bottom)}px`;
+      // above the panel when it fits; when the panel is too tall (a phone on its side), beside it instead,
+      // so the coach never covers the buttons it's talking about
+      if (panel.offsetTop >= el.offsetHeight + 16 || panel.offsetLeft < 220) {
+        el.style.right = "";
+        el.style.maxWidth = "";
+        el.style.bottom = `${Math.max(8, Math.min(H - panel.offsetTop + 8, H - el.offsetHeight - 8))}px`;
+      } else {
+        el.style.right = `${parent.clientWidth - panel.offsetLeft + 8}px`;
+        el.style.maxWidth = `${Math.max(200, panel.offsetLeft - 16)}px`;
+        el.style.bottom = `${Math.max(8, H - panel.offsetTop - panel.offsetHeight)}px`;
+      }
     };
     place();
     const ro = new ResizeObserver(place);
