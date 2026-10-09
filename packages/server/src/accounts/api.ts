@@ -134,6 +134,21 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       }
       const auth = req.headers.authorization;
       if (!admin.auth.check(auth?.startsWith("Bearer ") ? auth.slice(7) : undefined)) throw new ApiError(401, "Please sign in");
+      const act = path.match(/^\/accounts\/([\w-]{1,60})\/(note|unnote|tags|flag|ban)$/);
+      if (req.method === "POST" && act) {
+        const b = await readBody(req, BODY_LIMIT);
+        const [, uid, what] = act;
+        const target = await svc.store.get(uid);
+        if (!target) throw new ApiError(404, "No such account");
+        const crm =
+          what === "note" ? await svc.addNote(uid, b.text)
+          : what === "unnote" ? await svc.deleteNote(uid, b.id)
+          : what === "tags" ? await svc.setTags(uid, b.tags)
+          : what === "flag" ? await svc.setFlag(uid, b.reason)
+          : await svc.ban(uid, b.reason, b.days === undefined ? null : b.days);
+        svc.track({ kind: `admin.${what}`, userId: uid, name: target.name, ip, data: scrub(b) as Record<string, unknown> });
+        return send(res, 200, { crm });
+      }
       if (req.method !== "GET") throw new ApiError(404, "Not found");
       const q = url.searchParams;
       const id = path.match(/^\/(accounts|games)\/([\w-]{1,60})$/);
@@ -141,6 +156,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
       if (path === "/activity") return send(res, 200, admin.svc.activity(q));
       if (path === "/live") return send(res, 200, (await admin.svc.overview()).live);
+      if (path === "/tags") return send(res, 200, { tags: await admin.svc.tags() });
       if (id?.[1] === "accounts") {
         const a = await admin.svc.account(id[2]);
         return a ? send(res, 200, a) : send(res, 404, { error: "No such account" });

@@ -28,7 +28,7 @@ interface Seated extends TableSettings {
 }
 
 function Game() {
-  const { me, failed, act, showReward, error, clearError } = useAccount();
+  const { me, failed, suspended, act, showReward, error, clearError } = useAccount();
   // can't reach the server: check back every few seconds and reload once it answers
   useEffect(() => {
     if (!failed) return;
@@ -125,6 +125,14 @@ function Game() {
     [act],
   );
 
+  if (suspended)
+    return (
+      <div className="loading loading-failed">
+        <div>Account suspended</div>
+        <p>{suspended}</p>
+        <p>If you think this is a mistake, email support@playheist.net.</p>
+      </div>
+    );
   if (!me)
     return failed ? (
       <div className="loading loading-failed">

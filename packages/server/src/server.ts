@@ -130,6 +130,16 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       log("settle failed", { game: r.gameId, err: String(e) });
     }
   }
+  // a suspended player is dropped from every socket at once (their seat plays dead weight from then on)
+  if (accounts)
+    accounts.onBan = (userId) => {
+      for (const ws of wss.clients) {
+        const c = (ws as WebSocket & { heist?: Client }).heist;
+        if (c?.id?.userId !== userId) continue;
+        ws.send(JSON.stringify(errMsg("suspended", "This account has been suspended.")));
+        ws.close();
+      }
+    };
   const restored = rooms.restore();
   if (restored) log("restored tables", { count: restored });
 
@@ -213,7 +223,15 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       if (m.t === "hello") {
         if (m.v !== PROTOCOL_VERSION) return err("version", `This server speaks protocol ${PROTOCOL_VERSION}; refresh the page.`);
         if (c.id) return err("bad_state", "Already said hello");
-        c.id = await identity.authenticate(m.token, m.name);
+        try {
+          c.id = await identity.authenticate(m.token, m.name);
+        } catch (x) {
+          if (x instanceof ApiError && x.status === 403) {
+            err("suspended", x.message);
+            return ws.close();
+          }
+          throw x;
+        }
         c.conn = { id: randomBytes(8).toString("base64url"), userId: c.id.userId, name: c.id.name, send };
         entrances.set(c.conn.id, (room) => enter(room, {}));
         track(c, "online.connect");

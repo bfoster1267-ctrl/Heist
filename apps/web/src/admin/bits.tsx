@@ -126,7 +126,7 @@ export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "tables", label: "Online tables & chat", kinds: ["table.", "online."] },
   { id: "app", label: "Screens & taps", kinds: ["ui."] },
   { id: "views", label: "Profiles & boards viewed", kinds: ["view."] },
-  { id: "admin", label: "Admin sign-ins", kinds: ["admin."] },
+  { id: "admin", label: "Your admin actions", kinds: ["admin."] },
 ];
 
 export function familyOf(kind: string) {
@@ -173,6 +173,11 @@ const LABELS: Record<string, string> = {
   "view.player": "Viewed a profile",
   "view.leaderboard": "Viewed the leaderboard",
   "admin.login": "Admin sign-in",
+  "admin.note": "You added a note",
+  "admin.unnote": "You deleted a note",
+  "admin.tags": "You set tags",
+  "admin.flag": "You flagged / cleared",
+  "admin.ban": "You suspended / lifted",
 };
 
 export const labelOf = (kind: string) => LABELS[kind] ?? kind;
@@ -226,6 +231,14 @@ export function detailOf(e: ActivityEvent): string {
       return String(d.name ?? "");
     case "admin.login":
       return String(d.user ?? "");
+    case "admin.note":
+      return `“${d.text ?? ""}”`;
+    case "admin.tags":
+      return Array.isArray(d.tags) ? d.tags.join(", ") : "";
+    case "admin.flag":
+      return d.reason === null ? "cleared" : `flagged${d.reason ? `: ${d.reason}` : ""}`;
+    case "admin.ban":
+      return d.days === 0 ? "lifted" : `${d.days == null ? "for good" : `${d.days} days`}${d.reason ? ` · ${d.reason}` : ""}`;
     default: {
       const rest = Object.entries(d).filter(([k]) => k !== "balance" && k !== "clientAt");
       return rest.map(([k, v]) => `${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ").slice(0, 140);

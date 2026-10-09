@@ -363,6 +363,7 @@ export class ServerBackend implements Backend {
           return await this.call<Me>("/api/me");
         } catch (e) {
           if (e instanceof BackendError && e.status === 401) break;
+          if (e instanceof BackendError && e.status === 403) throw e; // suspended: no point retrying
           if (attempt >= 3) throw e;
           await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
         }

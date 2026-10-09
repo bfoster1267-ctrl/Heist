@@ -7,7 +7,7 @@ import { createSoloGame, levelInfo, upgrade, SOLO_SEAT } from "@heist/profile";
 import type { RoomInfo } from "../protocol";
 import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
-import type { ActivityEvent, ActivityLog } from "./activity";
+import { byOwner, type ActivityEvent, type ActivityLog } from "./activity";
 import type { AccountService } from "./service";
 import type { Account } from "./store";
 
@@ -78,6 +78,10 @@ export interface AccountRow {
   wins: number;
   winnings: number;
   rating: number;
+  tags: string[];
+  flagged: boolean;
+  banned: boolean;
+  notes: number;
 }
 
 export type Moment =
@@ -118,6 +122,7 @@ export class AdminService {
       id: a.id, name: a.name, email: a.email ?? null, guest: a.guest, providers: a.logins.map((l) => l.provider), createdAt: a.createdAt,
       lastSeen: this.log.lastSeen(a.id) ?? null, level: levelInfo(p.xp).level, prestige: p.prestige, chips: p.chips, coins: p.coins,
       games: p.stats.games, wins: p.stats.wins, winnings: p.stats.winnings, rating: Math.round(p.rating),
+      tags: a.crm?.tags ?? [], flagged: !!a.crm?.flag, banned: !!this.accounts.banOf(a), notes: a.crm?.notes.length ?? 0,
     };
   }
 
@@ -140,7 +145,7 @@ export class AdminService {
       if (e.at < now - 30 * DAY) continue;
       const d = dayKey(e.at);
       if (e.kind === "game.solo" || e.kind === "game.online") games[d] = (games[d] ?? 0) + 1;
-      if (e.userId) active.get(d)?.add(e.userId);
+      if (e.userId && !byOwner(e)) active.get(d)?.add(e.userId);
       if (e.at >= now - DAY) kinds.set(e.kind, (kinds.get(e.kind) ?? 0) + 1);
     }
     let a1 = 0, a7 = 0, a30 = 0;
@@ -172,7 +177,11 @@ export class AdminService {
     let rows = (await this.accounts.store.all()).map((a) => this.row(a));
     if (show === "registered") rows = rows.filter((r) => !r.guest);
     if (show === "guests") rows = rows.filter((r) => r.guest);
-    if (text) rows = rows.filter((r) => r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text);
+    if (show === "flagged") rows = rows.filter((r) => r.flagged);
+    if (show === "banned") rows = rows.filter((r) => r.banned);
+    const tag = (q.get("tag") ?? "").trim().toLowerCase();
+    if (tag) rows = rows.filter((r) => r.tags.some((t) => t.toLowerCase() === tag));
+    if (text) rows = rows.filter((r) => r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text || r.tags.some((t) => t.toLowerCase() === text));
     const by: Record<string, (r: AccountRow) => number> = {
       seen: (r) => r.lastSeen ?? r.createdAt, new: (r) => r.createdAt, games: (r) => r.games, chips: (r) => r.chips, level: (r) => r.prestige * 1e6 + r.level,
       winnings: (r) => r.winnings, rating: (r) => r.rating,
@@ -189,7 +198,24 @@ export class AdminService {
     const counts: Record<string, number> = {};
     for (const e of this.log.window()) if (e.userId === id) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
     const { password, ...rest } = a;
-    return { row: this.row(a), account: { ...rest, hasPassword: !!password, progress: upgrade(a.progress) }, counts };
+    // the addresses they've played from, newest first (for spotting second accounts)
+    const ips = new Map<string, number>();
+    for (const e of this.log.window()) if (e.userId === id && e.ip && !byOwner(e)) ips.set(e.ip, e.at);
+    const crm = a.crm ?? { notes: [], tags: [], flag: null, ban: null };
+    const sameIp = new Map<string, { id: string; name: string }>();
+    for (const e of this.log.window()) if (e.ip && e.userId && e.userId !== id && !byOwner(e) && ips.has(e.ip)) sameIp.set(e.userId, { id: e.userId, name: e.name ?? e.userId });
+    return {
+      row: this.row(a), account: { ...rest, crm, hasPassword: !!password, progress: upgrade(a.progress) }, counts,
+      ips: [...ips].sort((x, y) => y[1] - x[1]).map(([ip, at]) => ({ ip, at })), sameIp: [...sameIp.values()].slice(0, 20),
+      tagsInUse: await this.tags(),
+    };
+  }
+
+  /** Every tag on any account, most used first. */
+  async tags() {
+    const n = new Map<string, number>();
+    for (const a of await this.accounts.store.all()) for (const t of a.crm?.tags ?? []) n.set(t, (n.get(t) ?? 0) + 1);
+    return [...n].sort((x, y) => y[1] - x[1]).map(([tag, count]) => ({ tag, count }));
   }
 
   activity(q: URLSearchParams): { events: ActivityEvent[] } {

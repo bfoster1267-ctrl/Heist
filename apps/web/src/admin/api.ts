@@ -49,6 +49,14 @@ export async function get<T>(path: string, s: Session): Promise<T> {
   return body as T;
 }
 
+export async function post<T>(path: string, body: object, s: Session): Promise<T> {
+  const r = await fetch(`${BASE}/api/admin${path}`, { method: "POST", headers: { authorization: `Bearer ${s.token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+  const out = await r.json().catch(() => ({}));
+  if (r.status === 401) throw new AuthError(out.error ?? "Please sign in");
+  if (!r.ok) throw new Error(out.error ?? `Error ${r.status}`);
+  return out as T;
+}
+
 // ------------------------------------------------------------------ shapes (mirror packages/server/src/accounts/admin.ts)
 
 export interface AccountRow {
@@ -67,6 +75,17 @@ export interface AccountRow {
   wins: number;
   winnings: number;
   rating: number;
+  tags: string[];
+  flagged: boolean;
+  banned: boolean;
+  notes: number;
+}
+
+export interface Crm {
+  notes: { id: string; at: number; text: string }[];
+  tags: string[];
+  flag: { reason: string; at: number } | null;
+  ban: { reason: string; at: number; until: number | null } | null;
 }
 
 export interface SeatInfo {
@@ -132,6 +151,7 @@ export interface AccountDetail {
     email?: string;
     logins: { provider: string; subject: string }[];
     hasPassword: boolean;
+    crm: Crm;
     sessions: number;
     solo: { gameId: string; stakes: number; players: number; startedAt: number } | null;
     progress: Record<string, unknown> & {
@@ -141,6 +161,9 @@ export interface AccountDetail {
     };
   };
   counts: Record<string, number>;
+  ips: { ip: string; at: number }[];
+  sameIp: { id: string; name: string }[];
+  tagsInUse: { tag: string; count: number }[];
 }
 
 export type Moment =

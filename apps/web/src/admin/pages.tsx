@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthError, get, type AccountDetail, type AccountRow, type ActivityEvent, type GameView, type Live, type Overview, type Session } from "./api";
+import { CrmPanel } from "./crm";
 import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when } from "./bits";
 
 type Load<T> = { data: T | null; error: string | null; reload: () => void; loading: boolean };
@@ -184,13 +185,14 @@ export function Players({ s, onAuth, query }: PageProps) {
   const show = query.get("show") ?? "registered";
   const offset = Number(query.get("offset") ?? 0);
   const qs = (o: Record<string, string | number>) => {
-    const p = new URLSearchParams({ q, sort, show, offset: String(offset), ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) });
+    const p = new URLSearchParams({ q, sort, show, tag, offset: String(offset), ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) });
     const drop: string[] = [];
     p.forEach((v, k) => (!v || (k === "offset" && v === "0")) && drop.push(k));
     for (const k of drop) p.delete(k);
     return `/players?${p}`;
   };
-  const path = `/accounts?${new URLSearchParams({ q: query.get("q") ?? "", sort, show: show === "all" ? "" : show, offset: String(offset) })}`;
+  const tag = query.get("tag") ?? "";
+  const path = `/accounts?${new URLSearchParams({ q: query.get("q") ?? "", sort, show: show === "all" ? "" : show, offset: String(offset), tag })}`;
   const l = useAdmin<{ total: number; rows: AccountRow[] }>(s, path, onAuth);
   return (
     <div className="card">
@@ -206,6 +208,8 @@ export function Players({ s, onAuth, query }: PageProps) {
           <option value="registered">Accounts</option>
           <option value="guests">Guests</option>
           <option value="all">Everyone</option>
+          <option value="flagged">Flagged</option>
+          <option value="banned">Suspended</option>
         </select>
         <select value={sort} onChange={(e) => go(qs({ sort: e.target.value, offset: 0 }))}>
           {SORTS.map(([k, v]) => (
@@ -215,6 +219,11 @@ export function Players({ s, onAuth, query }: PageProps) {
           ))}
         </select>
         <button className="btn primary">Search</button>
+        {tag && (
+          <button type="button" className="fam-chip on" onClick={() => go(qs({ tag: "", offset: 0 }))}>
+            tag: {tag} ✕
+          </button>
+        )}
         {l.data && <span className="dim count">{num(l.data.total)} found</span>}
       </form>
       <Problem error={l.error} />
@@ -233,6 +242,21 @@ export function Players({ s, onAuth, query }: PageProps) {
         </div>
       )}
     </div>
+  );
+}
+
+function Badges({ r }: { r: AccountRow }) {
+  return (
+    <>
+      {r.banned && <span className="badge banned">suspended</span>}
+      {r.flagged && <span className="badge flagged">⚑ flagged</span>}
+      {r.tags.slice(0, 3).map((t) => (
+        <span key={t} className="badge">
+          {t}
+        </span>
+      ))}
+      {r.notes > 0 && <span className="badge note">✎ {r.notes}</span>}
+    </>
   );
 }
 
@@ -260,7 +284,7 @@ function PlayerTable({ rows, compact }: { rows: AccountRow[]; compact?: boolean 
                 <div className="who">
                   <span className="avatar">{r.name.slice(0, 1).toUpperCase()}</span>
                   <div>
-                    <b>{r.name}</b>
+                    <b>{r.name}</b> <Badges r={r} />
                     <div className="dim small">{r.email ?? (r.guest ? "guest" : r.id)}</div>
                   </div>
                 </div>
@@ -299,7 +323,9 @@ export function Player({ s, onAuth, param, query }: PageProps) {
       <div className="card player-head">
         <span className="avatar big">{r.name.slice(0, 1).toUpperCase()}</span>
         <div className="grow">
-          <h2>{r.name}</h2>
+          <h2>
+            {r.name} <Badges r={r} />
+          </h2>
           <div className="dim">
             {a.email ?? "no email"} · {a.guest ? "guest" : a.logins.map((x) => x.provider).join(", ")} · joined {day(a.createdAt)} · last seen {ago(r.lastSeen)}
           </div>
@@ -310,6 +336,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         </button>
       </div>
       {raw && <pre className="card raw">{JSON.stringify(a, null, 2)}</pre>}
+      <CrmPanel key={a.id} s={s} onAuth={onAuth} d={d} />
       <section className="stats">
         <Stat label="Chips" value={num(r.chips)} tone="gold" />
         <Stat label="Coins" value={num(r.coins)} />
