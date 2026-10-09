@@ -67,6 +67,8 @@ export function Lobby({
   });
   const [stake, setStake] = useState(() => remembered("heist.stake", [0, 1, 2, 3], 1));
   const [rules, setRules] = useState(false);
+  // How to play, once the first lesson is done: another game with the coach, or the rules
+  const [learn, setLearn] = useState(false);
   const [camp, setCamp] = useState(false);
   const [settings, setSettings] = useState(false);
   const [options, setOptions] = useState(false);
@@ -160,10 +162,9 @@ export function Lobby({
         </div>
 
         <div className="lobby-modes">
-          {!newbie && <Mode icon="coach" label="Learn to play" sub="Free game with a coach" onClick={coach} />}
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
-          <Mode icon="book" label="How to play" sub="The rules" onClick={() => setRules(true)} />
+          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
         <InstallHint />
         <div className="fine">
@@ -245,6 +246,31 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
+      <AnimatePresence>
+        {learn && (
+          <Sheet title="How to play" onClose={() => setLearn(false)}>
+            <button
+              className="btn primary lobby-big"
+              onClick={() => {
+                setLearn(false);
+                coach();
+              }}
+            >
+              Play with a coach
+              <span className="lobby-sub">A short game with tips on every move. Free.</span>
+            </button>
+            <button
+              className="btn lobby-big"
+              onClick={() => {
+                setLearn(false);
+                setRules(true);
+              }}
+            >
+              Read the rules
+            </button>
+          </Sheet>
+        )}
+      </AnimatePresence>
       <AnimatePresence>
         {welcome && (
           <Welcome
