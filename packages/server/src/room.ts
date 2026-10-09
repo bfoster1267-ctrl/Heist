@@ -52,6 +52,9 @@ export interface GameOverReport {
   events: GameEvent[];
   /** how the bot seats played (for the skill rating) */
   botLevel: BotLevel;
+  ranked: boolean;
+  /** each seat's finish, higher is better: the table's winners, then Footholds, then banked cash */
+  scores: number[];
 }
 
 export interface RoomDeps {
@@ -79,6 +82,8 @@ export interface RoomConfig {
   turnSeconds: number;
   rules: RuleOptions;
   botLevel: BotLevel;
+  /** a ranked table: people only, one game, rank points by finishing place */
+  ranked?: boolean;
 }
 
 interface Seat {
@@ -116,6 +121,7 @@ export class Room {
   readonly isPrivate: boolean;
   readonly rules: RuleOptions;
   readonly botLevel: BotLevel;
+  readonly ranked: boolean;
   readonly turnMs: number;
   hostId: string | null = null;
   status: "lobby" | "playing" | "over" = "lobby";
@@ -150,6 +156,7 @@ export class Room {
     this.isPrivate = cfg.isPrivate;
     this.rules = cfg.rules;
     this.botLevel = cfg.botLevel;
+    this.ranked = !!cfg.ranked;
     this.turnMs = cfg.turnSeconds * 1000;
     this.deps = { ...deps, graceMs: deps.graceMs ?? 20_000, lobbyHoldMs: deps.lobbyHoldMs ?? 60_000 };
     this.seats = Array.from({ length: cfg.players }, () => blankSeat());
@@ -180,6 +187,7 @@ export class Room {
       turnSeconds: this.turnMs / 1000,
       rules: this.rules,
       botLevel: this.botLevel,
+      ranked: this.ranked,
       games: this.games,
     };
   }
@@ -308,6 +316,8 @@ export class Room {
   start(userId: string | null, seed = randomInt(2 ** 31)): ErrorCode | null {
     if (userId !== null && userId !== this.hostId) return "not_host";
     if (this.status === "playing") return "bad_state";
+    // a ranked table plays one game: rematches between the same six would let friends trade rank
+    if (this.ranked && this.games > 0) return "bad_state";
     const taken = new Set<string>();
     for (const s of this.seats) {
       if (s.kind === "human" && (s.left || (this.status === "over" && s.userId && !this.isConnected(s.userId)))) {
@@ -334,6 +344,7 @@ export class Room {
       turnSeconds: this.turnMs / 1000,
       rules: this.rules,
       botLevel: this.botLevel,
+      ...(this.ranked ? { ranked: true } : {}),
       at: this.deps.clock.now(),
     });
     this.begin(seed);
@@ -362,7 +373,7 @@ export class Room {
   /** Rebuild a table the server was running when it stopped. Players reconnect with their tokens. */
   static restore(rec: GameRecord, deps: RoomDeps): Room {
     const st = rec.start;
-    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds, rules: st.rules ?? { bribes: false, placeCrew: false, openDeals: false }, botLevel: st.botLevel ?? "normal" }, deps);
+    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds, rules: st.rules ?? { bribes: false, placeCrew: false, openDeals: false }, botLevel: st.botLevel ?? "normal", ranked: st.ranked }, deps);
     room.seats = st.seats.map((s) => ({ ...blankSeat(), kind: s.bot ? "bot" : "human", name: s.name, userId: s.userId }));
     room.hostId = st.hostId;
     room.games = st.game;
@@ -499,6 +510,8 @@ export class Room {
       players: this.players,
       events: this.events,
       botLevel: this.botLevel,
+      ranked: this.ranked,
+      scores: this.seats.map((_, seat) => (winners.includes(seat) ? 1e9 : 0) + g.footholds(seat) * 1000 + g.cash(seat)),
     });
     for (const s of this.seats) s.autopilot = false;
     this.changed();

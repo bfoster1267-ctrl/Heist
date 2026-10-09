@@ -67,8 +67,17 @@ export function Table({
   away,
   clock,
   mistakes,
+  clean = false,
+  tags,
+  onName,
 }: {
   settings: TableSettings;
+  /** Ranked: a clean HUD, no coach tips or explainer lines, just the table and your choices */
+  clean?: boolean;
+  /** online: a short tag by each seat's name (their ranked rank) */
+  tags?: Record<number, string>;
+  /** online: tap a player's name to see their profile */
+  onName?: (seat: number) => void;
   /** Coached play: the rookie mistakes this player has made before */
   mistakes?: MistakeCounts;
   onExit: () => void;
@@ -266,7 +275,7 @@ export function Table({
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
       <div
-        className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.textSize > 1 ? " big-text" : "")}
+        className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.textSize > 1 ? " big-text" : "") + (clean ? " clean-hud" : "")}
         style={{ "--ts": prefs.textSize } as React.CSSProperties}
       >
         <motion.div className="shaker" animate={shake}>
@@ -383,6 +392,8 @@ export function Table({
                   acting={!s.winners && actor === p.seat}
                   showBank={wide}
                   away={away?.[p.seat]}
+                  tag={tags?.[p.seat]}
+                  onName={onName ? () => onName(p.seat) : undefined}
                 />
               );
             })}
@@ -456,7 +467,7 @@ export function Table({
                 !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} onPick={play} />
               )
             ) : (
-              <Coach ask={ask} blocked={walk || !!s.winners} />
+              !clean && <Coach ask={ask} blocked={walk || !!s.winners} />
             )}
             {!t.ask && !s.winners && (
               <div className="waiting">
@@ -546,7 +557,7 @@ export function Table({
           <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -600,6 +611,7 @@ function GameOver({
   onAgain,
   againLabel = "Deal again",
   forfeit,
+  oneGame,
   onExit,
 }: {
   s: GameState;
@@ -609,6 +621,8 @@ function GameOver({
   onAgain?: () => void;
   againLabel?: string;
   forfeit?: boolean;
+  /** a ranked table: no rematch, queue again from the lobby */
+  oneGame?: boolean;
   onExit: () => void;
 }) {
   const won = s.winners!.includes(me);
@@ -637,13 +651,13 @@ function GameOver({
               <button className="btn primary big" onClick={onAgain} autoFocus>
                 {againLabel}
               </button>
-            ) : (
+            ) : oneGame ? null : (
               <button className="btn big" disabled>
                 Waiting for the host to deal
               </button>
             )}
-            <button className="btn ghost" onClick={onExit}>
-              Lobby
+            <button className={oneGame ? "btn primary big" : "btn ghost"} onClick={onExit} autoFocus={oneGame}>
+              {oneGame ? "Back to the lobby" : "Lobby"}
             </button>
           </div>
         </div>

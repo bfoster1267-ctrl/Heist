@@ -2,8 +2,8 @@
 
 import { ROLES, type RoleId } from "@heist/engine";
 import {
-  COSMETICS, DAILY_CHIPS, MAX_LEVEL, cosmetic, levelInfo, owns, prestigeCoins, prestigeName, rankName, unlocked, winRate,
-  type Cosmetic, type EquipSlot, type Slot,
+  COSMETICS, DAILY_CHIPS, MAX_LEVEL, RANKED_LEVEL, cosmetic, levelInfo, owns, prestigeCoins, prestigeName, rankName, rankOf, rankedPublic, unlocked, winRate,
+  type CareerStats, type Cosmetic, type EquipSlot, type RankedPublic, type Slot,
 } from "@heist/profile";
 import { Cigar, Preview, bannerStyle } from "./items";
 import { Season } from "./Season";
@@ -142,14 +142,55 @@ const pct = (x: number) => `${Math.round(x * 100)}%`;
 const roleName = (r: string) => ROLES.find((x) => x.id === r)?.name.replace(/^The /, "") ?? r;
 
 function Career({ me }: { me: Me }) {
-  const s = me.progress.stats;
+  const level = levelInfo(me.progress.xp).level;
+  return (
+    <CareerView
+      stats={me.progress.stats}
+      drinksSent={me.progress.drinksSent}
+      ranked={rankedPublic(me.progress.ranked, Date.now())}
+      rankedNote={me.guest ? "Sign in to play Ranked." : level < RANKED_LEVEL ? `Ranked unlocks at level ${RANKED_LEVEL}.` : "Play Ranked from Play online."}
+    />
+  );
+}
+
+/** Ranked at a glance: rank, points, MMR and this season's record. Nothing about it is hidden. */
+function RankedBox({ r, note }: { r: RankedPublic | null; note?: string }) {
+  if (!r)
+    return (
+      <div className="acct-ranked none">
+        <span className="acct-ranked-label">Ranked</span>
+        <span className="dim">{note ?? "No ranked games yet."}</span>
+      </div>
+    );
+  const rank = rankOf(r.rp);
+  return (
+    <div className={`acct-ranked tier-${r.tier}`}>
+      <span className="acct-ranked-label">Ranked</span>
+      <b className="acct-ranked-rank">{r.label}</b>
+      <span>
+        {r.rp.toLocaleString()} RP{r.games && rank.of ? ` · ${rank.into}/${rank.of} to the next` : ""}
+      </span>
+      <span>MMR {r.mmr.toLocaleString()}</span>
+      <span className="dim">
+        {r.games} games · {r.wins} wins this season · best {r.peak}
+        {r.last ? ` · ${r.last}` : ""}
+      </span>
+    </div>
+  );
+}
+
+/** A career, yours or another player's: everyone sees the same stats. */
+function CareerView({ stats: s, drinksSent, ranked, rankedNote }: { stats: CareerStats; drinksSent: number; ranked: RankedPublic | null; rankedNote?: string }) {
   const net = s.winnings - s.lost;
   if (!s.games)
     return (
-      <div className="acct-empty">
-        <div className="acct-empty-big">No games yet</div>
-        Play a table and your career starts here: wins, winnings, streaks and every job you pull.
-      </div>
+      <>
+        {ranked && <RankedBox r={ranked} />}
+        <div className="acct-empty">
+          <div className="acct-empty-big">No games yet</div>
+          Play a table and the career starts here: wins, winnings, streaks and every job pulled.
+        </div>
+      </>
     );
   const tiles: [string, string, string?][] = [
     ["Games", s.games.toLocaleString()],
@@ -163,7 +204,7 @@ function Career({ me }: { me: Me }) {
     ["Biggest pot", s.biggestPot.toLocaleString(), "gold"],
     ["Streak", s.streak > 0 ? `${s.streak}W` : s.streak < 0 ? `${-s.streak}L` : "–", s.streak > 0 ? "good" : s.streak < 0 ? "bad" : undefined],
     ["Best streak", `${s.bestStreak}W`],
-    ["Drinks sent", me.progress.drinksSent.toLocaleString()],
+    ["Drinks sent", drinksSent.toLocaleString()],
   ];
   const trackers: [string, number][] = [
     ["Footholds taken", s.footholds],
@@ -179,6 +220,7 @@ function Career({ me }: { me: Me }) {
   const roles = Object.entries(s.byRole).sort((a, b) => b[1]!.g - a[1]!.g) as [RoleId, { g: number; w: number }][];
   return (
     <div className="acct-career">
+      <RankedBox r={ranked} note={rankedNote} />
       <div className="acct-tiles">
         {tiles.map(([k, v, tone], i) => (
           <motion.div key={k} className={"acct-tile " + (tone ?? "")} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}>
@@ -227,7 +269,7 @@ function Career({ me }: { me: Me }) {
 }
 
 /** Chips up or down over the recent games, oldest on the left. */
-function Trend({ games }: { games: Me["progress"]["stats"]["recent"] }) {
+function Trend({ games }: { games: CareerStats["recent"] }) {
   const pts = [0];
   for (const g of [...games].reverse()) pts.push(pts[pts.length - 1] + g.net);
   const lo = Math.min(...pts);
@@ -345,7 +387,7 @@ function Shop({ me }: { me: Me }) {
 
 function Board({ me }: { me: Me }) {
   const { backend } = useAccount();
-  const [by, setBy] = useState<"winnings" | "level" | "wins">("winnings");
+  const [by, setBy] = useState<"winnings" | "level" | "wins" | "ranked">("winnings");
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   useEffect(() => {
@@ -362,16 +404,16 @@ function Board({ me }: { me: Me }) {
   return (
     <div className="acct-board">
       <div className="seg">
-        {(["winnings", "level", "wins"] as const).map((k) => (
+        {(["winnings", "level", "wins", "ranked"] as const).map((k) => (
           <button key={k} className={by === k ? "on" : ""} onClick={() => setBy(k)}>
-            {k === "winnings" ? "Winnings" : k === "level" ? "Level" : "Wins"}
+            {k === "winnings" ? "Winnings" : k === "level" ? "Level" : k === "wins" ? "Wins" : "Ranked"}
           </button>
         ))}
       </div>
       {!rows ? (
         <div className="dim">Loading…</div>
       ) : !rows.length ? (
-        <div className="dim">Nobody's on the board yet. Sign in and play to be first.</div>
+        <div className="dim">{by === "ranked" ? "Nobody has played Ranked this season yet." : "Nobody's on the board yet. Sign in and play to be first."}</div>
       ) : (
         <ol className="acct-board-rows">
           {rows.map((r, i) => (
@@ -381,7 +423,7 @@ function Board({ me }: { me: Me }) {
               <span className="acct-board-name">
                 {r.name} <Stars prestige={r.prestige} size={10} />
               </span>
-              <span className="acct-board-v">{by === "winnings" ? r.winnings.toLocaleString() : by === "level" ? `Lv ${r.level}` : `${r.wins} wins`}</span>
+              <span className="acct-board-v">{by === "winnings" ? r.winnings.toLocaleString() : by === "level" ? `Lv ${r.level}` : by === "ranked" ? `${r.rank} · ${r.rp?.toLocaleString()} RP · MMR ${r.mmr}` : `${r.wins} wins`}</span>
             </li>
           ))}
         </ol>
@@ -411,8 +453,8 @@ function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
   );
 }
 
-/** A player's public card, opened from the leaderboard. */
-function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
+/** A player's profile, opened from the leaderboard or by tapping their name at a table: everything you see on your own. */
+export function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
   const { backend } = useAccount();
   const [p, setP] = useState<PublicProfile | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -433,7 +475,7 @@ function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
   const title = p ? cosmetic(p.equipped.title) : undefined;
   return (
     <motion.div className="acct-card-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <motion.div className="acct-card" initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, opacity: 0 }} role="dialog" aria-label="Player card">
+      <motion.div className="acct-card acct-card-full" initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, opacity: 0 }} role="dialog" aria-label="Player card">
         <button className="acct-x acct-card-x" onClick={onClose} aria-label="Close player card">
           ✕
         </button>
@@ -456,22 +498,8 @@ function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
                 <div className="dim acct-card-joined">Playing since {new Date(p.joined).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</div>
               </div>
             </div>
-            <div className="acct-card-stats">
-              {(
-                [
-                  ["Games", s.games.toLocaleString()],
-                  ["Win rate", pct(winRate(s))],
-                  ["Winnings", s.winnings.toLocaleString()],
-                  ["Biggest pot", s.biggestPot.toLocaleString()],
-                  ["Best streak", `${s.bestStreak}W`],
-                  ["Online wins", `${s.byMode.online.w}/${s.byMode.online.g}`],
-                ] as [string, string][]
-              ).map(([k, v]) => (
-                <div key={k}>
-                  <b>{v}</b>
-                  <span>{k}</span>
-                </div>
-              ))}
+            <div className="acct-card-body">
+              <CareerView stats={s} drinksSent={p.drinksSent ?? 0} ranked={p.ranked ?? null} />
             </div>
           </>
         )}

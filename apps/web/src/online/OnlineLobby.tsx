@@ -1,10 +1,12 @@
 // Play with friends: make a table and share its code, join one by code, or sit at an open public
 // table. Once the host deals, the same Table as solo play runs, fed by the game server.
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
-import { ALL_DRINKS } from "@heist/profile";
+import { ALL_DRINKS, RANKED_LEVEL, RANKED_PLAYERS, levelInfo, rankedPublic } from "@heist/profile";
+import { PlayerCard } from "../account/Profile";
+import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
@@ -84,6 +86,8 @@ export function OnlineLobby({
     if (r?.status === "playing" && sess.seat !== null && !window.confirm("Leave this game? You'll lose your buy-in, and you can't come back to this game.")) return;
     forgetTable();
     sess.leave();
+    // after a ranked game, back to the online lobby to queue again
+    if (r?.ranked && r.status === "over") return;
     onExit();
   };
 
@@ -134,7 +138,30 @@ function lastTable(): string | null {
   }
 }
 
+type Mode = "casual" | "ranked";
+const MODE_KEY = "heist.mode";
+
 function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onBack: () => void }) {
+  const { me } = useAccount();
+  const [mode, setModeState] = useState<Mode>(() => {
+    try {
+      return localStorage.getItem(MODE_KEY) === "ranked" ? "ranked" : "casual";
+    } catch {
+      return "casual";
+    }
+  });
+  const setMode = (m: Mode) => {
+    setModeState(m);
+    try {
+      localStorage.setItem(MODE_KEY, m);
+    } catch {
+      /* private mode */
+    }
+  };
+  const level = me ? levelInfo(me.progress.xp).level : 1;
+  const locked = !me || me.guest ? "Sign in to play Ranked." : level < RANKED_LEVEL ? `Ranked unlocks at level ${RANKED_LEVEL}. You're level ${level}.` : null;
+  const ranked = mode === "ranked";
+  const myRank = me ? rankedPublic(me.progress.ranked, Date.now()) : null;
   const [players, setPlayers] = useState(4);
   const [back, setBack] = useState(lastTable);
   const [stake, setStake] = useState(0);
@@ -152,7 +179,7 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
     <>
       <div className="lobby-col">
         <div className="logo">HEIST</div>
-        <div className="tagline">Play with friends</div>
+        <div className="tagline">Casual, Ranked or with friends</div>
         <div className="wallet">
           <Chips amount={chips} />
           <span className="dim">play chips</span>
@@ -215,16 +242,39 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
         </button>
       </div>
       <div className="lobby-col">
-        <div className="field">
-          <span>Start a table</span>
-          <div className="seg">
-            {[3, 4, 5, 6].map((n) => (
-              <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
-                {n}
-              </button>
-            ))}
-          </div>
+        <div className="seg mode-seg" role="tablist" aria-label="Game mode">
+          <button role="tab" aria-selected={!ranked} className={!ranked ? "on" : ""} onClick={() => setMode("casual")}>
+            Casual
+          </button>
+          <button role="tab" aria-selected={ranked} className={ranked ? "on" : ""} onClick={() => setMode("ranked")}>
+            Ranked{locked ? " 🔒" : ""}
+          </button>
         </div>
+        {ranked ? (
+          <div className="ranked-head">
+            {myRank && myRank.games ? (
+              <>
+                <b>{myRank.label}</b>
+                <span>
+                  {myRank.rp.toLocaleString()} RP · MMR {myRank.mmr.toLocaleString()}
+                </span>
+              </>
+            ) : (
+              <b>Unranked this season</b>
+            )}
+          </div>
+        ) : (
+          <div className="field">
+            <span>Start a table</span>
+            <div className="seg">
+              {[3, 4, 5, 6].map((n) => (
+                <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div className="stakes-grid">
           {STAKES.map((st, i) => (
             <button key={st.name} className={"stake" + (stake === i ? " on" : "")} disabled={chips < st.buyIn} onClick={() => setStake(i)}>
@@ -233,16 +283,24 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
             </button>
           ))}
         </div>
-        <div className="seg">
-          <button className={isPrivate ? "on" : ""} onClick={() => setPrivate(true)}>
-            Friends only
-          </button>
-          <button className={!isPrivate ? "on" : ""} onClick={() => setPrivate(false)}>
-            Open to anyone
-          </button>
-        </div>
+        {!ranked && (
+          <div className="seg">
+            <button className={isPrivate ? "on" : ""} onClick={() => setPrivate(true)}>
+              Friends only
+            </button>
+            <button className={!isPrivate ? "on" : ""} onClick={() => setPrivate(false)}>
+              Open to anyone
+            </button>
+          </div>
+        )}
         {sess.queue ? (
           <QueueCard sess={sess} />
+        ) : ranked ? (
+          <div className="start-row">
+            <button className="btn gold huge" disabled={!online || !!locked || chips < buyIn} onClick={() => sess.client.queue(RANKED_PLAYERS, buyIn, true)}>
+              Play Ranked
+            </button>
+          </div>
         ) : (
           <div className="start-row">
             <button className="btn gold huge" disabled={!online || chips < buyIn} onClick={() => sess.client.queue(players, buyIn)}>
@@ -253,7 +311,13 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
             </button>
           </div>
         )}
-        <div className="fine">Play now seats you with other players looking for the same game; bots fill any seats still empty after 2 minutes. Chips are play money only.</div>
+        {ranked ? (
+          <div className="fine">
+            {locked ?? `${RANKED_PLAYERS} players, no bots, no coaching. Finish in the top half to climb. Chips are play money only.`}
+          </div>
+        ) : (
+          <div className="fine">Play now seats you with other players looking for the same game; bots fill any seats still empty after 2 minutes. Chips are play money only.</div>
+        )}
       </div>
     </>
   );
@@ -272,11 +336,13 @@ function QueueCard({ sess }: { sess: OnlineSession }) {
   const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
   return (
     <div className="queue-card" role="status">
-      <div className="queue-title">Finding players...</div>
+      <div className="queue-title">{q.ranked ? "Finding a ranked table..." : "Finding players..."}</div>
       <div>
         {q.waiting} of {q.players} here · Buy-in {q.stakes.toLocaleString()}
       </div>
-      <div className="fine">{left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}</div>
+      <div className="fine">
+        {q.ranked ? "No bots in Ranked: the table deals when six are in line." : left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}
+      </div>
       <button className="btn ghost" onClick={() => sess.client.unqueue()}>
         Cancel
       </button>
@@ -368,6 +434,13 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
   );
   const seats = room.seats;
   const mine = sess.seat === null ? null : seats[sess.seat];
+  // tap a player's name for their full profile
+  const [card, setCard] = useState<string | null>(null);
+  const tags = useMemo(() => {
+    const t: Record<number, string> = {};
+    for (const s of seats) if (s.badge?.rank) t[s.seat] = s.badge.rank;
+    return t;
+  }, [seats]);
   const away = useMemo(() => {
     const a: Record<number, "away" | "bot"> = {};
     for (const s of seats) if (s.kind === "human" && (s.autopilot || !s.connected)) a[s.seat] = s.autopilot ? "bot" : "away";
@@ -384,6 +457,12 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
         watching={sess.seat === null}
         away={away}
         clock={<TurnClock sess={sess} />}
+        clean={room.ranked}
+        tags={tags}
+        onName={(seat) => {
+          const id = seats[seat]?.kind === "human" ? seats[seat].userId : null;
+          if (id) setCard(id);
+        }}
         onExit={onExit}
         // the server says who takes the pot: never a player who wasn't there at the end, nor a spectator
         onGameOver={() => {
@@ -391,8 +470,8 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
           if (go && sess.seat !== null && go.paid.includes(sess.seat)) onWin(Math.floor((room.stakes * room.players) / go.paid.length));
           if (sess.seat !== null) onEnd?.();
         }}
-        // a spectator can sit in for the next game; then only the host deals it
-        onAgain={host ? () => sess.client.start() : sess.seat === null ? () => sess.client.sit() : undefined}
+        // a spectator can sit in for the next game; then only the host deals it (ranked tables play one game)
+        onAgain={room.ranked ? undefined : host ? () => sess.client.start() : sess.seat === null ? () => sess.client.sit() : undefined}
         againLabel={!host && sess.seat === null ? "Take a seat" : undefined}
         forfeit={sess.seat !== null && !!sess.gameOver?.abandoned.includes(sess.seat)}
       />
@@ -406,6 +485,7 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
         </div>
       )}
       {sess.seat === null && room.status !== "over" && <div className="online-banner">You're watching this table</div>}
+      <AnimatePresence>{card && <PlayerCard id={card} onClose={() => setCard(null)} />}</AnimatePresence>
 
     </>
   );

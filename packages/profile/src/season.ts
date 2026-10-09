@@ -70,6 +70,7 @@ export function passLines(r: GameResult, firstWinToday: boolean): PassLine[] {
   const lines: PassLine[] = [{ label: "Played", xp: 150 }];
   if (r.won) lines.push({ label: "Won", xp: 100 });
   if (r.mode === "online") lines.push({ label: "Online", xp: 50 });
+  if (r.ranked) lines.push({ label: "Ranked", xp: 100 });
   if (r.won && firstWinToday) lines.push({ label: "First win of the day", xp: 200 });
   return lines;
 }

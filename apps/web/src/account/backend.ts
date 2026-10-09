@@ -58,6 +58,10 @@ export interface LeaderRow {
   games: number;
   winnings: number;
   frame: string;
+  /** this season's rank, points and Ranked MMR (only after a ranked game this season) */
+  rank?: string;
+  rp?: number;
+  mmr?: number;
 }
 
 export interface Backend {
@@ -79,7 +83,7 @@ export interface Backend {
   rename(name: string): Promise<Me>;
   /** email accounts on the server only */
   changePassword(current: string, next: string): Promise<Me>;
-  leaderboard(by: "winnings" | "level" | "wins"): Promise<LeaderRow[]>;
+  leaderboard(by: "winnings" | "level" | "wins" | "ranked"): Promise<LeaderRow[]>;
   /** another player's public card */
   player(id: string): Promise<PublicProfile>;
   // signing in (server only)
