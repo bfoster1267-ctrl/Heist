@@ -7,7 +7,7 @@ import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
 import { scrub } from "./accounts/activity";
-import { AdminAuth, AdminService } from "./accounts/admin";
+import { AdminAuth, AdminService, type AdminTeam } from "./accounts/admin";
 import { accountsApi } from "./accounts/api";
 import { serveStatic } from "./static";
 import { ApiError, type AccountService } from "./accounts/service";
@@ -17,6 +17,7 @@ import { realClock, type Clock, type Conn, type GameOverReport, type Room } from
 import { Rooms, roomOptions, type Limits } from "./rooms";
 import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
+import type { Hosting } from "./accounts/hosting";
 
 export interface ServerOptions {
   port?: number;
@@ -45,7 +46,9 @@ export interface ServerOptions {
   /** a built web app to serve at / (so the game and its server share one address) */
   webDir?: string;
   /** the owner's admin panel at /admin (needs accounts); off without a password */
-  admin?: { user: string; password: string; secret?: string };
+  admin?: { user: string; password: string; secret?: string; team?: AdminTeam };
+  /** server and Render stats for the admin panel */
+  hosting?: Hosting;
 }
 
 export interface HeistServer {
@@ -85,7 +88,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const admin =
     accounts && o.admin?.password
       ? {
-          auth: new AdminAuth(o.admin.user, o.admin.password, o.admin.secret, () => clock.now()),
+          auth: new AdminAuth(o.admin.user, o.admin.password, o.admin.secret, () => clock.now(), o.admin.team),
           svc: new AdminService(accounts, accounts.activity, {
             now: () => clock.now(),
             game: (id) => store.game?.(id),
@@ -94,6 +97,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
               rooms: rooms.all().map((r) => r.info()),
             }),
           }),
+          hosting: o.hosting,
         }
       : undefined;
   const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin }) : null;
@@ -167,6 +171,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         : { threshold: 1024, serverMaxWindowBits: 11, zlibDeflateOptions: { memLevel: 6, level: 6 }, concurrencyLimit: 4 },
     verifyClient: ({ origin }: { origin: string }) => !o.allowedOrigins?.length || o.allowedOrigins.includes(origin),
   });
+  o.hosting?.start(() => wss.clients.size);
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
@@ -368,6 +373,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     queue,
     port: () => (http.address() as { port: number }).port,
     async close() {
+      o.hosting?.stop();
       clearInterval(beat);
       queue.close();
       for (const ws of wss.clients) ws.terminate();

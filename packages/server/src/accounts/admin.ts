@@ -1,9 +1,8 @@
 // The owner's admin panel: its own sign-in (ADMIN_USER / ADMIN_PASSWORD, separate from any player
 // account) and read-only views of every account, the activity log, live tables and any game move by move.
 
-import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { HeistGame, type Answer } from "@heist/engine";
-import { createSoloGame, levelInfo, upgrade, SOLO_SEAT } from "@heist/profile";
+import { createSoloGame, levelInfo, upgrade, DAILY_CHIPS, PACK_PRICE, REFILL_TO, SOLO_SEAT, START_CHIPS } from "@heist/profile";
 import type { RoomInfo } from "../protocol";
 import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
@@ -11,48 +10,10 @@ import { byOwner, type ActivityEvent, type ActivityLog } from "./activity";
 import type { AccountService } from "./service";
 import type { Account } from "./store";
 
-const SESSION_MS = 8 * 60 * 60_000;
 const DAY = 24 * 60 * 60_000;
 
-const digest = (s: string) => createHash("sha256").update(s).digest();
 
-export class AdminAuth {
-  private key: Buffer;
-
-  constructor(
-    private user: string,
-    private password: string,
-    secret: string | undefined,
-    private now: () => number = Date.now,
-  ) {
-    // changing the admin password signs every admin session out
-    this.key = createHmac("sha256", secret ?? randomBytes(32).toString("hex")).update(`admin:${user}:${password}`).digest();
-  }
-
-  /** A session token for the right username and password, else null. */
-  login(user: unknown, password: unknown): { token: string; expires: number } | null {
-    if (typeof user !== "string" || typeof password !== "string") return null;
-    const okUser = timingSafeEqual(digest(user.trim().toLowerCase()), digest(this.user.toLowerCase()));
-    const okPass = timingSafeEqual(digest(password), digest(this.password));
-    if (!okUser || !okPass) return null;
-    const expires = this.now() + SESSION_MS;
-    return { token: `${expires}.${this.sign(expires)}`, expires };
-  }
-
-  check(token: unknown): boolean {
-    if (typeof token !== "string") return false;
-    const [exp, sig] = token.split(".");
-    const expires = Number(exp);
-    if (!sig || !Number.isFinite(expires) || expires < this.now()) return false;
-    const want = Buffer.from(this.sign(expires));
-    const got = Buffer.from(sig);
-    return want.length === got.length && timingSafeEqual(want, got);
-  }
-
-  private sign(expires: number) {
-    return createHmac("sha256", this.key).update(String(expires)).digest("base64url");
-  }
-}
+export { AdminAuth, AdminTeam } from "./admins";
 
 export interface LiveInfo {
   sockets: number;
@@ -163,6 +124,8 @@ export class AdminService {
     const ownerDevices = new Set<string>();
     for (const e of this.log.window()) {
       if (e.kind === "admin.login" && e.ok) {
+        // only the owner's sign-ins mark their devices; other admins' accounts still count as players
+        if (e.data?.role === "admin") continue;
         if (e.ip) ownerIps.add(e.ip);
         if (e.device) ownerDevices.add(e.device);
         continue;
@@ -251,7 +214,9 @@ export class AdminService {
       return s.size;
     };
     const others = registered.filter((a) => !mine(a.id));
-    const sum = (f: (a: Account) => number) => others.reduce((s, a) => s + f(a), 0);
+    // guests hold chips and play games too: the totals cover every account but yours
+    const everyone = all.filter((a) => !mine(a.id));
+    const sum = (f: (a: Account) => number) => everyone.reduce((s, a) => s + f(a), 0);
     const guests = all.filter((a) => a.guest);
     return {
       at: now,
@@ -271,6 +236,118 @@ export class AdminService {
       today: [...kinds].sort((x, y) => y[1] - x[1]).map(([kind, count]) => ({ kind, count })),
       newest: [...others].sort((x, y) => y.createdAt - x.createdAt).slice(0, 8).map((a) => this.row(a, ppl)),
       live: this.o.live?.() ?? null,
+    };
+  }
+
+  /**
+   * Where chips come from and where they go. Chips enter as starting stacks, the free daily chips, refills
+   * and money won off bots (their buy-ins are new chips); they leave as buy-ins lost to bots and packs
+   * bought with chips. Online tables mostly move chips between players. Your own accounts are left out.
+   */
+  async economy() {
+    const now = this.now;
+    const all = (await this.accounts.store.all()).filter((a) => a.name !== "Deleted player" || a.logins.length);
+    const ppl = this.people(all);
+    const mine = (id: string) => ppl.owner.has(ppl.of.get(id) ?? id);
+    const players = all.filter((a) => !mine(a.id));
+    const days = Array.from({ length: 30 }, (_, i) => dayKey(now - (29 - i) * DAY));
+    const daily = new Map(days.map((d) => [d, { day: d, added: 0, removed: 0 }]));
+    const SOURCES = ["start", "daily", "refill", "botsWon", "botsLost", "packs", "online"] as const;
+    type Src = (typeof SOURCES)[number];
+    const zero = () => ({ all: 0, day: 0, week: 0, month: 0, count: 0 });
+    const flows = Object.fromEntries(SOURCES.map((k) => [k, zero()])) as Record<Src, ReturnType<typeof zero>>;
+    /** amount > 0 adds chips, < 0 takes them out */
+    const add = (k: Src, amount: number, at: number) => {
+      if (!amount) return;
+      const f = flows[k];
+      f.all += amount;
+      f.count++;
+      if (at >= now - DAY) f.day += amount;
+      if (at >= now - 7 * DAY) f.week += amount;
+      if (at >= now - 30 * DAY) f.month += amount;
+      const d = daily.get(dayKey(at));
+      if (d) amount > 0 ? (d.added += amount) : (d.removed -= amount);
+    };
+    for (const a of players) add("start", START_CHIPS, a.createdAt);
+    const balance = new Map<string, number>();
+    let firstEvent: number | null = null;
+    let coinsEarned = 0;
+    let unknownRefills = 0;
+    const events = [...this.log.window()].sort((x, y) => x.at - y.at);
+    for (const e of events) {
+      if (!e.userId || byOwner(e)) continue;
+      const d = (e.data ?? {}) as Record<string, any>;
+      const before = balance.get(e.userId);
+      if (typeof d.balance?.chips === "number") balance.set(e.userId, d.balance.chips);
+      if (e.ok === false || mine(e.userId)) continue;
+      firstEvent ??= e.at;
+      const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : 0);
+      switch (e.kind) {
+        case "chips.daily":
+          add("daily", num(d.chips) || DAILY_CHIPS, e.at);
+          break;
+        case "chips.refill": {
+          const amt = typeof d.chips === "number" ? d.chips : before !== undefined ? REFILL_TO - before : null;
+          if (amt === null) unknownRefills++;
+          else add("refill", Math.max(0, amt), e.at);
+          break;
+        }
+        case "season.pack":
+          if (d.paid === true) add("packs", -PACK_PRICE, e.at);
+          break;
+        case "game.solo":
+          if (!d.coached) {
+            const net = num(d.payout) - num(d.stakes);
+            add(net > 0 ? "botsWon" : "botsLost", net, e.at);
+          }
+          coinsEarned += num(d.coins);
+          break;
+        case "game.online":
+          add("online", num(d.payout) - num(d.stakes), e.at);
+          coinsEarned += num(d.coins);
+          break;
+      }
+    }
+    const sum = (f: (a: Account) => number, list = players) => list.reduce((n, a) => n + f(a), 0);
+    const chipsOf = (a: Account) => a.progress.chips;
+    const inCirculation = sum(chipsOf);
+    const tracked = SOURCES.reduce((n, k) => n + flows[k].all, 0);
+    const played = players.filter((a) => a.progress.stats.games > 0);
+    const BUCKETS: [string, number, number][] = [
+      ["Broke (under 1k)", 0, 1000],
+      ["1k to 2.5k", 1000, 2500],
+      ["2.5k to 5k", 2500, 5000],
+      ["5k to 10k", 5000, START_CHIPS],
+      ["10k (start) to 20k", START_CHIPS, 20_000],
+      ["20k to 50k", 20_000, 50_000],
+      ["50k and up", 50_000, Infinity],
+    ];
+    return {
+      at: now,
+      start: START_CHIPS,
+      trackedSince: firstEvent,
+      circulation: {
+        chips: inCirculation,
+        registered: sum(chipsOf, players.filter((a) => !a.guest)),
+        guests: sum(chipsOf, players.filter((a) => a.guest)),
+        coins: sum((a) => a.progress.coins),
+        accounts: players.length,
+        /** chips the flows above can't explain: play before the log started, deleted accounts, the 0-chip floor online */
+        untracked: inCirculation - tracked,
+      },
+      flows,
+      unknownRefills,
+      coinsEarned,
+      daily: [...daily.values()],
+      players: {
+        played: played.length,
+        up: played.filter((a) => a.progress.chips > START_CHIPS).length,
+        even: played.filter((a) => a.progress.chips === START_CHIPS).length,
+        down: played.filter((a) => a.progress.chips < START_CHIPS).length,
+        broke: played.filter((a) => a.progress.chips < REFILL_TO).length,
+        buckets: BUCKETS.map(([label, lo, hi]) => ({ label, count: played.filter((a) => a.progress.chips >= lo && a.progress.chips < hi).length })),
+      },
+      top: [...players].sort((x, y) => y.progress.chips - x.progress.chips).slice(0, 10).map((a) => this.row(a, ppl)),
     };
   }
 

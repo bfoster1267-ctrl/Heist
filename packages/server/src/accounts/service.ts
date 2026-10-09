@@ -306,7 +306,12 @@ export class AccountService {
   }
 
   refill(a: Account) {
-    return this.update(a.id, (x) => (this.apply(x, refill(x.progress)), this.me(x)));
+    return this.update(a.id, (x) => {
+      const before = x.progress.chips;
+      this.apply(x, refill(x.progress));
+      // how many chips the refill created, for the admin panel's economy view (extra field; the app ignores it)
+      return { ...this.me(x), refilled: x.progress.chips - before };
+    });
   }
 
   daily(a: Account) {

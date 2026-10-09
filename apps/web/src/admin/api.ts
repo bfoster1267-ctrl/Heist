@@ -10,6 +10,29 @@ const KEY = "heist.admin";
 export interface Session {
   token: string;
   expires: number;
+  user?: string;
+  role?: "owner" | "admin";
+}
+
+export interface TeamMember {
+  user: string;
+  createdAt: number;
+  createdBy: string;
+  lastLogin?: number;
+}
+
+type Flow = { all: number; day: number; week: number; month: number; count: number };
+export interface Economy {
+  at: number;
+  start: number;
+  trackedSince: number | null;
+  circulation: { chips: number; registered: number; guests: number; coins: number; accounts: number; untracked: number };
+  flows: Record<"start" | "daily" | "refill" | "botsWon" | "botsLost" | "packs" | "online", Flow>;
+  unknownRefills: number;
+  coinsEarned: number;
+  daily: { day: string; added: number; removed: number }[];
+  players: { played: number; up: number; even: number; down: number; broke: number; buckets: { label: string; count: number }[] };
+  top: AccountRow[];
 }
 
 export function saved(): Session | null {
@@ -122,6 +145,43 @@ export interface Live {
   rssMb: number;
   uptimeS: number;
   rooms: RoomInfo[];
+}
+
+export type Point = { at: number; value: number };
+export type Metric = { unit: string | null; points: Point[] } | null;
+export interface Deploy {
+  id: string;
+  status: string;
+  trigger: string | null;
+  commit: string | null;
+  message: string | null;
+  createdAt: number | null;
+  finishedAt: number | null;
+}
+export interface ServerReport {
+  at: number;
+  self: {
+    startedAt: number;
+    uptimeS: number;
+    rssMb: number;
+    heapMb: number;
+    node: string;
+    commit: string | null;
+    branch: string | null;
+    instance: string | null;
+    samples: { at: number; cpu: number; rssMb: number; heapMb: number; sockets: number }[];
+  };
+  disk: { totalMb: number | null; freeMb: number | null; parts: { name: string; mb: number; files: number }[] } | null;
+  render:
+    | { connected: false; missing?: "key" | "service"; error?: string }
+    | {
+        connected: true;
+        service: { name: string | null; plan: string | null; region: string | null; url: string | null; instances: number | null; suspended: string | null; dashboard: string | null; diskGb: number | null; updatedAt: string | null };
+        deploys: Deploy[];
+        metrics: { cpu: Metric; memory: Metric; memoryLimit: Metric; cpuLimit: Metric; requests: Metric; bandwidth: Metric };
+      };
+  cost: { plan: string; service: number | null; disk: number; monthly: number | null; soFar: number | null };
+  live: Live;
 }
 
 export interface Overview {
