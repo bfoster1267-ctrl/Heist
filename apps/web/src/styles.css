@@ -3536,6 +3536,29 @@ button:disabled {
 .lobby.big-text .lobby-change {
   font-size: calc(16px * min(var(--ts), 1.3));
 }
+/* A phone held upright (menus only; tables ask for it sideways): clear the top bar, smaller logo, no
+   floating badges behind the buttons, and text that grows only as far as the tiles allow. */
+@media (max-width: 500px) and (min-height: 521px) {
+  .lobby {
+    padding-top: calc(92px + env(safe-area-inset-top));
+    place-items: start center;
+  }
+  .lobby-bg {
+    display: none;
+  }
+  .lobby-main .logo {
+    font-size: 60px;
+    letter-spacing: 10px;
+  }
+  .lobby.big-text .lobby-mode-name {
+    font-size: calc(18px * min(var(--ts), 1.1));
+  }
+  .lobby.big-text .lobby-sub,
+  .lobby.big-text .lobby-change,
+  .lobby.big-text .lobby-locked {
+    font-size: calc(15px * min(var(--ts), 1.15));
+  }
+}
 /* A phone on its side (short screen). Like the big mobile card games: a top bar (settings, name, your
    card), the main play button on the left with the other modes beside it, and your stuff along the bottom.
    Everything fits on one screen, nothing scrolls. */
@@ -3654,11 +3677,13 @@ button:disabled {
 }
 
 /* ------------------------------------------------------------------ phones: sideways only */
+/* upright is fine for menus; a table asks for the phone on its side (html.in-game is set while one is open) */
 .rotate-gate {
   display: none;
 }
 @media (orientation: portrait) and (max-width: 760px) and (pointer: coarse) {
-  .rotate-gate {
+  .in-game .rotate-gate,
+  .rotate-gate.asking {
     position: fixed;
     inset: 0;
     z-index: 1000;

@@ -1,7 +1,7 @@
 // Two screens that stand in front of the game on phones: turn the phone sideways, and open Heist in a
 // real browser when it was opened inside Reddit, Instagram, Facebook or TikTok (their built-in browsers
 // lose the account, can't install the app, and cramp the table).
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { isIOS } from "./appShell";
 
 /** The in-app browser Heist was opened in, or null for a real browser. */
@@ -74,17 +74,47 @@ export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => 
   );
 }
 
-/** Phones in portrait get a "turn it sideways" screen over everything. CSS decides when it shows. */
+const PORTRAIT_PHONE = "(orientation: portrait) and (max-width: 760px) and (pointer: coarse)";
+
+/** A phone held upright: menus work like that, but a table needs it on its side. */
+export function portraitPhone() {
+  try {
+    return matchMedia(PORTRAIT_PHONE).matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * At a table on a phone turned upright: a "turn it back" screen over the table. CSS decides when it shows
+ * (only while a table is open). The game carries on underneath, so turning the phone never leaves it.
+ */
 export function RotateGate() {
+  return <Sideways text="The table needs the phone on its side. You're still in the game." />;
+}
+
+/** Asked before a game starts on an upright phone: the game opens once the phone is turned. */
+export function TurnToPlay({ onReady, onCancel }: { onReady: () => void; onCancel: () => void }) {
+  useEffect(() => {
+    const m = matchMedia(PORTRAIT_PHONE);
+    if (!m.matches) return onReady();
+    const f = () => !m.matches && onReady();
+    m.addEventListener("change", f);
+    return () => m.removeEventListener("change", f);
+  }, [onReady]);
+  return <Sideways asking text="Heist is played with the phone on its side, so the whole table fits. Your game starts when you turn it." onCancel={onCancel} />;
+}
+
+function Sideways({ text, asking, onCancel }: { text: string; asking?: boolean; onCancel?: () => void }) {
   const el = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
   const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
   // Android can go full screen and lock sideways; iPhones can't, so they just turn the phone
   const canLock = !isIOS() && !!el.requestFullscreen && !!orient?.lock;
   return (
-    <div className="rotate-gate" aria-live="polite">
+    <div className={"rotate-gate" + (asking ? " asking" : "")} role={asking ? "dialog" : undefined} aria-live="polite">
       <div className="rotate-phone" aria-hidden />
       <div className="gate-title">Turn your phone sideways</div>
-      <div className="gate-text">Heist is played with the phone on its side, so the whole table fits.</div>
+      <div className="gate-text">{text}</div>
       {canLock && (
         <button
           className="btn primary big"
@@ -97,6 +127,11 @@ export function RotateGate() {
           }}
         >
           Go full screen
+        </button>
+      )}
+      {onCancel && (
+        <button className="btn" onClick={onCancel}>
+          Back to the menu
         </button>
       )}
     </div>

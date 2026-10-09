@@ -125,6 +125,11 @@ export function Table({
   const [showRules, setShowRules] = useState(false);
   // Coached play: an answer held back because the coach spotted a rookie mistake in it
   const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
+  // while a table is open, an upright phone gets the "turn it sideways" screen (see RotateGate)
+  useEffect(() => {
+    document.documentElement.classList.add("in-game");
+    return () => document.documentElement.classList.remove("in-game");
+  }, []);
   /** Coached play: a word of praise for the move just made, shown for a few seconds */
   const [cheer, setCheer] = useState<string | null>(null);
   useEffect(() => {
