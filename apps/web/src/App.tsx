@@ -184,6 +184,7 @@ function Game() {
             onRefill={() => act((b) => b.refill())}
             onOnline={setOnline}
             onOpen={setProfile}
+            onSignIn={() => setProfile("account")}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
           />

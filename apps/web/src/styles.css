@@ -3355,6 +3355,57 @@ button:disabled {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+.lobby-locked {
+  margin: 0;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--muted);
+}
+.lobby-mode:disabled {
+  opacity: 0.5;
+}
+/* a new visitor's first screen */
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 30%, #1a3a2c 0%, #0b0d10 70%);
+  text-align: center;
+}
+.welcome-q {
+  margin: 0;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--paper);
+}
+.welcome-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(440px, 100%);
+}
+@media (max-height: 520px) {
+  .welcome .logo {
+    font-size: 48px;
+  }
+  .welcome-choices {
+    flex-direction: row;
+    width: min(720px, 100%);
+  }
+  .welcome-choices .lobby-big {
+    flex: 1;
+    font-size: 28px;
+  }
+}
 /* the name in the top bar, between the gear and your card: only when the big logo doesn't fit */
 .lobby-topname {
   display: none;
@@ -3553,6 +3604,15 @@ button:disabled {
   .lobby-sheet {
     gap: 10px;
     padding: 12px 16px 14px;
+  }
+  /* bigger text (phones start at 130%) grows the lobby only a little: it has to fit sideways */
+  .lobby.big-text .lobby-sub,
+  .lobby.big-text .lobby-change,
+  .lobby.big-text .lobby-locked {
+    font-size: calc(14px * min(var(--ts), 1.15));
+  }
+  .lobby.big-text .lobby-mode-name {
+    font-size: calc(17px * min(var(--ts), 1.15));
   }
 }
 

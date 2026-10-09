@@ -39,6 +39,7 @@ export function Lobby({
   onRefill,
   onOnline,
   onOpen,
+  onSignIn,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -48,6 +49,8 @@ export function Lobby({
   onRefill: () => void;
   onOnline?: (name: string) => void;
   onOpen?: (page: LobbyPage) => void;
+  /** sign in to an account made before (a new player's way past the lesson) */
+  onSignIn?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -67,6 +70,12 @@ export function Lobby({
   const [camp, setCamp] = useState(false);
   const [settings, setSettings] = useState(false);
   const [options, setOptions] = useState(false);
+  // a first visit asks one question before anything else: new here, or back with an account?
+  const [welcome, setWelcomeState] = useState(() => newbie && !flag("heist.welcomed"));
+  const setWelcome = (v: boolean) => {
+    setWelcomeState(v);
+    if (!v) setFlag("heist.welcomed");
+  };
   const prefs = usePrefs();
   // the table you picked last time, or the best one you can still afford
   const table = chips >= STAKES[stake].buyIn ? stake : Math.max(0, STAKES.filter((st) => chips >= st.buyIn).length - 1);
@@ -115,12 +124,21 @@ export function Lobby({
         <div className="logo">HEIST</div>
 
         <div className="lobby-hero">
-        {newbie && (
-          <button className="btn primary lobby-big" onClick={coach}>
-            Learn to play
-            <span className="lobby-sub">A quick game with a coach. Free.</span>
-          </button>
-        )}
+          {newbie ? (
+            <>
+              <button className="btn primary lobby-big" onClick={coach}>
+                Learn to play
+                <span className="lobby-sub">A quick game with a coach. Free.</span>
+              </button>
+              <p className="lobby-locked">Quick Play and online tables open after your first lesson.</p>
+              {onSignIn && (
+                <button className="lobby-change" onClick={onSignIn}>
+                  I already have an account
+                </button>
+              )}
+            </>
+          ) : (
+            <>
         {broke ? (
           <button className="btn primary lobby-big" onClick={onRefill}>
             Free chips
@@ -137,12 +155,14 @@ export function Lobby({
         <button className="lobby-change" onClick={() => setOptions(true)}>
           Change table
         </button>
+            </>
+          )}
         </div>
 
         <div className="lobby-modes">
           {!newbie && <Mode icon="coach" label="Learn to play" sub="Free game with a coach" onClick={coach} />}
-          <Mode icon="online" label="Play online" sub="Real people" disabled={!onOnline} onClick={() => onOnline?.(nm())} />
-          <Mode icon="map" label="Campaign" sub={`${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} onClick={() => setCamp(true)} />
+          <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
+          <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
           <Mode icon="book" label="How to play" sub="The rules" onClick={() => setRules(true)} />
         </div>
         <InstallHint />
@@ -225,6 +245,23 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
+      <AnimatePresence>
+        {welcome && (
+          <Welcome
+            onNew={() => {
+              setWelcome(false);
+              coach();
+            }}
+            onSignIn={
+              onSignIn &&
+              (() => {
+                setWelcome(false);
+                onSignIn();
+              })
+            }
+          />
+        )}
+      </AnimatePresence>
       <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
     </div>
   );
@@ -272,6 +309,45 @@ function Icon({ name }: { name: string }) {
     <svg className="lobby-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {paths[name]}
     </svg>
+  );
+}
+
+function flag(key: string) {
+  try {
+    return !!localStorage.getItem(key);
+  } catch {
+    return false;
+  }
+}
+
+function setFlag(key: string) {
+  try {
+    localStorage.setItem(key, "1");
+  } catch {
+    /* storage blocked: asks again next visit */
+  }
+}
+
+/** The first screen a new visitor sees: start the lesson, or sign in to the account they already have. */
+function Welcome({ onNew, onSignIn }: { onNew: () => void; onSignIn?: () => void }) {
+  return createPortal(
+    <motion.div className="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="Welcome to Heist">
+      <div className="logo">HEIST</div>
+      <p className="welcome-q">Have you played Heist before?</p>
+      <div className="welcome-choices">
+        <button className="btn primary lobby-big" onClick={onNew}>
+          I'm new
+          <span className="lobby-sub">A short game with a coach. Free.</span>
+        </button>
+        {onSignIn && (
+          <button className="btn lobby-big" onClick={onSignIn}>
+            I have an account
+            <span className="lobby-sub">Sign in and pick up where you left off</span>
+          </button>
+        )}
+      </div>
+    </motion.div>,
+    document.body,
   );
 }
 
