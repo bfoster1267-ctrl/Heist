@@ -182,6 +182,11 @@ export function Lobby({
             <div className="fine">Your first game starts with a quick tour of the table.</div>
           )}
           <div className="fine">Quick Match seats you with bots. Campaign is twelve tougher tables in a row. Coached play is a free game with a coach at your side. Play with friends makes an online table you can share. Chips are play money only.</div>
+          <div className="fine">
+            <a className="lobby-privacy" href="./privacy.html" target="_blank" rel="noreferrer">
+              Privacy policy
+            </a>
+          </div>
         </div>
       </motion.div>
     </div>
