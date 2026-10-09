@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -45,6 +45,9 @@ export interface OnlineResult {
   events: GameEvent[];
   /** the table's bot level, for rating the bot seats */
   botLevel?: BotLevel;
+  /** a ranked table: rank points by finishing place, from `scores` (higher is better per seat) */
+  ranked?: boolean;
+  scores?: number[];
 }
 
 export interface AccountOptions {
@@ -364,6 +367,20 @@ export class AccountService {
     return a ? upgrade(a.progress).rating : 1000;
   }
 
+  /** Why this player can't queue for Ranked yet (null: they can). */
+  async rankedLocked(userId: string): Promise<string | null> {
+    const a = await this.store.get(userId);
+    if (!a || a.guest) return "Sign in to play Ranked";
+    const lv = level(upgrade(a.progress));
+    return lv >= RANKED_LEVEL ? null : `Ranked unlocks at level ${RANKED_LEVEL} (you're level ${lv})`;
+  }
+
+  /** Ranked MMR, for matching ranked tables. */
+  async rankedMmr(userId: string): Promise<number> {
+    const a = await this.store.get(userId);
+    return upgrade(a?.progress ?? {}).ranked?.mmr ?? RANKED_START_MMR;
+  }
+
   /** Bot level for a table this player hosts, from their hidden rating. */
   async botLevel(userId: string): Promise<BotLevel> {
     return botLevelFor(await this.rating(userId));
@@ -480,10 +497,14 @@ export class AccountService {
     const out = new Map<string, { reward: Reward; me: Me }>();
     // everyone's rating before this game, so the order players are settled in doesn't matter
     const ratings = new Map<number, number>();
+    const mmrs = new Map<number, number>();
     for (const s of r.seats) {
       const acct = !s.bot && s.userId ? await this.store.get(s.userId) : null;
       ratings.set(s.seat, acct ? upgrade(acct.progress).rating : BOT_RATING[s.bot ? (r.botLevel ?? "normal") : "normal"]);
+      mmrs.set(s.seat, (acct && upgrade(acct.progress).ranked?.mmr) || RANKED_START_MMR);
     }
+    // ranked: everyone's finishing place, walk-outs last
+    const spans = r.ranked && r.scores ? places(r.scores, r.abandoned) : null;
     for (const s of r.seats) {
       if (s.bot || !s.userId || !(await this.store.get(s.userId))) continue;
       const res = await this.update(s.userId, (x) => {
@@ -494,9 +515,17 @@ export class AccountService {
         x.progress = { ...x.progress, chips: Math.max(0, x.progress.chips - r.stakes) };
         const st = settle(x.progress, { mode: "online", players: r.players, stakes: r.stakes, won, payout: pay, summary: summarize(r.events, s.seat), quit, at: this.now(),
           rivals: r.seats.filter((o) => o.seat !== s.seat).map((o) => ({ rating: ratings.get(o.seat)!, won: r.winners.includes(o.seat) && !r.abandoned?.includes(o.seat) })),
+          ...(spans
+            ? {
+                ranked: {
+                  span: spans[s.seat], players: r.players, quit, won, at: this.now(),
+                  rivals: r.seats.filter((o) => o.seat !== s.seat).map((o) => ({ mmr: mmrs.get(o.seat)!, place: spans[o.seat][0] })),
+                },
+              }
+            : {}),
         });
         x.progress = st.progress;
-        this.track({ kind: "game.online", userId: x.id, name: x.name, data: { gameId: r.gameId, roomId: r.roomId, seat: s.seat, players: r.players, stakes: r.stakes, won, abandoned: quit, payout: pay, xp: st.reward.xp, coins: st.reward.coins } });
+        this.track({ kind: "game.online", userId: x.id, name: x.name, data: { gameId: r.gameId, roomId: r.roomId, seat: s.seat, players: r.players, stakes: r.stakes, won, abandoned: quit, payout: pay, xp: st.reward.xp, coins: st.reward.coins, ...(st.reward.ranked ? { ranked: true, place: st.reward.ranked.place, rp: st.reward.ranked.rpAfter, rpDelta: st.reward.ranked.rpAfter - st.reward.ranked.rpBefore, mmr: st.reward.ranked.mmrAfter } : {}) } });
         return { reward: st.reward, me: this.me(x) };
       });
       out.set(s.userId, res);
@@ -576,15 +605,23 @@ export class AccountService {
   // ------------------------------------------------------------------ leaderboards
 
   async leaderboard(by: unknown): Promise<LeaderRow[]> {
-    const key = by === "level" || by === "wins" ? by : "winnings";
+    const key = by === "level" || by === "wins" || by === "ranked" ? by : "winnings";
     if (this.board && this.board.by === key && this.now() - this.board.at < 30_000) return this.board.rows;
     const rows = (await this.store.all())
       .filter((a) => a.progress.stats.games > 0 && a.logins.length > 0 && !this.banOf(a))
       .map((a): LeaderRow => {
         const p = upgrade(a.progress);
-        return { id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, xp: p.xp, wins: p.stats.wins, games: p.stats.games, winnings: p.stats.winnings, frame: p.equipped.frame };
+        const r = rankedPublic(p.ranked, this.now());
+        return {
+          id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, xp: p.xp, wins: p.stats.wins, games: p.stats.games, winnings: p.stats.winnings, frame: p.equipped.frame,
+          ...(r && r.games ? { rank: r.label, rp: r.rp, mmr: r.mmr } : {}),
+        };
       })
-      .sort((a, b) => (key === "level" ? b.prestige - a.prestige || b.xp - a.xp : key === "wins" ? b.wins - a.wins : b.winnings - a.winnings))
+      // the ranked board lists only players with a ranked game this season
+      .filter((r) => key !== "ranked" || r.rp !== undefined)
+      .sort((a, b) =>
+        key === "level" ? b.prestige - a.prestige || b.xp - a.xp : key === "wins" ? b.wins - a.wins : key === "ranked" ? b.rp! - a.rp! || b.mmr! - a.mmr! : b.winnings - a.winnings,
+      )
       .slice(0, 100);
     this.board = { at: this.now(), by: key, rows };
     return rows;
@@ -601,4 +638,8 @@ export interface LeaderRow {
   games: number;
   winnings: number;
   frame: string;
+  /** this season's rank, points and Ranked MMR (only after a ranked game this season) */
+  rank?: string;
+  rp?: number;
+  mmr?: number;
 }

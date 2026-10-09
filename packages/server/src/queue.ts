@@ -7,8 +7,11 @@
 // band of whoever has waited longest, and the band widens the longer they wait, so a busy queue groups
 // players of similar skill and a quiet one still deals. When the longest wait runs out, that player and
 // the closest-rated others in line sit down and bots (at the group's level) fill the rest.
+//
+// Ranked has its own lines, matched on Ranked MMR: always 6 people, and never bots. A ranked table only
+// deals once six are in line; the rating band still widens with the wait so a quiet queue still deals.
 
-import { botLevelFor } from "@heist/profile";
+import { RANKED_PLAYERS, botLevelFor } from "@heist/profile";
 import type { ErrorCode, ServerMsg } from "./protocol";
 import type { Clock, Conn, Room } from "./room";
 import type { Rooms } from "./rooms";
@@ -27,6 +30,7 @@ interface Waiter {
 }
 
 interface Line {
+  ranked: boolean;
   players: number;
   stakes: number;
   waiters: Waiter[];
@@ -53,8 +57,9 @@ export class Matchmaker {
     return this.where.size;
   }
 
-  /** `rating`: the player's hidden skill rating (1000 for anyone without one). */
-  join(conn: Conn, players: unknown, stakes: unknown, rating = 1000): ErrorCode | null {
+  /** `rating`: the player's hidden skill rating, or their Ranked MMR for a ranked line (1000 for anyone without one). */
+  join(conn: Conn, players: unknown, stakes: unknown, rating = 1000, ranked = false): ErrorCode | null {
+    if (ranked) players = RANKED_PLAYERS;
     if (typeof players !== "number" || !Number.isInteger(players) || players < 3 || players > 6) return "bad_message";
     if (typeof stakes !== "number" || !Number.isInteger(stakes) || stakes < 0 || stakes > 1_000_000) return "bad_message";
     this.leave(conn.id, false);
@@ -64,11 +69,11 @@ export class Matchmaker {
       const w = line?.waiters.find((x) => x.conn.id === id);
       if (w && w.conn.userId === conn.userId) this.leave(id);
     }
-    const key = `${players}:${stakes}`;
+    const key = `${ranked ? "r" : "c"}:${players}:${stakes}`;
     let line = this.lines.get(key);
     const now = this.clock.now();
     if (!line) {
-      line = { players, stakes, waiters: [], timer: null, startsAt: now + this.waitMs };
+      line = { ranked, players, stakes, waiters: [], timer: null, startsAt: now + this.waitMs };
       this.lines.set(key, line);
     }
     line.waiters.push({ conn, since: now, rating });
@@ -90,13 +95,15 @@ export class Matchmaker {
       const near = line.waiters
         .filter((w) => Math.abs(w.rating - first.rating) <= band)
         .sort((a, b) => (a === first ? -1 : b === first ? 1 : Math.abs(a.rating - first.rating) - Math.abs(b.rating - first.rating)));
-      if (near.length < line.players && waited < this.waitMs) break;
+      // casual tables deal short-handed once the wait is up (bots fill in); ranked ones never do
+      if (near.length < line.players && (line.ranked || waited < this.waitMs)) break;
       this.deal(line, near.slice(0, line.players));
     }
     if (!line.waiters.length) return this.drop(key, line);
     line.startsAt = line.waiters[0].since + this.waitMs;
     this.tell(line);
-    line.timer = this.clock.set(() => this.match(key, line), Math.max(0, Math.min(TICK_MS, line.startsAt - now)));
+    // ranked never runs out of wait, so it just looks again every tick as the band widens
+    line.timer = this.clock.set(() => this.match(key, line), line.ranked ? TICK_MS : Math.max(0, Math.min(TICK_MS, line.startsAt - now)));
   }
 
   /** Out of line: they asked, joined a table some other way, or their socket closed. */
@@ -126,7 +133,9 @@ export class Matchmaker {
 
   /** Everyone in this line hears how many are waiting and when the table starts regardless. */
   private tell(line: Line) {
-    const msg: ServerMsg = { t: "queue", players: line.players, stakes: line.stakes, waiting: line.waiters.length, startsAt: line.startsAt };
+    const msg: ServerMsg = {
+      t: "queue", players: line.players, stakes: line.stakes, waiting: line.waiters.length, startsAt: line.ranked ? 0 : line.startsAt, ...(line.ranked ? { ranked: true } : {}),
+    };
     for (const w of line.waiters) w.conn.send(msg);
   }
 
@@ -137,7 +146,7 @@ export class Matchmaker {
     const avg = group.reduce((t, w) => t + w.rating, 0) / group.length;
     const room = this.rooms.create({
       players: line.players, stakes: line.stakes, isPrivate: true, turnSeconds: 30,
-      rules: { bribes: false, placeCrew: false, openDeals: false }, botLevel: botLevelFor(avg),
+      rules: { bribes: false, placeCrew: false, openDeals: false }, botLevel: botLevelFor(avg), ranked: line.ranked,
     });
     if (!room) {
       for (const w of group) w.conn.send({ t: "error", code: "bad_state", msg: "The server is full right now. Try again in a minute." });
@@ -146,7 +155,7 @@ export class Matchmaker {
     const seated = group.filter((w) => this.seat(w.conn, room) === null);
     if (seated.length) {
       room.start(null);
-      this.log?.("quick table", { room: room.code, people: seated.length, players: line.players });
+      this.log?.(line.ranked ? "ranked table" : "quick table", { room: room.code, people: seated.length, players: line.players });
     }
   }
 }

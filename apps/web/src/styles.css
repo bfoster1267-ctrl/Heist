@@ -3206,3 +3206,51 @@ button:disabled {
   color: var(--muted);
   text-decoration: underline;
 }
+
+/* ------------------------------------------------------------------ Ranked at the table */
+.rank-tag {
+  margin-right: 5px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(231, 181, 60, 0.2);
+  color: var(--gold2);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.seat-name-btn {
+  all: unset;
+  cursor: pointer;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.35);
+  text-underline-offset: 3px;
+}
+.seat-name-btn:focus-visible {
+  outline: 2px solid var(--gold);
+}
+/* Ranked: a clean HUD. No explainer lines under the choices; the numbers stay. */
+.clean-hud .hint,
+.clean-hud .odds .dim {
+  display: none;
+}
+
+/* the Casual / Ranked switch in Play online */
+.mode-seg button {
+  font-size: 16px;
+  font-weight: 800;
+}
+.ranked-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(231, 181, 60, 0.1);
+  font-family: var(--cond);
+}
+.ranked-head b {
+  font-family: var(--title);
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: var(--gold2);
+}

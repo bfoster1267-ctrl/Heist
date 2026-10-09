@@ -96,4 +96,26 @@ describe("quick queue", () => {
     expect(mm.join(a, 7, 0)).toBe("bad_message");
     expect(mm.join(a, 4, -5)).toBe("bad_message");
   });
+
+  it("keeps ranked apart: six people, no bots, one game", () => {
+    const { mm, conn, rooms, clock } = setup();
+    const cs = [1, 2, 3, 4, 5, 6, 7].map(conn);
+    // a ranked line is always six seats, whatever size was asked for
+    expect(mm.join(cs[0], 3, 250, 1000, true)).toBeNull();
+    expect(cs[0].last("queue")).toMatchObject({ players: 6, ranked: true, startsAt: 0 });
+    mm.join(cs[6], 6, 250); // casual at the same size and stakes: a different line
+    for (const c of cs.slice(1, 5)) mm.join(c, 6, 250, 1000, true);
+    clock.advance(QUEUE_WAIT_MS * 3);
+    // the casual player got bots after the wait; the five ranked players are still waiting
+    expect(rooms.size).toBe(1);
+    expect(cs[6].last("room").room.ranked).toBe(false);
+    expect(mm.size).toBe(5);
+    mm.join(cs[5], 6, 250, 1000, true);
+    expect(rooms.size).toBe(2);
+    const room = cs[0].last("room").room;
+    expect(room).toMatchObject({ ranked: true, status: "playing", players: 6 });
+    expect(room.seats.every((x: { kind: string }) => x.kind === "human")).toBe(true);
+    const r = rooms.get(room.code)!;
+    expect(r.start(null)).toBe("bad_state"); // no rematch at a ranked table
+  });
 });

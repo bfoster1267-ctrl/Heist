@@ -264,6 +264,36 @@ describe("accounts", () => {
     expect(win.rating - 1000).toBeGreaterThan(1000 - lose.rating);
   });
 
+  it("locks Ranked until level 10 for signed-in players, then ranks a 6-seat table by finishing place", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const g = await svc.guest(undefined, "Guest");
+    expect(await svc.rankedLocked(g.me.id)).toMatch(/Sign in/);
+    const ps = await Promise.all([0, 1, 2, 3, 4, 5].map((i) => svc.register(`r${i}@example.com`, "password1", `R${i}`)));
+    expect(await svc.rankedLocked(ps[0].me.id)).toMatch(/level 10/);
+    for (const p of ps) {
+      const a = (await svc.store.get(p.me.id))!;
+      await svc.store.put({ ...a, progress: { ...a.progress, xp: 1_000_000 } });
+    }
+    expect(await svc.rankedLocked(ps[0].me.id)).toBeNull();
+    const out = await svc.recordOnline({
+      stakes: 100, players: 6, ranked: true,
+      seats: ps.map((p, seat) => ({ seat, userId: p.me.id, bot: false })),
+      winners: [0], abandoned: [5], events: [],
+      // seat 0 won; then seats 1..4 by Footholds and cash; seat 5 walked out
+      scores: [1e9, 4000, 3000, 2000, 1000, 9000],
+    });
+    const after = ps.map((p) => out.get(p.me.id)!);
+    expect(after.map((x) => x.reward.ranked!.place)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(after[1].me.progress.ranked!.rp).toBeGreaterThan(0); // second place gains rank
+    expect(after[0].me.progress.ranked!.mmr).toBeGreaterThan(1000);
+    expect(after[5].me.progress.ranked!.mmr).toBeLessThan(1000);
+    expect(after[0].me.progress.rating).toBe(1000); // ranked doesn't touch the hidden Casual rating
+    expect(await svc.rankedMmr(ps[0].me.id)).toBe(after[0].me.progress.ranked!.mmr);
+    const pub = await svc.publicProfile(ps[0].me.id);
+    expect(pub.ranked?.mmr).toBe(after[0].me.progress.ranked!.mmr);
+    expect(pub.stats.recent.length).toBe(1);
+  });
+
   it("keeps accounts in a file across restarts", async () => {
     const dir = mkdtempSync(join(tmpdir(), "heist-acct-"));
     dirs.push(dir);
@@ -294,6 +324,48 @@ describe("season packs", () => {
 });
 
 describe("accounts over HTTP and the game socket", () => {
+  it("plays a ranked table over sockets: locked below level 10, six people, rank points for everyone", async () => {
+    const accounts = new AccountService({ secret: "s", devLogins: true });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const dev = async (name: string) =>
+      (await (await fetch(`${base}/api/auth/dev`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) })).json()) as { token: string; me: { id: string } };
+    const people = await Promise.all(["A", "B", "C", "D", "E", "F"].map(dev));
+    const play = (token: string) => {
+      const c = new HeistClient(`ws://127.0.0.1:${srv.port()}/ws`, { token });
+      let view: GameState | null = null;
+      const seen: ServerMsg[] = [];
+      c.onAny((m) => {
+        seen.push(m);
+        if (m.t === "sync") view = m.state;
+        if (m.t === "frames" && m.frames.length) view = m.frames[m.frames.length - 1].state;
+        if (m.t === "ask" && view) c.answer(simpleAnswer(m.ask, view));
+      });
+      return { c, seen };
+    };
+    const ps = people.map((p) => play(p.token));
+    await Promise.all(ps.map((p) => p.c.connect()));
+    ps[0].c.queue(6, 0, true);
+    await until(() => ps[0].seen.some((m) => m.t === "error" && m.code === "ranked_locked"));
+    for (const p of people) {
+      const a = (await accounts.store.get(p.me.id))!;
+      await accounts.store.put({ ...a, progress: { ...a.progress, xp: 1_000_000 } });
+    }
+    for (const p of ps) p.c.queue(6, 0, true);
+    await until(() => ps.every((p) => p.seen.some((m) => m.t === "reward")), 30_000);
+    const room = ps[0].c.room!;
+    expect(room.ranked).toBe(true);
+    expect(room.seats.every((x) => x.kind === "human")).toBe(true);
+    const rewards = ps.map((p) => (p.seen.find((m) => m.t === "reward") as Extract<ServerMsg, { t: "reward" }>).reward);
+    expect(rewards.every((r) => r.ranked && r.ranked.players === 6)).toBe(true);
+    expect(rewards.map((r) => r.ranked!.place).sort()).toContain(1);
+    // no rematch at a ranked table
+    ps[0].c.start();
+    await until(() => ps[0].seen.some((m) => m.t === "error" && m.code === "bad_state"));
+    for (const p of ps) p.c.close();
+  }, 40_000);
+
   it("serves the API, settles an online game with XP and stats, and sells drinks for coins", async () => {
     const accounts = new AccountService({ secret: "s", devLogins: true });
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });

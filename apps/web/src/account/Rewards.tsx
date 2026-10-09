@@ -1,7 +1,10 @@
 // What a game earned: XP lines counting in, the XP bar filling (and bursting on a level-up), coins, and
 // anything newly unlocked. Slides in at the top so the table's own game-over buttons stay reachable.
 
-import { cosmetic, rankName, xpToNext, type Reward } from "@heist/profile";
+import { cosmetic, rankName, rankOf, xpToNext, type RankedResult, type Reward } from "@heist/profile";
+import { buzz } from "../haptics";
+import { reducedMotion } from "../prefs";
+import { lose as loseSound, win as winSound } from "../sound";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Coins } from "./bits";
@@ -25,7 +28,87 @@ export function Rewards({ onSave }: { onSave?: () => void }) {
     return () => clearTimeout(t);
   }, [reward, showReward, stay]);
 
-  return <AnimatePresence>{reward && <RewardCard key={JSON.stringify(reward.lines)} r={reward} onClose={() => showReward(null)} onSave={save} />}</AnimatePresence>;
+  // a new rank (up or down) gets its own full-screen moment before the usual card
+  const [moment, setMoment] = useState<RankedResult | null>(null);
+  useEffect(() => {
+    const r = reward?.ranked;
+    if (r && rankOf(r.rpBefore).label !== rankOf(r.rpAfter).label) setMoment(r);
+  }, [reward]);
+  return (
+    <>
+      <AnimatePresence>{reward && <RewardCard key={JSON.stringify(reward.lines)} r={reward} onClose={() => showReward(null)} onSave={save} />}</AnimatePresence>
+      <AnimatePresence>{moment && <RankMoment key="rank" r={moment} onClose={() => setMoment(null)} />}</AnimatePresence>
+    </>
+  );
+}
+
+const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
+
+/** Rank up or rank down: the badge, the new rank, and what moved it. Tap anywhere to close. */
+function RankMoment({ r, onClose }: { r: RankedResult; onClose: () => void }) {
+  const up = r.rpAfter > r.rpBefore;
+  const from = rankOf(r.rpBefore);
+  const to = rankOf(r.rpAfter);
+  const reduce = reducedMotion();
+  useEffect(() => {
+    buzz(up ? "win" : "alert");
+    if (up) winSound();
+    else loseSound();
+    const t = window.setTimeout(onClose, 6000);
+    return () => clearTimeout(t);
+  }, [up, onClose]);
+  return (
+    <motion.div className={"rank-moment " + (up ? "up" : "down")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} role="dialog" aria-label={up ? "Rank up" : "Rank down"}>
+      <motion.div className="rank-moment-kicker" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
+        {up ? "RANK UP" : "RANK DOWN"}
+      </motion.div>
+      <div className="rank-moment-badges">
+        <motion.div
+          className={`rank-badge tier-${from.tier} old`}
+          initial={{ scale: 1, opacity: 1 }}
+          animate={reduce ? { opacity: 0.35 } : up ? { scale: [1, 1.1, 0.7], opacity: [1, 1, 0.35] } : { rotate: [0, -4, 4, -8, 0], scale: [1, 1, 0.7], opacity: [1, 1, 0.35] }}
+          transition={{ duration: 0.9 }}
+        >
+          {from.label}
+        </motion.div>
+        <motion.span className="rank-moment-arrow" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
+          {up ? "▲" : "▼"}
+        </motion.span>
+        <motion.div
+          className={`rank-badge tier-${to.tier} new`}
+          initial={{ scale: reduce ? 1 : 0.2, opacity: 0 }}
+          animate={reduce ? { opacity: 1 } : { scale: [0.2, 1.25, 1], opacity: 1 }}
+          transition={{ delay: 0.8, duration: 0.7 }}
+        >
+          {up && !reduce && <span className="rank-burst" />}
+          {to.label}
+        </motion.div>
+      </div>
+      <motion.div className="rank-moment-line" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4 }}>
+        {signed(r.rpAfter - r.rpBefore)} RP · MMR {r.mmrAfter.toLocaleString()} ({signed(r.mmrAfter - r.mmrBefore)}) · finished {ordinal(r.place)} of {r.players}
+      </motion.div>
+      <div className="rank-moment-tap">Tap to continue</div>
+    </motion.div>
+  );
+}
+
+const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
+
+/** Every ranked game: place, points and MMR on the reward card. */
+function RankedStrip({ r }: { r: RankedResult }) {
+  const moved = r.rpAfter - r.rpBefore;
+  const to = rankOf(r.rpAfter);
+  return (
+    <div className={"acct-reward-ranked " + (moved > 0 ? "up" : moved < 0 ? "down" : "")}>
+      <span>
+        {ordinal(r.place)} of {r.players} · <b>{to.label}</b>
+      </span>
+      <span>
+        {signed(moved)} RP · MMR {r.mmrAfter.toLocaleString()} ({signed(r.mmrAfter - r.mmrBefore)})
+      </span>
+      {r.held && <span className="dim">{r.held === "tier" ? "Early-season protection held your tier" : "The Bronze floor held"}</span>}
+    </div>
+  );
 }
 
 function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; onSave?: () => void }) {
@@ -65,6 +148,7 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
           </motion.div>
         )}
       </AnimatePresence>
+      {r.ranked && <RankedStrip r={r.ranked} />}
       <ul className="acct-reward-lines">
         {r.lines.map((l, i) => (
           <motion.li key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.12 }}>

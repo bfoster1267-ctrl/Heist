@@ -80,6 +80,8 @@ export function Seat({
   showBank,
   away,
   cigar,
+  tag,
+  onName,
 }: {
   s: GameState;
   seat: number;
@@ -96,6 +98,10 @@ export function Seat({
   away?: "away" | "bot";
   /** your equipped cigar, resting by your avatar */
   cigar?: string;
+  /** online: the player's ranked rank this season, shown by their name */
+  tag?: string;
+  /** online: tap the name for the player's profile */
+  onName?: () => void;
 }) {
   const P = s.players[seat];
   const j = s.job;
@@ -141,7 +147,20 @@ export function Seat({
         </div>
         <div className="seat-id">
           <div className="seat-name">
-            {P.name}
+            {onName ? (
+              <button
+                className="seat-name-btn"
+                data-tip="See their profile"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onName();
+                }}
+              >
+                {P.name}
+              </button>
+            ) : (
+              P.name
+            )}
             {me && <span className="you-tag">YOU</span>}
             {away && (
               <span className="away-tag" data-tip={away === "bot" ? "A bot is playing this seat until they're back" : "Lost connection. Their seat is held."}>
@@ -150,6 +169,7 @@ export function Seat({
             )}
           </div>
           <div className="seat-role" data-tip-role={role?.id} tabIndex={role ? 0 : undefined}>
+            {tag && <span className="rank-tag">{tag}</span>}
             {/* "The Getaway Driver" doesn't fit next to the Footholds; the seat shows "Getaway Driver" */}
             {roleName(P.role).replace(/^The /, "")}
           </div>

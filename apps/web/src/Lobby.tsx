@@ -147,7 +147,7 @@ export function Lobby({
               Campaign <span className="dim">{Math.min(cleared, STAGES.length)}/{STAGES.length}</span>
             </button>
             <button className="btn ghost" disabled={!onOnline} onClick={() => onOnline?.(name.trim() || "Ace")}>
-              Play with friends
+              Play online
             </button>
           </div>
           <button className="btn ghost" onClick={coach} data-tip="A 3-player game against two easy bots, with a coach who explains every move. Free to play, small XP, doesn't count in your career.">

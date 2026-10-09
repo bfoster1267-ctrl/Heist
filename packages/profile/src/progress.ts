@@ -9,6 +9,7 @@ import { addPassXp, passLines, type PassResult, type PassState } from "./season"
 import { addCounts, type MistakeCounts } from "./coach";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
+import { playRanked, type RankedResult, type RankedState } from "./ranked";
 
 export const START_CHIPS = 10_000;
 /** Enough for one cheap cosmetic straight away. */
@@ -46,6 +47,8 @@ export interface Progress {
   ratedGames: number;
   /** campaign stages cleared */
   campaign: number;
+  /** Ranked: rank points, Ranked MMR and this season's record (null before the first ranked game) */
+  ranked: RankedState | null;
 }
 
 export function newProgress(): Progress {
@@ -53,7 +56,7 @@ export function newProgress(): Progress {
     chips: START_CHIPS, coins: START_COINS, xp: 0, prestige: 0, stats: emptyStats(), owned: [],
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
     mistakes: {}, coachGames: 0,
-    rating: START_RATING, ratedGames: 0, campaign: 0,
+    rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
   };
 }
 
@@ -81,7 +84,12 @@ export interface Reward {
   canPrestige: boolean;
   /** the season pass: XP earned, tiers reached and what they gave (null between seasons) */
   pass?: PassResult | null;
+  /** a ranked game: rank points and Ranked MMR before and after */
+  ranked?: RankedResult;
 }
+
+/** Ranked pays more than Casual: on top of the usual lines. */
+export const RANKED_BONUS = { xp: 60, coins: 15, topHalfXp: 40 };
 
 /** Work out XP and coins for a game. */
 export function rewardLines(r: GameResult, firstWinToday: boolean): RewardLine[] {
@@ -95,6 +103,10 @@ export function rewardLines(r: GameResult, firstWinToday: boolean): RewardLine[]
   if (s.jobsWon) lines.push({ label: `Jobs pulled off x${s.jobsWon}`, xp: 5 * Math.min(s.jobsWon, 10), coins: 0 });
   if (s.defenses) lines.push({ label: `Jobs fought off x${s.defenses}`, xp: 5 * Math.min(s.defenses, 10), coins: 0 });
   if (r.won && firstWinToday) lines.push({ label: "First win of the day", xp: 100, coins: 25 });
+  if (r.ranked) {
+    lines.push({ label: "Ranked game", xp: RANKED_BONUS.xp, coins: RANKED_BONUS.coins });
+    if (r.ranked.span[0] < r.players / 2) lines.push({ label: "Top-half finish", xp: RANKED_BONUS.topHalfXp, coins: 0 });
+  }
   return lines;
 }
 
@@ -113,6 +125,14 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
     lines.push({ label: `Cleared ${cleared.name}`, xp: cleared.xp, coins: cleared.coins });
     p.campaign = cleared.n;
     for (const id of cleared.items ?? []) if (!p.owned.includes(id)) p.owned.push(id);
+  }
+  // ranked: rank points and Ranked MMR (the hidden Casual rating doesn't move)
+  let ranked: RankedResult | undefined;
+  if (r.ranked) {
+    const g = playRanked(p.ranked, r.ranked);
+    p.ranked = g.state;
+    ranked = g.result;
+    if (ranked.seasonReward) lines.push({ label: `Season rank: ${ranked.seasonReward.label}`, xp: 0, coins: ranked.seasonReward.coins });
   }
   let xp = lines.reduce((t, l) => t + l.xp, 0);
   let coins = lines.reduce((t, l) => t + l.coins, 0);
@@ -133,7 +153,7 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
   p.chips += r.payout;
   p.stats = addGame(p.stats, r, xp);
   // coached games teach; they don't count toward skill
-  if (r.rivals?.length && !r.coached) {
+  if (r.rivals?.length && !r.coached && !r.ranked) {
     p.rating = rate(p.rating, p.ratedGames, r.won, r.rivals, r.quit);
     p.ratedGames++;
   }
@@ -144,7 +164,7 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
     reward: {
       xp, coins, lines, payout: r.payout,
       levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
-      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass, ...(ranked ? { ranked } : {}),
     },
   };
 }

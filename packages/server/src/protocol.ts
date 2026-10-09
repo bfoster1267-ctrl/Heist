@@ -45,6 +45,8 @@ export interface RoomInfo {
   botLevel: BotLevel;
   /** how many games this room has played (a rematch starts the next one) */
   games: number;
+  /** a ranked table: one game, people only, no coaching on the table */
+  ranked?: boolean;
 }
 
 export interface RoomSummary {
@@ -81,7 +83,7 @@ export type ClientMsg =
   | { t: "leave" }
   | { t: "list" }
   /** quick queue: get dealt into the next table of this size and stakes (bots fill seats after a wait) */
-  | { t: "queue"; players: number; stakes: number }
+  | { t: "queue"; players: number; stakes: number; ranked?: boolean }
   | { t: "unqueue" }
   | { t: "start" }
   /** a spectator takes a free seat (or a bot's chair) before the next game */
@@ -109,6 +111,7 @@ export type ErrorCode =
   | "no_chips"
   | "no_coins"
   | "suspended"
+  | "ranked_locked"
   | "version";
 
 export type ServerMsg =
@@ -134,7 +137,7 @@ export type ServerMsg =
   | { t: "reward"; game: number; reward: Reward; progress: Progress }
   | { t: "left" }
   /** you're in the quick queue: how many are waiting, and when the table starts regardless (epoch ms) */
-  | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number }
+  | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number; ranked?: boolean }
   | { t: "unqueued" }
   | { t: "error"; code: ErrorCode; msg: string }
   | { t: "pong"; n?: number; at: number };

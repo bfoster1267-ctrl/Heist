@@ -180,8 +180,8 @@ export class HeistClient {
     this.send({ t: "answer", askId: this.ask.askId, answer });
   }
   /** Quick queue: get dealt into the next table of this size and stakes. */
-  queue(players: number, stakes: number) {
-    this.send({ t: "queue", players, stakes });
+  queue(players: number, stakes: number, ranked = false) {
+    this.send({ t: "queue", players, stakes, ...(ranked ? { ranked: true } : {}) });
   }
   unqueue() {
     this.send({ t: "unqueue" });

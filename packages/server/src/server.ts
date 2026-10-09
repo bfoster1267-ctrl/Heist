@@ -250,7 +250,13 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         case "queue": {
           if (c.room?.status === "playing" && c.room.seatOf(conn.userId) !== null) return err("bad_state", "Finish or leave your game first");
           if (accounts && typeof m.stakes === "number" && !(await accounts.canAfford(conn.userId, m.stakes))) return err("no_chips", "Not enough chips for that table");
-          const e = queue.join(conn, m.players, m.stakes, accounts ? await accounts.rating(conn.userId) : undefined);
+          const ranked = m.ranked === true;
+          if (ranked) {
+            const why = accounts ? await accounts.rankedLocked(conn.userId) : "Ranked needs accounts on this server";
+            if (why) return err("ranked_locked", why);
+          }
+          const rating = accounts ? await (ranked ? accounts.rankedMmr(conn.userId) : accounts.rating(conn.userId)) : undefined;
+          const e = queue.join(conn, m.players, m.stakes, rating, ranked);
           if (e) return err(e, "Pick 3 to 6 players and a buy-in");
           return;
         }

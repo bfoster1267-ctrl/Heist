@@ -32,6 +32,8 @@ export interface GameStart {
   /** missing in logs written before optional rules existed: all off */
   rules?: RuleOptions;
   botLevel?: BotLevel;
+  /** a ranked table (missing: casual) */
+  ranked?: boolean;
   at: number;
 }
 
