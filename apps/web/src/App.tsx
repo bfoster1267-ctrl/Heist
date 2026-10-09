@@ -184,7 +184,7 @@ function Game() {
             onRefill={() => act((b) => b.refill())}
             onOnline={setOnline}
             cleared={me.progress.campaign ?? 0}
-            top={<ProfileChip me={me} onOpen={() => setProfile("career")} />}
+            newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
           />
           <div className="acct-corner">
             <ProfileChip me={me} onOpen={() => setProfile("career")} />

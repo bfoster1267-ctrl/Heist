@@ -124,6 +124,8 @@ export function Table({
   // Coached play: an answer held back because the coach spotted a rookie mistake in it
   const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
   useEffect(() => setHeld(null), [t.ask]);
+  // Coached play: the learner can wave the coach off and finish the game on their own
+  const [coachOff, setCoachOff] = useState(false);
   // Which part of the Boss's turn we're in, from the latest event (kept when an event doesn't say).
   const stepRef = useRef(0);
   const evNow = t.shown?.ev;
@@ -245,7 +247,7 @@ export function Table({
 
   if (!s) return <div className="loading">Shuffling…</div>;
   const ask = walk ? null : t.ask;
-  const coached = !!settings.coached && !watching;
+  const coached = !!settings.coached && !watching && !coachOff;
   /** Every answer from this seat goes through here, so Coached play can catch a mistake first. */
   const play = (a: Answer) => {
     if (coached && ask) {
@@ -464,10 +466,10 @@ export function Table({
                   t.answer(a);
                 }} />
               ) : (
-                !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} onPick={play} />
+                !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} onPick={play} onOff={() => setCoachOff(true)} />
               )
             ) : (
-              !clean && <Coach ask={ask} blocked={walk || !!s.winners} />
+              !clean && !coachOff && <Coach ask={ask} blocked={walk || !!s.winners} />
             )}
             {!t.ask && !s.winners && (
               <div className="waiting">

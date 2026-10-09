@@ -159,28 +159,6 @@
   text-transform: uppercase;
   letter-spacing: 0.8px;
 }
-/* on narrow screens the chip sits at the top of the lobby card instead of the corner */
-.acct-in-lobby {
-  display: none;
-}
-@media (max-width: 960px) {
-  .acct-corner {
-    display: none;
-  }
-  .acct-in-lobby {
-    display: block;
-  }
-  .acct-in-lobby .acct-chip {
-    width: 100%;
-    box-shadow: none;
-    background: rgba(255, 255, 255, 0.03);
-  }
-  .acct-in-lobby .acct-chip-body {
-    flex: 1;
-    width: auto;
-    min-width: 0;
-  }
-}
 
 /* ---------------------------------------------------------------- profile screen */
 .acct-screen {
@@ -1503,4 +1481,31 @@
 .rank-moment-tap {
   font-size: 12px;
   color: var(--muted);
+}
+.acct-corner {
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+}
+/* chips and coins sit together in the player card */
+.acct-chip-money {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+/* phone held sideways: a slimmer card */
+@media (max-height: 520px) {
+  .acct-chip {
+    padding: 5px 10px 5px 5px;
+    gap: 8px;
+  }
+  .acct-chip .acct-chip-body {
+    width: 110px;
+  }
+  .acct-chip-money {
+    gap: 3px;
+    font-size: 15px;
+  }
 }

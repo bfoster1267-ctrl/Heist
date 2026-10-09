@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -201,7 +201,8 @@ export class BrowserBackend implements Backend {
     const p = buyIn(this.save.progress, stakes);
     if (failed(p)) throw new BackendError(p.error);
     this.save.progress = p;
-    const seed = Math.floor(Math.random() * 2 ** 31);
+    const rand = () => Math.floor(Math.random() * 2 ** 31);
+    const seed = coached ? easySeed(rand, players, 16, 250) : rand();
     const levels = st || coached ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
     this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true, gentle: true } : {}) };
     this.write();

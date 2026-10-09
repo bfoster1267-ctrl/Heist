@@ -1,4 +1,4 @@
-// First-game help: a short walkthrough of the table, then one coach tip the first time each kind of
+// First-game help: a three-step walkthrough of the table, then one coach tip the first time each kind of
 // decision comes up. Both remember what you've seen; the settings menu can replay or turn them off.
 import type { Answer, Ask, GameState } from "@heist/engine";
 import { MISTAKES, coachTip, describePick, type MistakeId } from "@heist/profile";
@@ -18,33 +18,14 @@ const steps = (s: GameState): Step[] => [
     text: `Heist is a game of crews, jobs and betrayal. Plant ${s.target} Footholds in rival hideouts and the pot is yours.`,
   },
   {
-    anchor: "my-seat",
-    title: "This is you",
-    text: "Your crew live in your three hideouts. Rivals will try to move in. Hover or long-press anything on the table to see what it is.",
-  },
-  {
     anchor: "my-fh",
     title: "Footholds win the game",
     text: `A Foothold is one of your crew living in a rival's hideout. Fill these ${s.target} diamonds first and you win.`,
   },
   {
     anchor: "my-hand",
-    title: "Your Job cards",
-    text: "Scores and Fixers fight at the showdown. Backup and Double-Cross swing a fight. The green coin is the card's cash if you bank it.",
-  },
-  {
-    anchor: "deck",
-    title: "The Job deck",
-    text: "Each time it runs out a dot lights up. On the third, it's Last Call: the game ends after that turn.",
-  },
-  {
-    anchor: "pen",
-    title: "The Pen",
-    text: "Lose a fight and your crew land here. One comes home at the start of each of your turns.",
-  },
-  {
     title: "Your turn, in short",
-    text: "Draw, bank cards for cash, hire crew, then hit a rival: the Job deck flips to pick the Mark. Tips pop up the first time each choice comes up.",
+    text: "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is.",
   },
 ];
 
@@ -163,7 +144,7 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
 }
 
 /** Coached play: the coach's read of every decision, docked beside your action panel. */
-export function LiveCoach({ s, ask, pick, onPick }: { s: GameState; ask: Ask | null; pick: Answer | null; onPick: (a: Answer) => void }) {
+export function LiveCoach({ s, ask, pick, onPick, onOff }: { s: GameState; ask: Ask | null; pick: Answer | null; onPick: (a: Answer) => void; onOff: () => void }) {
   const tip = ask ? coachTip(s, ask) : "";
   const said = ask && pick ? describePick(s, ask, pick) : "";
   const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
@@ -171,7 +152,12 @@ export function LiveCoach({ s, ask, pick, onPick }: { s: GameState; ask: Ask | n
     <AnimatePresence>
       {tip && ask && (
         <motion.div key={JSON.stringify(ask)} ref={above} className={"coach live" + (ask.kind === "keepRole" ? " top" : "")} role="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-          <div className="coach-title">Coach</div>
+          <div className="coach-title">
+            Coach
+            <button className="coach-off" onClick={onOff}>
+              Skip coaching
+            </button>
+          </div>
           <div className="coach-text">{tip}</div>
           {said && pick && (
             <div className="coach-pick">
