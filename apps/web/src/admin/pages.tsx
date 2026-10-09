@@ -68,6 +68,7 @@ const WIDGETS: Widget[] = [
             <>
               {num(ac.signedUp)} signed up · <Link to="/players?show=all">{num(ac.total)} accounts in all</Link>
               {ac.yours > 0 && <> · {num(ac.yours)} of yours left out</>}
+              {!!ac.claude && <> · {num(ac.claude)} from Claude's testing left out</>}
               {ac.untrackedGuests > 0 && <> · {num(ac.untrackedGuests)} older guests can't be told apart</>}
             </>
           }
@@ -394,7 +395,7 @@ export function Players({ s, onAuth, query }: PageProps) {
         </select>
         <button className="btn primary">Search</button>
         <label className="toggle">
-          <input type="checkbox" checked={mine} onChange={(e) => go(qs({ mine: e.target.checked ? "1" : "", offset: 0 }))} /> Include mine
+          <input type="checkbox" checked={mine} onChange={(e) => go(qs({ mine: e.target.checked ? "1" : "", offset: 0 }))} /> Include mine and Claude's
         </label>
         {tag && (
           <button type="button" className="fam-chip on" onClick={() => go(qs({ tag: "", offset: 0 }))}>
@@ -426,6 +427,7 @@ function Badges({ r }: { r: AccountRow }) {
   return (
     <>
       {r.you && <span className="badge you">you</span>}
+      {r.claude && <span className="badge claude">Claude</span>}
       {r.personAccounts > 1 && <span className="badge note">+{r.personAccounts - 1} {r.personAccounts === 2 ? "account" : "accounts"}</span>}
       {r.banned && <span className="badge banned">suspended</span>}
       {r.flagged && <span className="badge flagged">⚑ flagged</span>}
@@ -728,7 +730,7 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
             return (
               <Fragment key={`${e.at}-${i}`}>
                 {head && <li className="day">{day(e.at)}</li>}
-                <li className={`ev ${e.ok === false ? "failed" : ""} ${open === i ? "open" : ""}`} onClick={() => setOpen(open === i ? null : i)}>
+                <li className={`ev ${e.ok === false ? "failed" : ""} ${e.claude ? "by-claude" : ""} ${open === i ? "open" : ""}`} onClick={() => setOpen(open === i ? null : i)}>
                   <time>{new Date(e.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</time>
                   <span className={`fam fam-${familyOf(e.kind)}`} title={e.kind} />
                   <span className="who">
@@ -739,7 +741,7 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
                     )}
                   </span>
                   <span className="what">
-                    <b>{labelOf(e.kind)}</b> <span className="detail">{detailOf(e)}</span>
+                    {e.claude && <span className="badge claude">Claude</span>} <b>{labelOf(e.kind)}</b> <span className="detail">{detailOf(e)}</span>
                     {e.ok === false && <span className="err"> failed: {e.error}</span>}
                   </span>
                   {d?.gameId ? (

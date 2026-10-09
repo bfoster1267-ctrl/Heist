@@ -108,6 +108,8 @@ export interface AccountRow {
   person: string;
   personAccounts: number;
   you: boolean;
+  /** made by Claude's own testing, not a player */
+  claude?: boolean;
 }
 
 export interface Crm {
@@ -199,6 +201,8 @@ export interface Overview {
     emptyGuests: number;
     /** accounts seen on your devices or address */
     yours: number;
+    /** accounts Claude made while testing, also left out */
+    claude?: number;
   };
   active: { day: number; week: number; month: number };
   economy: { chips: number; coins: number; packsBought: number; gamesPlayed: number; drinksSent: number };
@@ -215,6 +219,8 @@ export interface ActivityEvent {
   name?: string;
   ip?: string;
   source?: "app";
+  /** Claude's own testing, not a player */
+  claude?: boolean;
   ok?: boolean;
   error?: string;
   data?: Record<string, unknown>;

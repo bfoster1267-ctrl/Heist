@@ -7,7 +7,7 @@ import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
-import { Lobby, type LobbyChoice } from "./Lobby";
+import { Lobby, type LobbyChoice, type LobbyPage } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
 import { Table } from "./table/Table";
@@ -41,7 +41,7 @@ function Game() {
   const [table, setTable] = useState<Seated | null>(null);
   const [round, setRound] = useState(0);
   // the profile sheet and which tab it opens on (false = closed)
-  const [profile, setProfile] = useState<false | "career" | "account">(false);
+  const [profile, setProfile] = useState<false | LobbyPage | "account">(false);
   const finished = useRef(false);
   // online: the player's name, set while the friends lobby or an online table is open
   const [online, setOnline] = useState<string | null>(() =>
@@ -183,6 +183,7 @@ function Game() {
             onPlay={sit}
             onRefill={() => act((b) => b.refill())}
             onOnline={setOnline}
+            onOpen={setProfile}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
           />

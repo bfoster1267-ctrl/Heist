@@ -313,6 +313,35 @@ describe("admin panel API", () => {
     expect(detail.samePerson.length).toBe(1);
   });
 
+  it("labels Claude's own test visits and leaves them out of the player counts", async () => {
+    const accounts = new AccountService({ secret: "s" });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, admin: { user: "admin", password: "a-long-admin-password" }, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const call = async (path: string, body: object, headers: Record<string, string>, token?: string) =>
+      (await fetch(base + path, { method: "POST", headers: { "content-type": "application/json", ...headers, ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) })).json();
+    const get = async (path: string, token: string) => (await fetch(base + path, { headers: { authorization: `Bearer ${token}` } })).json();
+
+    // a real player, Claude's browser (marked install id), and a Claude script (marked user agent)
+    await call("/api/auth/guest", {}, { "x-forwarded-for": "7.7.7.7", "x-heist-device": "real-phone-01" });
+    const browser = await call("/api/auth/guest", {}, { "x-forwarded-for": "8.8.8.8", "x-heist-device": "claude-abc12345" });
+    await call("/api/track", { events: [{ kind: "tap", name: "Quick Play" }] }, { "x-forwarded-for": "8.8.8.8" }, browser.token);
+    await call("/api/auth/guest", {}, { "x-forwarded-for": "9.9.9.9", "user-agent": "Mozilla/5.0 HeistClaudeTest" });
+
+    const { token } = await call("/api/admin/login", { user: "admin", password: "a-long-admin-password" }, { "x-forwarded-for": "1.1.1.1" });
+    const ov = await get("/api/admin/overview", token);
+    expect(ov.accounts).toMatchObject({ total: 3, people: 1, yours: 0, claude: 2 });
+    expect(ov.active.day).toBe(1);
+    expect((await get("/api/admin/accounts?show=all", token)).rows.length).toBe(1);
+    const all = (await get("/api/admin/accounts?show=all&mine=1", token)).rows;
+    expect(all.filter((r: { claude: boolean }) => r.claude).length).toBe(2);
+    const events = (await get("/api/admin/activity?limit=50", token)).events as { kind: string; claude?: boolean; ip?: string }[];
+    // the tap carries no marker of its own, but it came from Claude's account
+    expect(events.find((e) => e.kind === "ui.tap")?.claude).toBe(true);
+    expect(events.filter((e) => e.kind === "auth.guest" && e.claude).length).toBe(2);
+    expect(events.find((e) => e.kind === "auth.guest" && e.ip === "7.7.7.7")?.claude).toBeUndefined();
+  });
+
   it("is off without an admin password", async () => {
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts: new AccountService({ secret: "s" }) });
     servers.push(srv);

@@ -3305,22 +3305,108 @@ button:disabled {
   text-underline-offset: 3px;
   padding: 4px 10px;
 }
+.lobby-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .lobby-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+/* three modes (a new player's Learn to play is the big button): the last one takes the whole row */
+.lobby-modes > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 .lobby-mode {
-  padding: 13px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: rgba(30, 33, 40, 0.92);
   border-color: rgba(255, 255, 255, 0.18);
+  text-align: left;
+}
+.lobby-mode .lobby-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  color: var(--gold2);
+}
+.lobby-mode-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lobby-mode-name {
   font-family: var(--cond);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 19px;
+  line-height: 1.1;
 }
-.lobby-mode .dim {
-  font-size: 16px;
+.lobby-mode-sub {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* the name in the top bar, between the gear and your card: only when the big logo doesn't fit */
+.lobby-topname {
+  display: none;
+  position: fixed;
+  z-index: 20;
+  top: calc(16px + env(safe-area-inset-top));
+  left: calc(70px + env(safe-area-inset-left));
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: 5px;
+}
+/* the player's own screens, one tap away along the bottom (they used to hide behind the player card) */
+.lobby {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+.lobby-dock {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(14, 16, 20, 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.lobby-dock button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 84px;
+  padding: 6px 10px 5px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+}
+.lobby-dock button:active {
+  background: rgba(231, 181, 60, 0.16);
+}
+.lobby-dock .lobby-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--gold2);
 }
 .lobby-gear {
   position: fixed;
@@ -3373,45 +3459,95 @@ button:disabled {
   font-size: 22px;
   padding: 4px 8px;
 }
-.lobby.big-text .lobby-mode {
+.lobby.big-text .lobby-mode-name {
   font-size: calc(20px * min(var(--ts), 1.3));
 }
 .lobby.big-text .lobby-sub,
 .lobby.big-text .lobby-change {
   font-size: calc(16px * min(var(--ts), 1.3));
 }
-/* the player card in the corner is wide: keep the lobby clear of it on short screens */
+/* A phone on its side (short screen). Like the big mobile card games: a top bar (settings, name, your
+   card), the main play button on the left with the other modes beside it, and your stuff along the bottom.
+   Everything fits on one screen, nothing scrolls. */
 @media (max-height: 520px) {
   .lobby {
-    padding-top: calc(92px + env(safe-area-inset-top));
-    place-items: start center;
+    padding: calc(76px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(66px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    place-items: center;
   }
   .lobby-main {
-    width: min(560px, 100%);
-    gap: 8px;
+    width: min(760px, 100%);
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    align-items: stretch;
+    gap: 10px 12px;
   }
   .lobby-main .logo {
     display: none;
   }
+  .lobby-topname {
+    display: block;
+  }
+  .lobby-hero {
+    gap: 8px;
+    justify-content: center;
+  }
   .lobby-big {
-    font-size: 32px;
-    padding: 10px 14px 9px;
+    font-size: 30px;
+    padding: 9px 12px 8px;
   }
   .lobby-big:not(.primary) {
     font-size: 24px;
   }
+  .lobby-sub {
+    font-size: 14px;
+  }
+  .lobby-change {
+    margin-top: -2px;
+    font-size: 15px;
+    padding: 2px 10px;
+  }
   .lobby-modes {
-    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+    grid-auto-rows: 1fr;
   }
   .lobby-mode {
-    padding: 11px 6px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .lobby-mode .lobby-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .lobby-mode-name {
     font-size: 17px;
+  }
+  .lobby-mode-sub {
+    font-size: 12px;
+  }
+  /* no room sideways for the install nudge and the small print (both still show on bigger screens) */
+  .lobby-main .install,
+  .lobby-main .fine {
+    display: none;
   }
   .lobby-gear {
     width: 44px;
     height: 44px;
     font-size: 24px;
+  }
+  .lobby-dock {
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    padding: 3px;
+  }
+  .lobby-dock button {
+    flex-direction: row;
+    gap: 6px;
+    min-width: 0;
+    padding: 7px 12px;
+    font-size: 14px;
+  }
+  .lobby-dock .lobby-icon {
+    width: 20px;
+    height: 20px;
   }
   .lobby-sheet {
     gap: 10px;

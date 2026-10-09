@@ -30,11 +30,15 @@ export interface LobbyChoice {
   coached?: boolean;
 }
 
+/** the player's own screens, opened from the bar along the bottom */
+export type LobbyPage = "career" | "season" | "shop" | "board";
+
 export function Lobby({
   chips,
   onPlay,
   onRefill,
   onOnline,
+  onOpen,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -43,6 +47,7 @@ export function Lobby({
   onPlay: (c: LobbyChoice) => void;
   onRefill: () => void;
   onOnline?: (name: string) => void;
+  onOpen?: (page: LobbyPage) => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -103,9 +108,13 @@ export function Lobby({
       <button className="lobby-gear" onClick={() => setSettings(true)} aria-label="Settings">
         ⚙
       </button>
+      <div className="logo lobby-topname" aria-hidden="true">
+        HEIST
+      </div>
       <motion.div className="lobby-main" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
         <div className="logo">HEIST</div>
 
+        <div className="lobby-hero">
         {newbie && (
           <button className="btn primary lobby-big" onClick={coach}>
             Learn to play
@@ -128,22 +137,13 @@ export function Lobby({
         <button className="lobby-change" onClick={() => setOptions(true)}>
           Change table
         </button>
+        </div>
 
         <div className="lobby-modes">
-          {!newbie && (
-            <button className="btn lobby-mode" onClick={coach}>
-              Learn to play
-            </button>
-          )}
-          <button className="btn lobby-mode" disabled={!onOnline} onClick={() => onOnline?.(nm())}>
-            Play online
-          </button>
-          <button className="btn lobby-mode" onClick={() => setCamp(true)}>
-            Campaign <span className="dim">{Math.min(cleared, STAGES.length)}/{STAGES.length}</span>
-          </button>
-          <button className="btn lobby-mode" onClick={() => setRules(true)}>
-            How to play
-          </button>
+          {!newbie && <Mode icon="coach" label="Learn to play" sub="Free game with a coach" onClick={coach} />}
+          <Mode icon="online" label="Play online" sub="Real people" disabled={!onOnline} onClick={() => onOnline?.(nm())} />
+          <Mode icon="map" label="Campaign" sub={`${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} onClick={() => setCamp(true)} />
+          <Mode icon="book" label="How to play" sub="The rules" onClick={() => setRules(true)} />
         </div>
         <InstallHint />
         <div className="fine">
@@ -153,6 +153,17 @@ export function Lobby({
           </a>
         </div>
       </motion.div>
+
+      {onOpen && (
+        <nav className="lobby-dock" aria-label="Your stuff">
+          {DOCK.map(([page, label]) => (
+            <button key={page} onClick={() => onOpen(page)}>
+              <Icon name={page} />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       <AnimatePresence>
         {options && (
@@ -216,6 +227,51 @@ export function Lobby({
       <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
       <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
     </div>
+  );
+}
+
+const DOCK: [LobbyPage, string][] = [
+  ["season", "Season pass"],
+  ["shop", "Shop"],
+  ["board", "Leaders"],
+  ["career", "Career"],
+];
+
+/** One of the lobby's ways to play: an icon, a name, and a line saying what it is. */
+function Mode({ icon, label, sub, onClick, disabled }: { icon: string; label: string; sub: string; onClick: () => void; disabled?: boolean }) {
+  return (
+    <button className="btn lobby-mode" onClick={onClick} disabled={disabled}>
+      <Icon name={icon} />
+      <span className="lobby-mode-text">
+        <span className="lobby-mode-name">{label}</span>
+        <span className="lobby-mode-sub">{sub}</span>
+      </span>
+    </button>
+  );
+}
+
+/** Small line icons for the lobby (they take the text color). */
+function Icon({ name }: { name: string }) {
+  const paths: Record<string, ReactNode> = {
+    coach: <path d="M12 3 2 8l10 5 10-5-10-5ZM6 10v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5M22 8v6" />,
+    online: (
+      <>
+        <circle cx="8" cy="8" r="3" />
+        <circle cx="17" cy="9" r="2.5" />
+        <path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 15.5c.9-.6 1.9-.9 3-.9 2.8 0 5 2.2 5 5" />
+      </>
+    ),
+    map: <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14" />,
+    book: <path d="M4 5c2.5-1.3 5.5-1.3 8 0v15c-2.5-1.3-5.5-1.3-8 0V5ZM12 5c2.5-1.3 5.5-1.3 8 0v15c-2.5-1.3-5.5-1.3-8 0" />,
+    season: <path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V7ZM10 7v10" />,
+    shop: <path d="M5 8h14l-1 12H6L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />,
+    board: <path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H4c0 3 1.5 5 4 5M16 6h4c0 3-1.5 5-4 5M12 13v4M8 20h8" />,
+    career: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  };
+  return (
+    <svg className="lobby-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {paths[name]}
+    </svg>
   );
 }
 

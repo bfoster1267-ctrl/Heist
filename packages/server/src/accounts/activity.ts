@@ -25,6 +25,8 @@ export interface ActivityEvent {
   device?: string;
   /** "app" for things the app reports about itself (screens, taps); everything else comes from the server */
   source?: "app";
+  /** "claude" when Claude's own testing sent it (not a player) */
+  tester?: "claude";
   ok?: boolean;
   /** the error shown, when the action failed */
   error?: string;
@@ -74,6 +76,13 @@ export interface ActivityLog {
   solo(gameId: string): SoloRecord | undefined;
   flush(): Promise<void>;
 }
+
+/**
+ * Claude's own test visits. Claude's browsers send a user agent with "HeistClaude" in it and an install id
+ * that starts with "claude-", so the admin panel can label them and leave them out of the player counts.
+ */
+export const CLAUDE_UA = "HeistClaude";
+export const byClaude = (e: ActivityEvent) => e.tester === "claude" || !!e.device?.startsWith("claude-");
 
 /** something the owner did to a player's account (it names the player but isn't the player being active) */
 export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");

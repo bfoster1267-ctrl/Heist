@@ -621,6 +621,9 @@ h4 {
 .ev .err {
   color: var(--red);
 }
+.ev.by-claude {
+  opacity: 0.6;
+}
 .ev.failed .what b {
   color: #ffb4a3;
 }
@@ -954,6 +957,10 @@ h4 {
   margin-left: 4px;
   background: rgba(231, 181, 60, 0.14);
   color: var(--gold2);
+}
+.badge.claude {
+  background: rgba(217, 119, 87, 0.2);
+  color: #f0a68a;
 }
 .badge.banned {
   background: rgba(224, 102, 76, 0.22);
