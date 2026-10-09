@@ -12,10 +12,12 @@
 //   WEB_DIR         a built web app to serve at / (the Docker image sets this)
 //   ADMIN_PASSWORD  turns on the admin panel at /admin (sign in with ADMIN_USER, default "admin")
 //   ADMIN_USER      the admin panel's username
+//   RENDER_API_KEY  a Render API key: the admin panel's Server page shows Render's CPU, memory, traffic and deploys
 //   DEV_LOGINS=1    sign in by name with no password (local testing only)
 
 import { AccountService } from "./accounts/service";
 import { FileActivityLog } from "./accounts/activity";
+import { Hosting } from "./accounts/hosting";
 import { FileAccountStore } from "./accounts/store";
 import { startServer } from "./server";
 import { FileStore } from "./store";
@@ -50,6 +52,7 @@ const server = await startServer({
   webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
   admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET } : undefined,
+  hosting: new Hosting({ dataDir, renderKey: env.RENDER_API_KEY || undefined, serviceId: env.RENDER_SERVICE_ID || undefined, plan: "starter", diskGb: 1 }),
   queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),

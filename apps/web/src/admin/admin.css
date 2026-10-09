@@ -1098,3 +1098,71 @@ h4 {
   background: rgba(90, 169, 230, 0.2);
   color: #a9d3f5;
 }
+
+/* ---------------------------------------------------------------- server */
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 12px;
+}
+.kv {
+  width: 100%;
+  border-collapse: collapse;
+}
+.kv td {
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hair);
+}
+.kv td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.kv tr.sum td {
+  font-weight: 700;
+  color: var(--gold2);
+}
+.connect ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: grid;
+  gap: 6px;
+}
+.deploys {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.deploys li {
+  display: grid;
+  grid-template-columns: 110px 64px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--hair);
+}
+.deploys .msg {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pill.deploy-live {
+  color: #a9e8b5;
+}
+.pill.deploy-build_failed,
+.pill.deploy-update_failed,
+.pill.deploy-canceled,
+.pill.deploy-pre_deploy_failed {
+  color: #ffb4a3;
+}
+.pill.deploy-deactivated {
+  color: var(--muted);
+}
+@media (max-width: 560px) {
+  .deploys li {
+    grid-template-columns: auto 1fr;
+  }
+  .deploys .msg {
+    grid-column: 1 / -1;
+  }
+}

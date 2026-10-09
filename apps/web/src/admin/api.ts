@@ -124,6 +124,43 @@ export interface Live {
   rooms: RoomInfo[];
 }
 
+export type Point = { at: number; value: number };
+export type Metric = { unit: string | null; points: Point[] } | null;
+export interface Deploy {
+  id: string;
+  status: string;
+  trigger: string | null;
+  commit: string | null;
+  message: string | null;
+  createdAt: number | null;
+  finishedAt: number | null;
+}
+export interface ServerReport {
+  at: number;
+  self: {
+    startedAt: number;
+    uptimeS: number;
+    rssMb: number;
+    heapMb: number;
+    node: string;
+    commit: string | null;
+    branch: string | null;
+    instance: string | null;
+    samples: { at: number; cpu: number; rssMb: number; heapMb: number; sockets: number }[];
+  };
+  disk: { totalMb: number | null; freeMb: number | null; parts: { name: string; mb: number; files: number }[] } | null;
+  render:
+    | { connected: false; missing?: "key" | "service"; error?: string }
+    | {
+        connected: true;
+        service: { name: string | null; plan: string | null; region: string | null; url: string | null; instances: number | null; suspended: string | null; dashboard: string | null; diskGb: number | null; updatedAt: string | null };
+        deploys: Deploy[];
+        metrics: { cpu: Metric; memory: Metric; memoryLimit: Metric; cpuLimit: Metric; requests: Metric; bandwidth: Metric };
+      };
+  cost: { plan: string; service: number | null; disk: number; monthly: number | null; soFar: number | null };
+  live: Live;
+}
+
 export interface Overview {
   at: number;
   accounts: {
