@@ -10,6 +10,8 @@ interface AccountCtx {
   me: Me | null;
   /** the account couldn't load (server unreachable after retries) */
   failed: boolean;
+  /** the account is suspended: the reason the server gave */
+  suspended: string | null;
   /** the last error from an action, for a toast */
   error: string | null;
   clearError(): void;
@@ -28,16 +30,19 @@ export function AccountProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [reward, showReward] = useState<Reward | null>(null);
   const [failed, setFailed] = useState(false);
+  const [suspended, setSuspended] = useState<string | null>(null);
+  const banned = (e: unknown) => e instanceof BackendError && e.status === 403 && /suspended/i.test(e.message) && (setSuspended(e.message), true);
 
   useEffect(() => {
     let live = true;
     openBackend().then(
       async (b) => {
-        const m = await b.me().catch(() => null);
+        let out = false;
+        const m = await b.me().catch((e) => ((out = !!banned(e)), null));
         if (!live) return;
         setBackend(b);
         setMe(m);
-        setFailed(!m);
+        setFailed(!m && !out);
       },
       () => live && setFailed(true),
     );
@@ -54,6 +59,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         setMe("me" in r && typeof r.me === "object" ? (r as { me: Me }).me : (r as Me));
         return r;
       } catch (e) {
+        if (banned(e)) return null;
         // inline: the caller shows the message next to its own form instead of a toast
         if (o?.inline) throw e instanceof BackendError ? e : new BackendError("Couldn't reach the game server. Try again in a moment.");
         setError(e instanceof BackendError ? e.message : "Couldn't reach the game server. Try again in a moment.");
@@ -70,7 +76,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     return () => clearTimeout(t);
   }, [error]);
 
-  const value = useMemo(() => ({ backend, me, failed, error, clearError: () => setError(null), act, reward, showReward }), [backend, me, failed, error, act, reward]);
+  const value = useMemo(() => ({ backend, me, failed, suspended, error, clearError: () => setError(null), act, reward, showReward }), [backend, me, failed, suspended, error, act, reward]);
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

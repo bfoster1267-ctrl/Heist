@@ -939,3 +939,157 @@ h4 {
     display: none;
   }
 }
+
+/* ---------------------------------------------------------------- the owner's file on a player */
+.badge {
+  display: inline-block;
+  vertical-align: middle;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 1px 7px;
+  border-radius: 999px;
+  margin-left: 4px;
+  background: rgba(231, 181, 60, 0.14);
+  color: var(--gold2);
+}
+.badge.banned {
+  background: rgba(224, 102, 76, 0.22);
+  color: #ffb4a3;
+}
+.badge.flagged {
+  background: rgba(194, 124, 224, 0.2);
+  color: #e0b8f0;
+}
+.badge.note {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+}
+.player-head h2 .badge {
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.crm.is-banned {
+  border-color: rgba(224, 102, 76, 0.6);
+}
+.crm.is-flagged {
+  border-color: rgba(194, 124, 224, 0.5);
+}
+.crm-status {
+  display: grid;
+  gap: 8px;
+}
+.status-box {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+.status-box .btn {
+  margin-left: auto;
+}
+.status-box.banned {
+  background: rgba(224, 102, 76, 0.14);
+  border: 1px solid rgba(224, 102, 76, 0.5);
+}
+.status-box.flagged {
+  background: rgba(194, 124, 224, 0.12);
+  border: 1px solid rgba(194, 124, 224, 0.45);
+}
+.status-box.banning {
+  display: grid;
+  background: rgba(224, 102, 76, 0.08);
+  border: 1px solid rgba(224, 102, 76, 0.4);
+}
+.status-box.banning .btn {
+  margin-left: 0;
+}
+.seg-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.btn.danger {
+  background: linear-gradient(180deg, #b23a24, #7e2414);
+  border-color: #e0664c;
+}
+.crm-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  padding: 3px 4px 3px 10px;
+  background: rgba(231, 181, 60, 0.14);
+}
+.crm-tag a {
+  color: var(--gold2);
+}
+.crm-tag button {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  padding: 0 4px;
+}
+.chips-row.suggest {
+  margin-top: 8px;
+  align-items: center;
+}
+.chips-row.suggest .fam-chip {
+  font-size: 13px;
+  padding: 3px 9px;
+}
+.tag-input {
+  width: 130px;
+  padding: 4px 10px;
+  font-size: 14px;
+  border-radius: 999px;
+}
+.note-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.note-form textarea {
+  flex: 1;
+  font: inherit;
+  font-size: 16px;
+  color: var(--paper);
+  background: var(--ink2);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 8px 10px;
+  resize: vertical;
+  min-height: 44px;
+}
+.notes {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.notes li {
+  background: rgba(246, 215, 122, 0.06);
+  border-left: 3px solid var(--gold);
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+.note-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+.note-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.same-ip {
+  margin-top: 8px;
+}

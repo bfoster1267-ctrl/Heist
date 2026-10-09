@@ -108,6 +108,7 @@ export type ErrorCode =
   | "bad_state"
   | "no_chips"
   | "no_coins"
+  | "suspended"
   | "version";
 
 export type ServerMsg =

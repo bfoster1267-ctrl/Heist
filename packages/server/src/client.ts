@@ -82,6 +82,11 @@ export class HeistClient {
           // back after a drop: rejoin the table and pick up after the last frame we played
           if (this.room) this.send({ t: "join", code: this.room.code, spectate: this.spectating, since: this.game ? this.nextFrame : undefined });
         }
+        // a suspended account is turned away for good: stop trying to reconnect
+        if (m.t === "error" && m.code === "suspended") {
+          this.closed = true;
+          if (!welcomed) reject(new Error(m.msg));
+        }
         this.receive(m);
       };
       ws.onerror = () => {

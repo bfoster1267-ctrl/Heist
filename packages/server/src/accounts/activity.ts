@@ -73,6 +73,9 @@ export interface ActivityLog {
   flush(): Promise<void>;
 }
 
+/** something the owner did to a player's account (it names the player but isn't the player being active) */
+export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");
+
 const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
   if (q.userId && e.userId !== q.userId) return false;
   if (q.before !== undefined && e.at >= q.before) return false;
@@ -97,7 +100,7 @@ export class MemoryActivityLog implements ActivityLog {
   protected remember(e: ActivityEvent) {
     this.events.push(e);
     if (this.events.length > this.keep * 1.1) this.events.splice(0, this.events.length - this.keep);
-    if (e.userId) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
+    if (e.userId && !byOwner(e)) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
   }
 
   query(q: ActivityQuery): ActivityEvent[] {
@@ -170,7 +173,7 @@ export class FileActivityLog extends MemoryActivityLog {
       n += evs.length;
     }
     // last-seen times for players who only show up in older months
-    for (let j = 0; j <= i; j++) for (const e of this.read(files[j])) if (e.userId) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
+    for (let j = 0; j <= i; j++) for (const e of this.read(files[j])) if (e.userId && !byOwner(e)) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
     for (const evs of loaded) for (const e of evs) this.remember(e);
   }
 

@@ -47,6 +47,23 @@ export interface Account {
   solo: SoloGame | null;
   /** bumping this signs the account out everywhere */
   sessions: number;
+  /** the owner's notes, tags, flag and ban (admin panel only; never sent to the player) */
+  crm?: Crm;
+}
+
+export interface CrmNote {
+  id: string;
+  at: number;
+  text: string;
+}
+
+export interface Crm {
+  notes: CrmNote[];
+  tags: string[];
+  /** marked for a closer look, with why */
+  flag: { reason: string; at: number } | null;
+  /** suspended: can't sign in or play until `until` (null: for good) */
+  ban: { reason: string; at: number; until: number | null } | null;
 }
 
 export interface AccountStore {

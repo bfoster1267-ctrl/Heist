@@ -172,6 +172,65 @@ describe("admin panel API", () => {
     expect(logins.map((e: { ok: boolean }) => e.ok)).toEqual([true, false]);
   }, 30_000);
 
+  it("keeps notes, tags and flags on a player, and a suspension locks them out until it's lifted", async () => {
+    const accounts = new AccountService({ secret: "s" });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, admin: { user: "admin", password: "a-long-admin-password" } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const call = async (method: string, path: string, body?: object, token?: string) => {
+      const r = await fetch(base + path, {
+        method, headers: { "content-type": "application/json", ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined,
+      });
+      return { status: r.status, body: await r.json() };
+    };
+    const sam = (await call("POST", "/api/auth/register", { email: "sam@x.com", password: "sams-password", name: "Sam" })).body;
+    const { token } = (await call("POST", "/api/admin/login", { user: "admin", password: "a-long-admin-password" })).body;
+    const admin = (path: string, body: object) => call("POST", `/api/admin/accounts/${sam.me.id}/${path}`, body, token);
+    const seenBefore = (await call("GET", `/api/admin/accounts/${sam.me.id}`, undefined, token)).body.row.lastSeen;
+
+    expect((await call("POST", `/api/admin/accounts/${sam.me.id}/note`, { text: "hi" }, sam.token)).status).toBe(401); // players can't
+    await admin("note", { text: "Asked about refunds in chat" });
+    const n = (await admin("note", { text: "Second note" })).body.crm.notes;
+    expect(n.map((x: { text: string }) => x.text)).toEqual(["Second note", "Asked about refunds in chat"]);
+    await admin("unnote", { id: n[0].id });
+    await admin("tags", { tags: ["VIP", "tester", "VIP", "", 5] });
+    await admin("flag", { reason: "Wins too often" });
+
+    let one = (await call("GET", `/api/admin/accounts/${sam.me.id}`, undefined, token)).body;
+    expect(one.account.crm).toMatchObject({ tags: ["VIP", "tester"], flag: { reason: "Wins too often" }, notes: [{ text: "Asked about refunds in chat" }] });
+    expect(one.row).toMatchObject({ flagged: true, banned: false, notes: 1, lastSeen: seenBefore }); // the owner's edits aren't the player being active
+    expect((await call("GET", `/api/me`, undefined, sam.token)).body).not.toHaveProperty("crm");
+    expect((await call("GET", `/api/admin/accounts?tag=vip`, undefined, token)).body.rows).toHaveLength(1);
+    expect((await call("GET", `/api/admin/accounts?show=flagged`, undefined, token)).body.rows).toHaveLength(1);
+
+    // suspended: dropped from the table socket, locked out of the API and sign-in, off the leaderboard
+    const c = new HeistClient(`ws://127.0.0.1:${srv.port()}/ws`, { token: sam.token });
+    const seen: ServerMsg[] = [];
+    c.onAny((m) => seen.push(m));
+    await c.connect();
+    await admin("ban", { reason: "Chip farming", days: 7 });
+    await until(() => seen.some((m) => m.t === "error" && m.code === "suspended"));
+    const me = await call("GET", "/api/me", undefined, sam.token);
+    expect(me.status).toBe(403);
+    expect(me.body.error).toMatch(/suspended until .*Chip farming/);
+    expect((await call("POST", "/api/auth/login", { email: "sam@x.com", password: "sams-password" })).status).toBe(403);
+    expect((await call("GET", `/api/admin/accounts?show=banned`, undefined, token)).body.rows).toHaveLength(1);
+    const again = new HeistClient(`ws://127.0.0.1:${srv.port()}/ws`, { token: sam.token });
+    const seen2: ServerMsg[] = [];
+    again.onAny((m) => seen2.push(m));
+    void again.connect().catch(() => {});
+    await until(() => seen2.some((m) => m.t === "error" && m.code === "suspended"));
+    again.close();
+    c.close();
+
+    await admin("ban", { days: 0 });
+    expect((await call("GET", "/api/me", undefined, sam.token)).status).toBe(200);
+    one = (await call("GET", `/api/admin/accounts/${sam.me.id}`, undefined, token)).body;
+    expect(one.account.crm.ban).toBeNull();
+    const log = (await call("GET", `/api/admin/activity?user=${sam.me.id}&kinds=admin.`, undefined, token)).body.events.map((e: { kind: string }) => e.kind);
+    expect(log).toEqual(["admin.ban", "admin.ban", "admin.flag", "admin.tags", "admin.unnote", "admin.note", "admin.note"]);
+  }, 20_000);
+
   it("is off without an admin password", async () => {
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts: new AccountService({ secret: "s" }) });
     servers.push(srv);

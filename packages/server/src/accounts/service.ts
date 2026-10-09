@@ -12,7 +12,7 @@ import { cleanName, type Identity, type IdentityProvider } from "../identity";
 import { sanitizeAnswer } from "../sanitize";
 import { OAuth, OAuthError, type OAuthConfig } from "./oauth";
 import { MemoryActivityLog, type ActivityEvent, type ActivityLog } from "./activity";
-import { MemoryAccountStore, type Account, type AccountStore, type Login, type Provider } from "./store";
+import { MemoryAccountStore, type Account, type Crm, type AccountStore, type Login, type Provider } from "./store";
 import { Tokens, checkPassword, hashPassword } from "./tokens";
 
 export class ApiError extends Error {
@@ -130,7 +130,22 @@ export class AccountService {
     };
   }
 
+  /** The account's suspension, if one is in force. */
+  banOf(a: Account) {
+    const b = a.crm?.ban;
+    return b && (b.until === null || b.until > this.now()) ? b : null;
+  }
+
+  /** Stop a suspended account at the door, with a reason it can show. */
+  private checkBan(a: Account) {
+    const b = this.banOf(a);
+    if (!b) return;
+    const until = b.until === null ? "" : ` until ${new Date(b.until).toUTCString().slice(5, 22)} UTC`;
+    throw new ApiError(403, `This account is suspended${until}.${b.reason ? ` Reason: ${b.reason}` : ""}`);
+  }
+
   private session(a: Account) {
+    this.checkBan(a);
     return { token: this.tokens.issue(a.id, a.sessions, this.now()), me: this.me(a) };
   }
 
@@ -145,6 +160,7 @@ export class AccountService {
   async require(token: unknown): Promise<Account> {
     const a = await this.fromToken(token);
     if (!a) throw new ApiError(401, "Please sign in again");
+    this.checkBan(a);
     return a;
   }
 
@@ -160,6 +176,7 @@ export class AccountService {
     return {
       authenticate: async (token, name): Promise<Identity> => {
         const a = (await this.fromToken(token)) ?? (await this.create(name ?? "", true));
+        this.checkBan(a);
         this.badges.set(a.id, badgeOf(upgrade(a.progress)));
         return { userId: a.id, name: a.name, token: this.tokens.issue(a.id, a.sessions, this.now()) };
       },
@@ -494,13 +511,68 @@ export class AccountService {
     return { players: all.length, coachGames: all.reduce((t, p) => t + p.coachGames, 0), counts };
   }
 
+  // ------------------------------------------------------------------ the owner's notes on a player (admin panel)
+
+  /** called when an account is suspended, so the game server can drop its sockets */
+  onBan?: (userId: string) => void;
+
+  private crm(id: string, fn: (c: Crm, a: Account) => void) {
+    return this.update(id, (a) => {
+      a.crm ??= { notes: [], tags: [], flag: null, ban: null };
+      fn(a.crm, a);
+      return a.crm;
+    });
+  }
+
+  addNote(id: string, text: unknown) {
+    const t = typeof text === "string" ? text.trim().slice(0, 2000) : "";
+    if (!t) throw new ApiError(400, "Write something first");
+    return this.crm(id, (c) => {
+      c.notes.unshift({ id: randomBytes(6).toString("base64url"), at: this.now(), text: t });
+      c.notes.splice(500);
+    });
+  }
+
+  deleteNote(id: string, noteId: unknown) {
+    return this.crm(id, (c) => void (c.notes = c.notes.filter((n) => n.id !== noteId)));
+  }
+
+  setTags(id: string, tags: unknown) {
+    if (!Array.isArray(tags)) throw new ApiError(400, "Tags must be a list");
+    const clean = [...new Set(tags.filter((t): t is string => typeof t === "string").map((t) => t.trim().slice(0, 24)).filter(Boolean))].slice(0, 20);
+    return this.crm(id, (c) => void (c.tags = clean));
+  }
+
+  setFlag(id: string, reason: unknown) {
+    return this.crm(id, (c) => {
+      c.flag = reason === null || reason === false ? null : { reason: typeof reason === "string" ? reason.trim().slice(0, 300) : "", at: this.now() };
+    });
+  }
+
+  /** Suspend for `days` (null: for good), or lift it with `days` = 0. */
+  async ban(id: string, reason: unknown, days: unknown) {
+    if (days !== null && (typeof days !== "number" || !(days >= 0) || days > 3650)) throw new ApiError(400, "Pick how long");
+    const out = await this.crm(id, (c, a) => {
+      if (days === 0) c.ban = null;
+      else {
+        c.ban = { reason: typeof reason === "string" ? reason.trim().slice(0, 300) : "", at: this.now(), until: days === null ? null : this.now() + days * 86_400_000 };
+        a.solo = null;
+      }
+    });
+    if (days !== 0) {
+      this.board = null;
+      this.onBan?.(id);
+    }
+    return out;
+  }
+
   // ------------------------------------------------------------------ leaderboards
 
   async leaderboard(by: unknown): Promise<LeaderRow[]> {
     const key = by === "level" || by === "wins" ? by : "winnings";
     if (this.board && this.board.by === key && this.now() - this.board.at < 30_000) return this.board.rows;
     const rows = (await this.store.all())
-      .filter((a) => a.progress.stats.games > 0 && a.logins.length > 0)
+      .filter((a) => a.progress.stats.games > 0 && a.logins.length > 0 && !this.banOf(a))
       .map((a): LeaderRow => {
         const p = upgrade(a.progress);
         return { id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, xp: p.xp, wins: p.stats.wins, games: p.stats.games, winnings: p.stats.winnings, frame: p.equipped.frame };
