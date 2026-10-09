@@ -8,6 +8,7 @@ import {
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
+import { deviceId } from "../device";
 
 export interface Me {
   id: string;
@@ -340,7 +341,7 @@ export class ServerBackend implements Backend {
   private async call<T>(path: string, body?: object): Promise<T> {
     const r = await fetch(this.base + path, {
       method: body ? "POST" : "GET",
-      headers: { ...(body ? { "content-type": "application/json" } : {}), ...(this.session ? { authorization: `Bearer ${this.session}` } : {}) },
+      headers: { "x-heist-device": deviceId(), ...(body ? { "content-type": "application/json" } : {}), ...(this.session ? { authorization: `Bearer ${this.session}` } : {}) },
       body: body ? JSON.stringify(body) : undefined,
     });
     const out = await r.json().catch(() => ({ error: "The server sent something odd" }));

@@ -53,23 +53,35 @@ export function Dashboard({ s, onAuth }: PageProps) {
   usePoll(o.reload, 15_000);
   const d = o.data;
   if (!d) return <Problem error={o.error} />;
-  const sum = (k: "signups" | "games" | "guests") => d.daily.reduce((n, r) => n + r[k], 0);
+  const sum = (k: "signups" | "games" | "people") => d.daily.reduce((n, r) => n + r[k], 0);
+  const ac = d.accounts;
   const live = d.live;
   const seated = live ? live.rooms.reduce((n, r) => n + r.seats.filter((x) => x.kind === "human" && x.connected).length, 0) : 0;
   return (
     <>
       <Problem error={o.error} />
       <section className="stats">
-        <Stat label="Accounts" value={num(d.accounts.registered)} sub={`+ ${num(d.accounts.guests)} guests`} tone="gold" />
-        <Stat label="Active today" value={num(d.active.day)} sub={`${num(d.active.week)} this week · ${num(d.active.month)} this month`} />
+        <Stat
+          label="Players (unique people)"
+          value={num(ac.people)}
+          sub={
+            <>
+              {num(ac.signedUp)} signed up · <Link to="/players?show=all">{num(ac.total)} accounts in all</Link>
+              {ac.yours > 0 && <> · {num(ac.yours)} of yours left out</>}
+              {ac.untrackedGuests > 0 && <> · {num(ac.untrackedGuests)} older guests can't be told apart</>}
+            </>
+          }
+          tone="gold"
+        />
+        <Stat label="People active today" value={num(d.active.day)} sub={`${num(d.active.week)} this week · ${num(d.active.month)} this month`} />
         <Stat label="Online now" value={num(live?.sockets ?? 0)} sub={`${num(seated)} at ${num(live?.rooms.length ?? 0)} tables · ${num(live?.queued ?? 0)} in queue`} tone="cash" />
         <Stat label="Games played" value={num(d.economy.gamesPlayed)} sub={`${num(sum("games"))} in the last 30 days`} />
         <Stat label="Chips held" value={num(d.economy.chips)} sub={`${num(d.economy.coins)} coins`} />
         <Stat label="Packs bought" value={num(d.economy.packsBought)} sub={`${num(d.economy.drinksSent)} drinks sent`} />
       </section>
       <section className="charts">
-        <Columns title="Sign-ups per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.signups }))} total={`${num(sum("signups"))} in 30 days`} />
-        <Columns title="Players active per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.active }))} total={`${num(d.active.month)} in 30 days`} />
+        <Columns title="New people per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.people }))} total={`${num(sum("people"))} in 30 days · ${num(sum("signups"))} signed up`} />
+        <Columns title="People active per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.active }))} total={`${num(d.active.month)} in 30 days`} />
         <Columns title="Games finished per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.games }))} total={`${num(sum("games"))} in 30 days`} />
       </section>
       <section className="split">
@@ -182,17 +194,18 @@ const SORTS: [string, string][] = [
 export function Players({ s, onAuth, query }: PageProps) {
   const [q, setQ] = useState(query.get("q") ?? "");
   const sort = query.get("sort") ?? "seen";
-  const show = query.get("show") ?? "registered";
+  const show = query.get("show") ?? "people";
+  const mine = query.get("mine") === "1";
   const offset = Number(query.get("offset") ?? 0);
   const qs = (o: Record<string, string | number>) => {
-    const p = new URLSearchParams({ q, sort, show, tag, offset: String(offset), ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) });
+    const p = new URLSearchParams({ q, sort, show, tag, mine: mine ? "1" : "", offset: String(offset), ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) });
     const drop: string[] = [];
     p.forEach((v, k) => (!v || (k === "offset" && v === "0")) && drop.push(k));
     for (const k of drop) p.delete(k);
     return `/players?${p}`;
   };
   const tag = query.get("tag") ?? "";
-  const path = `/accounts?${new URLSearchParams({ q: query.get("q") ?? "", sort, show: show === "all" ? "" : show, offset: String(offset), tag })}`;
+  const path = `/accounts?${new URLSearchParams({ q: query.get("q") ?? "", sort, show: show === "all" ? "" : show, offset: String(offset), tag, mine: mine ? "1" : "" })}`;
   const l = useAdmin<{ total: number; rows: AccountRow[] }>(s, path, onAuth);
   return (
     <div className="card">
@@ -205,9 +218,10 @@ export function Players({ s, onAuth, query }: PageProps) {
       >
         <input className="search" placeholder="Search name, email or id" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={show} onChange={(e) => go(qs({ show: e.target.value, offset: 0 }))}>
-          <option value="registered">Accounts</option>
-          <option value="guests">Guests</option>
-          <option value="all">Everyone</option>
+          <option value="people">One row per person</option>
+          <option value="registered">Signed-up accounts</option>
+          <option value="guests">Guest accounts</option>
+          <option value="all">Every account</option>
           <option value="flagged">Flagged</option>
           <option value="banned">Suspended</option>
         </select>
@@ -219,6 +233,9 @@ export function Players({ s, onAuth, query }: PageProps) {
           ))}
         </select>
         <button className="btn primary">Search</button>
+        <label className="toggle">
+          <input type="checkbox" checked={mine} onChange={(e) => go(qs({ mine: e.target.checked ? "1" : "", offset: 0 }))} /> Include mine
+        </label>
         {tag && (
           <button type="button" className="fam-chip on" onClick={() => go(qs({ tag: "", offset: 0 }))}>
             tag: {tag} ✕
@@ -248,6 +265,8 @@ export function Players({ s, onAuth, query }: PageProps) {
 function Badges({ r }: { r: AccountRow }) {
   return (
     <>
+      {r.you && <span className="badge you">you</span>}
+      {r.personAccounts > 1 && <span className="badge note">+{r.personAccounts - 1} {r.personAccounts === 2 ? "account" : "accounts"}</span>}
       {r.banned && <span className="badge banned">suspended</span>}
       {r.flagged && <span className="badge flagged">⚑ flagged</span>}
       {r.tags.slice(0, 3).map((t) => (

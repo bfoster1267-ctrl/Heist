@@ -1093,3 +1093,8 @@ h4 {
 .same-ip {
   margin-top: 8px;
 }
+
+.badge.you {
+  background: rgba(90, 169, 230, 0.2);
+  color: #a9d3f5;
+}

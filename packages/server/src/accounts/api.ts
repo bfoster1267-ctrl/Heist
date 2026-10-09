@@ -28,6 +28,13 @@ export interface ApiOptions {
   admin?: { auth: AdminAuth; svc: AdminService };
 }
 
+/** where a request came from: its address, and the app install's id when it sent one */
+type Where = { ip: string; device?: string };
+const deviceOf = (req: IncomingMessage) => {
+  const d = req.headers["x-heist-device"];
+  return typeof d === "string" && /^[\w-]{8,40}$/.test(d) ? d : undefined;
+};
+
 /** "POST /api/shop/buy" -> "shop.buy" */
 const kindOf = (key: string) => {
   if (key === "GET /api/players/:id") return "view.player";
@@ -78,7 +85,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
   };
 
   /** The app reports screens and taps; each becomes a "ui.*" activity event. */
-  async function track(body: Record<string, unknown>, token: string | undefined, ip: string) {
+  async function track(body: Record<string, unknown>, token: string | undefined, w: Where) {
     const a = await me(token);
     if (!within(reports, a.id, 60_000, TRACK_PER_MIN)) throw new ApiError(429, "Slow down");
     const list = Array.isArray(body.events) ? body.events.slice(0, TRACK_EVENTS) : [];
@@ -91,13 +98,13 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       const data: Record<string, unknown> = { name };
       if (e.data && typeof e.data === "object") Object.assign(data, scrub(e.data) as object);
       if (typeof e.at === "number") data.clientAt = e.at;
-      svc.track({ kind: `ui.${kind}`, userId: a.id, name: a.name, ip, source: "app", data });
+      svc.track({ kind: `ui.${kind}`, userId: a.id, name: a.name, ...w, source: "app", data });
     }
     return { ok: true };
   }
 
   /** Log one API call: who, what they sent (no secrets), and how it went. */
-  async function record(key: string, body: Record<string, unknown>, token: string | undefined, ip: string, out: unknown, error?: string) {
+  async function record(key: string, body: Record<string, unknown>, token: string | undefined, w: Where, out: unknown, error?: string) {
     if (key === "GET /api/config" || key === "POST /api/track") return;
     const res = out as { me?: { id: string; name: string } } | undefined;
     let who = res?.me ? { id: res.me.id, name: res.me.name } : null;
@@ -109,13 +116,13 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (!who || now() - (opened.get(who.id) ?? 0) < OPEN_EVERY_MS) return;
       opened.set(who.id, now());
       if (opened.size > 50_000) opened.clear();
-      svc.track({ kind: "app.open", userId: who.id, name: who.name, ip });
+      svc.track({ kind: "app.open", userId: who.id, name: who.name, ...w });
       return;
     }
     // a finished game's moves are kept with the game itself (the admin panel replays them)
     const sent = key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length } : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
-    svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ip, ok: !error, error, data: Object.keys(data).length ? data : undefined });
+    svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ok: !error, error, data: Object.keys(data).length ? data : undefined });
   }
 
   /** /api/admin/*: the owner's panel. Its own sign-in; never a player's token. */
@@ -128,7 +135,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         if (!within(adminTries, ip, 15 * 60_000, ADMIN_TRIES)) throw new ApiError(429, "Too many tries. Wait 15 minutes.");
         const b = await readBody(req, BODY_LIMIT);
         const s = admin.auth.login(b.user, b.password);
-        svc.track({ kind: "admin.login", ip, ok: !!s, error: s ? undefined : "wrong username or password", data: { user: typeof b.user === "string" ? b.user.slice(0, 60) : null } });
+        svc.track({ kind: "admin.login", ip, device: deviceOf(req), ok: !!s, error: s ? undefined : "wrong username or password", data: { user: typeof b.user === "string" ? b.user.slice(0, 60) : null } });
         if (!s) throw new ApiError(401, "Wrong username or password");
         return send(res, 200, s);
       }
@@ -214,7 +221,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (o.allowedOrigins?.length && !o.allowedOrigins.includes(origin)) return false;
       res.setHeader("access-control-allow-origin", origin);
       res.setHeader("vary", "origin");
-      res.setHeader("access-control-allow-headers", "authorization, content-type");
+      res.setHeader("access-control-allow-headers", "authorization, content-type, x-heist-device");
       res.setHeader("access-control-allow-methods", "GET, POST, OPTIONS");
       res.setHeader("access-control-max-age", "600");
     }
@@ -263,6 +270,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       return true;
     }
     const ip = ipOf(req);
+    const w: Where = { ip, device: deviceOf(req) };
     if (url.pathname.startsWith("/api/admin/")) {
       await adminRoute(req, res, url, ip);
       return true;
@@ -274,7 +282,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       key = "GET /api/players/:id";
       param = player[1];
     }
-    const route = key === "POST /api/track" ? (b: Record<string, unknown>, t: string | undefined) => track(b, t, ip) : routes[key];
+    const route = key === "POST /api/track" ? (b: Record<string, unknown>, t: string | undefined) => track(b, t, w) : routes[key];
     if (!route) {
       send(res, 404, { error: "Not found" });
       return true;
@@ -290,9 +298,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (param) body = { ...body, id: param };
       const out = await route(body, token, url.searchParams, param);
       send(res, 200, out);
-      await record(key, body, token, ip, out).catch((e) => console.error("activity", e));
+      await record(key, body, token, w, out).catch((e) => console.error("activity", e));
     } catch (e) {
-      await record(key, body, token, ip, undefined, e instanceof ApiError ? e.message : "server error").catch(() => {});
+      await record(key, body, token, w, undefined, e instanceof ApiError ? e.message : "server error").catch(() => {});
       if (e instanceof ApiError) send(res, e.status, { error: e.message });
       else {
         console.error(e);
