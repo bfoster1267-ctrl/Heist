@@ -1396,8 +1396,26 @@ button:disabled {
   margin-top: 6px;
   font-size: 13px;
 }
-.coach-pick span {
-  flex: 1;
+.coach-hint {
+  margin-top: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: none;
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 3px 12px;
+}
+.coach-cheer {
+  margin-bottom: 4px;
+  font-weight: 700;
+  color: #7be0a0;
+}
+.big-text .coach-hint,
+.big-text .coach-cheer,
+.big-text .coach-pick {
+  font-size: calc(13px * var(--ts));
 }
 .already-in {
   font-size: 13px;

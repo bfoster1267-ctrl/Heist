@@ -143,10 +143,15 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
   );
 }
 
-/** Coached play: the coach's read of every decision, docked beside your action panel. */
-export function LiveCoach({ s, ask, pick, onPick, onOff }: { s: GameState; ask: Ask | null; pick: Answer | null; onPick: (a: Answer) => void; onOff: () => void }) {
+/**
+ * Coached play: the coach's read of every decision, docked beside your action panel. The coach never plays
+ * for you: its own pick stays hidden until you ask for a hint, and a good move gets a cheer.
+ */
+export function LiveCoach({ s, ask, pick, cheer, onOff }: { s: GameState; ask: Ask | null; pick: Answer | null; cheer: string | null; onOff: () => void }) {
   const tip = ask ? coachTip(s, ask) : "";
   const said = ask && pick ? describePick(s, ask, pick) : "";
+  const key = JSON.stringify(ask);
+  const [hintFor, setHintFor] = useState<string | null>(null);
   const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
   return (
     <AnimatePresence>
@@ -158,17 +163,18 @@ export function LiveCoach({ s, ask, pick, onPick, onOff }: { s: GameState; ask: 
               Skip coaching
             </button>
           </div>
+          {cheer && <div className="coach-cheer">{cheer}</div>}
           <div className="coach-text">{tip}</div>
-          {said && pick && (
-            <div className="coach-pick">
-              <span>
-                <b>Coach's pick:</b> {said}
-              </span>
-              <button className="btn small primary" onClick={() => onPick(pick)}>
-                Do it
+          {said &&
+            (hintFor === key ? (
+              <div className="coach-pick">
+                <b>Hint:</b> {said}
+              </div>
+            ) : (
+              <button className="coach-hint" onClick={() => setHintFor(key)}>
+                Stuck? Get a hint
               </button>
-            </div>
-          )}
+            ))}
         </motion.div>
       )}
     </AnimatePresence>

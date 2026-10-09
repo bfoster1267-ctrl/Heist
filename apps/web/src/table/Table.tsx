@@ -50,6 +50,8 @@ function TurnSteps({ who, step }: { who: string; step: number }) {
 }
 
 /** Events that shake the table a little. */
+/** what the coach says after a move that isn't a mistake */
+const CHEERS = ["Good move.", "Nice, that works.", "Solid choice.", "You're getting the hang of it.", "Smart play."];
 const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
 
 export function Table({
@@ -123,6 +125,13 @@ export function Table({
   const [showRules, setShowRules] = useState(false);
   // Coached play: an answer held back because the coach spotted a rookie mistake in it
   const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
+  /** Coached play: a word of praise for the move just made, shown for a few seconds */
+  const [cheer, setCheer] = useState<string | null>(null);
+  useEffect(() => {
+    if (!cheer) return;
+    const id = setTimeout(() => setCheer(null), 6000);
+    return () => clearTimeout(id);
+  }, [cheer]);
   useEffect(() => setHeld(null), [t.ask]);
   // Coached play: the learner can wave the coach off and finish the game on their own
   const [coachOff, setCoachOff] = useState(false);
@@ -253,6 +262,8 @@ export function Table({
     if (coached && ask) {
       const id = checkMove(s, ask, a);
       if (id) return setHeld({ a, id });
+      const best = t.game ? coachPick(t.game, ask) : null;
+      setCheer(best && JSON.stringify(best) === JSON.stringify(a) ? "Nice! That's exactly what I'd play." : CHEERS[Math.floor(Math.random() * CHEERS.length)]);
     }
     setHeld(null);
     setSel([]);
@@ -466,7 +477,7 @@ export function Table({
                   t.answer(a);
                 }} />
               ) : (
-                !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} onPick={play} onOff={() => setCoachOff(true)} />
+                !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} cheer={cheer} onOff={() => setCoachOff(true)} />
               )
             ) : (
               !clean && !coachOff && <Coach ask={ask} blocked={walk || !!s.winners} />
