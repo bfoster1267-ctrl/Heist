@@ -3,6 +3,7 @@
 import { MAX_PRESTIGE, cosmetic, levelInfo, prestigeName, rankName } from "@heist/profile";
 import { motion } from "motion/react";
 import type { Me } from "./backend";
+import { Chips } from "../table/pieces";
 
 export function initials(name: string) {
   const w = name.trim().split(/\s+/);
@@ -47,7 +48,7 @@ export function Coins({ amount, big }: { amount: number; big?: boolean }) {
   );
 }
 
-/** The player's corner of the lobby: avatar, name, rank, XP and coins. Click for the full profile. */
+/** The player's corner of the lobby: avatar, name, rank, XP, chips and coins. Click for the full profile. */
 export function ProfileChip({ me, onOpen }: { me: Me; onOpen: () => void }) {
   const p = me.progress;
   const li = levelInfo(p.xp);
@@ -64,7 +65,10 @@ export function ProfileChip({ me, onOpen }: { me: Me; onOpen: () => void }) {
         </span>
         <XpBar xp={p.xp} />
       </span>
-      <Coins amount={p.coins} />
+      <span className="acct-chip-money">
+        <Chips amount={p.chips} small />
+        <Coins amount={p.coins} />
+      </span>
     </button>
   );
 }
