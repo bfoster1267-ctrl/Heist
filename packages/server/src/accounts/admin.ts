@@ -63,6 +63,9 @@ export interface People {
   owner: Set<string>;
   /** "people" who are Claude testing the app */
   claude: Set<string>;
+  /** the addresses and app installs the owner signs in to the admin panel from */
+  ownerIps: Set<string>;
+  ownerDevices: Set<string>;
   /** accounts with no device or address on record (made before the activity log, or never did anything) */
   untracked: Set<string>;
 }
@@ -165,7 +168,7 @@ export class AdminService {
     for (const ip of ownerIps) for (const id of ipUsers.get(ip) ?? []) owner.add(find(id));
     const claude = new Set([...claudeUsers].filter((id) => of.has(id)).map((id) => find(id)));
     const untracked = new Set(all.filter((a) => !tracked.has(a.id)).map((a) => a.id));
-    const people = { of, members, owner, claude, untracked };
+    const people = { of, members, owner, claude, ownerIps, ownerDevices, untracked };
     this.cache = { at: this.now, people };
     return people;
   }
@@ -428,15 +431,26 @@ export class AdminService {
     return [...n].sort((x, y) => y[1] - x[1]).map(([tag, count]) => ({ tag, count }));
   }
 
-  /** The log, newest first. Events from Claude's testing (or from an account Claude made) carry claude: true. */
-  async activity(q: URLSearchParams): Promise<{ events: (ActivityEvent & { claude?: boolean })[] }> {
+  /**
+   * The log, newest first: only players unless ?mine=1 or ?user= picks one account. Then the owner's own events (their accounts, the
+   * admin panel) carry you: true and Claude's testing carries claude: true.
+   */
+  async activity(q: URLSearchParams): Promise<{ events: (ActivityEvent & { you?: boolean; claude?: boolean })[] }> {
     const num = (k: string) => (q.get(k) ? Number(q.get(k)) : undefined);
     const kinds = (q.get("kinds") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    const ppl = this.people(await this.accounts.store.all());
+    const personOf = (e: ActivityEvent) => (e.userId ? (ppl.of.get(e.userId) ?? e.userId) : undefined);
+    const claude = (e: ActivityEvent) => byClaude(e) || ppl.claude.has(personOf(e) ?? "");
+    const you = (e: ActivityEvent) =>
+      byOwner(e) || (e.kind === "admin.login" && e.ok) || ppl.owner.has(personOf(e) ?? "") || (!e.userId && ((!!e.ip && ppl.ownerIps.has(e.ip)) || (!!e.device && ppl.ownerDevices.has(e.device))));
+    // one player's own activity is shown whole
+    const all = q.get("mine") === "1" || !!q.get("user");
     const events = this.log.query({
       userId: q.get("user") || undefined, kinds, text: q.get("text") ?? undefined, from: num("from"), to: num("to"), before: num("before"), limit: num("limit") ?? 150,
+      skip: all ? undefined : (e) => you(e) || claude(e),
     });
-    const ppl = this.people(await this.accounts.store.all());
-    return { events: events.map((e) => (byClaude(e) || (e.userId && ppl.claude.has(ppl.of.get(e.userId) ?? e.userId)) ? { ...e, claude: true } : e)) };
+    if (!all) return { events };
+    return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : e)) };
   }
 
   game(id: string): GameView | null {

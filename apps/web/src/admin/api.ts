@@ -219,8 +219,10 @@ export interface ActivityEvent {
   name?: string;
   ip?: string;
   source?: "app";
-  /** Claude's own testing, not a player */
+  /** Claude's own testing, not a player (only sent when asked to include it) */
   claude?: boolean;
+  /** the owner's own (only sent when asked to include it) */
+  you?: boolean;
   ok?: boolean;
   error?: string;
   data?: Record<string, unknown>;

@@ -623,6 +623,7 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
   const [from, setFrom] = useState(query.get("from") ?? "");
   const [to, setTo] = useState(query.get("to") ?? "");
   const [live, setLive] = useState(true);
+  const mine = query.get("mine") === "1";
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [more, setMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -636,8 +637,10 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
     if (query.get("text")) p.set("text", query.get("text")!);
     if (from) p.set("from", String(new Date(from + "T00:00").getTime()));
     if (to) p.set("to", String(new Date(to + "T23:59:59").getTime()));
+    // one player's own file shows everything they did, even when they're you or Claude
+    if (mine || user) p.set("mine", "1");
     return p;
-  }, [user, fams, exact, query, from, to]);
+  }, [user, fams, exact, query, from, to, mine]);
 
   const load = useCallback(
     (older?: number) => {
@@ -674,6 +677,11 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
         <label className="toggle">
           <input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} /> Live
         </label>
+        {!user && (
+          <label className="toggle" title="Players only unless this is ticked">
+            <input type="checkbox" checked={mine} onChange={(e) => setQuery({ mine: e.target.checked ? "1" : "" })} /> Include mine and Claude's
+          </label>
+        )}
       </div>
       <form
         className="filters"
@@ -730,7 +738,7 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
             return (
               <Fragment key={`${e.at}-${i}`}>
                 {head && <li className="day">{day(e.at)}</li>}
-                <li className={`ev ${e.ok === false ? "failed" : ""} ${e.claude ? "by-claude" : ""} ${open === i ? "open" : ""}`} onClick={() => setOpen(open === i ? null : i)}>
+                <li className={`ev ${e.ok === false ? "failed" : ""} ${e.claude || e.you ? "not-player" : ""} ${open === i ? "open" : ""}`} onClick={() => setOpen(open === i ? null : i)}>
                   <time>{new Date(e.at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" })}</time>
                   <span className={`fam fam-${familyOf(e.kind)}`} title={e.kind} />
                   <span className="who">
@@ -741,6 +749,7 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
                     )}
                   </span>
                   <span className="what">
+                    {e.you && <span className="badge you">you</span>}
                     {e.claude && <span className="badge claude">Claude</span>} <b>{labelOf(e.kind)}</b> <span className="detail">{detailOf(e)}</span>
                     {e.ok === false && <span className="err"> failed: {e.error}</span>}
                   </span>

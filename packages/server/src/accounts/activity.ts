@@ -44,6 +44,8 @@ export interface ActivityQuery {
   /** only events strictly older than this (paging) */
   before?: number;
   limit?: number;
+  /** leave these out (the admin panel hides the owner's own and Claude's events) */
+  skip?: (e: ActivityEvent) => boolean;
 }
 
 /** A finished game against bots: enough to replay it move by move. */
@@ -89,6 +91,7 @@ export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");
 
 const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
   if (q.userId && e.userId !== q.userId) return false;
+  if (q.skip?.(e)) return false;
   if (q.before !== undefined && e.at >= q.before) return false;
   if (q.from !== undefined && e.at < q.from) return false;
   if (q.to !== undefined && e.at > q.to) return false;

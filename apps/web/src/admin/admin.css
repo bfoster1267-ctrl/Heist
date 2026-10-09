@@ -621,7 +621,7 @@ h4 {
 .ev .err {
   color: var(--red);
 }
-.ev.by-claude {
+.ev.not-player {
   opacity: 0.6;
 }
 .ev.failed .what b {

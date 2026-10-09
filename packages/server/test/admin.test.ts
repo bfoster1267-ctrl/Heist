@@ -205,7 +205,7 @@ describe("admin panel API", () => {
     expect(online.moments.filter((m: { t: string }) => m.t === "move").length).toBe(store.game(onlineId)!.answers.length);
     expect((await call("GET", "/api/admin/games/nope", undefined, token)).status).toBe(404);
 
-    const logins = (await get(`/api/admin/activity?kinds=admin.login`)).events;
+    const logins = (await get(`/api/admin/activity?kinds=admin.login&mine=1`)).events;
     expect(logins.map((e: { ok: boolean }) => e.ok)).toEqual([true, false]);
   }, 30_000);
 
@@ -335,7 +335,12 @@ describe("admin panel API", () => {
     expect((await get("/api/admin/accounts?show=all", token)).rows.length).toBe(1);
     const all = (await get("/api/admin/accounts?show=all&mine=1", token)).rows;
     expect(all.filter((r: { claude: boolean }) => r.claude).length).toBe(2);
-    const events = (await get("/api/admin/activity?limit=50", token)).events as { kind: string; claude?: boolean; ip?: string }[];
+    // the feed shows players only; ?mine=1 brings back yours and Claude's, labeled
+    const players = (await get("/api/admin/activity?limit=50", token)).events as { kind: string; ip?: string }[];
+    expect(players.map((e) => e.kind).sort()).toEqual(["auth.guest"]);
+    expect(players[0].ip).toBe("7.7.7.7");
+    const events = (await get("/api/admin/activity?limit=50&mine=1", token)).events as { kind: string; claude?: boolean; you?: boolean; ip?: string }[];
+    expect(events.find((e) => e.kind === "admin.login")?.you).toBe(true);
     // the tap carries no marker of its own, but it came from Claude's account
     expect(events.find((e) => e.kind === "ui.tap")?.claude).toBe(true);
     expect(events.filter((e) => e.kind === "auth.guest" && e.claude).length).toBe(2);
