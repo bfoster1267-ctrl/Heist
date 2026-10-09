@@ -97,7 +97,6 @@ export function Lobby({
         {top && <div className="acct-in-lobby">{top}</div>}
         <div className="lobby-col">
           <div className="logo">HEIST</div>
-          <div className="tagline">Plan the job. Pick your crew. Trust no one.</div>
           <div className="wallet">
             <Chips amount={chips} />
             <span className="dim">play chips</span>
