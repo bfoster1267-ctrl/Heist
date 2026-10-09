@@ -1396,8 +1396,26 @@ button:disabled {
   margin-top: 6px;
   font-size: 13px;
 }
-.coach-pick span {
-  flex: 1;
+.coach-hint {
+  margin-top: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: none;
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 3px 12px;
+}
+.coach-cheer {
+  margin-bottom: 4px;
+  font-weight: 700;
+  color: #7be0a0;
+}
+.big-text .coach-hint,
+.big-text .coach-cheer,
+.big-text .coach-pick {
+  font-size: calc(13px * var(--ts));
 }
 .already-in {
   font-size: 13px;
@@ -3305,22 +3323,160 @@ button:disabled {
   text-underline-offset: 3px;
   padding: 4px 10px;
 }
+.lobby-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 .lobby-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
 }
+/* three modes (a new player's Learn to play is the big button): the last one takes the whole row */
+.lobby-modes > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
 .lobby-mode {
-  padding: 13px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
   border-radius: 14px;
   background: rgba(30, 33, 40, 0.92);
   border-color: rgba(255, 255, 255, 0.18);
+  text-align: left;
+}
+.lobby-mode .lobby-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  color: var(--gold2);
+}
+.lobby-mode-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lobby-mode-name {
   font-family: var(--cond);
   font-weight: 700;
-  font-size: 20px;
+  font-size: 19px;
+  line-height: 1.1;
 }
-.lobby-mode .dim {
-  font-size: 16px;
+.lobby-mode-sub {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lobby-locked {
+  margin: 0;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--muted);
+}
+.lobby-mode:disabled {
+  opacity: 0.5;
+}
+/* a new visitor's first screen */
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 30%, #1a3a2c 0%, #0b0d10 70%);
+  text-align: center;
+}
+.welcome-q {
+  margin: 0;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--paper);
+}
+.welcome-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(440px, 100%);
+}
+@media (max-height: 520px) {
+  .welcome .logo {
+    font-size: 48px;
+  }
+  .welcome-choices {
+    flex-direction: row;
+    width: min(720px, 100%);
+  }
+  .welcome-choices .lobby-big {
+    flex: 1;
+    font-size: 28px;
+  }
+}
+/* the name in the top bar, between the gear and your card: only when the big logo doesn't fit */
+.lobby-topname {
+  display: none;
+  position: fixed;
+  z-index: 20;
+  top: calc(16px + env(safe-area-inset-top));
+  left: calc(70px + env(safe-area-inset-left));
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: 5px;
+}
+/* the player's own screens, one tap away along the bottom (they used to hide behind the player card) */
+.lobby {
+  padding-bottom: calc(76px + env(safe-area-inset-bottom));
+}
+.lobby-dock {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: rgba(14, 16, 20, 0.94);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+.lobby-dock button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 84px;
+  padding: 6px 10px 5px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+.lobby-dock button:active {
+  background: rgba(231, 181, 60, 0.16);
+}
+.lobby-dock .lobby-icon {
+  width: 24px;
+  height: 24px;
+  color: var(--gold2);
 }
 .lobby-gear {
   position: fixed;
@@ -3373,49 +3529,131 @@ button:disabled {
   font-size: 22px;
   padding: 4px 8px;
 }
-.lobby.big-text .lobby-mode {
+.lobby.big-text .lobby-mode-name {
   font-size: calc(20px * min(var(--ts), 1.3));
 }
 .lobby.big-text .lobby-sub,
 .lobby.big-text .lobby-change {
   font-size: calc(16px * min(var(--ts), 1.3));
 }
-/* the player card in the corner is wide: keep the lobby clear of it on short screens */
-@media (max-height: 520px) {
+/* A phone held upright (menus only; tables ask for it sideways): clear the top bar, smaller logo, no
+   floating badges behind the buttons, and text that grows only as far as the tiles allow. */
+@media (max-width: 500px) and (min-height: 521px) {
   .lobby {
     padding-top: calc(92px + env(safe-area-inset-top));
     place-items: start center;
   }
+  .lobby-bg {
+    display: none;
+  }
+  .lobby-main .logo {
+    font-size: 60px;
+    letter-spacing: 10px;
+  }
+  .lobby.big-text .lobby-mode-name {
+    font-size: calc(18px * min(var(--ts), 1.1));
+  }
+  .lobby.big-text .lobby-sub,
+  .lobby.big-text .lobby-change,
+  .lobby.big-text .lobby-locked {
+    font-size: calc(15px * min(var(--ts), 1.15));
+  }
+}
+/* A phone on its side (short screen). Like the big mobile card games: a top bar (settings, name, your
+   card), the main play button on the left with the other modes beside it, and your stuff along the bottom.
+   Everything fits on one screen, nothing scrolls. */
+@media (max-height: 520px) {
+  .lobby {
+    padding: calc(76px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(66px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    place-items: center;
+  }
   .lobby-main {
-    width: min(560px, 100%);
-    gap: 8px;
+    width: min(760px, 100%);
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    align-items: stretch;
+    gap: 10px 12px;
   }
   .lobby-main .logo {
     display: none;
   }
+  .lobby-topname {
+    display: block;
+  }
+  .lobby-hero {
+    gap: 8px;
+    justify-content: center;
+  }
   .lobby-big {
-    font-size: 32px;
-    padding: 10px 14px 9px;
+    font-size: 30px;
+    padding: 9px 12px 8px;
   }
   .lobby-big:not(.primary) {
     font-size: 24px;
   }
+  .lobby-sub {
+    font-size: 14px;
+  }
+  .lobby-change {
+    margin-top: -2px;
+    font-size: 15px;
+    padding: 2px 10px;
+  }
   .lobby-modes {
-    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+    grid-auto-rows: 1fr;
   }
   .lobby-mode {
-    padding: 11px 6px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .lobby-mode .lobby-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .lobby-mode-name {
     font-size: 17px;
+  }
+  .lobby-mode-sub {
+    font-size: 12px;
+  }
+  /* no room sideways for the install nudge and the small print (both still show on bigger screens) */
+  .lobby-main .install,
+  .lobby-main .fine {
+    display: none;
   }
   .lobby-gear {
     width: 44px;
     height: 44px;
     font-size: 24px;
   }
+  .lobby-dock {
+    bottom: calc(6px + env(safe-area-inset-bottom));
+    padding: 3px;
+  }
+  .lobby-dock button {
+    flex-direction: row;
+    gap: 6px;
+    min-width: 0;
+    padding: 7px 12px;
+    font-size: 14px;
+  }
+  .lobby-dock .lobby-icon {
+    width: 20px;
+    height: 20px;
+  }
   .lobby-sheet {
     gap: 10px;
     padding: 12px 16px 14px;
+  }
+  /* bigger text (phones start at 130%) grows the lobby only a little: it has to fit sideways */
+  .lobby.big-text .lobby-sub,
+  .lobby.big-text .lobby-change,
+  .lobby.big-text .lobby-locked {
+    font-size: calc(14px * min(var(--ts), 1.15));
+  }
+  .lobby.big-text .lobby-mode-name {
+    font-size: calc(17px * min(var(--ts), 1.15));
   }
 }
 
@@ -3439,11 +3677,13 @@ button:disabled {
 }
 
 /* ------------------------------------------------------------------ phones: sideways only */
+/* upright is fine for menus; a table asks for the phone on its side (html.in-game is set while one is open) */
 .rotate-gate {
   display: none;
 }
 @media (orientation: portrait) and (max-width: 760px) and (pointer: coarse) {
-  .rotate-gate {
+  .in-game .rotate-gate,
+  .rotate-gate.asking {
     position: fixed;
     inset: 0;
     z-index: 1000;

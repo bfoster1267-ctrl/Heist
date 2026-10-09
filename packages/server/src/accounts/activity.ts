@@ -25,6 +25,8 @@ export interface ActivityEvent {
   device?: string;
   /** "app" for things the app reports about itself (screens, taps); everything else comes from the server */
   source?: "app";
+  /** "claude" when Claude's own testing sent it (not a player) */
+  tester?: "claude";
   ok?: boolean;
   /** the error shown, when the action failed */
   error?: string;
@@ -42,6 +44,8 @@ export interface ActivityQuery {
   /** only events strictly older than this (paging) */
   before?: number;
   limit?: number;
+  /** leave these out (the admin panel hides the owner's own and Claude's events) */
+  skip?: (e: ActivityEvent) => boolean;
 }
 
 /** A finished game against bots: enough to replay it move by move. */
@@ -75,11 +79,19 @@ export interface ActivityLog {
   flush(): Promise<void>;
 }
 
+/**
+ * Claude's own test visits. Claude's browsers send a user agent with "HeistClaude" in it and an install id
+ * that starts with "claude-", so the admin panel can label them and leave them out of the player counts.
+ */
+export const CLAUDE_UA = "HeistClaude";
+export const byClaude = (e: ActivityEvent) => e.tester === "claude" || !!e.device?.startsWith("claude-");
+
 /** something the owner did to a player's account (it names the player but isn't the player being active) */
 export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");
 
 const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
   if (q.userId && e.userId !== q.userId) return false;
+  if (q.skip?.(e)) return false;
   if (q.before !== undefined && e.at >= q.before) return false;
   if (q.from !== undefined && e.at < q.from) return false;
   if (q.to !== undefined && e.at > q.to) return false;

@@ -27,7 +27,16 @@ export interface Prefs {
 }
 
 const KEY = "heist.prefs";
-const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: 1, tips: true, walked: false, seen: [] };
+const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: phone() ? 1.3 : 1, tips: true, walked: false, seen: [] };
+
+/** A phone (touch, small screen): text starts bigger there so new players can read it without hunting for the slider. */
+function phone() {
+  try {
+    return matchMedia("(pointer: coarse)").matches && Math.min(screen.width, screen.height) <= 500;
+  } catch {
+    return false;
+  }
+}
 
 function load(): Prefs {
   try {

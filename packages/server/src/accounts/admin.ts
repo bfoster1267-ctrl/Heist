@@ -6,7 +6,7 @@ import { createSoloGame, levelInfo, upgrade, DAILY_CHIPS, PACK_PRICE, REFILL_TO,
 import type { RoomInfo } from "../protocol";
 import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
-import { byOwner, type ActivityEvent, type ActivityLog } from "./activity";
+import { byClaude, byOwner, type ActivityEvent, type ActivityLog } from "./activity";
 import type { AccountService } from "./service";
 import type { Account } from "./store";
 
@@ -49,6 +49,8 @@ export interface AccountRow {
   personAccounts: number;
   /** the owner's own accounts (seen on the device or address the admin panel signs in from) */
   you: boolean;
+  /** accounts Claude made while testing the app */
+  claude: boolean;
 }
 
 /** Accounts grouped into people. */
@@ -59,6 +61,11 @@ export interface People {
   members: Map<string, string[]>;
   /** people who are the owner */
   owner: Set<string>;
+  /** "people" who are Claude testing the app */
+  claude: Set<string>;
+  /** the addresses and app installs the owner signs in to the admin panel from */
+  ownerIps: Set<string>;
+  ownerDevices: Set<string>;
   /** accounts with no device or address on record (made before the activity log, or never did anything) */
   untracked: Set<string>;
 }
@@ -122,7 +129,9 @@ export class AdminService {
     const tracked = new Set<string>();
     const ownerIps = new Set<string>();
     const ownerDevices = new Set<string>();
+    const claudeUsers = new Set<string>();
     for (const e of this.log.window()) {
+      if (e.userId && byClaude(e)) claudeUsers.add(e.userId);
       if (e.kind === "admin.login" && e.ok) {
         // only the owner's sign-ins mark their devices; other admins' accounts still count as players
         if (e.data?.role === "admin") continue;
@@ -157,8 +166,9 @@ export class AdminService {
     const owner = new Set<string>();
     for (const d of ownerDevices) if (parent.has(`d:${d}`)) owner.add(find(`d:${d}`));
     for (const ip of ownerIps) for (const id of ipUsers.get(ip) ?? []) owner.add(find(id));
+    const claude = new Set([...claudeUsers].filter((id) => of.has(id)).map((id) => find(id)));
     const untracked = new Set(all.filter((a) => !tracked.has(a.id)).map((a) => a.id));
-    const people = { of, members, owner, untracked };
+    const people = { of, members, owner, claude, ownerIps, ownerDevices, untracked };
     this.cache = { at: this.now, people };
     return people;
   }
@@ -172,6 +182,7 @@ export class AdminService {
       games: p.stats.games, wins: p.stats.wins, winnings: p.stats.winnings, rating: Math.round(p.rating),
       tags: a.crm?.tags ?? [], flagged: !!a.crm?.flag, banned: !!this.accounts.banOf(a), notes: a.crm?.notes.length ?? 0,
       person, personAccounts: ppl?.members.get(person)?.length ?? 1, you: !!ppl?.owner.has(person),
+      claude: !!ppl?.claude.has(person) && !ppl?.owner.has(person),
     };
   }
 
@@ -179,7 +190,7 @@ export class AdminService {
     const now = this.now;
     const all = (await this.accounts.store.all()).filter((a) => a.name !== "Deleted player" || a.logins.length);
     const ppl = this.people(all);
-    const mine = (id: string) => ppl.owner.has(ppl.of.get(id) ?? id);
+    const mine = (id: string) => notPlayer(ppl, id);
     const registered = all.filter((a) => !a.guest);
     const days = Array.from({ length: 30 }, (_, i) => dayKey(now - (29 - i) * DAY));
     const perDay = () => Object.fromEntries(days.map((d) => [d, 0])) as Record<string, number>;
@@ -192,7 +203,7 @@ export class AdminService {
     // a person counts from their first account; people we can't tell apart (no record) and you are left out
     let people = 0;
     for (const [p, ids] of ppl.members) {
-      if (ppl.owner.has(p) || ids.every((id) => ppl.untracked.has(id))) continue;
+      if (ppl.owner.has(p) || ppl.claude.has(p) || ids.every((id) => ppl.untracked.has(id))) continue;
       people++;
       const first = Math.min(...ids.map((id) => all.find((a) => a.id === id)?.createdAt ?? now));
       if (dayKey(first) in newPeople) newPeople[dayKey(first)]++;
@@ -225,7 +236,8 @@ export class AdminService {
         people, signedUp: others.length,
         untrackedGuests: guests.filter((a) => ppl.untracked.has(a.id)).length,
         emptyGuests: guests.filter((a) => a.progress.stats.games === 0).length,
-        yours: all.filter((a) => mine(a.id)).length,
+        yours: all.filter((a) => ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
+        claude: all.filter((a) => mine(a.id) && !ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
       },
       active: { day: seenBy(now - DAY), week: seenBy(now - 7 * DAY), month: seenBy(now - 30 * DAY) },
       economy: {
@@ -248,7 +260,7 @@ export class AdminService {
     const now = this.now;
     const all = (await this.accounts.store.all()).filter((a) => a.name !== "Deleted player" || a.logins.length);
     const ppl = this.people(all);
-    const mine = (id: string) => ppl.owner.has(ppl.of.get(id) ?? id);
+    const mine = (id: string) => notPlayer(ppl, id);
     const players = all.filter((a) => !mine(a.id));
     const days = Array.from({ length: 30 }, (_, i) => dayKey(now - (29 - i) * DAY));
     const daily = new Map(days.map((d) => [d, { day: d, added: 0, removed: 0 }]));
@@ -358,7 +370,7 @@ export class AdminService {
     const all = await this.accounts.store.all();
     const ppl = this.people(all);
     let rows = all.map((a) => this.row(a, ppl));
-    if (q.get("mine") !== "1") rows = rows.filter((r) => !r.you);
+    if (q.get("mine") !== "1") rows = rows.filter((r) => !r.you && !r.claude);
     if (show === "people") {
       // one row per person: their signed-up account with the most games, else their newest
       const best = new Map<string, AccountRow>();
@@ -419,14 +431,26 @@ export class AdminService {
     return [...n].sort((x, y) => y[1] - x[1]).map(([tag, count]) => ({ tag, count }));
   }
 
-  activity(q: URLSearchParams): { events: ActivityEvent[] } {
+  /**
+   * The log, newest first: only players unless ?mine=1 or ?user= picks one account. Then the owner's own events (their accounts, the
+   * admin panel) carry you: true and Claude's testing carries claude: true.
+   */
+  async activity(q: URLSearchParams): Promise<{ events: (ActivityEvent & { you?: boolean; claude?: boolean })[] }> {
     const num = (k: string) => (q.get(k) ? Number(q.get(k)) : undefined);
     const kinds = (q.get("kinds") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-    return {
-      events: this.log.query({
-        userId: q.get("user") || undefined, kinds, text: q.get("text") ?? undefined, from: num("from"), to: num("to"), before: num("before"), limit: num("limit") ?? 150,
-      }),
-    };
+    const ppl = this.people(await this.accounts.store.all());
+    const personOf = (e: ActivityEvent) => (e.userId ? (ppl.of.get(e.userId) ?? e.userId) : undefined);
+    const claude = (e: ActivityEvent) => byClaude(e) || ppl.claude.has(personOf(e) ?? "");
+    const you = (e: ActivityEvent) =>
+      byOwner(e) || (e.kind === "admin.login" && e.ok) || ppl.owner.has(personOf(e) ?? "") || (!e.userId && ((!!e.ip && ppl.ownerIps.has(e.ip)) || (!!e.device && ppl.ownerDevices.has(e.device))));
+    // one player's own activity is shown whole
+    const all = q.get("mine") === "1" || !!q.get("user");
+    const events = this.log.query({
+      userId: q.get("user") || undefined, kinds, text: q.get("text") ?? undefined, from: num("from"), to: num("to"), before: num("before"), limit: num("limit") ?? 150,
+      skip: all ? undefined : (e) => you(e) || claude(e),
+    });
+    if (!all) return { events };
+    return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : e)) };
   }
 
   game(id: string): GameView | null {
@@ -489,4 +513,10 @@ function replaySoloGame(r: import("./activity").SoloRecord): GameView {
     gameId: r.gameId, mode: "solo", stakes: r.stakes, startedAt: r.startedAt, endedAt: r.endedAt, winners: r.winners, quit: r.quit, moments, broken,
     seats: names.map((name, s) => ({ name, bot: s !== SOLO_SEAT, userId: s === SOLO_SEAT ? r.userId : null })),
   };
+}
+
+/** the owner and Claude's testing aren't players: the stats leave them out */
+function notPlayer(ppl: People, id: string) {
+  const p = ppl.of.get(id) ?? id;
+  return ppl.owner.has(p) || ppl.claude.has(p);
 }

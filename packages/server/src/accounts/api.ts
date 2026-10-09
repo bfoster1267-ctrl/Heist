@@ -2,7 +2,7 @@
 // `Authorization: Bearer` header. Every route is listed in packages/server/README.md.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { scrub } from "./activity";
+import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
 import type { Hosting } from "./hosting";
 import { ApiError, type AccountService } from "./service";
@@ -29,8 +29,8 @@ export interface ApiOptions {
   admin?: { auth: AdminAuth; svc: AdminService; hosting?: Hosting };
 }
 
-/** where a request came from: its address, and the app install's id when it sent one */
-type Where = { ip: string; device?: string };
+/** where a request came from: its address, the app install's id when it sent one, and whether Claude's testing sent it */
+type Where = { ip: string; device?: string; tester?: "claude" };
 const deviceOf = (req: IncomingMessage) => {
   const d = req.headers["x-heist-device"];
   return typeof d === "string" && /^[\w-]{8,40}$/.test(d) ? d : undefined;
@@ -182,7 +182,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (path === "/economy") return send(res, 200, await admin.svc.economy());
       if (path === "/overview") return send(res, 200, await admin.svc.overview());
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
-      if (path === "/activity") return send(res, 200, admin.svc.activity(q));
+      if (path === "/activity") return send(res, 200, await admin.svc.activity(q));
       if (path === "/live") return send(res, 200, (await admin.svc.overview()).live);
       if (path === "/server") {
         if (!admin.hosting) throw new ApiError(404, "Not found");
@@ -296,6 +296,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     }
     const ip = ipOf(req);
     const w: Where = { ip, device: deviceOf(req) };
+    if (String(req.headers["user-agent"] ?? "").includes(CLAUDE_UA)) w.tester = "claude";
     if (url.pathname.startsWith("/api/admin/")) {
       await adminRoute(req, res, url, ip);
       return true;
