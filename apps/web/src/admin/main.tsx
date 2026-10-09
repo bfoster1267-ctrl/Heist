@@ -7,6 +7,7 @@ import "../fonts/fonts.css";
 import "./admin.css";
 import { AuthError, forget, login, saved, type Session } from "./api";
 import { Activity, Dashboard, Game, LivePage, Player, Players, type PageProps } from "./pages";
+import { ServerPage } from "./server";
 
 function useRoute() {
   const read = () => {
@@ -31,6 +32,7 @@ const NAV: [string, string][] = [
   ["players", "Players"],
   ["activity", "Activity"],
   ["live", "Live tables"],
+  ["server", "Server"],
 ];
 
 function Admin() {
@@ -55,7 +57,7 @@ function Admin() {
   if (!s) return <SignIn onIn={setS} />;
   const props: PageProps = { s, onAuth, query, param: parts[1] };
   const page = parts[0] ?? "";
-  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", live: "Live tables", games: "Game replay" };
+  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", live: "Live tables", server: "Server & bill", games: "Game replay" };
   return (
     <div className="shell">
       <header className="top">
@@ -85,6 +87,7 @@ function Admin() {
         {page === "players" && (parts[1] ? <Player key={parts[1]} {...props} /> : <Players key={query.toString()} {...props} />)}
         {page === "activity" && <Activity key={query.toString()} {...props} />}
         {page === "live" && <LivePage {...props} />}
+        {page === "server" && <ServerPage {...props} />}
         {page === "games" && <Game key={parts[1]} {...props} />}
       </main>
     </div>

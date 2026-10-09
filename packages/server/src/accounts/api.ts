@@ -4,6 +4,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
+import type { Hosting } from "./hosting";
 import { ApiError, type AccountService } from "./service";
 
 const BODY_LIMIT = 16 * 1024;
@@ -25,7 +26,7 @@ export interface ApiOptions {
   allowedOrigins?: string[];
   now?: () => number;
   /** the owner's admin panel (off when no admin password is set) */
-  admin?: { auth: AdminAuth; svc: AdminService };
+  admin?: { auth: AdminAuth; svc: AdminService; hosting?: Hosting };
 }
 
 /** where a request came from: its address, and the app install's id when it sent one */
@@ -163,6 +164,10 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
       if (path === "/activity") return send(res, 200, admin.svc.activity(q));
       if (path === "/live") return send(res, 200, (await admin.svc.overview()).live);
+      if (path === "/server") {
+        if (!admin.hosting) throw new ApiError(404, "Not found");
+        return send(res, 200, { ...(await admin.hosting.report()), live: (await admin.svc.overview()).live });
+      }
       if (path === "/tags") return send(res, 200, { tags: await admin.svc.tags() });
       if (id?.[1] === "accounts") {
         const a = await admin.svc.account(id[2]);

@@ -6,7 +6,7 @@ import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelO
 type Load<T> = { data: T | null; error: string | null; reload: () => void; loading: boolean };
 
 /** Fetch an admin route; errors other than an expired sign-in show in the page. */
-function useAdmin<T>(s: Session, path: string | null, onAuth: (e: unknown) => void): Load<T> {
+export function useAdmin<T>(s: Session, path: string | null, onAuth: (e: unknown) => void): Load<T> {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -43,7 +43,7 @@ const withParam = (q: URLSearchParams, k: string, v: string) => {
   return p;
 };
 
-const Problem = ({ error }: { error: string | null }) => (error ? <div className="problem">{error}</div> : null);
+export const Problem = ({ error }: { error: string | null }) => (error ? <div className="problem">{error}</div> : null);
 const short = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
 // ------------------------------------------------------------------ dashboard

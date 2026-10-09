@@ -17,6 +17,7 @@ import { realClock, type Clock, type Conn, type GameOverReport, type Room } from
 import { Rooms, roomOptions, type Limits } from "./rooms";
 import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
+import type { Hosting } from "./accounts/hosting";
 
 export interface ServerOptions {
   port?: number;
@@ -46,6 +47,8 @@ export interface ServerOptions {
   webDir?: string;
   /** the owner's admin panel at /admin (needs accounts); off without a password */
   admin?: { user: string; password: string; secret?: string };
+  /** server and Render stats for the admin panel */
+  hosting?: Hosting;
 }
 
 export interface HeistServer {
@@ -94,6 +97,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
               rooms: rooms.all().map((r) => r.info()),
             }),
           }),
+          hosting: o.hosting,
         }
       : undefined;
   const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin }) : null;
@@ -167,6 +171,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         : { threshold: 1024, serverMaxWindowBits: 11, zlibDeflateOptions: { memLevel: 6, level: 6 }, concurrencyLimit: 4 },
     verifyClient: ({ origin }: { origin: string }) => !o.allowedOrigins?.length || o.allowedOrigins.includes(origin),
   });
+  o.hosting?.start(() => wss.clients.size);
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
@@ -362,6 +367,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     queue,
     port: () => (http.address() as { port: number }).port,
     async close() {
+      o.hosting?.stop();
       clearInterval(beat);
       queue.close();
       for (const ws of wss.clients) ws.terminate();
