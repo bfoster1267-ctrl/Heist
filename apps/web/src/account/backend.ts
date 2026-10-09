@@ -191,7 +191,7 @@ export class BrowserBackend implements Backend {
     if (campaign && (!st || st.n > this.save.progress.campaign + 1)) throw new BackendError("Clear the stage before that one first");
     if (st) [players, stakes] = [st.players, 0];
     const quit = this.quit();
-    if (coached) stakes = 0;
+    if (coached) [players, stakes] = [3, 0];
     if (name) this.save.name = name;
     const p = buyIn(this.save.progress, stakes);
     if (failed(p)) throw new BackendError(p.error);
