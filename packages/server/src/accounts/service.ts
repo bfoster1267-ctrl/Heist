@@ -64,6 +64,8 @@ export interface AccountOptions {
 const EMAIL = /^[^\s@]{1,64}@[^\s@]{1,255}\.[^\s@]{2,}$/;
 const SOLO_PLAYERS = [3, 4, 5, 6];
 const MAX_STAKES = 1_000_000;
+/** Coached play is always a 3-player table: the fewest rivals, so a learner who follows the coach usually wins */
+const COACH_PLAYERS = 3;
 
 export class AccountService {
   readonly store: AccountStore;
@@ -361,7 +363,7 @@ export class AccountService {
    * Start a vs-bots game: pay the buy-in and get a seed from the server.
    * `scaled`: the client builds bots at the levels in the ticket (older cached clients don't, so they get
    * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in). `coached`: Coached play
-   * (normal bots, no buy-in, small XP, kept out of the career and the rating).
+   * (always 3 players, gentle bots for clients that ask, no buy-in, small XP, kept out of the career and the rating).
    */
   async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown, gentle?: unknown) {
     const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
@@ -370,7 +372,7 @@ export class AccountService {
     if (typeof players !== "number" || !SOLO_PLAYERS.includes(players)) throw new ApiError(400, "Tables are for 3 to 6 players");
     if (typeof stakes !== "number" || !Number.isInteger(stakes) || stakes < 0 || stakes > MAX_STAKES) throw new ApiError(400, "Bad stakes");
     const coach = !st && coached === true;
-    const n = players;
+    const n = coach ? COACH_PLAYERS : players;
     const buy = coach ? 0 : stakes;
     return this.update(a.id, (x) => {
       if (st && st.n > x.progress.campaign + 1) throw new ApiError(403, "Clear the stage before that one first");

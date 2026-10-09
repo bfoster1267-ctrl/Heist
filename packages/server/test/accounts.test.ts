@@ -157,7 +157,8 @@ describe("accounts", () => {
     const acct = () => svc.require(token);
     const s = await svc.soloStart(await acct(), 4, 5000, undefined, undefined, true);
     expect(s.me.progress.chips).toBe(10_000); // no buy-in, whatever stakes were sent
-    const game = playSolo(s.seed, 4);
+    expect(s.players).toBe(3); // always a 3-player table
+    const game = playSolo(s.seed, 3);
     const done = await svc.soloFinish(await acct(), s.gameId, game.answers);
     expect(done.me.progress.stats.games).toBe(0);
     expect(done.me.progress.chips).toBe(10_000);
@@ -171,7 +172,7 @@ describe("accounts", () => {
     const soft = await svc.soloStart(await acct(), 4, 0, true, undefined, true, true);
     expect(soft.gentle).toBe(true);
     expect(soft.levels).toBeUndefined();
-    const g2 = playSolo(soft.seed, 4, { gentle: true });
+    const g2 = playSolo(soft.seed, 3, { gentle: true });
     expect((await svc.soloFinish(await acct(), soft.gameId, g2.answers)).me.progress.coachGames).toBe(2);
 
     // walking out of a coached game costs nothing and isn't a quit

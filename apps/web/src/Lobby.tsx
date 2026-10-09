@@ -75,7 +75,7 @@ export function Lobby({
     } catch {
       /* ignore */
     }
-    onPlay({ players, name: name.trim() || "Ace", stakes: 0, coached: true });
+    onPlay({ players: 3, name: name.trim() || "Ace", stakes: 0, coached: true });
   };
   return (
     <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
@@ -151,7 +151,7 @@ export function Lobby({
               Play with friends
             </button>
           </div>
-          <button className="btn ghost" onClick={coach} data-tip="A real game against bots with a coach who explains every move. Free to play, small XP, doesn't count in your career.">
+          <button className="btn ghost" onClick={coach} data-tip="A 3-player game against two easy bots, with a coach who explains every move. Free to play, small XP, doesn't count in your career.">
             Coached play <span className="dim">learn with a coach</span>
           </button>
           <AnimatePresence>
