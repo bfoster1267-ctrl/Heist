@@ -10,6 +10,29 @@ const KEY = "heist.admin";
 export interface Session {
   token: string;
   expires: number;
+  user?: string;
+  role?: "owner" | "admin";
+}
+
+export interface TeamMember {
+  user: string;
+  createdAt: number;
+  createdBy: string;
+  lastLogin?: number;
+}
+
+type Flow = { all: number; day: number; week: number; month: number; count: number };
+export interface Economy {
+  at: number;
+  start: number;
+  trackedSince: number | null;
+  circulation: { chips: number; registered: number; guests: number; coins: number; accounts: number; untracked: number };
+  flows: Record<"start" | "daily" | "refill" | "botsWon" | "botsLost" | "packs" | "online", Flow>;
+  unknownRefills: number;
+  coinsEarned: number;
+  daily: { day: string; added: number; removed: number }[];
+  players: { played: number; up: number; even: number; down: number; broke: number; buckets: { label: string; count: number }[] };
+  top: AccountRow[];
 }
 
 export function saved(): Session | null {

@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { AuthError, get, type AccountDetail, type AccountRow, type ActivityEvent, type GameView, type Live, type Overview, type Session } from "./api";
+import { AuthError, get, post, type AccountDetail, type AccountRow, type ActivityEvent, type Economy, type GameView, type Live, type Overview, type ServerReport, type Session } from "./api";
 import { CrmPanel } from "./crm";
 import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when } from "./bits";
 
@@ -48,19 +48,19 @@ const short = (d: string) => new Date(d + "T12:00:00Z").toLocaleDateString("en-U
 
 // ------------------------------------------------------------------ dashboard
 
-export function Dashboard({ s, onAuth }: PageProps) {
-  const o = useAdmin<Overview>(s, "/overview", onAuth);
-  usePoll(o.reload, 15_000);
-  const d = o.data;
-  if (!d) return <Problem error={o.error} />;
-  const sum = (k: "signups" | "games" | "people") => d.daily.reduce((n, r) => n + r[k], 0);
-  const ac = d.accounts;
-  const live = d.live;
-  const seated = live ? live.rooms.reduce((n, r) => n + r.seats.filter((x) => x.kind === "human" && x.connected).length, 0) : 0;
-  return (
-    <>
-      <Problem error={o.error} />
-      <section className="stats">
+type Ctx = { d: Overview; eco: Economy | null; srv: ServerReport | null };
+type Widget = { id: string; label: string; group: "stat" | "chart" | "card"; needs?: "eco" | "srv"; render: (c: Ctx) => React.ReactNode };
+
+const sumDaily = (d: Overview, k: "signups" | "games" | "people") => d.daily.reduce((n, r) => n + r[k], 0);
+const ecoTotal = (e: Economy, k: "day" | "week" | "month", sign: 1 | -1) => Object.values(e.flows).reduce((n, f) => n + (Math.sign(f[k]) === sign ? f[k] : 0), 0);
+
+/** Everything the Overview can show. Each admin picks which, and in what order. */
+const WIDGETS: Widget[] = [
+  {
+    id: "people", label: "Players (unique people)", group: "stat",
+    render: ({ d }) => {
+      const ac = d.accounts;
+      return (
         <Stat
           label="Players (unique people)"
           value={num(ac.people)}
@@ -73,49 +73,209 @@ export function Dashboard({ s, onAuth }: PageProps) {
           }
           tone="gold"
         />
-        <Stat label="People active today" value={num(d.active.day)} sub={`${num(d.active.week)} this week · ${num(d.active.month)} this month`} />
-        <Stat label="Online now" value={num(live?.sockets ?? 0)} sub={`${num(seated)} at ${num(live?.rooms.length ?? 0)} tables · ${num(live?.queued ?? 0)} in queue`} tone="cash" />
-        <Stat label="Games played" value={num(d.economy.gamesPlayed)} sub={`${num(sum("games"))} in the last 30 days`} />
-        <Stat label="Chips held" value={num(d.economy.chips)} sub={`${num(d.economy.coins)} coins`} />
-        <Stat label="Packs bought" value={num(d.economy.packsBought)} sub={`${num(d.economy.drinksSent)} drinks sent`} />
-      </section>
-      <section className="charts">
-        <Columns title="New people per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.people }))} total={`${num(sum("people"))} in 30 days · ${num(sum("signups"))} signed up`} />
-        <Columns title="People active per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.active }))} total={`${num(d.active.month)} in 30 days`} />
-        <Columns title="Games finished per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.games }))} total={`${num(sum("games"))} in 30 days`} />
-      </section>
-      <section className="split">
+      );
+    },
+  },
+  { id: "active", label: "People active today", group: "stat", render: ({ d }) => <Stat label="People active today" value={num(d.active.day)} sub={`${num(d.active.week)} this week · ${num(d.active.month)} this month`} /> },
+  {
+    id: "online", label: "Online now", group: "stat",
+    render: ({ d }) => {
+      const live = d.live;
+      const seated = live ? live.rooms.reduce((n, r) => n + r.seats.filter((x) => x.kind === "human" && x.connected).length, 0) : 0;
+      return <Stat label="Online now" value={num(live?.sockets ?? 0)} sub={`${num(seated)} at ${num(live?.rooms.length ?? 0)} tables · ${num(live?.queued ?? 0)} in queue`} tone="cash" />;
+    },
+  },
+  { id: "games", label: "Games played", group: "stat", render: ({ d }) => <Stat label="Games played" value={num(d.economy.gamesPlayed)} sub={`all time, per player · ${num(sumDaily(d, "games"))} logged in 30 days`} /> },
+  { id: "chips", label: "Chips held", group: "stat", render: ({ d }) => <Stat label="Chips held" value={num(d.economy.chips)} sub={`${num(d.economy.coins)} coins`} /> },
+  { id: "packs", label: "Packs bought", group: "stat", render: ({ d }) => <Stat label="Packs bought" value={num(d.economy.packsBought)} sub={`${num(d.economy.drinksSent)} drinks sent`} /> },
+  { id: "signups", label: "Sign-ups (30 days)", group: "stat", render: ({ d }) => <Stat label="Sign-ups, 30 days" value={num(sumDaily(d, "signups"))} sub={`${d.accounts.people ? Math.round((d.accounts.signedUp / d.accounts.people) * 100) : 0}% of people have signed up`} /> },
+  { id: "eco.added", label: "Chips added today", group: "stat", needs: "eco", render: ({ eco }) => eco && <Stat label="Chips added today" tone="cash" value={num(ecoTotal(eco, "day", 1))} sub={`${num(ecoTotal(eco, "week", 1))} this week · daily, refills, bots`} /> },
+  { id: "eco.removed", label: "Chips taken out today", group: "stat", needs: "eco", render: ({ eco }) => eco && <Stat label="Chips taken out today" value={num(-ecoTotal(eco, "day", -1))} sub={`${num(-ecoTotal(eco, "week", -1))} this week · bots, packs`} /> },
+  {
+    id: "eco.up", label: "Players up on their start", group: "stat", needs: "eco",
+    render: ({ eco }) => eco && <Stat label="Players up on their start" value={eco.players.played ? `${Math.round((eco.players.up / eco.players.played) * 100)}%` : "–"} sub={`${num(eco.players.up)} of ${num(eco.players.played)} who've played`} />,
+  },
+  { id: "eco.circ", label: "Chips in circulation", group: "stat", needs: "eco", render: ({ eco }) => eco && <Stat label="Chips in circulation" tone="gold" value={num(eco.circulation.chips)} sub={<Link to="/economy">See the economy →</Link>} /> },
+  { id: "srv.memory", label: "Server memory", group: "stat", needs: "srv", render: ({ srv }) => srv && <Stat label="Server memory" value={`${num(srv.self.rssMb)} MB`} sub={<Link to="/server">up {Math.floor(srv.self.uptimeS / 3600)}h · server page →</Link>} /> },
+  { id: "srv.bill", label: "Hosting bill", group: "stat", needs: "srv", render: ({ srv }) => srv && <Stat label="Hosting this month" value={`$${(srv.cost.soFar ?? 0).toFixed(2)}`} sub={`of $${(srv.cost.monthly ?? 0).toFixed(2)} a month`} /> },
+  { id: "c.people", label: "Chart: new people per day", group: "chart", render: ({ d }) => <Columns title="New people per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.people }))} total={`${num(sumDaily(d, "people"))} in 30 days · ${num(sumDaily(d, "signups"))} signed up`} /> },
+  { id: "c.active", label: "Chart: people active per day", group: "chart", render: ({ d }) => <Columns title="People active per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.active }))} total={`${num(d.active.month)} in 30 days`} /> },
+  { id: "c.games", label: "Chart: games per day", group: "chart", render: ({ d }) => <Columns title="Games finished per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.games }))} total={`${num(sumDaily(d, "games"))} in 30 days`} /> },
+  { id: "c.signups", label: "Chart: sign-ups per day", group: "chart", render: ({ d }) => <Columns title="Sign-ups per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.signups }))} total={`${num(sumDaily(d, "signups"))} in 30 days`} /> },
+  { id: "c.added", label: "Chart: chips added per day", group: "chart", needs: "eco", render: ({ eco }) => eco && <Columns title="Chips added per day" rows={eco.daily.map((r) => ({ label: short(r.day), value: r.added }))} total={`${num(ecoTotal(eco, "month", 1))} in 30 days`} /> },
+  { id: "c.removed", label: "Chart: chips taken out per day", group: "chart", needs: "eco", render: ({ eco }) => eco && <Columns title="Chips taken out per day" rows={eco.daily.map((r) => ({ label: short(r.day), value: r.removed }))} total={`${num(-ecoTotal(eco, "month", -1))} in 30 days`} /> },
+  {
+    id: "newest", label: "Newest accounts", group: "card",
+    render: ({ d }) => (
+      <div className="card">
+        <div className="card-head">
+          <h3>Newest accounts</h3>
+          <Link to="/players?sort=new">All players →</Link>
+        </div>
+        <PlayerTable rows={d.newest} compact />
+      </div>
+    ),
+  },
+  {
+    id: "today", label: "Last 24 hours", group: "card",
+    render: ({ d }) => (
+      <div className="card">
+        <div className="card-head">
+          <h3>Last 24 hours</h3>
+          <Link to="/activity">Activity log →</Link>
+        </div>
+        {d.today.length === 0 ? (
+          <p className="dim">Nothing yet.</p>
+        ) : (
+          <ul className="kinds">
+            {d.today.slice(0, 14).map((k) => (
+              <li key={k.kind}>
+                <Link to={`/activity?kinds=${encodeURIComponent(k.kind)}`}>
+                  <span className={`fam fam-${familyOf(k.kind)}`} />
+                  {labelOf(k.kind)}
+                </Link>
+                <b>{num(k.count)}</b>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    ),
+  },
+  {
+    id: "top", label: "Biggest stacks", group: "card", needs: "eco",
+    render: ({ eco }) =>
+      eco && (
         <div className="card">
           <div className="card-head">
-            <h3>Newest accounts</h3>
-            <Link to="/players?sort=new">All players →</Link>
+            <h3>Biggest stacks</h3>
+            <Link to="/economy">Economy →</Link>
           </div>
-          <PlayerTable rows={d.newest} compact />
+          <PlayerTable rows={eco.top.slice(0, 6)} />
         </div>
-        <div className="card">
-          <div className="card-head">
-            <h3>Last 24 hours</h3>
-            <Link to="/activity">Activity log →</Link>
-          </div>
-          {d.today.length === 0 ? (
-            <p className="dim">Nothing yet.</p>
-          ) : (
-            <ul className="kinds">
-              {d.today.slice(0, 14).map((k) => (
-                <li key={k.kind}>
-                  <Link to={`/activity?kinds=${encodeURIComponent(k.kind)}`}>
-                    <span className={`fam fam-${familyOf(k.kind)}`} />
-                    {labelOf(k.kind)}
-                  </Link>
-                  <b>{num(k.count)}</b>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-      </section>
-      {live && <LiveTables live={live} />}
+      ),
+  },
+  { id: "tables", label: "Tables right now", group: "card", render: ({ d }) => d.live && <LiveTables live={d.live} /> },
+];
+
+const DEFAULT_LAYOUT = ["people", "active", "online", "eco.added", "eco.up", "chips", "c.people", "c.active", "c.games", "newest", "today", "tables"];
+
+export function Dashboard({ s, onAuth }: PageProps) {
+  const o = useAdmin<Overview>(s, "/overview", onAuth);
+  const me = useAdmin<{ layout: string[] | null }>(s, "/me", onAuth);
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const [saved, setSaved] = useState<string[] | null>(null);
+  const layout = (draft ?? saved ?? me.data?.layout ?? DEFAULT_LAYOUT).filter((id) => WIDGETS.some((w) => w.id === id));
+  const shown = layout.map((id) => WIDGETS.find((w) => w.id === id)!);
+  const eco = useAdmin<Economy>(s, shown.some((w) => w.needs === "eco") ? "/economy" : null, onAuth);
+  const srv = useAdmin<ServerReport>(s, shown.some((w) => w.needs === "srv") ? "/server" : null, onAuth);
+  usePoll(() => (o.reload(), eco.reload(), srv.reload()), 15_000);
+  const d = o.data;
+  if (!d) return <Problem error={o.error} />;
+  const ctx: Ctx = { d, eco: eco.data, srv: srv.data };
+  const group = (g: Widget["group"]) => shown.filter((w) => w.group === g);
+  const save = async (next: string[] | null) => {
+    try {
+      await post("/layout", { layout: next }, s);
+      setSaved(next ?? DEFAULT_LAYOUT);
+      setDraft(null);
+    } catch (e) {
+      onAuth(e);
+    }
+  };
+  const cards = group("card");
+  return (
+    <>
+      <Problem error={o.error} />
+      <div className="dash-tools">
+        {draft ? (
+          <>
+            <button className="btn primary small" onClick={() => save(draft)}>
+              Save layout
+            </button>
+            <button className="btn ghost small" onClick={() => setDraft(null)}>
+              Cancel
+            </button>
+            <button className="btn ghost small" onClick={() => save(null)}>
+              Reset to default
+            </button>
+          </>
+        ) : (
+          <button className="btn ghost small" onClick={() => setDraft(layout)}>
+            Customize
+          </button>
+        )}
+      </div>
+      {draft && <Customizer draft={draft} setDraft={setDraft} />}
+      {group("stat").length > 0 && <section className="stats">{group("stat").map((w) => <Fragment key={w.id}>{w.render(ctx)}</Fragment>)}</section>}
+      {group("chart").length > 0 && <section className="charts">{group("chart").map((w) => <Fragment key={w.id}>{w.render(ctx)}</Fragment>)}</section>}
+      {cards.length > 0 && (
+        <section className="split">
+          {cards.map((w) => (
+            <Fragment key={w.id}>{w.render(ctx)}</Fragment>
+          ))}
+        </section>
+      )}
     </>
+  );
+}
+
+/** Pick widgets and their order. Tiles, charts and cards each keep their own row. */
+function Customizer({ draft, setDraft }: { draft: string[]; setDraft: (d: string[]) => void }) {
+  const move = (id: string, by: number) => {
+    const i = draft.indexOf(id);
+    const g = WIDGETS.find((w) => w.id === id)!.group;
+    // swap with the nearest shown widget of the same kind
+    let j = i + by;
+    while (j >= 0 && j < draft.length && WIDGETS.find((w) => w.id === draft[j])?.group !== g) j += by;
+    if (j < 0 || j >= draft.length) return;
+    const next = [...draft];
+    [next[i], next[j]] = [next[j], next[i]];
+    setDraft(next);
+  };
+  const groups: [Widget["group"], string][] = [
+    ["stat", "Number tiles"],
+    ["chart", "Charts"],
+    ["card", "Lists"],
+  ];
+  return (
+    <div className="card customizer">
+      <div className="card-head">
+        <h3>Your Overview</h3>
+        <span className="dim small">tick what you want to see; arrows change the order</span>
+      </div>
+      <div className="cust-groups">
+        {groups.map(([g, title]) => (
+          <div key={g}>
+            <h4>{title}</h4>
+            <ul>
+              {[...draft.filter((id) => WIDGETS.find((w) => w.id === id)?.group === g), ...WIDGETS.filter((w) => w.group === g && !draft.includes(w.id)).map((w) => w.id)].map((id) => {
+                const w = WIDGETS.find((x) => x.id === id)!;
+                const on = draft.includes(id);
+                return (
+                  <li key={id} className={on ? "on" : ""}>
+                    <label>
+                      <input type="checkbox" checked={on} onChange={() => setDraft(on ? draft.filter((x) => x !== id) : [...draft, id])} />
+                      {w.label}
+                    </label>
+                    {on && (
+                      <span className="arrows">
+                        <button className="btn ghost small" aria-label={`Move ${w.label} up`} onClick={() => move(id, -1)}>
+                          ↑
+                        </button>
+                        <button className="btn ghost small" aria-label={`Move ${w.label} down`} onClick={() => move(id, 1)}>
+                          ↓
+                        </button>
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -279,7 +439,7 @@ function Badges({ r }: { r: AccountRow }) {
   );
 }
 
-function PlayerTable({ rows, compact }: { rows: AccountRow[]; compact?: boolean }) {
+export function PlayerTable({ rows, compact }: { rows: AccountRow[]; compact?: boolean }) {
   if (!rows.length) return <p className="dim">Nobody here yet.</p>;
   return (
     <div className="scroll-x">

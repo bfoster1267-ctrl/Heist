@@ -1166,3 +1166,115 @@ h4 {
     grid-column: 1 / -1;
   }
 }
+
+/* ---------------------------------------------------------------- economy */
+.flows td.up {
+  color: #a9e8b5;
+}
+.flows td.down {
+  color: #ffb4a3;
+}
+.flows tbody tr {
+  cursor: default;
+}
+.flows tr.sum td {
+  font-weight: 700;
+  color: var(--gold2);
+  border-top: 1px solid var(--hair);
+}
+
+/* ---------------------------------------------------------------- overview layout and admins */
+.dash-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  height: 36px;
+  gap: 8px;
+  margin-top: -52px;
+}
+.customizer h4 {
+  margin: 0 0 6px;
+}
+.cust-groups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+}
+.customizer ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.customizer li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--hair);
+  color: var(--muted);
+}
+.customizer li.on {
+  color: var(--paper);
+}
+.customizer label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.customizer .arrows {
+  display: flex;
+  gap: 2px;
+}
+.team tbody tr {
+  cursor: default;
+}
+.team-form .seg-row input {
+  flex: 1;
+  min-width: 160px;
+}
+@media (max-width: 700px) {
+  .dash-tools {
+    margin-top: -44px;
+  }
+}
+.hbars {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 7px;
+}
+.hbars li {
+  display: grid;
+  grid-template-columns: 120px 1fr 32px;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+}
+.hbars b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.hbar {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+.hbar i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--gold);
+}
+@media (max-width: 560px) {
+  .flows .wide,
+  .flows td .small {
+    display: none;
+  }
+  .flows td {
+    white-space: normal;
+  }
+}

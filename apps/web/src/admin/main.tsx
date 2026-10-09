@@ -8,6 +8,8 @@ import "./admin.css";
 import { AuthError, forget, login, saved, type Session } from "./api";
 import { Activity, Dashboard, Game, LivePage, Player, Players, type PageProps } from "./pages";
 import { ServerPage } from "./server";
+import { EconomyPage } from "./economy";
+import { TeamPage } from "./team";
 
 function useRoute() {
   const read = () => {
@@ -32,6 +34,7 @@ const NAV: [string, string][] = [
   ["players", "Players"],
   ["activity", "Activity"],
   ["live", "Live tables"],
+  ["economy", "Economy"],
   ["server", "Server"],
 ];
 
@@ -57,7 +60,7 @@ function Admin() {
   if (!s) return <SignIn onIn={setS} />;
   const props: PageProps = { s, onAuth, query, param: parts[1] };
   const page = parts[0] ?? "";
-  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", live: "Live tables", server: "Server & bill", games: "Game replay" };
+  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", live: "Live tables", server: "Server & bill", economy: "Economy", team: "Admins", games: "Game replay" };
   return (
     <div className="shell">
       <header className="top">
@@ -65,7 +68,7 @@ function Admin() {
           HEIST <span>back office</span>
         </a>
         <nav>
-          {NAV.map(([k, label]) => (
+          {[...NAV, ...(s.role === "owner" ? [["team", "Admins"] as [string, string]] : [])].map(([k, label]) => (
             <a key={k} href={`#/${k}`} className={page === k ? "on" : ""}>
               {label}
             </a>
@@ -78,7 +81,7 @@ function Admin() {
             setS(null);
           }}
         >
-          Sign out
+          Sign out{s.user ? ` ${s.user}` : ""}
         </button>
       </header>
       <main>
@@ -88,6 +91,8 @@ function Admin() {
         {page === "activity" && <Activity key={query.toString()} {...props} />}
         {page === "live" && <LivePage {...props} />}
         {page === "server" && <ServerPage {...props} />}
+        {page === "economy" && <EconomyPage {...props} />}
+        {page === "team" && <TeamPage {...props} />}
         {page === "games" && <Game key={parts[1]} {...props} />}
       </main>
     </div>

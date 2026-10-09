@@ -1,11 +1,11 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
 import { createSoloGame } from "@heist/profile";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { FileActivityLog } from "../src/accounts/activity";
-import { AdminAuth } from "../src/accounts/admin";
+import { AdminAuth, AdminTeam } from "../src/accounts/admin";
 import { AccountService } from "../src/accounts/service";
 import { HeistClient } from "../src/client";
 import type { ServerMsg } from "../src/protocol";
@@ -44,17 +44,44 @@ function playSolo(seed: number, players: number) {
 }
 
 describe("admin sign-in", () => {
-  it("takes only the right username and password, and its sessions expire", () => {
+  it("takes only the right username and password, and its sessions expire", async () => {
     let t = 1_000;
     const auth = new AdminAuth("boss", "a-long-admin-password", "secret", () => t);
-    expect(auth.login("boss", "wrong")).toBeNull();
-    expect(auth.login("someone", "a-long-admin-password")).toBeNull();
-    const s = auth.login("Boss ", "a-long-admin-password")!;
-    expect(auth.check(s.token)).toBe(true);
-    expect(auth.check(s.token.replace(/.$/, "x"))).toBe(false);
-    expect(new AdminAuth("boss", "another-password-entirely", "secret", () => t).check(s.token)).toBe(false); // a new password signs everyone out
+    expect(await auth.login("boss", "wrong")).toBeNull();
+    expect(await auth.login("someone", "a-long-admin-password")).toBeNull();
+    const s = (await auth.login("Boss ", "a-long-admin-password"))!;
+    expect(auth.check(s.token)).toEqual({ user: "boss", role: "owner" });
+    expect(auth.check(s.token.replace(/.$/, "x"))).toBeNull();
+    expect(new AdminAuth("boss", "another-password-entirely", "secret", () => t).check(s.token)).toBeNull(); // a new password signs everyone out
     t += 9 * 60 * 60_000;
-    expect(auth.check(s.token)).toBe(false);
+    expect(auth.check(s.token)).toBeNull();
+  });
+
+  it("lets the owner add admins with their own passwords, and remove them", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "heist-team-"));
+    dirs.push(dir);
+    const auth = new AdminAuth("boss", "a-long-admin-password", "secret", Date.now, AdminTeam.inDir(dir));
+    const owner = { user: "boss", role: "owner" as const };
+    await expect(auth.addMember(owner, "Sam", "short")).rejects.toThrow(/12 characters/);
+    await expect(auth.addMember(owner, "boss", "a-good-long-password")).rejects.toThrow(/owner/);
+    expect((await auth.addMember(owner, "Sam", "sams-long-password")).map((m) => m.user)).toEqual(["sam"]);
+    const s = (await auth.login("sam", "sams-long-password"))!;
+    expect(s.role).toBe("admin");
+    expect(auth.check(s.token)).toEqual({ user: "sam", role: "admin" });
+    await expect(auth.addMember({ user: "sam", role: "admin" }, "eve", "eves-long-password")).rejects.toThrow(/Only the owner/);
+    // kept on disk, password hashed
+    const again = new AdminAuth("boss", "a-long-admin-password", "secret", Date.now, AdminTeam.inDir(dir));
+    expect(again.check(s.token)).toEqual({ user: "sam", role: "admin" });
+    expect(readFileSync(join(dir, "admins.json"), "utf8")).not.toContain("sams-long-password");
+    // a new password, or removal, signs them out
+    await auth.addMember(owner, "sam", "a-new-long-password");
+    expect(auth.check(s.token)).toBeNull();
+    const s2 = (await auth.login("sam", "a-new-long-password"))!;
+    auth.team.setLayout("sam", ["people", "chips"]);
+    expect(auth.team.layout("sam")).toEqual(["people", "chips"]);
+    auth.removeMember(owner, "sam");
+    expect(auth.check(s2.token)).toBeNull();
+    expect(await auth.login("sam", "a-new-long-password")).toBeNull();
   });
 });
 
@@ -93,6 +120,7 @@ describe("admin panel API", () => {
     const ann = (await call("POST", "/api/auth/register", { email: "ann@x.com", password: "anns-password", name: "Ann" })).body;
     await call("POST", "/api/shop/buy", { id: "title.smooth" }, ann.token);
     await call("POST", "/api/shop/buy", { id: "no.such.thing" }, ann.token);
+    await call("POST", "/api/chips/daily", {}, ann.token);
     await call("POST", "/api/track", { events: [{ kind: "screen", name: "Lobby" }, { kind: "tap", name: "Play now" }, { kind: "BAD kind", name: "x" }] }, ann.token);
     expect((await call("POST", "/api/track", { events: [] })).status).toBe(401);
 
@@ -125,6 +153,15 @@ describe("admin panel API", () => {
     const get = async (path: string) => (await call("GET", path, undefined, token)).body;
 
     const ov = await get("/api/admin/overview");
+    const me = (await call("GET", "/api/me", undefined, ann.token)).body;
+    const eco = await get("/api/admin/economy");
+    expect(eco.circulation.chips).toBe(me.progress.chips);
+    expect(eco.flows.start.all).toBe(10_000);
+    expect(eco.flows.daily.all).toBe(500);
+    expect(eco.circulation.untracked).toBe(0); // every chip accounted for
+    expect(eco.players.played).toBe(1);
+    expect(eco.daily.at(-1).added).toBeGreaterThanOrEqual(10_500);
+    expect((await get("/api/admin/me"))).toMatchObject({ user: "admin", role: "owner", layout: null });
     expect(ov.accounts).toMatchObject({ registered: 1 });
     expect(ov.active.day).toBe(1);
     expect(ov.daily.at(-1)).toMatchObject({ signups: 1, games: 2, active: 1 });
