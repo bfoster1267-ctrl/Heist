@@ -266,7 +266,7 @@ function Badges({ r }: { r: AccountRow }) {
   return (
     <>
       {r.you && <span className="badge you">you</span>}
-      {r.personAccounts > 1 && <span className="badge note">+{r.personAccounts - 1} accounts</span>}
+      {r.personAccounts > 1 && <span className="badge note">+{r.personAccounts - 1} {r.personAccounts === 2 ? "account" : "accounts"}</span>}
       {r.banned && <span className="badge banned">suspended</span>}
       {r.flagged && <span className="badge flagged">⚑ flagged</span>}
       {r.tags.slice(0, 3).map((t) => (
