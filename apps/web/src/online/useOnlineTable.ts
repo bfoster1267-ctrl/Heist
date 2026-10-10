@@ -65,7 +65,7 @@ export function onlineSource(sess: OnlineSession) {
       const sp = speedRef.current;
       const before = shownRef.current?.state ?? f.state;
       const flightMs = flightHook.current ? flightHook.current(f.ev, before, f.state) : 0;
-      sfx(f.ev, seat);
+      sfx(f.ev, seat, f.state);
       if (flightMs > 0) {
         // remembered so Skip can drop it: a late show would put an older frame back over the skipped-to one
         const id = window.setTimeout(() => {

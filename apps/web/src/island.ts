@@ -4,7 +4,7 @@
 // in its media notification. Off in Settings (or with Sound off), nothing plays and nothing shows.
 import { useEffect, useRef } from "react";
 import { getPrefs, usePrefs } from "./prefs";
-import { getVolume, isMuted, onSoundChange } from "./sound";
+import { getVolume, isMuted, onDuck, onSoundChange } from "./sound";
 
 /** the music sits under the table sounds (the file itself is mixed quiet, as iPhones ignore volume here) */
 const LEVEL = 0.6;
@@ -54,8 +54,25 @@ export function useIsland(title: string, place: string) {
       waitTap = null;
     };
     const want = () => getPrefs().tableMusic && !isMuted() && !paused.current;
+    // under a big sting the music dips, then eases back (computers and Android; iPhones ignore volume here)
+    let ducked = 1;
+    let easing = 0;
+    const level = () => (a.volume = Math.min(1, getVolume() * LEVEL * ducked));
+    const offDuck = onDuck((ms) => {
+      ducked = 0.35;
+      level();
+      window.clearInterval(easing);
+      const t0 = performance.now() + ms;
+      easing = window.setInterval(() => {
+        const k = (performance.now() - t0) / 600;
+        if (k < 0) return;
+        ducked = Math.min(1, 0.35 + 0.65 * k);
+        level();
+        if (ducked >= 1) window.clearInterval(easing);
+      }, 50);
+    });
     const sync = () => {
-      a.volume = Math.min(1, getVolume() * LEVEL);
+      level();
       if (!want()) return a.pause();
       if (!a.paused) return;
       if (!a.src) {
@@ -96,6 +113,8 @@ export function useIsland(title: string, place: string) {
     return () => {
       live = false;
       off();
+      offDuck();
+      window.clearInterval(easing);
       unwait();
       a.pause();
       if (m) {
