@@ -238,6 +238,8 @@ export interface AccountDetail {
     email?: string;
     logins: { provider: string; subject: string }[];
     hasPassword: boolean;
+    /** phones and browsers signed up for turn alerts */
+    alertDevices?: number;
     crm: Crm;
     sessions: number;
     solo: { gameId: string; stakes: number; players: number; startedAt: number } | null;

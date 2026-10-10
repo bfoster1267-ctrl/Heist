@@ -10,6 +10,7 @@ import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
+import { dismissAlertsAsk, shouldAskForAlerts, turnOnAlerts, useAlertState } from "../alerts";
 import "./online.css";
 
 function useSession(sess: OnlineSession) {
@@ -323,6 +324,37 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
   );
 }
 
+/** While you wait for a table, once: offer a phone alert for when it's your turn (never on first load). */
+function AlertsAsk() {
+  useAlertState();
+  const [busy, setBusy] = useState(false);
+  if (!shouldAskForAlerts()) return null;
+  return (
+    <div className="alerts-ask" role="note">
+      <div>
+        <b>Get a buzz on your turn?</b>
+        <div className="fine">If you switch apps while you wait, we'll tell you when it's your move.</div>
+      </div>
+      <div className="alerts-ask-btns">
+        <button
+          className="btn gold small"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            await turnOnAlerts();
+            setBusy(false);
+          }}
+        >
+          Turn on
+        </button>
+        <button className="btn ghost small" onClick={dismissAlertsAsk}>
+          Not now
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Waiting in the quick queue: who's in line, and when bots fill the rest. */
 function QueueCard({ sess }: { sess: OnlineSession }) {
   const q = sess.queue!;
@@ -346,6 +378,7 @@ function QueueCard({ sess }: { sess: OnlineSession }) {
       <button className="btn ghost" onClick={() => sess.client.unqueue()}>
         Cancel
       </button>
+      <AlertsAsk />
     </div>
   );
 }
@@ -405,6 +438,7 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
         ) : (
           <div className="fine waiting-host">Waiting for the host to deal...</div>
         )}
+        <AlertsAsk />
       </div>
     </>
   );
@@ -457,6 +491,7 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
         watching={sess.seat === null}
         away={away}
         clock={<TurnClock sess={sess} />}
+        place={`Table ${room.code}`}
         clean={room.ranked}
         tags={tags}
         onName={(seat) => {

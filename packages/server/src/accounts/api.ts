@@ -27,6 +27,8 @@ export interface ApiOptions {
   now?: () => number;
   /** the owner's admin panel (off when no admin password is set) */
   admin?: { auth: AdminAuth; svc: AdminService; hosting?: Hosting };
+  /** the VAPID public key browsers subscribe to turn alerts with (alerts are off without one) */
+  pushKey?: string;
 }
 
 /** where a request came from: its address, the app install's id when it sent one, and whether Claude's testing sent it */
@@ -235,6 +237,12 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
       return svc.payForDrink((await me(t)).id, b.id, count);
     },
+    "GET /api/push/key": async () => ({ key: o.pushKey ?? null }),
+    "POST /api/push/subscribe": async (b, t) => {
+      if (!o.pushKey) throw new ApiError(404, "Turn alerts aren't set up on this server");
+      return svc.pushSubscribe(await me(t), b.sub);
+    },
+    "POST /api/push/unsubscribe": async (b, t) => svc.pushUnsubscribe(await me(t), b.endpoint),
     "GET /api/coach/mistakes": async () => svc.mistakes(),
     "GET /api/leaderboard": async (_, __, q) => ({ rows: await svc.leaderboard(q.get("by")) }),
     "GET /api/players/:id": async (_, __, ___, id) => svc.publicProfile(id),

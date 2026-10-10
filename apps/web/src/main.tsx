@@ -2,12 +2,14 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { installAppShell } from "./appShell";
+import { syncAlerts } from "./alerts";
 import { OpenInBrowser, RotateGate, inAppBrowser, inAppWaved } from "./gates";
 import { installTracking } from "./track";
 import "./fonts/fonts.css";
 import "./styles.css";
 
 installAppShell();
+syncAlerts();
 
 // Opened inside Reddit, Instagram, Facebook or TikTok: send them to a real browser before an account is made
 function Root() {

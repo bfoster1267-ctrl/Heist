@@ -35,6 +35,8 @@ export class HeistClient {
   private closed = false;
   private retry = 0;
   private spectating = false;
+  /** the app is in the background (told to the server again after a reconnect) */
+  private away = false;
 
   constructor(
     private url: string,
@@ -81,6 +83,7 @@ export class HeistClient {
           for (const h of this.connHandlers) h(true);
           // back after a drop: rejoin the table and pick up after the last frame we played
           if (this.room) this.send({ t: "join", code: this.room.code, spectate: this.spectating, since: this.game ? this.nextFrame : undefined });
+          if (this.away) this.send({ t: "away", on: true });
         }
         // a suspended account is turned away for good: stop trying to reconnect
         if (m.t === "error" && m.code === "suspended") {
@@ -191,6 +194,12 @@ export class HeistClient {
   }
   autopilot(on: boolean) {
     this.send({ t: "autopilot", on });
+  }
+  /** The app went to the background or came back: while away, the server alerts the phone on your turn. */
+  setAway(on: boolean) {
+    if (on === this.away) return;
+    this.away = on;
+    this.send({ t: "away", on });
   }
   chat(text: string) {
     this.send({ t: "chat", text });

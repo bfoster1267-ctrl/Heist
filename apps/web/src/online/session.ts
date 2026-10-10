@@ -63,6 +63,13 @@ export class OnlineSession {
       },
     });
     this.client.onAny((m) => this.receive(m));
+    // in the background the server sends a phone alert when it's your turn (see push.ts)
+    if (typeof document !== "undefined") {
+      const seen = () => this.client.setAway(document.visibilityState === "hidden");
+      document.addEventListener("visibilitychange", seen);
+      window.addEventListener("pagehide", () => this.client.setAway(true));
+      window.addEventListener("pageshow", seen);
+    }
     // a dropped socket reconnects by itself; show that while it does
     this.client.onConnection((up) => {
       this.status = up ? "online" : "connecting";

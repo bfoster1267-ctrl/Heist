@@ -400,7 +400,8 @@ export class AdminService {
     if (!a) return null;
     const counts: Record<string, number> = {};
     for (const e of this.log.window()) if (e.userId === id) counts[e.kind] = (counts[e.kind] ?? 0) + 1;
-    const { password, ...rest } = a;
+    // push subscriptions are keys to the player's phone: the panel only shows how many there are
+    const { password, push, ...rest } = a;
     // the addresses they've played from, newest first (for spotting second accounts)
     const ips = new Map<string, number>();
     for (const e of this.log.window()) if (e.userId === id && e.ip && !byOwner(e)) ips.set(e.ip, e.at);
@@ -418,7 +419,7 @@ export class AdminService {
     const sameIp = new Map<string, { id: string; name: string }>();
     for (const e of this.log.window()) if (e.ip && e.userId && e.userId !== id && !byOwner(e) && ips.has(e.ip)) sameIp.set(e.userId, { id: e.userId, name: e.name ?? e.userId });
     return {
-      row: this.row(a, ppl), samePerson, account: { ...rest, crm, hasPassword: !!password, progress: upgrade(a.progress) }, counts,
+      row: this.row(a, ppl), samePerson, account: { ...rest, crm, hasPassword: !!password, alertDevices: push?.length ?? 0, progress: upgrade(a.progress) }, counts,
       ips: [...ips].sort((x, y) => y[1] - x[1]).map(([ip, at]) => ({ ip, at })), sameIp: [...sameIp.values()].slice(0, 20),
       tagsInUse: await this.tags(),
     };

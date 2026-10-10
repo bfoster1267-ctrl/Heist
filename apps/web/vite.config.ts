@@ -12,7 +12,7 @@ function serviceWorker(): Plugin {
     name: "heist-sw",
     apply: "build",
     generateBundle(_, bundle) {
-      const files = ["./", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", ...Object.keys(bundle).filter((f) => !/admin/.test(f)).map((f) => "./" + f)];
+      const files = ["./", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./table-music.m4a", ...Object.keys(bundle).filter((f) => !/admin/.test(f)).map((f) => "./" + f)];
       const version = Date.now().toString(36);
       this.emitFile({
         type: "asset",
@@ -25,6 +25,35 @@ self.addEventListener("install", (e) => {
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
+});
+// turn alerts (see src/alerts.ts): the server pushes { title, body, tag, url }
+self.addEventListener("push", (e) => {
+  let m = {};
+  try {
+    m = e.data ? e.data.json() : {};
+  } catch {}
+  // always show it: iPhones stop delivering to apps that receive pushes without showing one
+  // (the server already skips players who have the table open in front of them)
+  e.waitUntil(
+    self.registration.showNotification(m.title || "Heist", {
+      body: m.body || "",
+      tag: m.tag || "heist",
+      renotify: true,
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+      data: { url: m.url || "./" },
+    }),
+  );
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      const w = wins[0];
+      return w ? w.focus() : self.clients.openWindow(url);
+    }),
+  );
 });
 self.addEventListener("fetch", (e) => {
   const req = e.request;

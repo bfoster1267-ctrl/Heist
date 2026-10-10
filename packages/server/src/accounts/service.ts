@@ -14,6 +14,7 @@ import { OAuth, OAuthError, type OAuthConfig } from "./oauth";
 import { MemoryActivityLog, type ActivityEvent, type ActivityLog } from "./activity";
 import { MemoryAccountStore, type Account, type Crm, type AccountStore, type Login, type Provider } from "./store";
 import { Tokens, checkPassword, hashPassword } from "./tokens";
+import { parseSub, type PushSub } from "../push";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -69,6 +70,8 @@ const SOLO_PLAYERS = [3, 4, 5, 6];
 const MAX_STAKES = 1_000_000;
 /** Coached play is always a 3-player table: the fewest rivals, so a learner who follows the coach usually wins */
 const COACH_PLAYERS = 3;
+/** turn alerts go to at most this many of a player's phones and browsers */
+const MAX_PUSH_DEVICES = 5;
 
 export class AccountService {
   readonly store: AccountStore;
@@ -269,10 +272,42 @@ export class AccountService {
       x.sessions++;
       x.progress = newProgress();
       x.solo = null;
+      x.push = undefined;
       return x;
     });
     this.badges.delete(a.id);
     this.board = null;
+  }
+
+  // ------------------------------------------------------------------ turn alerts (web push)
+
+  /** Save this browser's push subscription (one per endpoint; the oldest go past a handful of devices). */
+  async pushSubscribe(a: Account, raw: unknown) {
+    const sub = parseSub(raw, this.now());
+    if (!sub) throw new ApiError(400, "That isn't a push subscription this server can use");
+    await this.update(a.id, (x) => {
+      x.push = [...(x.push ?? []).filter((s) => s.endpoint !== sub.endpoint), sub].slice(-MAX_PUSH_DEVICES);
+    });
+    return { ok: true };
+  }
+
+  async pushUnsubscribe(a: Account, endpoint: unknown) {
+    if (typeof endpoint !== "string") throw new ApiError(400, "Which subscription?");
+    await this.update(a.id, (x) => {
+      x.push = (x.push ?? []).filter((s) => s.endpoint !== endpoint);
+    });
+    return { ok: true };
+  }
+
+  async pushSubs(userId: string): Promise<PushSub[]> {
+    return (await this.store.get(userId))?.push ?? [];
+  }
+
+  /** The push service says this subscription is gone (app deleted, alerts turned off). */
+  async pushGone(userId: string, endpoint: string) {
+    await this.update(userId, (x) => {
+      x.push = (x.push ?? []).filter((s) => s.endpoint !== endpoint);
+    }).catch(() => {});
   }
 
   // ------------------------------------------------------------------ profile and shop

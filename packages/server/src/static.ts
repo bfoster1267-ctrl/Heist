@@ -16,6 +16,7 @@ const TYPES: Record<string, string> = {
   ".svg": "image/svg+xml",
   ".ico": "image/x-icon",
   ".woff2": "font/woff2",
+  ".m4a": "audio/mp4",
 };
 
 export async function serveStatic(dir: string, req: IncomingMessage, res: ServerResponse): Promise<boolean> {

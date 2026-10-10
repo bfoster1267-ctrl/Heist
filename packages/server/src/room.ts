@@ -67,6 +67,11 @@ export interface RoomDeps {
   log?: (msg: string, extra?: object) => void;
   /** level, prestige and look of a signed-in player, shown on their seat */
   badge?: (userId: string) => Badge | undefined;
+  /**
+   * something a player may want a phone alert for: their decision is up, or someone sat down at their
+   * table. The server decides whether they're away enough to need one.
+   */
+  alert?: (userId: string, a: { kind: "turn" | "joined"; room: Room; name?: string }) => void;
   /** a disconnected player's decisions wait this long before a bot answers (ms) */
   graceMs?: number;
   /** a disconnected player's lobby seat is held this long (ms) */
@@ -219,6 +224,7 @@ export class Room {
       seat = this.seats.findIndex((s) => s.kind === "open");
       if (seat < 0) return "room_full";
       Object.assign(this.seats[seat], { kind: "human", userId: conn.userId, name: conn.name, autopilot: false, timeouts: 0 });
+      for (const o of this.seats) if (o.kind === "human" && o.userId && o.userId !== conn.userId) this.deps.alert?.(o.userId, { kind: "joined", room: this, name: conn.name });
     }
     if (seat !== null) {
       const s = this.seats[seat];
@@ -463,6 +469,7 @@ export class Room {
     const id = this.askId;
     this.timer = this.deps.clock.set(() => this.timedOut(id), wait);
     this.sendAsk(p);
+    if (s.userId) this.deps.alert?.(s.userId, { kind: "turn", room: this });
   }
 
   private sendAsk(p: Ask) {
@@ -597,6 +604,14 @@ export class Room {
     const at = this.deps.clock.now();
     this.drinkTimes.set(c.conn.userId, at);
     this.broadcast({ t: "drink", from, to, id, name: c.conn.name, at });
+  }
+
+  /** The person whose decision the table is waiting on right now (null when it's a bot's, or no game is on). */
+  waitingOn(): string | null {
+    const p = this.game?.pending;
+    if (!p || this.status !== "playing" || this.timer === null) return null;
+    const s = this.seats[p.seat];
+    return s.kind === "human" && !s.autopilot ? s.userId : null;
   }
 
   /** The user id sitting at a seat (humans only). */

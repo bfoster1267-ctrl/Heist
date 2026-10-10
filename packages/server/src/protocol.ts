@@ -93,7 +93,9 @@ export type ClientMsg =
   | { t: "chat"; text: string }
   /** buy a drink (coins) for one seat, or for everyone with a round (`to: null`) */
   | { t: "drink"; id: string; to: number | null }
-  | { t: "ping"; n?: number };
+  | { t: "ping"; n?: number }
+  /** the app went to the background (or came back): while away, your turn sends a phone alert */
+  | { t: "away"; on: boolean };
 
 // ------------------------------------------------------------------ server -> client
 

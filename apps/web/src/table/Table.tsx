@@ -3,6 +3,7 @@ import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
+import { useIsland } from "../island";
 import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
@@ -72,7 +73,10 @@ export function Table({
   clean = false,
   tags,
   onName,
+  place = "At the table",
 }: {
+  /** the small line under the title in the Dynamic Island / lock screen ("Table K7QX") */
+  place?: string;
   settings: TableSettings;
   /** Ranked: a clean HUD, no coach tips or explainer lines, just the table and your choices */
   clean?: boolean;
@@ -174,6 +178,7 @@ export function Table({
   const paid = useRef(false);
   const shake = useAnimationControls();
   useWakeLock(!t.shown?.state.winners);
+  useIsland(t.shown?.state.winners ? "Game over" : t.ask && !watching ? "Your turn" : watching ? "Watching" : "Heist", place);
 
   const s = t.shown?.state;
   const pot = settings.stakes * settings.players;

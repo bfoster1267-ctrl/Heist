@@ -13,10 +13,18 @@ try {
   /* storage blocked */
 }
 
+/** things that follow the sound settings (the table music) */
+const watchers = new Set<() => void>();
+export function onSoundChange(f: () => void) {
+  watchers.add(f);
+  return () => void watchers.delete(f);
+}
+
 export const getVolume = () => volume;
 export function setVolume(v: number) {
   volume = v;
   if (master) master.gain.value = v;
+  watchers.forEach((f) => f());
   try {
     localStorage.setItem("heist.volume", String(v));
   } catch {
@@ -38,6 +46,7 @@ if (typeof window !== "undefined") {
 export const isMuted = () => muted;
 export function setMuted(m: boolean) {
   muted = m;
+  watchers.forEach((f) => f());
   try {
     localStorage.setItem("heist.muted", m ? "1" : "0");
   } catch {
