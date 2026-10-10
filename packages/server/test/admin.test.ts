@@ -308,7 +308,7 @@ describe("admin panel API", () => {
 
     const people = (await get("/api/admin/accounts?show=people", token)).rows;
     expect(people.map((r: { name: string }) => r.name).sort()).toContain("Bob");
-    expect(people.length).toBe(4);
+    expect(people.length).toBe(5); // the Players list still shows the guest who never played
     const bob = people.find((r: { name: string }) => r.name === "Bob");
     expect(bob.personAccounts).toBe(2);
     expect((await get("/api/admin/accounts?show=all", token)).rows.length).toBe(8);
