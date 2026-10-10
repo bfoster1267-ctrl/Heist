@@ -173,6 +173,7 @@ const LABELS: Record<string, string> = {
   "table.drink": "Sent a drink",
   "ui.screen": "Screen",
   "ui.tap": "Tapped",
+  "ui.turn": "Turn reached (vs bots)",
   "view.player": "Viewed a profile",
   "view.leaderboard": "Viewed the leaderboard",
   "admin.login": "Admin sign-in",
@@ -231,6 +232,7 @@ export function detailOf(e: ActivityEvent): string {
       return d.on ? "on" : "off";
     case "ui.screen":
     case "ui.tap":
+    case "ui.turn":
       return String(d.name ?? "");
     case "me.name":
       return String(d.name ?? "");
