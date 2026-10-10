@@ -11,3 +11,4 @@ export { SEASON_1 } from "./season1";
 export * from "./coach";
 export * from "./ranked";
 export * from "./easy";
+export * from "./lessons";

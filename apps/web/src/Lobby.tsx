@@ -1,7 +1,7 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { STAGES } from "@heist/profile";
+import { LESSONS, STAGES, lesson } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
@@ -43,6 +43,7 @@ export function Lobby({
   defaultName,
   cleared = 0,
   newbie = false,
+  nextLesson,
 }: {
   chips: number;
   onPlay: (c: LobbyChoice) => void;
@@ -56,6 +57,8 @@ export function Lobby({
   cleared?: number;
   /** never played a game: Learn to play leads */
   newbie?: boolean;
+  /** the Coached play lesson they'd play next (none: they've done them all) */
+  nextLesson?: number;
 }) {
   const [players, setPlayers] = useState(() => remembered("heist.players", [3, 4, 5, 6], 4));
   const [name, setName] = useState(() => {
@@ -164,7 +167,7 @@ export function Lobby({
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
-          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
+          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${nextLesson} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
         <InstallHint />
         <div className="fine">
@@ -257,7 +260,7 @@ export function Lobby({
               }}
             >
               Play with a coach
-              <span className="lobby-sub">A short game with tips on every move. Free.</span>
+              <span className="lobby-sub">{nextLesson ? `Lesson ${nextLesson} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A short game with tips on every move. Free."}</span>
             </button>
             <button
               className="btn lobby-big"

@@ -1412,6 +1412,34 @@ button:disabled {
   font-weight: 700;
   color: #7be0a0;
 }
+.coach-new {
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(231, 181, 60, 0.14);
+  border: 1px solid rgba(231, 181, 60, 0.45);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.coach-new-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e7b53c;
+  color: #1d1f24;
+  font-family: var(--cond);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.big-text .coach-new {
+  font-size: calc(14px * var(--ts));
+}
+.waiting.coach-plays {
+  color: #e7b53c;
+}
 .big-text .coach-hint,
 .big-text .coach-cheer,
 .big-text .coach-pick {

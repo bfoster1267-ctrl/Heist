@@ -30,6 +30,8 @@ export interface SoloGame {
   levels?: BotLevel[];
   /** a campaign stage */
   stage?: number;
+  /** Coached play lesson (lessons.ts), for a player's first coached games */
+  lesson?: number;
 }
 
 export interface Account {

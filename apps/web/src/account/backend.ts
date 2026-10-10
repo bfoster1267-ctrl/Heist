@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -38,6 +38,8 @@ export interface SoloTicket {
   players?: number;
   /** Coached play: the bots go easy on you */
   gentle?: boolean;
+  /** Coached play lesson (a player's first coached games teach the game a piece at a time) */
+  lesson?: number;
   me: Me;
   /** the reward for a game walked away from (it counts as a loss) */
   quit: Reward | null;
@@ -129,7 +131,7 @@ interface LocalSave {
   name: string;
   joined: number;
   progress: Progress;
-  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number; coached?: boolean; gentle?: boolean } | null;
+  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number; coached?: boolean; gentle?: boolean; lesson?: number } | null;
 }
 
 const LOCAL_KEY = "heist.profile";
@@ -202,11 +204,12 @@ export class BrowserBackend implements Backend {
     if (failed(p)) throw new BackendError(p.error);
     this.save.progress = p;
     const rand = () => Math.floor(Math.random() * 2 ** 31);
-    const seed = coached ? easySeed(rand, players, 16, 250) : rand();
+    const lesson = coached ? lessonFor(this.save.progress.coachGames) : undefined;
+    const seed = coached ? easySeed(rand, players, 16, 250, undefined, lesson) : rand();
     const levels = st || coached ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
-    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true, gentle: true } : {}) };
+    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true, gentle: true } : {}), ...(lesson ? { lesson } : {}) };
     this.write();
-    return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, me: this.view(), quit };
+    return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, lesson, me: this.view(), quit };
   }
 
   async soloFinish(gameId: string, answers: unknown[]) {
@@ -379,7 +382,7 @@ export class ServerBackend implements Backend {
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
-    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached });
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached });
   }
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });

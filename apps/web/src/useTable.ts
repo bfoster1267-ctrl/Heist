@@ -34,6 +34,8 @@ export interface TableSettings {
   coached?: boolean;
   /** Coached play bots that go easy on you */
   gentle?: boolean;
+  /** Coached play lesson (see lessons.ts in the profile package) */
+  lesson?: number;
   /** each bot's level, from the account's solo ticket */
   levels?: BotLevel[];
   /** a campaign stage (sets the bots and rules) */
@@ -142,7 +144,7 @@ export function useTable(settings: TableSettings) {
   const start = useCallback(() => {
     const seed = settings.seed ?? Math.floor(Math.random() * 2 ** 31);
     // built the same way the server replays it, so a finished game can be checked before it counts
-    const { game, bots } = createSoloGame(seed, settings.players, settings.name, true, { levels: settings.levels, stage: settings.stage, gentle: settings.gentle });
+    const { game, bots } = createSoloGame(seed, settings.players, settings.name, true, { levels: settings.levels, stage: settings.stage, gentle: settings.gentle, lesson: settings.lesson });
     if (ref.current?.timer) clearTimeout(ref.current.timer);
     dropLate();
     ref.current = { game, bots, queue: game.drainFrames(), timer: null, answers: [] };

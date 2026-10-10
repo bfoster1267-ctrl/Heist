@@ -12,7 +12,7 @@ import { useLook } from "../account/useAccount";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, LiveCoach, MistakeCheck, Walkthrough } from "./Coach";
-import { checkMove, coachPick, type MistakeCounts, type MistakeId } from "@heist/profile";
+import { autoPick, checkMove, coachPick, ideaFor, lesson, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
 import { seatGrow, seatPos, useLayout } from "./layout";
@@ -52,6 +52,21 @@ function TurnSteps({ who, step }: { who: string; step: number }) {
 /** Events that shake the table a little. */
 /** what the coach says after a move that isn't a mistake */
 const CHEERS = ["Good move.", "Nice, that works.", "Solid choice.", "You're getting the hang of it.", "Smart play."];
+/** what the waiting line says while the coach plays a decision the lesson hasn't handed you yet */
+const COACH_DOES: Partial<Record<string, string>> = {
+  bank: "banking for you",
+  hire: "hiring for you",
+  action: "picking this turn's move",
+  pickMark: "picking the Mark",
+  pickHideout: "picking the hideout",
+  send: "sending your crew",
+  join: "picking your side",
+  discard: "tidying your hand",
+  again: "deciding whether to go again",
+  bet: "handling the side bet",
+  doubleCross: "handling Double-Cross",
+  backup: "handling Backup",
+};
 const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
 
 export function Table({
@@ -180,6 +195,21 @@ export function Table({
   const ev = t.shown?.ev ?? null;
   const wide = L.name === "wide";
 
+  // Coached play lessons: a decision the lesson hasn't handed you yet, the coach plays for you
+  const lessonOn = !!settings.coached && !!settings.lesson && !watching && !coachOff;
+  const autoAsk = lessonOn && s && t.ask && !walk && !s.winners && !lessonOpen(settings.lesson, s, t.ask) ? t.ask : null;
+  useEffect(() => {
+    if (!autoAsk) return;
+    const id = window.setTimeout(() => {
+      const g = t.game;
+      if (g?.pending) t.answer(autoPick(g, g.pending));
+    }, 900);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk]);
+  // the lesson ideas already explained this game
+  const [taught, setTaught] = useState<string[]>([]);
+
   // Buy-ins: everyone's chips slide into the pot as the cards come out.
   const boughtIn = useRef(false);
   const [dealing, setDealing] = useState(true);
@@ -262,8 +292,10 @@ export function Table({
   if (!s) return <div className="loading">Shuffling…</div>;
   const ask = walk ? null : t.ask;
   const coached = !!settings.coached && !watching && !coachOff;
+  const idea = coached && ask && !autoAsk ? ideaFor(settings.lesson, s, ask, taught) : undefined;
   /** Every answer from this seat goes through here, so Coached play can catch a mistake first. */
   const play = (a: Answer) => {
+    if (idea) setTaught((x) => [...x, idea.title]);
     if (coached && ask) {
       const id = checkMove(s, ask, a);
       if (id) return setHeld({ a, id });
@@ -322,7 +354,7 @@ export function Table({
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : settings.coached ? "Coached play" : `Stakes ${settings.stakes.toLocaleString()}`} · First to {s.target}
+                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : settings.coached ? (lesson(settings.lesson) ? `Lesson ${settings.lesson}: ${lesson(settings.lesson)!.name}` : "Coached play") : `Stakes ${settings.stakes.toLocaleString()}`} · First to {s.target}
                 </span>
                 {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
               </div>
@@ -460,7 +492,7 @@ export function Table({
             </div>
 
             <AnimatePresence>
-              {ask && (
+              {ask && !autoAsk && (
                 <ActionPanel
                   key={JSON.stringify(ask)}
                   ask={ask}
@@ -482,19 +514,19 @@ export function Table({
                   t.answer(a);
                 }} />
               ) : (
-                !s.winners && <LiveCoach s={s} ask={ask} pick={ask && t.game ? coachPick(t.game, ask) : null} cheer={cheer} onOff={() => setCoachOff(true)} />
+                !s.winners && !autoAsk && <LiveCoach s={s} ask={ask} idea={idea} pick={ask && t.game ? coachPick(t.game, ask) : null} cheer={cheer} onOff={() => setCoachOff(true)} />
               )
             ) : (
               !clean && !coachOff && <Coach ask={ask} blocked={walk || !!s.winners} />
             )}
-            {!t.ask && !s.winners && (
-              <div className="waiting">
+            {(!t.ask || autoAsk) && !s.winners && (
+              <div className={"waiting" + (autoAsk ? " coach-plays" : "")}>
                 <span className="dots">
                   <span />
                   <span />
                   <span />
                 </span>
-                {s.players[actor].name}'s move
+                {autoAsk ? `Coach: ${COACH_DOES[autoAsk.kind] ?? "playing this one for you"}` : `${s.players[actor].name}'s move`}
               </div>
             )}
           </LayoutGroup>
@@ -572,7 +604,7 @@ export function Table({
             )}
           </AnimatePresence>
 
-          <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
+          <Walkthrough s={s} lessonOn={lessonOn} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
           <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} onExit={onExit} />}</AnimatePresence>

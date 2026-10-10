@@ -4,6 +4,7 @@
 
 import { Bot, HeistGame, runBots, type Answer, type Ask, type BotLevel, type BotOptions, type GameEvent, type RuleOptions } from "@heist/engine";
 import { stage } from "./campaign";
+import { lesson } from "./lessons";
 import { checkMove, type MistakeCounts } from "./coach";
 import { BOT_RATING, type Rival } from "./rating";
 
@@ -14,13 +15,15 @@ export interface SoloSetup {
   /** Coached play: easy bots that go easy on you (see BotOptions.soft). Only set for clients that build
    *  them, so an older cached client's game still replays. */
   gentle?: boolean;
+  /** Coached play lesson (see lessons.ts): its rules strip the game down for a new player. */
+  lesson?: number;
 }
 
 /** The bots and rules a solo table is built with. */
 export function soloTable(players: number, setup: SoloSetup = {}): { players: number; bots: BotOptions[]; rules?: Partial<RuleOptions> } {
   const st = setup.stage ? stage(setup.stage) : undefined;
   if (st) return { players: st.players, bots: st.bots, rules: st.rules };
-  if (setup.gentle) return { players, bots: Array.from({ length: players - 1 }, () => ({ level: "easy", soft: SOLO_SEAT })) };
+  if (setup.gentle) return { players, bots: Array.from({ length: players - 1 }, () => ({ level: "easy", soft: SOLO_SEAT })), rules: lesson(setup.lesson)?.rules };
   return { players, bots: Array.from({ length: players - 1 }, (_, i) => ({ level: setup.levels?.[i] ?? "normal" })) };
 }
 

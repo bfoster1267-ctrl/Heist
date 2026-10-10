@@ -1,7 +1,7 @@
 // First-game help: a three-step walkthrough of the table, then one coach tip the first time each kind of
 // decision comes up. Both remember what you've seen; the settings menu can replay or turn them off.
 import type { Answer, Ask, GameState } from "@heist/engine";
-import { MISTAKES, coachTip, describePick, type MistakeId } from "@heist/profile";
+import { MISTAKES, coachTip, describePick, type Idea, type MistakeId } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
@@ -13,7 +13,7 @@ interface Step {
   text: string;
 }
 
-const steps = (s: GameState): Step[] => [
+const steps = (s: GameState, lessonOn: boolean): Step[] => [
   {
     title: "Welcome to the table",
     text: `Heist is a game of crews, jobs and betrayal. Plant ${s.target} Footholds in rival hideouts and the pot is yours.`,
@@ -26,15 +26,17 @@ const steps = (s: GameState): Step[] => [
   {
     anchor: "my-hand",
     title: "Your turn, in short",
-    text: "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is.",
+    text: lessonOn
+      ? "Hit rivals with your crew and a card from this hand. This first game, the coach plays most of your turn; each hand you take over one more move. Long-press anything to see what it is."
+      : "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is.",
   },
 ];
 
 /** The walkthrough. Shows on the first game, or when replayed from settings. */
-export function Walkthrough({ s, canvas, scale, open, onClose }: { s: GameState; canvas: React.RefObject<HTMLDivElement | null>; scale: number; open: boolean; onClose: () => void }) {
+export function Walkthrough({ s, lessonOn = false, canvas, scale, open, onClose }: { s: GameState; lessonOn?: boolean; canvas: React.RefObject<HTMLDivElement | null>; scale: number; open: boolean; onClose: () => void }) {
   const [i, setI] = useState(0);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const list = steps(s);
+  const list = steps(s, lessonOn);
   const st = list[i];
 
   useLayoutEffect(() => {
@@ -148,7 +150,7 @@ export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
  * Coached play: the coach's read of every decision, docked beside your action panel. The coach never plays
  * for you: its own pick stays hidden until you ask for a hint, and a good move gets a cheer.
  */
-export function LiveCoach({ s, ask, pick, cheer, onOff }: { s: GameState; ask: Ask | null; pick: Answer | null; cheer: string | null; onOff: () => void }) {
+export function LiveCoach({ s, ask, idea, pick, cheer, onOff }: { s: GameState; ask: Ask | null; idea?: Idea; pick: Answer | null; cheer: string | null; onOff: () => void }) {
   const tip = ask ? coachTip(s, ask) : "";
   const said = ask && pick ? describePick(s, ask, pick) : "";
   const key = JSON.stringify(ask);
@@ -165,6 +167,12 @@ export function LiveCoach({ s, ask, pick, cheer, onOff }: { s: GameState; ask: A
             </button>
           </div>
           {cheer && <div className="coach-cheer">{cheer}</div>}
+          {idea && (
+            <div className="coach-new">
+              <span className="coach-new-tag">New</span>
+              <b>{idea.title}.</b> {idea.text}
+            </div>
+          )}
           <div className="coach-text">{tip}</div>
           {said &&
             (hintFor === key ? (
