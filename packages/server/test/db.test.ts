@@ -4,7 +4,7 @@ import { newProgress } from "@heist/profile";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import { FileActivityLog, type ActivityEvent, type SoloRecord } from "../src/accounts/activity";
 import { AdminTeam } from "../src/accounts/admins";
 import { FileAccountStore, type Account } from "../src/accounts/store";
@@ -17,9 +17,12 @@ const url = process.env.TEST_DATABASE_URL;
 const dirs: string[] = [];
 const open: Database[] = [];
 const servers: HeistServer[] = [];
-afterAll(async () => {
-  for (const s of servers) await s.close().catch(() => {});
-  for (const d of open) await d.close().catch(() => {});
+// each test's instances let go of the data before the next test starts
+afterEach(async () => {
+  for (const s of servers.splice(0)) await s.close().catch(() => {});
+  for (const d of open.splice(0)) await d.close().catch(() => {});
+});
+afterAll(() => {
   for (const d of dirs) rmSync(d, { recursive: true, force: true });
 });
 
@@ -38,7 +41,7 @@ const start = (gameId: string, at: number): GameStart => ({ gameId, roomId: "r_"
 const solo = (gameId: string): SoloRecord => ({ gameId, userId: "u_a", name: "Ann", seed: 3, players: 3, stakes: 10, setup: {} as SoloRecord["setup"], answers: [], startedAt: 5, endedAt: 9, quit: false, winners: [0] });
 
 async function fresh(o: { dataDir?: string } = {}) {
-  const db = await openDatabase(url!, o);
+  const db = await openDatabase(url!, { ...o, log: process.env.DBLOG ? (m, x) => console.log("  [db]", m, JSON.stringify(x ?? {})) : undefined });
   open.push(db);
   return db;
 }

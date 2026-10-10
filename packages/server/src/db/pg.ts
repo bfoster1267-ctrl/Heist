@@ -103,11 +103,20 @@ export class PgConnection {
   }
 
   private async start(cfg: PgConfig, timeoutMs: number) {
+    const plain = tcp({ host: cfg.host, port: cfg.port });
+    // a limit on connecting and signing in only: an idle connection (the deploy lock's) must stay open
+    const limit = setTimeout(() => plain.destroy(new Error(`Timed out reaching the database at ${cfg.host}:${cfg.port}`)), timeoutMs);
+    try {
+      await this.handshake(cfg, plain);
+    } finally {
+      clearTimeout(limit);
+    }
+  }
+
+  private async handshake(cfg: PgConfig, plain: Socket) {
     let sock: Socket | TLSSocket = await new Promise<Socket>((resolve, reject) => {
-      const s = tcp({ host: cfg.host, port: cfg.port });
-      s.setTimeout(timeoutMs, () => s.destroy(new Error(`Timed out reaching the database at ${cfg.host}:${cfg.port}`)));
-      s.once("connect", () => resolve(s));
-      s.once("error", reject);
+      plain.once("connect", () => resolve(plain));
+      plain.once("error", reject);
     });
     if (cfg.ssl !== "disable") {
       sock.write(frame(null, Buffer.concat([i32(80877103)])));
@@ -116,7 +125,6 @@ export class PgConnection {
         sock.once("error", reject);
       });
       if (answer === "S") {
-        const plain = sock as Socket;
         sock = await new Promise<TLSSocket>((resolve, reject) => {
           const t = tlsConnect({ socket: plain, servername: /^[\d.]+$|:/.test(cfg.host) ? undefined : cfg.host, rejectUnauthorized: cfg.ssl === "verify-full" });
           t.once("secureConnect", () => resolve(t));
@@ -128,9 +136,8 @@ export class PgConnection {
       }
     }
     this.sock = sock;
-    sock.setTimeout(0);
-    sock.setNoDelay(true);
-    sock.setKeepAlive(true, 30_000);
+    plain.setNoDelay(true);
+    plain.setKeepAlive(true, 30_000);
     sock.on("data", (d) => this.receive(d));
     sock.on("error", (e) => this.fail(e));
     sock.on("close", () => this.fail(new Error("The database connection closed")));
