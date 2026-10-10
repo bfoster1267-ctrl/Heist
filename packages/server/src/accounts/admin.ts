@@ -8,7 +8,7 @@ import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
 import { byClaude, byOwner, type ActivityEvent, type ActivityLog } from "./activity";
 import { buildFunnel, type Funnel } from "./funnel";
-import type { AccountService } from "./service";
+import { GUEST_KEEP_DAYS, type AccountService } from "./service";
 import { FEEDBACK_REASONS, type Account, type FeedbackReason } from "./store";
 
 const DAY = 24 * 60 * 60_000;
@@ -174,6 +174,11 @@ export class AdminService {
     return people;
   }
 
+  /** guests who opened the site but never played a game (they're removed after GUEST_KEEP_DAYS away) */
+  private idle(all: Account[]): Set<string> {
+    return new Set(all.filter((a) => this.accounts.untouched(a)).map((a) => a.id));
+  }
+
   private row(a: Account, ppl?: People): AccountRow {
     const p = upgrade(a.progress);
     const person = ppl?.of.get(a.id) ?? a.id;
@@ -191,7 +196,9 @@ export class AdminService {
     const now = this.now;
     const all = (await this.accounts.store.all()).filter((a) => a.name !== "Deleted player" || a.logins.length);
     const ppl = this.people(all);
-    const mine = (id: string) => notPlayer(ppl, id);
+    const idle = this.idle(all);
+    // not a player: you, Claude's testing, and guests who opened the site but never played a game
+    const mine = (id: string) => notPlayer(ppl, id) || idle.has(id);
     const registered = all.filter((a) => !a.guest);
     const days = Array.from({ length: 30 }, (_, i) => dayKey(now - (29 - i) * DAY));
     const perDay = () => Object.fromEntries(days.map((d) => [d, 0])) as Record<string, number>;
@@ -204,7 +211,7 @@ export class AdminService {
     // a person counts from their first account; people we can't tell apart (no record) and you are left out
     let people = 0;
     for (const [p, ids] of ppl.members) {
-      if (ppl.owner.has(p) || ppl.claude.has(p) || ids.every((id) => ppl.untracked.has(id))) continue;
+      if (ppl.owner.has(p) || ppl.claude.has(p) || ids.every((id) => ppl.untracked.has(id) || idle.has(id))) continue;
       people++;
       const first = Math.min(...ids.map((id) => all.find((a) => a.id === id)?.createdAt ?? now));
       if (dayKey(first) in newPeople) newPeople[dayKey(first)]++;
@@ -226,7 +233,7 @@ export class AdminService {
       return s.size;
     };
     const others = registered.filter((a) => !mine(a.id));
-    // guests hold chips and play games too: the totals cover every account but yours
+    // guests hold chips and play games too: the totals cover every account but yours (and untouched guests)
     const everyone = all.filter((a) => !mine(a.id));
     const sum = (f: (a: Account) => number) => everyone.reduce((s, a) => s + f(a), 0);
     const guests = all.filter((a) => a.guest);
@@ -237,6 +244,8 @@ export class AdminService {
         people, signedUp: others.length,
         untrackedGuests: guests.filter((a) => ppl.untracked.has(a.id)).length,
         emptyGuests: guests.filter((a) => a.progress.stats.games === 0).length,
+        untouched: guests.filter((a) => idle.has(a.id) && !notPlayer(ppl, a.id)).length,
+        untouchedRemovedAfter: GUEST_KEEP_DAYS,
         yours: all.filter((a) => ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
         claude: all.filter((a) => mine(a.id) && !ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
       },
@@ -261,7 +270,8 @@ export class AdminService {
     const now = this.now;
     const all = (await this.accounts.store.all()).filter((a) => a.name !== "Deleted player" || a.logins.length);
     const ppl = this.people(all);
-    const mine = (id: string) => notPlayer(ppl, id);
+    const idle = this.idle(all);
+    const mine = (id: string) => notPlayer(ppl, id) || idle.has(id);
     const players = all.filter((a) => !mine(a.id));
     const days = Array.from({ length: 30 }, (_, i) => dayKey(now - (29 - i) * DAY));
     const daily = new Map(days.map((d) => [d, { day: d, added: 0, removed: 0 }]));
@@ -345,6 +355,8 @@ export class AdminService {
         guests: sum(chipsOf, players.filter((a) => a.guest)),
         coins: sum((a) => a.progress.coins),
         accounts: players.length,
+        /** guests who opened the site but never played a game: left out of everything here */
+        untouched: all.filter((a) => idle.has(a.id) && !notPlayer(ppl, a.id)).reduce((t, a) => ({ accounts: t.accounts + 1, chips: t.chips + a.progress.chips }), { accounts: 0, chips: 0 }),
         /** chips the flows above can't explain: play before the log started, deleted accounts, the 0-chip floor online */
         untracked: inCirculation - tracked,
       },

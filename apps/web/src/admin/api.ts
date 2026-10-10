@@ -26,7 +26,11 @@ export interface Economy {
   at: number;
   start: number;
   trackedSince: number | null;
-  circulation: { chips: number; registered: number; guests: number; coins: number; accounts: number; untracked: number };
+  circulation: {
+    chips: number; registered: number; guests: number; coins: number; accounts: number; untracked: number;
+    /** guests who opened the site but never played: left out of every number here (missing on older servers) */
+    untouched?: { accounts: number; chips: number };
+  };
   flows: Record<"start" | "daily" | "refill" | "botsWon" | "botsLost" | "packs" | "online", Flow>;
   unknownRefills: number;
   coinsEarned: number;
@@ -209,6 +213,10 @@ export interface Overview {
     /** guest accounts with no device or address on record, which can't be told apart */
     untrackedGuests: number;
     emptyGuests: number;
+    /** guests who opened the site but never played a game: left out of people, activity and totals */
+    untouched?: number;
+    /** days away before those guests are removed */
+    untouchedRemovedAfter?: number;
     /** accounts seen on your devices or address */
     yours: number;
     /** accounts Claude made while testing, also left out */

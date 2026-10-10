@@ -70,6 +70,7 @@ const WIDGETS: Widget[] = [
               {ac.yours > 0 && <> · {num(ac.yours)} of yours left out</>}
               {!!ac.claude && <> · {num(ac.claude)} from Claude's testing left out</>}
               {ac.untrackedGuests > 0 && <> · {num(ac.untrackedGuests)} older guests can't be told apart</>}
+              {!!ac.untouched && <> · {num(ac.untouched)} guests who never played left out (removed after {ac.untouchedRemovedAfter ?? 30} days away)</>}
             </>
           }
           tone="gold"

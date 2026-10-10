@@ -48,6 +48,8 @@ export interface Account {
   progress: Progress;
   /** the vs-bots game in progress (its buy-in is already paid) */
   solo: SoloGame | null;
+  /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
+  played?: number;
   /** bumping this signs the account out everywhere */
   sessions: number;
   /** phones and browsers that asked for turn alerts (web push), newest last */
@@ -95,6 +97,8 @@ export interface AccountStore {
   put(a: Account): Promise<void>;
   /** every account (leaderboards; a database store would query instead) */
   all(): Promise<Account[]>;
+  /** remove an account for good (only guests who never played are removed) */
+  delete(id: string): Promise<void>;
   flush(): Promise<void>;
 }
 
@@ -124,6 +128,11 @@ export class MemoryAccountStore implements AccountStore {
   async all() {
     return [...this.byId.values()].map((a) => structuredClone(a));
   }
+  async delete(id: string) {
+    const old = this.byId.get(id);
+    if (old) for (const l of old.logins) this.logins.delete(loginKey(l));
+    this.byId.delete(id);
+  }
   async flush() {}
 }
 
@@ -149,6 +158,15 @@ export class FileAccountStore extends MemoryAccountStore {
 
   async put(a: Account) {
     await super.put(a);
+    this.later();
+  }
+
+  async delete(id: string) {
+    await super.delete(id);
+    this.later();
+  }
+
+  private later() {
     if (!this.timer) this.timer = setTimeout(() => this.write(), this.delayMs);
   }
 
