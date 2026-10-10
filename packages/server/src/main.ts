@@ -1,6 +1,9 @@
 // Entry point: `npm run dev -w packages/server` locally, `node dist/main.js` in the container.
 //   PORT            port to listen on (default 8787)
 //   DATA_DIR        where game logs go (default ./data); unfinished games are rebuilt from here on start
+//   DATABASE_URL    a postgres:// URL: keep everything in Postgres instead of DATA_DIR, so deploys can be
+//                   zero-downtime. The first start copies DATA_DIR's files in once (see db/index.ts).
+//   DATABASE_USD    the database's monthly list price, for the admin panel's bill (default 6.30: Basic-256mb + 1 GB)
 //   TOKEN_SECRET    signs guest tokens; set it in production so players keep their seats across restarts
 //   ALLOWED_ORIGINS comma-separated browser origins allowed to connect (default: any)
 //   COMPRESSION     set to 0 to turn off WebSocket compression
@@ -22,6 +25,7 @@ import { Hosting } from "./accounts/hosting";
 import { FileAccountStore } from "./accounts/store";
 import { startServer } from "./server";
 import { FileStore } from "./store";
+import { openDatabase, type Database } from "./db/index";
 
 const env = process.env;
 const log = (msg: string, extra?: object) => console.log(JSON.stringify({ at: new Date().toISOString(), msg, ...extra }));
@@ -29,11 +33,23 @@ if (!env.TOKEN_SECRET) log("TOKEN_SECRET not set: sign-ins won't survive a resta
 const list = (v: string | undefined) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
 const dataDir = env.DATA_DIR ?? "./data";
 
+let stopping: Promise<void> | null = null;
+let db: Database | null = null;
+if (env.DATABASE_URL) {
+  db = await openDatabase(env.DATABASE_URL, {
+    log,
+    dataDir,
+    // another instance owns the data now (only after a database outage): stop without writing
+    onLost: () => process.exit(1),
+  });
+  log("storage", { mode: "database" });
+} else log("storage", { mode: "files", dataDir });
+
 const accounts = new AccountService({
-  store: new FileAccountStore(dataDir),
+  store: db?.accounts ?? new FileAccountStore(dataDir),
   secret: env.TOKEN_SECRET,
   devLogins: env.DEV_LOGINS === "1",
-  activity: new FileActivityLog(dataDir),
+  activity: db?.activity ?? new FileActivityLog(dataDir),
   oauth: {
     google: { clientIds: list(env.GOOGLE_CLIENT_IDS) },
     apple: { clientIds: list(env.APPLE_CLIENT_IDS) },
@@ -46,23 +62,42 @@ log("sign-in providers", { providers: [...accounts.oauth.providers(), "email", .
 
 const server = await startServer({
   port: Number(env.PORT ?? 8787),
-  store: new FileStore(dataDir),
+  store: db?.games ?? new FileStore(dataDir),
   accounts,
   allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [],
   compression: env.COMPRESSION !== "0",
   webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
-  admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET, team: AdminTeam.inDir(dataDir) } : undefined,
-  hosting: new Hosting({ dataDir, renderKey: env.RENDER_API_KEY || undefined, serviceId: env.RENDER_SERVICE_ID || undefined, plan: "starter", diskGb: 1 }),
+  admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET, team: db?.team ?? AdminTeam.inDir(dataDir) } : undefined,
+  hosting: new Hosting({
+    dataDir: db ? undefined : dataDir,
+    renderKey: env.RENDER_API_KEY || undefined,
+    serviceId: env.RENDER_SERVICE_ID || undefined,
+    plan: "starter",
+    diskGb: db ? 0 : 1,
+    database: db ? { usd: Number(env.DATABASE_USD ?? 6.3), storageGb: 1, sizes: () => db!.sizes() } : undefined,
+  }),
+  // with a database, wait for the previous instance to hand it over (a zero-downtime deploy)
+  ready: db?.takeOver(),
   queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
 });
 
+// a database that can't be taken over (unreachable, bad password) stops this instance; the old one keeps serving
+server.ready.catch(async (e) => {
+  log("could not start on the database", { err: String(e) });
+  process.exit(1);
+});
+
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
-  process.on(sig, async () => {
-    log("shutting down");
-    await server.close();
-    process.exit(0);
+  process.on(sig, () => {
+    stopping ??= (async () => {
+      log("shutting down");
+      await server.close();
+      await db?.close();
+      log("stopped");
+      process.exit(0);
+    })();
   });
 }

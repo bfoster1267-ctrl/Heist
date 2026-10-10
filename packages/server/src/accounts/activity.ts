@@ -67,7 +67,7 @@ export interface SoloRecord {
 
 export interface ActivityLog {
   add(e: ActivityEvent): void;
-  query(q: ActivityQuery): ActivityEvent[];
+  query(q: ActivityQuery): Promise<ActivityEvent[]>;
   /** when this player last did anything (since the log began) */
   lastSeen(userId: string): number | undefined;
   /** every player's last-seen time */
@@ -75,7 +75,7 @@ export interface ActivityLog {
   /** the newest events still in memory, oldest first (for dashboards) */
   window(): readonly ActivityEvent[];
   saveSolo(r: SoloRecord): void;
-  solo(gameId: string): SoloRecord | undefined;
+  solo(gameId: string): Promise<SoloRecord | undefined>;
   flush(): Promise<void>;
 }
 
@@ -89,7 +89,7 @@ export const byClaude = (e: ActivityEvent) => e.tester === "claude" || !!e.devic
 /** something the owner did to a player's account (it names the player but isn't the player being active) */
 export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");
 
-const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
+export const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
   if (q.userId && e.userId !== q.userId) return false;
   if (q.skip?.(e)) return false;
   if (q.before !== undefined && e.at >= q.before) return false;
@@ -117,7 +117,7 @@ export class MemoryActivityLog implements ActivityLog {
     if (e.userId && !byOwner(e)) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
   }
 
-  query(q: ActivityQuery): ActivityEvent[] {
+  async query(q: ActivityQuery): Promise<ActivityEvent[]> {
     const limit = Math.min(Math.max(q.limit ?? 100, 1), 1000);
     const text = q.text?.trim().toLowerCase() || null;
     const out: ActivityEvent[] = [];
@@ -125,13 +125,13 @@ export class MemoryActivityLog implements ActivityLog {
     if (out.length < limit && this.events.length) {
       // past what's in memory: everything older than the oldest event held
       const oldest = this.events[0].at;
-      if (q.from === undefined || q.from < oldest) out.push(...this.older({ ...q, before: Math.min(q.before ?? Infinity, oldest) }, limit - out.length, text));
+      if (q.from === undefined || q.from < oldest) out.push(...(await this.older({ ...q, before: Math.min(q.before ?? Infinity, oldest) }, limit - out.length, text)));
     }
     return out;
   }
 
   /** events that have left memory (the file log reads them back) */
-  protected older(_q: ActivityQuery, _limit: number, _text: string | null): ActivityEvent[] {
+  protected async older(_q: ActivityQuery, _limit: number, _text: string | null): Promise<ActivityEvent[]> {
     return [];
   }
 
@@ -151,7 +151,7 @@ export class MemoryActivityLog implements ActivityLog {
     this.solos.set(r.gameId, r);
   }
 
-  solo(gameId: string) {
+  async solo(gameId: string) {
     return this.solos.get(gameId);
   }
 
@@ -233,7 +233,7 @@ export class FileActivityLog extends MemoryActivityLog {
     });
   }
 
-  protected older(q: ActivityQuery, limit: number, text: string | null): ActivityEvent[] {
+  protected async older(q: ActivityQuery, limit: number, text: string | null): Promise<ActivityEvent[]> {
     const out: ActivityEvent[] = [];
     for (const f of this.files().reverse()) {
       if (q.from !== undefined && f.slice(0, 7) < month(q.from)) break;
@@ -252,7 +252,7 @@ export class FileActivityLog extends MemoryActivityLog {
       .finally(() => this.done());
   }
 
-  solo(gameId: string): SoloRecord | undefined {
+  async solo(gameId: string): Promise<SoloRecord | undefined> {
     if (!SAFE_ID.test(gameId)) return undefined;
     try {
       return JSON.parse(readFileSync(join(this.soloDir, `${gameId}.json`), "utf8"));

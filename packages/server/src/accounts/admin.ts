@@ -95,7 +95,7 @@ export class AdminService {
   constructor(
     private accounts: AccountService,
     private log: ActivityLog,
-    private o: { now?: () => number; live?: () => LiveInfo; game?: (id: string) => GameRecord | undefined } = {},
+    private o: { now?: () => number; live?: () => LiveInfo; game?: (id: string) => Promise<GameRecord | undefined> | undefined } = {},
   ) {}
 
   private get now() {
@@ -445,7 +445,7 @@ export class AdminService {
       byOwner(e) || (e.kind === "admin.login" && e.ok) || ppl.owner.has(personOf(e) ?? "") || (!e.userId && ((!!e.ip && ppl.ownerIps.has(e.ip)) || (!!e.device && ppl.ownerDevices.has(e.device))));
     // one player's own activity is shown whole
     const all = q.get("mine") === "1" || !!q.get("user");
-    const events = this.log.query({
+    const events = await this.log.query({
       userId: q.get("user") || undefined, kinds, text: q.get("text") ?? undefined, from: num("from"), to: num("to"), before: num("before"), limit: num("limit") ?? 150,
       skip: all ? undefined : (e) => you(e) || claude(e),
     });
@@ -453,10 +453,10 @@ export class AdminService {
     return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : e)) };
   }
 
-  game(id: string): GameView | null {
-    const rec = this.o.game?.(id);
+  async game(id: string): Promise<GameView | null> {
+    const rec = await this.o.game?.(id);
     if (rec) return replayOnline(rec);
-    const solo = this.log.solo(id);
+    const solo = await this.log.solo(id);
     return solo ? replaySoloGame(solo) : null;
   }
 }

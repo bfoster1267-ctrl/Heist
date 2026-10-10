@@ -16,7 +16,7 @@ it("keeps a game log on disk, survives a torn last line, and files finished game
     await s.flush();
     await new Promise((r) => setTimeout(r, 50));
     expect(existsSync(join(dir, "games", "done", "g2.jsonl"))).toBe(true);
-    const open = new FileStore(dir).unfinished();
+    const open = await new FileStore(dir).unfinished();
     expect(open.map((g) => g.start.gameId)).toEqual(["g1"]);
     expect(open[0].answers).toEqual([{ seat: 0, a: { kind: "hire", count: 1 }, by: "player" }]);
     const torn = FileStore.parse(`{"t":"start","gameId":"g3"}\n{"t":"a","seat":1,"a":{"kind":"hire","count":0},"by":"bot"}\n{"t":"a","se`);

@@ -93,7 +93,7 @@ export class AdminTeam {
     this.save();
   }
 
-  private save() {
+  protected save() {
     if (!this.file) return;
     const tmp = `${this.file}.tmp`;
     writeFileSync(tmp, JSON.stringify(this.data));

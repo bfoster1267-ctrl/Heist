@@ -26,6 +26,14 @@ describe("server page", () => {
     expect(r.cost.soFar).toBeCloseTo(7.25 * (15 / 31), 2);
   });
 
+  it("in database mode shows what's in the database and adds it to the bill", async () => {
+    const h = new Hosting({ plan: "starter", diskGb: 0, now: () => Date.UTC(2026, 9, 16), database: { usd: 6.3, storageGb: 1, sizes: async () => ({ totalMb: 24, parts: [{ name: "Accounts", mb: 0.5, files: 12 }] }) } });
+    const r = await h.report();
+    expect(r.disk).toMatchObject({ kind: "database", totalMb: 1024, freeMb: 1000, parts: [{ name: "Accounts", mb: 0.5, files: 12 }] });
+    // Starter $7 + Basic-256mb with 1 GB $6.30, no disk
+    expect(r.cost).toMatchObject({ disk: 0, database: 6.3, monthly: 13.3 });
+  });
+
   it("asks Render for the service, deploys and metrics, once a minute, and says when the key is wrong", async () => {
     let now = Date.UTC(2026, 9, 9, 12);
     const asked: string[] = [];

@@ -18,6 +18,8 @@ export interface HostingOptions {
   /** what the Blueprint asks for, used for cost when Render can't be asked */
   plan?: string;
   diskGb?: number;
+  /** hosted-database mode: what the database costs a month, its storage, and what's in it (shown in place of the disk) */
+  database?: { usd: number; storageGb: number; sizes: () => Promise<{ totalMb: number; parts: { name: string; mb: number; files: number }[] }> };
   now?: () => number;
   fetch?: typeof fetch;
 }
@@ -109,9 +111,19 @@ export class Hosting {
 
   /** The data disk: how full it is, and what's on it. */
   private async disk() {
+    const db = this.o.database;
+    if (db) {
+      try {
+        const s = await db.sizes();
+        const totalMb = db.storageGb * 1024;
+        return { kind: "database" as const, totalMb, freeMb: Math.max(0, Math.round(totalMb - s.totalMb)), parts: s.parts };
+      } catch {
+        return null;
+      }
+    }
     const dir = this.o.dataDir;
     if (!dir) return null;
-    const out: { totalMb: number | null; freeMb: number | null; parts: { name: string; mb: number; files: number }[] } = { totalMb: null, freeMb: null, parts: [] };
+    const out: { kind?: "database"; totalMb: number | null; freeMb: number | null; parts: { name: string; mb: number; files: number }[] } = { totalMb: null, freeMb: null, parts: [] };
     try {
       const fs = await statfs(dir);
       out.totalMb = mb(fs.blocks * fs.bsize);
@@ -191,16 +203,17 @@ export class Hosting {
     };
   }
 
-  /** What the month costs: the plan's list price plus the disk, and the share of it used so far. */
+  /** What the month costs: the plan's list price plus the disk and the database, and the share of it used so far. */
   cost(plan: string | null, diskGb: number | null): Cost {
     const name = (plan ?? this.o.plan ?? "starter").toLowerCase();
     const service = PLAN_PRICES[name] ?? null;
     const disk = (diskGb ?? this.o.diskGb ?? 0) * DISK_PER_GB;
-    const monthly = service === null ? null : Math.round((service + disk) * 100) / 100;
+    const database = this.o.database?.usd ?? 0;
+    const monthly = service === null ? null : Math.round((service + disk + database) * 100) / 100;
     const d = new Date(this.now);
     const days = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
     const into = (d.getUTCDate() - 1 + (d.getUTCHours() * 60 + d.getUTCMinutes()) / 1440) / days;
-    return { plan: name, service, disk: Math.round(disk * 100) / 100, monthly, soFar: monthly === null ? null : Math.round(monthly * into * 100) / 100 };
+    return { plan: name, service, disk: Math.round(disk * 100) / 100, database, monthly, soFar: monthly === null ? null : Math.round(monthly * into * 100) / 100 };
   }
 }
 
@@ -208,6 +221,8 @@ export interface Cost {
   plan: string;
   service: number | null;
   disk: number;
+  /** the hosted database (0 when the data is on the disk) */
+  database: number;
   monthly: number | null;
   /** this calendar month so far, at the monthly rate */
   soFar: number | null;

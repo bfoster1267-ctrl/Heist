@@ -55,7 +55,8 @@ The `Dockerfile` builds a small image (`docker build -f packages/server/Dockerfi
 It runs on any host that runs a container with WebSockets. Ready-made configs at the repo root:
 
 - **Fly.io**: `fly.toml` (steps in its header: launch, create a 1 GB volume, set `TOKEN_SECRET`, deploy).
-- **Render**: `render.yaml` (New > Blueprint; it generates `TOKEN_SECRET` and adds a 1 GB disk).
+- **Render**: `render.yaml` (New > Blueprint; it generates `TOKEN_SECRET`, creates the `heist-db` Postgres
+  and sets `DATABASE_URL`).
 
 Settings:
 
@@ -63,12 +64,30 @@ Settings:
 |---|---|
 | `PORT` | Port to listen on (8080 in the image). |
 | `DATA_DIR` | Where game logs go (`/data` in the image: mount a volume there). |
+| `DATABASE_URL` | A `postgres://` URL. Keeps accounts, the activity log, game logs and the admin team in Postgres instead of `DATA_DIR`, so no disk is needed and deploys can be zero-downtime. `?sslmode=require` forces TLS (default: TLS when offered). |
 | `TOKEN_SECRET` | Signs guest tokens. Set a long random value so players keep their seats across restarts. |
 | `ALLOWED_ORIGINS` | Comma-separated web origins allowed to connect, e.g. `https://heist.example.com`. |
 | `TURN_GRACE_MS` | How long a dropped player's decision waits before a bot answers (default 20000). |
 
 One server process holds all its tables in memory. Running more than one machine later needs rooms
 pinned to a machine by code.
+
+### Hosted database and zero-downtime deploys
+
+With `DATABASE_URL` set (`src/db/`), the data has one owner at a time: the instance holding a Postgres
+advisory lock. A new instance answers `/healthz` straight away (`"ready": false`) and holds every request and
+socket message until the old instance, on `SIGTERM`, has closed its sockets (code 1012, so apps reconnect),
+written everything and let go of the lock. Then it loads, rebuilds the tables mid-game and carries on.
+Players see their table pause for a few seconds, not a 502.
+
+The first start on an empty database copies `DATA_DIR`'s files in, once, in one transaction (marked in the
+`kv` table as `imported_from_files`). It never imports over a database that already has accounts. On Render:
+keep the disk attached for that first deploy, check the admin panel's Server page shows the accounts, then
+remove the disk from `render.yaml`. A disk is what stops Render running two instances side by side.
+
+`src/db/pg.ts` is a small built-in Postgres client (wire protocol, SCRAM sign-in, TLS) so the server needs
+no database package. `test/db.test.ts` runs against a real Postgres when `TEST_DATABASE_URL` is set (CI
+starts one).
 
 ## Admin panel
 

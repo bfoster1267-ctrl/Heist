@@ -1,5 +1,9 @@
 # Render Blueprint for the Heist game server: in Render, New > Blueprint, pick this repo.
-# A disk needs a paid instance (Starter); on the free plan drop the disk and games won't survive restarts.
+#
+# Data lives in Postgres (heist-db, DATABASE_URL). The disk is only still here so the first start on the
+# database can copy its files in (accounts.json, activity/, games/, admins.json). Once that's checked in
+# the admin panel's Server page, delete the `disk:` block: with no disk, Render starts each new version next
+# to the old one and switches over with no gap (zero-downtime deploys). See packages/server/src/db/index.ts.
 services:
   - type: web
     name: heist-server
@@ -8,6 +12,8 @@ services:
     dockerContext: .
     plan: starter
     healthCheckPath: /healthz
+    # time the old instance gets to write its last changes and hand over (it needs a few seconds)
+    maxShutdownDelaySeconds: 60
     envVars:
       - key: PORT
         value: "8080"
@@ -15,7 +21,21 @@ services:
         value: /data
       - key: TOKEN_SECRET
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: heist-db
+          property: connectionString
     disk:
       name: heist-data
       mountPath: /data
       sizeGB: 1
+
+databases:
+  - name: heist-db
+    databaseName: heist
+    user: heist
+    plan: basic-256mb
+    diskSizeGB: 1
+    postgresMajorVersion: "16"
+    # only the game server (inside Render) can connect
+    ipAllowList: []
