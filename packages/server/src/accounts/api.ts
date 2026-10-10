@@ -184,6 +184,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (path === "/overview") return send(res, 200, await admin.svc.overview());
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
       if (path === "/activity") return send(res, 200, await admin.svc.activity(q));
+      if (path === "/funnel") return send(res, 200, await admin.svc.funnel(q));
       if (path === "/live") return send(res, 200, (await admin.svc.overview()).live);
       if (path === "/server") {
         if (!admin.hosting) throw new ApiError(404, "Not found");

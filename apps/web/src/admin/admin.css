@@ -1285,3 +1285,74 @@ h4 {
     white-space: normal;
   }
 }
+/* Drop-off */
+.filters.inline {
+  margin: 0;
+  margin-left: auto;
+}
+.dropoff-callout {
+  border-color: rgba(224, 102, 76, 0.55);
+  background: linear-gradient(180deg, rgba(224, 102, 76, 0.12), transparent), var(--panel);
+}
+.dropoff-callout h2 {
+  margin: 2px 0 6px;
+  font-family: var(--title);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--red);
+}
+.dropoff-callout p {
+  margin: 0;
+  line-height: 1.45;
+}
+.funnel {
+  list-style: none;
+  margin: 8px 0 12px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.funnel li {
+  display: grid;
+  grid-template-columns: minmax(150px, 220px) 1fr 90px minmax(160px, 1.2fr);
+  gap: 10px;
+  align-items: center;
+  padding: 6px 8px;
+  border-radius: 8px;
+}
+.funnel li.worst {
+  background: rgba(224, 102, 76, 0.1);
+  outline: 1px solid rgba(224, 102, 76, 0.45);
+}
+.funnel li.worst .hbar i {
+  background: var(--red);
+}
+.funnel-step {
+  display: grid;
+}
+.funnel-n {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.funnel-left .down {
+  color: var(--red);
+}
+.funnel-left .up {
+  color: var(--cash);
+}
+@media (max-width: 700px) {
+  .funnel li {
+    grid-template-columns: 1fr 70px;
+  }
+  .funnel .hbar {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .funnel-left {
+    grid-column: 1 / -1;
+  }
+  .filters.inline {
+    margin-left: 0;
+  }
+}
