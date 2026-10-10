@@ -1511,6 +1511,17 @@
   }
 }
 
+/* polish pass: the rank line in the player card stays on one line */
+.acct-chip-rank {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* a card back in the season track fits its tile instead of running into the name under it */
+.season-tier-card .acct-prev-back {
+  width: 36px;
+  height: 50px;
+
 /* "What lost you?" after a new player's first game */
 .lost-back {
   position: fixed;

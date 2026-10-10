@@ -103,8 +103,20 @@ export function OnlineLobby({
 
   return (
     <div className="lobby">
+      {!room && (
+        // the way out sits top-left, where every other screen keeps it
+        <button
+          className="acct-back online-back"
+          onClick={() => {
+            if (sess.queue) sess.client.unqueue();
+            onExit();
+          }}
+        >
+          <span aria-hidden>←</span> Lobby
+        </button>
+      )}
       <motion.div className="lobby-card online-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-        {room ? <RoomView sess={sess} onLeave={() => sess.leave()} /> : <Pick sess={sess} chips={chips} onBack={onExit} />}
+        {room ? <RoomView sess={sess} onLeave={() => sess.leave()} /> : <Pick sess={sess} chips={chips} />}
         {sess.error && (
           <div className="online-error" onClick={() => sess.clearError()}>
             {sess.error}
@@ -141,7 +153,7 @@ function lastTable(): string | null {
 type Mode = "casual" | "ranked";
 const MODE_KEY = "heist.mode";
 
-function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onBack: () => void }) {
+function Pick({ sess, chips }: { sess: OnlineSession; chips: number }) {
   const { me } = useAccount();
   const [mode, setModeState] = useState<Mode>(() => {
     try {
@@ -231,15 +243,6 @@ function Pick({ sess, chips, onBack }: { sess: OnlineSession; chips: number; onB
             <div className="fine">{online ? "No open tables right now. Start one!" : sess.status === "connecting" ? "Connecting..." : "Offline"}</div>
           )}
         </div>
-        <button
-          className="btn ghost"
-          onClick={() => {
-            if (sess.queue) sess.client.unqueue();
-            onBack();
-          }}
-        >
-          Back
-        </button>
       </div>
       <div className="lobby-col">
         <div className="seg mode-seg" role="tablist" aria-label="Game mode">
