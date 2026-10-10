@@ -74,6 +74,8 @@ const MAX_STAKES = 1_000_000;
 const COACH_PLAYERS = 3;
 /** turn alerts go to at most this many of a player's phones and browsers */
 const MAX_PUSH_DEVICES = 5;
+/** guests who never played are removed after this many days away */
+export const GUEST_KEEP_DAYS = 30;
 
 export class AccountService {
   readonly store: AccountStore;
@@ -104,8 +106,7 @@ export class AccountService {
 
   /** Run changes to one account in order. */
   private async update<T>(id: string, fn: (a: Account) => Promise<T> | T): Promise<T> {
-    const prev = this.locks.get(id) ?? Promise.resolve();
-    const run = prev.catch(() => {}).then(async () => {
+    return this.queued(id, async () => {
       const a = await this.store.get(id);
       if (!a) throw new ApiError(404, "No such account");
       a.progress = upgrade(a.progress);
@@ -114,12 +115,49 @@ export class AccountService {
       this.badges.set(a.id, badgeOf(a.progress));
       return out;
     });
+  }
+
+  /** Run fn after everything already queued for this account. */
+  private async queued<T>(id: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.locks.get(id) ?? Promise.resolve();
+    const run = prev.catch(() => {}).then(fn);
     this.locks.set(id, run);
     try {
       return await run;
     } finally {
       if (this.locks.get(id) === run) this.locks.delete(id);
     }
+  }
+
+  /**
+   * A guest who never sat down to a game: the admin stats leave them out, and pruneGuests() removes them
+   * once they've been away 30 days. Signed-up accounts, and anyone the owner wrote notes on, never count.
+   */
+  untouched(a: Account): boolean {
+    const p = a.progress;
+    return a.guest && !a.played && !a.solo && !a.crm && !a.feedback && p.stats.games === 0 && (p.coachGames ?? 0) === 0 && (p.campaign ?? 0) === 0
+      && !p.ranked && !this.activity.played().has(a.id);
+  }
+
+  /** Remove guests who never played a game and haven't been seen for `days` days (any visit restarts the clock). */
+  async pruneGuests(days = GUEST_KEEP_DAYS): Promise<number> {
+    const cutoff = this.now() - days * 24 * 60 * 60_000;
+    const stale = (a: Account) => this.untouched(a) && Math.max(a.createdAt, this.activity.lastSeen(a.id) ?? 0) < cutoff;
+    let removed = 0;
+    for (const a of await this.store.all()) {
+      if (!stale(a)) continue;
+      // in the account's queue, so nothing it was doing a moment ago can write it back
+      const gone = await this.queued(a.id, async () => {
+        const x = await this.store.get(a.id);
+        if (!x || !stale(x)) return false;
+        await this.store.delete(x.id);
+        this.badges.delete(x.id);
+        return true;
+      }).catch(() => false);
+      if (gone) removed++;
+    }
+    if (removed) this.track({ kind: "system.pruneGuests", data: { removed, days } });
+    return removed;
   }
 
   private async create(name: string, guest: boolean, logins: Login[] = [], extra: Partial<Account> = {}): Promise<Account> {
@@ -462,6 +500,7 @@ export class AccountService {
       const levels = !st && !coach && scaled === true ? botLevelsFor(x.progress.rating, n - 1) : undefined;
       const solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed, players: n, stakes: buy, startedAt: this.now(), levels, stage: st?.n, ...(coach ? { coached: true } : {}), ...(coach && gentle === true ? { gentle: true } : {}), ...(les ? { lesson: les } : {}) };
       x.solo = solo;
+      x.played ??= this.now();
       return { me: this.me(x), gameId: solo.gameId, seed: solo.seed, players: n, levels, stage: st?.n, gentle: solo.gentle, lesson: les, quit };
     });
   }

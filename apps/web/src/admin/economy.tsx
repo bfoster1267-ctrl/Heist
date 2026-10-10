@@ -30,7 +30,7 @@ export function EconomyPage({ s, onAuth }: PageProps) {
     <>
       <Problem error={r.error} />
       <section className="stats">
-        <Stat label="Chips in circulation" tone="gold" value={num(e.circulation.chips)} sub={`${num(e.circulation.registered)} signed up · ${num(e.circulation.guests)} guests`} />
+        <Stat label="Chips in circulation" tone="gold" value={num(e.circulation.chips)} sub={`${num(e.circulation.registered)} signed up · ${num(e.circulation.guests)} guests who've played${e.circulation.untouched?.accounts ? ` · ${num(e.circulation.untouched.accounts)} guests who never played left out` : ""}`} />
         <Stat label="Chips added today" tone="cash" value={signed(total("day", 1))} sub={`${signed(total("week", 1))} this week`} />
         <Stat label="Chips taken out today" value={signed(total("day", -1))} sub={`${signed(total("week", -1))} this week`} />
         <Stat label="Players up on their start" value={pct(p.up)} sub={`${num(p.up)} up · ${num(p.down)} down · ${num(p.broke)} near broke`} />

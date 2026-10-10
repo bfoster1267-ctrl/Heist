@@ -287,8 +287,12 @@ describe("admin panel API", () => {
     const home = { ip: "10.0.0.1", device: "owner-phone-1" };
     for (let i = 0; i < 4; i++) await call("/api/auth/guest", {}, home);
     await call("/api/auth/guest", {}, { ip: "10.0.0.1" });
-    // a stranger opens three guests in one browser (no device id yet) from one address
-    for (let i = 0; i < 3; i++) await call("/api/auth/guest", {}, { ip: "2.2.2.2" });
+    // a stranger opens three guests in one browser (no device id yet) from one address, and plays a game
+    let stranger = "";
+    for (let i = 0; i < 3; i++) stranger = (await call("/api/auth/guest", {}, { ip: "2.2.2.2" })).token;
+    await call("/api/solo/start", { players: 3, stakes: 0 }, { ip: "2.2.2.2" }, stranger);
+    // someone opens the site and never plays: not a player yet
+    await call("/api/auth/guest", {}, { ip: "6.6.6.6", device: "lurker-phone-1" });
     // another plays as a guest, then signs up on the same install from a new address
     await call("/api/auth/guest", {}, { ip: "3.3.3.3", device: "bob-laptop-1" });
     await call("/api/auth/register", { email: "bob@x.com", password: "bobs-password", name: "Bob" }, { ip: "4.4.4.4", device: "bob-laptop-1" });
@@ -298,7 +302,7 @@ describe("admin panel API", () => {
 
     const { token } = await call("/api/admin/login", { user: "admin", password: "a-long-admin-password" }, home);
     const ov = await get("/api/admin/overview", token);
-    expect(ov.accounts).toMatchObject({ total: 12, guests: 9, registered: 3, people: 4, yours: 5, signedUp: 3 });
+    expect(ov.accounts).toMatchObject({ total: 13, guests: 10, registered: 3, people: 4, yours: 5, signedUp: 3, untouched: 4 });
     expect(ov.active.day).toBe(4);
     expect(ov.daily.at(-1)).toMatchObject({ people: 4, active: 4 });
 
@@ -307,8 +311,8 @@ describe("admin panel API", () => {
     expect(people.length).toBe(4);
     const bob = people.find((r: { name: string }) => r.name === "Bob");
     expect(bob.personAccounts).toBe(2);
-    expect((await get("/api/admin/accounts?show=all", token)).rows.length).toBe(7);
-    expect((await get("/api/admin/accounts?show=all&mine=1", token)).rows.length).toBe(12);
+    expect((await get("/api/admin/accounts?show=all", token)).rows.length).toBe(8);
+    expect((await get("/api/admin/accounts?show=all&mine=1", token)).rows.length).toBe(13);
     const detail = await get(`/api/admin/accounts/${bob.id}`, token);
     expect(detail.samePerson.length).toBe(1);
   });
@@ -323,7 +327,8 @@ describe("admin panel API", () => {
     const get = async (path: string, token: string) => (await fetch(base + path, { headers: { authorization: `Bearer ${token}` } })).json();
 
     // a real player, Claude's browser (marked install id), and a Claude script (marked user agent)
-    await call("/api/auth/guest", {}, { "x-forwarded-for": "7.7.7.7", "x-heist-device": "real-phone-01" });
+    const real = await call("/api/auth/guest", {}, { "x-forwarded-for": "7.7.7.7", "x-heist-device": "real-phone-01" });
+    await call("/api/solo/start", { players: 3, stakes: 0 }, { "x-forwarded-for": "7.7.7.7", "x-heist-device": "real-phone-01" }, real.token);
     const browser = await call("/api/auth/guest", {}, { "x-forwarded-for": "8.8.8.8", "x-heist-device": "claude-abc12345" });
     await call("/api/track", { events: [{ kind: "tap", name: "Quick Play" }] }, { "x-forwarded-for": "8.8.8.8" }, browser.token);
     await call("/api/auth/guest", {}, { "x-forwarded-for": "9.9.9.9", "user-agent": "Mozilla/5.0 HeistClaudeTest" });
@@ -337,7 +342,7 @@ describe("admin panel API", () => {
     expect(all.filter((r: { claude: boolean }) => r.claude).length).toBe(2);
     // the feed shows players only; ?mine=1 brings back yours and Claude's, labeled
     const players = (await get("/api/admin/activity?limit=50", token)).events as { kind: string; ip?: string }[];
-    expect(players.map((e) => e.kind).sort()).toEqual(["auth.guest"]);
+    expect(players.map((e) => e.kind).sort()).toEqual(["auth.guest", "solo.start"]);
     expect(players[0].ip).toBe("7.7.7.7");
     const events = (await get("/api/admin/activity?limit=50&mine=1", token)).events as { kind: string; claude?: boolean; you?: boolean; ip?: string }[];
     expect(events.find((e) => e.kind === "admin.login")?.you).toBe(true);

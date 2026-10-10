@@ -70,6 +70,15 @@ const server = await startServer({
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
 });
 
+// guests who opened the site, never played a game and haven't been back in 30 days are removed
+const prune = () =>
+  accounts.pruneGuests().then(
+    (removed) => removed && log("removed untouched guests", { removed }),
+    (e) => log("guest cleanup failed", { err: String(e) }),
+  );
+setTimeout(prune, 10 * 60_000).unref();
+setInterval(prune, 6 * 60 * 60_000).unref();
+
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     log("shutting down");

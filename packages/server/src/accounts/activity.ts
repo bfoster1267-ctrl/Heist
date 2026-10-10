@@ -72,6 +72,8 @@ export interface ActivityLog {
   lastSeen(userId: string): number | undefined;
   /** every player's last-seen time */
   seen(): ReadonlyMap<string, number>;
+  /** players who have ever started a game (since the log began) */
+  played(): ReadonlySet<string>;
   /** the newest events still in memory, oldest first (for dashboards) */
   window(): readonly ActivityEvent[];
   saveSolo(r: SoloRecord): void;
@@ -89,6 +91,10 @@ export const byClaude = (e: ActivityEvent) => e.tester === "claude" || !!e.devic
 /** something the owner did to a player's account (it names the player but isn't the player being active) */
 export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");
 
+/** events that mean the player sat down to a game (a vs-bots game, a turn of one, or an online table) */
+const PLAY_KINDS = new Set(["solo.start", "game.solo", "game.online", "ui.turn", "table.create", "table.join", "table.queue", "table.sit", "table.start"]);
+export const startedGame = (e: ActivityEvent) => PLAY_KINDS.has(e.kind) && e.ok !== false;
+
 const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
   if (q.userId && e.userId !== q.userId) return false;
   if (q.skip?.(e)) return false;
@@ -103,6 +109,7 @@ const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {
 export class MemoryActivityLog implements ActivityLog {
   protected events: ActivityEvent[] = [];
   protected last = new Map<string, number>();
+  protected players = new Set<string>();
   protected solos = new Map<string, SoloRecord>();
 
   constructor(protected keep = 50_000) {}
@@ -114,7 +121,14 @@ export class MemoryActivityLog implements ActivityLog {
   protected remember(e: ActivityEvent) {
     this.events.push(e);
     if (this.events.length > this.keep * 1.1) this.events.splice(0, this.events.length - this.keep);
-    if (e.userId && !byOwner(e)) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
+    this.note(e);
+  }
+
+  /** last-seen times and who has played: kept for every event, including ones that leave memory */
+  protected note(e: ActivityEvent) {
+    if (!e.userId || byOwner(e)) return;
+    this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
+    if (startedGame(e)) this.players.add(e.userId);
   }
 
   query(q: ActivityQuery): ActivityEvent[] {
@@ -141,6 +155,10 @@ export class MemoryActivityLog implements ActivityLog {
 
   seen() {
     return this.last;
+  }
+
+  played() {
+    return this.players;
   }
 
   window() {
@@ -186,8 +204,8 @@ export class FileActivityLog extends MemoryActivityLog {
       loaded.unshift(evs);
       n += evs.length;
     }
-    // last-seen times for players who only show up in older months
-    for (let j = 0; j <= i; j++) for (const e of this.read(files[j])) if (e.userId && !byOwner(e)) this.last.set(e.userId, Math.max(this.last.get(e.userId) ?? 0, e.at));
+    // last-seen times (and who has played) for players who only show up in older months
+    for (let j = 0; j <= i; j++) for (const e of this.read(files[j])) this.note(e);
     for (const evs of loaded) for (const e of evs) this.remember(e);
   }
 
