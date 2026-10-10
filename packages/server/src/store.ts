@@ -4,8 +4,8 @@
 // settle chips (workstream 5) and investigate disputes.
 //
 // FileStore writes one JSON-lines file per game, and moves it to games/done/ when the game ends, so a
-// restart only reads the games that were still running. A database-backed store (Supabase/Postgres, workstream
-// 4) only needs to implement GameStore.
+// restart only reads the games that were still running. PgGameStore (db/stores.ts) keeps the same records in
+// Postgres when DATABASE_URL is set.
 
 import { createWriteStream, mkdirSync, readFileSync, readdirSync, rename, type WriteStream } from "node:fs";
 import { join } from "node:path";
@@ -62,9 +62,9 @@ export interface GameStore {
   answered(gameId: string, a: StoredAnswer): void;
   ended(gameId: string, e: GameEnd): void;
   /** games that started but never ended (the server stopped mid-game) */
-  unfinished(): GameRecord[];
+  unfinished(): Promise<GameRecord[]>;
   /** one game's record, running or finished (the admin panel's move list) */
-  game?(gameId: string): GameRecord | undefined;
+  game?(gameId: string): Promise<GameRecord | undefined>;
   /** wait for pending writes (shutdown) */
   flush(): Promise<void>;
 }
@@ -81,10 +81,10 @@ export class MemoryStore implements GameStore {
     const g = this.games.get(id);
     if (g) g.end = e;
   }
-  unfinished() {
+  async unfinished() {
     return [...this.games.values()].filter((g) => !g.end);
   }
-  game(id: string) {
+  async game(id: string) {
     return this.games.get(id);
   }
   async flush() {}
@@ -123,7 +123,7 @@ export class FileStore implements GameStore {
     this.write(id, { t: "end", ...e }, true);
   }
 
-  unfinished(): GameRecord[] {
+  async unfinished(): Promise<GameRecord[]> {
     const out: GameRecord[] = [];
     for (const f of readdirSync(this.dir)) {
       if (!f.endsWith(".jsonl")) continue;
@@ -133,7 +133,7 @@ export class FileStore implements GameStore {
     return out;
   }
 
-  game(id: string): GameRecord | undefined {
+  async game(id: string): Promise<GameRecord | undefined> {
     if (!/^[\w-]{1,40}$/.test(id)) return undefined;
     for (const f of [join(this.dir, "done", `${id}.jsonl`), join(this.dir, `${id}.jsonl`)]) {
       try {

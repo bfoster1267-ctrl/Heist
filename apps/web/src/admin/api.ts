@@ -183,7 +183,7 @@ export interface ServerReport {
     instance: string | null;
     samples: { at: number; cpu: number; rssMb: number; heapMb: number; sockets: number }[];
   };
-  disk: { totalMb: number | null; freeMb: number | null; parts: { name: string; mb: number; files: number }[] } | null;
+  disk: { kind?: "database"; totalMb: number | null; freeMb: number | null; parts: { name: string; mb: number; files: number }[] } | null;
   render:
     | { connected: false; missing?: "key" | "service"; error?: string }
     | {
@@ -192,7 +192,7 @@ export interface ServerReport {
         deploys: Deploy[];
         metrics: { cpu: Metric; memory: Metric; memoryLimit: Metric; cpuLimit: Metric; requests: Metric; bandwidth: Metric };
       };
-  cost: { plan: string; service: number | null; disk: number; monthly: number | null; soFar: number | null };
+  cost: { plan: string; service: number | null; disk: number; database?: number; monthly: number | null; soFar: number | null };
   live: Live;
 }
 

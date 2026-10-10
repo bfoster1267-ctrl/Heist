@@ -95,9 +95,9 @@ describe("activity log", () => {
     log.add({ at: Date.UTC(2026, 10, 1), kind: "shop.buy", userId: "u_a", data: { i: 6 } });
     await log.flush();
     const again = new FileActivityLog(dir, 3);
-    expect(again.query({ limit: 100 }).map((e) => e.data!.i)).toEqual([6, 5, 4, 3, 2, 1, 0]); // past memory, from the files
-    expect(again.query({ userId: "u_a", kinds: ["shop."] }).map((e) => e.data!.i)).toEqual([6, 1]);
-    expect(again.query({ before: at + 4, limit: 2 }).map((e) => e.data!.i)).toEqual([3, 2]);
+    expect((await again.query({ limit: 100 })).map((e) => e.data!.i)).toEqual([6, 5, 4, 3, 2, 1, 0]); // past memory, from the files
+    expect((await again.query({ userId: "u_a", kinds: ["shop."] })).map((e) => e.data!.i)).toEqual([6, 1]);
+    expect((await again.query({ before: at + 4, limit: 2 })).map((e) => e.data!.i)).toEqual([3, 2]);
     expect(again.lastSeen("u_b")).toBe(at + 5);
   });
 });
@@ -202,7 +202,7 @@ describe("admin panel API", () => {
     expect(online.mode).toBe("online");
     expect(online.broken).toBeUndefined();
     expect(online.moments.some((m: { t: string }) => m.t === "say")).toBe(true);
-    expect(online.moments.filter((m: { t: string }) => m.t === "move").length).toBe(store.game(onlineId)!.answers.length);
+    expect(online.moments.filter((m: { t: string }) => m.t === "move").length).toBe((await store.game(onlineId))!.answers.length);
     expect((await call("GET", "/api/admin/games/nope", undefined, token)).status).toBe(404);
 
     const logins = (await get(`/api/admin/activity?kinds=admin.login&mine=1`)).events;

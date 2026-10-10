@@ -58,7 +58,7 @@ export function ServerPage({ s, onAuth }: PageProps) {
         <Stat label="Up for" value={uptime(d.self.uptimeS)} sub={lastDeploy?.finishedAt ? `last deploy ${ago(lastDeploy.finishedAt)}` : d.self.commit ? `version ${d.self.commit}` : `since ${when(d.self.startedAt)}`} />
         <Stat label="Memory" value={`${num(d.self.rssMb)} MB`} sub={limitMb ? `of ${num(limitMb)} MB (${Math.round((d.self.rssMb / limitMb) * 100)}%)` : `${num(d.self.heapMb)} MB in use by the game`} />
         <Stat label="CPU" value={last ? `${last.cpu}%` : "…"} sub={last ? "of one core, last minute" : "first reading after a minute"} />
-        <Stat label="Disk" value={diskUsed != null ? `${num(diskUsed)} MB` : "?"} sub={d.disk?.totalMb ? `of ${num(d.disk.totalMb)} MB (${Math.round(((diskUsed ?? 0) / d.disk.totalMb) * 100)}%)` : "not measured here"} />
+        <Stat label={d.disk?.kind === "database" ? "Database" : "Disk"} value={diskUsed != null ? `${num(diskUsed)} MB` : "?"} sub={d.disk?.totalMb ? `of ${num(d.disk.totalMb)} MB (${Math.round(((diskUsed ?? 0) / d.disk.totalMb) * 100)}%)` : "not measured here"} />
         <Stat label="This month" tone="gold" value={money(d.cost.soFar)} sub={`of ${money(d.cost.monthly)} a month (estimate)`} />
       </section>
 
@@ -94,10 +94,18 @@ export function ServerPage({ s, onAuth }: PageProps) {
                 <td>Server ({d.cost.plan})</td>
                 <td>{money(d.cost.service)} / month</td>
               </tr>
-              <tr>
-                <td>Data disk ({rd?.service.diskGb ?? 1} GB)</td>
-                <td>{money(d.cost.disk)} / month</td>
-              </tr>
+              {d.cost.disk > 0 && (
+                <tr>
+                  <td>Data disk ({rd?.service.diskGb ?? 1} GB)</td>
+                  <td>{money(d.cost.disk)} / month</td>
+                </tr>
+              )}
+              {!!d.cost.database && (
+                <tr>
+                  <td>Database</td>
+                  <td>{money(d.cost.database)} / month</td>
+                </tr>
+              )}
               <tr className="sum">
                 <td>Total</td>
                 <td>{money(d.cost.monthly)} / month</td>
@@ -113,7 +121,7 @@ export function ServerPage({ s, onAuth }: PageProps) {
 
         <div className="card">
           <div className="card-head">
-            <h3>What's on the disk</h3>
+            <h3>{d.disk?.kind === "database" ? "What's in the database" : "What's on the disk"}</h3>
             <span className="dim small">{d.disk?.freeMb != null ? `${num(d.disk.freeMb)} MB free` : ""}</span>
           </div>
           {d.disk ? (
@@ -123,7 +131,7 @@ export function ServerPage({ s, onAuth }: PageProps) {
                   <tr key={p.name}>
                     <td>{p.name}</td>
                     <td>
-                      {p.mb < 1 ? `${Math.round(p.mb * 1024)} KB` : `${num(Math.round(p.mb * 10) / 10)} MB`} <span className="dim small">· {num(p.files)} {p.files === 1 ? "file" : "files"}</span>
+                      {p.mb < 1 ? `${Math.round(p.mb * 1024)} KB` : `${num(Math.round(p.mb * 10) / 10)} MB`} <span className="dim small">· {num(p.files)} {d.disk?.kind === "database" ? (p.files === 1 ? "row" : "rows") : p.files === 1 ? "file" : "files"}</span>
                     </td>
                   </tr>
                 ))}

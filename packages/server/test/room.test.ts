@@ -263,7 +263,7 @@ describe("Room", () => {
     expect(b3.last("gameOver").paid).not.toContain(1);
   });
 
-  it("rebuilds a table from the stored log after a restart", () => {
+  it("rebuilds a table from the stored log after a restart", async () => {
     const { room, store, clock } = setup(4);
     const a = new TestConn("c1", "u1", "Ann");
     const b = new TestConn("c2", "u2", "Ben");
@@ -272,7 +272,7 @@ describe("Room", () => {
     room.start("u1", 555);
     playAll(room, [a, b], 30);
     const before = structuredClone(room["game"]!.s);
-    const rec = store.unfinished()[0];
+    const rec = (await store.unfinished())[0];
     const back = Room.restore(rec, { store, clock });
     expect(back["game"]!.s).toEqual(before);
     expect(back.code).toBe("ABCDE");

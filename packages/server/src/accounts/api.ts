@@ -195,7 +195,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         return a ? send(res, 200, a) : send(res, 404, { error: "No such account" });
       }
       if (id?.[1] === "games") {
-        const g = admin.svc.game(id[2]);
+        const g = await admin.svc.game(id[2]);
         return g ? send(res, 200, g) : send(res, 404, { error: "That game's record isn't on this server" });
       }
       throw new ApiError(404, "Not found");

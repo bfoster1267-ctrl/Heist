@@ -95,9 +95,9 @@ export class Rooms {
   }
 
   /** Rebuild tables from games that were running when the server last stopped. */
-  restore(): number {
+  async restore(): Promise<number> {
     let n = 0;
-    for (const rec of this.deps.store.unfinished()) {
+    for (const rec of await this.deps.store.unfinished()) {
       if (this.byCode.has(rec.start.code)) continue;
       try {
         this.byCode.set(rec.start.code, Room.restore(rec, this.deps));

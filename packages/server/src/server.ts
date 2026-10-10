@@ -49,12 +49,20 @@ export interface ServerOptions {
   admin?: { user: string; password: string; secret?: string; team?: AdminTeam };
   /** server and Render stats for the admin panel */
   hosting?: Hosting;
+  /**
+   * Hold every request and socket message (but not /healthz) until this resolves, then rebuild unfinished
+   * tables. A new instance in a zero-downtime deploy passes the database hand-over here: it answers the
+   * host's health check at once, but only starts work after the old instance has flushed and let go.
+   */
+  ready?: Promise<void>;
 }
 
 export interface HeistServer {
   http: Server;
   rooms: Rooms;
   queue: Matchmaker;
+  /** resolves once the server is taking requests (after `ready` and the tables are rebuilt) */
+  ready: Promise<void>;
   port(): number;
   close(): Promise<void>;
 }
@@ -109,7 +117,10 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const rate = o.rate ?? RATE;
   const onGameOver = (r: GameOverReport) => {
     o.onGameOver?.(r);
-    if (accounts) void settleOnline(r);
+    if (accounts) {
+      const p = settleOnline(r).finally(() => settling.delete(p));
+      settling.add(p);
+    }
   };
   const badge = accounts ? (userId: string) => accounts.badge(userId) : undefined;
   const rooms = new Rooms({ store, clock, log, onGameOver, badge, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
@@ -144,15 +155,30 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         ws.close();
       }
     };
-  const restored = rooms.restore();
-  if (restored) log("restored tables", { count: restored });
+  let isReady = false;
+  const ready = (o.ready ?? Promise.resolve()).then(async () => {
+    const restored = await rooms.restore();
+    if (restored) log("restored tables", { count: restored });
+    isReady = true;
+  });
+  ready.catch((e) => log("not ready", { err: String(e) }));
+  /** online games still paying out (shutdown waits for them before the last flush) */
+  const settling = new Set<Promise<void>>();
 
   const http = createServer(async (req, res) => {
+    if (!isReady && req.url !== "/healthz") {
+      try {
+        await ready;
+      } catch {
+        res.writeHead(503, { "retry-after": "5" }).end();
+        return;
+      }
+    }
     if (api && (await api(req, res))) return;
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
       const cpu = process.cpuUsage();
-      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
+      res.end(JSON.stringify({ ok: true, ready: isReady, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
     if (o.webDir && (await serveStatic(o.webDir, req, res))) return;
@@ -175,7 +201,8 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
-    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip };
+    // messages wait for the hand-over (a no-op once ready); on failure the socket just gets closed at shutdown
+    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: ready.catch(() => {}), ip };
     const send = (m: ServerMsg) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
     };
@@ -366,20 +393,31 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
 
   await new Promise<void>((r) => http.listen(o.port ?? 8787, o.host ?? "0.0.0.0", r));
   log("listening", { port: (http.address() as { port: number }).port });
+  // without a hand-over to wait for, the tables are back before anyone can connect (as before)
+  if (!o.ready) await ready;
 
   return {
     http,
     rooms,
     queue,
+    ready,
     port: () => (http.address() as { port: number }).port,
     async close() {
       o.hosting?.stop();
       clearInterval(beat);
       queue.close();
-      for (const ws of wss.clients) ws.terminate();
+      // 1012 "service restart": the app reconnects by itself, and lands on the new instance
+      for (const ws of wss.clients) ws.close(1012, "Server restarting");
       rooms.closeAll();
+      // give the close handshakes a moment, then cut whoever hasn't answered
+      for (let i = 0; i < 20 && wss.clients.size; i++) await new Promise((r) => setTimeout(r, 100));
+      for (const ws of wss.clients) ws.terminate();
       await new Promise<void>((r) => wss.close(() => r()));
+      // requests already in flight finish; idle keep-alive connections close now, stragglers after 10 s
+      const forced = setTimeout(() => http.closeAllConnections(), 10_000);
       await new Promise<void>((r) => http.close(() => r()));
+      clearTimeout(forced);
+      await Promise.allSettled([...settling]);
       await store.flush();
       await accounts?.store.flush();
       await accounts?.activity.flush();
