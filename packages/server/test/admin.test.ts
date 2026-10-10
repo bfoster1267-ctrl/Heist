@@ -347,6 +347,42 @@ describe("admin panel API", () => {
     expect(events.find((e) => e.kind === "auth.guest" && e.ip === "7.7.7.7")?.claude).toBeUndefined();
   });
 
+  it("asks \"What lost you?\" once and shows the answers to the owner, without Claude's", async () => {
+    const accounts = new AccountService({ secret: "s" });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, admin: { user: "admin", password: "a-long-admin-password" }, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const call = async (path: string, body: object, headers: Record<string, string>, token?: string) => {
+      const r = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json", ...headers, ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+      return { status: r.status, body: await r.json() };
+    };
+    const get = async (path: string, token: string) => (await fetch(base + path, { headers: { authorization: `Bearer ${token}` } })).json();
+
+    const amy = (await call("/api/auth/guest", {}, { "x-forwarded-for": "7.7.7.1", "x-heist-device": "amy-phone-01" })).body;
+    const ben = (await call("/api/auth/guest", {}, { "x-forwarded-for": "7.7.7.2", "x-heist-device": "ben-phone-01" })).body;
+    const bot = (await call("/api/auth/guest", {}, { "x-forwarded-for": "8.8.8.8", "user-agent": "HeistClaudeTest" })).body;
+    expect(amy.me.asked).toBe(false);
+
+    expect((await call("/api/feedback", { reason: "nope" }, {}, amy.token)).status).toBe(400);
+    expect((await call("/api/feedback", { reason: "roles" }, {})).status).toBe(401);
+    const r = await call("/api/feedback", { reason: "roles", when: "left", round: 2, coached: true }, { "x-forwarded-for": "7.7.7.1" }, amy.token);
+    expect(r.body.me.asked).toBe(true);
+    // the comment box fills in afterwards; a second answer doesn't replace the first
+    await call("/api/feedback", { comment: "  Too much to read  " }, {}, amy.token);
+    await call("/api/feedback", { reason: "liked", comment: "changed my mind" }, {}, amy.token);
+    await call("/api/feedback", { reason: "skip", when: "finished" }, { "x-forwarded-for": "7.7.7.2" }, ben.token);
+    await call("/api/feedback", { reason: "buttons" }, { "user-agent": "HeistClaudeTest" }, bot.token);
+
+    const { body: s } = await call("/api/admin/login", { user: "admin", password: "a-long-admin-password" }, { "x-forwarded-for": "1.1.1.1" });
+    const f = await get("/api/admin/feedback", s.token);
+    expect(f).toMatchObject({ asked: 2, answered: 1, comments: 1 });
+    expect(f.totals.roles).toEqual({ left: 1, finished: 0 });
+    expect(f.totals.skip).toEqual({ left: 0, finished: 1 });
+    expect(f.totals.buttons).toEqual({ left: 0, finished: 0 });
+    expect(f.rows.find((x: { id: string }) => x.id === amy.me.id)).toMatchObject({ reason: "roles", comment: "Too much to read", round: 2, coached: true, when: "left" });
+    expect((await get("/api/me", amy.token)).asked).toBe(true);
+  });
+
   it("is off without an admin password", async () => {
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts: new AccountService({ secret: "s" }) });
     servers.push(srv);

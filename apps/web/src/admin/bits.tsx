@@ -127,7 +127,7 @@ export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "money", label: "Shop, packs & chips", kinds: ["shop.", "season.", "chips.", "prestige", "solo.drink"] },
   { id: "games", label: "Games", kinds: ["game.", "solo."] },
   { id: "tables", label: "Online tables & chat", kinds: ["table.", "online."] },
-  { id: "app", label: "Screens & taps", kinds: ["ui."] },
+  { id: "app", label: "Screens & taps", kinds: ["ui.", "feedback"] },
   { id: "views", label: "Profiles & boards viewed", kinds: ["view."] },
   { id: "admin", label: "Your admin actions", kinds: ["admin."] },
 ];
@@ -175,6 +175,7 @@ const LABELS: Record<string, string> = {
   "ui.tap": "Tapped",
   "view.player": "Viewed a profile",
   "view.leaderboard": "Viewed the leaderboard",
+  feedback: "Answered \"What lost you?\"",
   "admin.login": "Admin sign-in",
   "admin.note": "You added a note",
   "admin.unnote": "You deleted a note",
@@ -198,6 +199,8 @@ export function detailOf(e: ActivityEvent): string {
     case "shop.buy":
     case "shop.equip":
       return String(d.id ?? "");
+    case "feedback":
+      return [d.reason, d.comment].filter(Boolean).join(": ");
     case "season.pack":
       return [d.paid ? "bought with chips" : "free", Array.isArray(d.items) ? d.items.join(", ") : ""].filter(Boolean).join(" · ");
     case "chips.daily":
