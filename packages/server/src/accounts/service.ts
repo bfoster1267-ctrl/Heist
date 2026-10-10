@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, easySeed, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, easySeed, lessonFor, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -405,8 +405,9 @@ export class AccountService {
    * `scaled`: the client builds bots at the levels in the ticket (older cached clients don't, so they get
    * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in). `coached`: Coached play
    * (always 3 players, gentle bots for clients that ask, no buy-in, small XP, kept out of the career and the rating).
+   * `lessons`: the client can teach Coached play's lessons, so a player's first coached games are one (lessons.ts).
    */
-  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown, gentle?: unknown) {
+  async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown, gentle?: unknown, lessons?: unknown) {
     const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
     if (campaign !== undefined && campaign !== null && !st) throw new ApiError(400, "No such stage");
     if (st) [players, stakes] = [st.players, 0];
@@ -416,16 +417,17 @@ export class AccountService {
     const n = coach ? COACH_PLAYERS : players;
     const buy = coach ? 0 : stakes;
     // Coached play deals a friendly game: the seed where following the coach wins fastest (it replays as usual)
-    const seed = coach && gentle === true ? easySeed(() => randomInt(2 ** 31), n, 16, 250) : randomInt(2 ** 31);
+    const les = coach && gentle === true && lessons === true ? lessonFor(a.progress.coachGames) : undefined;
+    const seed = coach && gentle === true ? easySeed(() => randomInt(2 ** 31), n, 16, 250, undefined, les) : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
       if (st && st.n > x.progress.campaign + 1) throw new ApiError(403, "Clear the stage before that one first");
       let quit: Reward | null = null;
       if (x.solo) quit = this.settleQuit(x);
       this.apply(x, buyIn(x.progress, buy));
       const levels = !st && !coach && scaled === true ? botLevelsFor(x.progress.rating, n - 1) : undefined;
-      const solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed, players: n, stakes: buy, startedAt: this.now(), levels, stage: st?.n, ...(coach ? { coached: true } : {}), ...(coach && gentle === true ? { gentle: true } : {}) };
+      const solo = { gameId: `s_${randomBytes(6).toString("base64url")}`, seed, players: n, stakes: buy, startedAt: this.now(), levels, stage: st?.n, ...(coach ? { coached: true } : {}), ...(coach && gentle === true ? { gentle: true } : {}), ...(les ? { lesson: les } : {}) };
       x.solo = solo;
-      return { me: this.me(x), gameId: solo.gameId, seed: solo.seed, players: n, levels, stage: st?.n, gentle: solo.gentle, quit };
+      return { me: this.me(x), gameId: solo.gameId, seed: solo.seed, players: n, levels, stage: st?.n, gentle: solo.gentle, lesson: les, quit };
     });
   }
 
@@ -434,7 +436,7 @@ export class AccountService {
   private settleQuit(x: Account): Reward | null {
     const g = x.solo!;
     x.solo = null;
-    this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage },
+    this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage, gentle: g.gentle, lesson: g.lesson },
       answers: [], startedAt: g.startedAt, endedAt: this.now(), quit: true, winners: [] });
     if (g.coached) return null;
     const r = settle(x.progress, {
@@ -473,9 +475,9 @@ export class AccountService {
       if (g.coached) {
         const c = settleCoached(x.progress, won);
         x.progress = c.progress;
-        this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage },
+        this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage, gentle: g.gentle, lesson: g.lesson },
           answers: answers as never, startedAt: g.startedAt, endedAt: this.now(), quit: false, winners: rep.winners });
-        this.track({ kind: "game.solo", userId: x.id, name: x.name, data: { gameId: g.gameId, players: g.players, coached: true, won, quit: false, moves: answers.length } });
+        this.track({ kind: "game.solo", userId: x.id, name: x.name, data: { gameId: g.gameId, players: g.players, coached: true, lesson: g.lesson, won, quit: false, moves: answers.length } });
         return { me: this.me(x), reward: c.reward, winners: rep.winners };
       }
       const pay = payout(g.stakes, g.players, rep.winners, 0);
@@ -484,7 +486,7 @@ export class AccountService {
       });
       x.progress = r.progress;
       this.board = null;
-      this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage },
+      this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage, gentle: g.gentle, lesson: g.lesson },
         answers: answers as never, startedAt: g.startedAt, endedAt: this.now(), quit: false, winners: rep.winners });
       this.track({ kind: "game.solo", userId: x.id, name: x.name, data: { gameId: g.gameId, players: g.players, stakes: g.stakes, stage: g.stage, won, quit: false, payout: pay, xp: r.reward.xp, coins: r.reward.coins, moves: answers.length, minutes: Math.round((this.now() - g.startedAt) / 6000) / 10 } });
       return { me: this.me(x), reward: r.reward, winners: rep.winners };

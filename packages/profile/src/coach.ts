@@ -151,6 +151,7 @@ export function coachTip(s: GameState, ask: Ask): string {
       return "Call a number your opponent is likely to hold: the middle Scores (8, 10, 12) are the most common.";
     case "showdown": {
       if (ask.as === "bust" || ask.as === "rival") return `A Fixer counts as 0 here. Play a Score: your best is ${Math.max(best, 0)}.`;
+      if (best >= 0 && !s.players[me].hand.some((c) => c.kind === "F")) return `Your card plus your crew is your total. Your best Score is ${best}.`;
       return best >= 0 ? `A Score beats any Fixer. Your best is ${best}.` : "No Scores in hand: your Fixer only wins if they play a Fixer too.";
     }
     case "forger":

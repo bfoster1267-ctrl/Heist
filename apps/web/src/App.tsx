@@ -1,5 +1,5 @@
 import type { Answer } from "@heist/engine";
-import { ALL_DRINKS, type Reward } from "@heist/profile";
+import { ALL_DRINKS, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
@@ -102,6 +102,7 @@ function Game() {
         stakes: t.stage || c.coached ? 0 : c.stakes,
         coached: c.coached,
         gentle: t.gentle,
+        lesson: t.lesson,
         seed: t.seed,
         levels: t.levels,
         stage: t.stage,
@@ -205,6 +206,7 @@ function Game() {
             onSignIn={() => setProfile("account")}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
+            nextLesson={lessonFor(me.progress.coachGames ?? 0)}
           />
           <div className="acct-corner">
             <ProfileChip me={me} onOpen={() => setProfile("career")} />

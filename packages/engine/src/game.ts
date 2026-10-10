@@ -120,7 +120,7 @@ export class HeistGame {
       rules,
       history: [],
       players,
-      deck: this.rng.shuffle(makeJobDeck()),
+      deck: this.rng.shuffle(makeJobDeck().filter((c) => !rules.scoresOnly || c.kind === "S")),
       deckCount: 64,
       discard: [],
       boss: 0,
@@ -137,7 +137,7 @@ export class HeistGame {
       endReason: null,
     };
     this.s.boss = this.s.firstBoss = this.rng.int(n);
-    const pool = this.rng.shuffle(ROLES.map((r) => r.id));
+    const pool = this.rng.shuffle(rules.rolePool && rules.rolePool.length >= 2 * n ? [...rules.rolePool] : ROLES.map((r) => r.id));
     this.roleOffers = players.map((_, i) => [pool[2 * i], pool[2 * i + 1]]);
     for (const p of players) for (let i = 0; i < 5; i++) p.hand.push(this.draw()!);
     this.gen = this.main();
@@ -349,7 +349,7 @@ export class HeistGame {
   private *main(): Flow {
     const s = this.s;
     this.emit({ t: "setup" }, `${s.n} players. First to ${s.target} Footholds wins.`);
-    for (const p of s.players) {
+    for (const p of s.rules.noRoles ? [] : s.players) {
       const a = yield* this.ask({ kind: "keepRole", seat: p.seat, options: this.roleOffers[p.seat] });
       p.role = a.role;
       this.emit({ t: "role", seat: p.seat, role: a.role }, `${p.name} is ${roleName(a.role)}.`);
@@ -651,7 +651,7 @@ export class HeistGame {
     const inJob = (q: number) => q === b || q === mark || j.side.B[q] + j.side.M[q] > 0;
     for (let i = 1; i < s.n; i++) {
       const p = (b + i) % s.n;
-      if (inJob(p) || !s.players[p].bank.length) continue;
+      if (s.rules.noBets || inJob(p) || !s.players[p].bank.length) continue;
       const a = yield* this.ask({ kind: "bet", seat: p });
       if (!a.side) continue;
       const P = s.players[p];
