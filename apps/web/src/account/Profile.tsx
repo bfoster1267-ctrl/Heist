@@ -8,7 +8,8 @@ import {
 import { Cigar, Preview, bannerStyle } from "./items";
 import { Season } from "./Season";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chips } from "../table/pieces";
 import { Avatar, Coins, Stars, XpBar } from "./bits";
 import type { LeaderRow, Me } from "./backend";
@@ -471,9 +472,26 @@ export function PlayerCard({ id, onClose }: { id: string; onClose: () => void })
     window.addEventListener("keydown", key, true);
     return () => window.removeEventListener("keydown", key, true);
   }, [onClose]);
+  // the phone's back gesture closes the card: it gets its own history entry while open
+  const close = useRef(onClose);
+  close.current = onClose;
+  useEffect(() => {
+    let popped = false;
+    history.pushState({ heistCard: true }, "");
+    const pop = () => {
+      popped = true;
+      close.current();
+    };
+    window.addEventListener("popstate", pop);
+    return () => {
+      window.removeEventListener("popstate", pop);
+      if (!popped && history.state?.heistCard) history.back();
+    };
+  }, []);
   const s = p?.stats;
   const title = p ? cosmetic(p.equipped.title) : undefined;
-  return (
+  // portalled to <body>: inside the sliding profile panel, "fixed" would pin it to the panel, not the screen
+  return createPortal(
     <motion.div className="acct-card-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div className="acct-card acct-card-full" initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, opacity: 0 }} role="dialog" aria-label="Player card">
         <button className="acct-x acct-card-x" onClick={onClose} aria-label="Close player card">
@@ -504,7 +522,8 @@ export function PlayerCard({ id, onClose }: { id: string; onClose: () => void })
           </>
         )}
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }
 
