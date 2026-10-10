@@ -18,6 +18,18 @@ export interface Me {
   logins: string[];
   progress: Progress;
   profile: PublicProfile;
+  /** they've had the "What lost you?" question (server only; missing from older servers) */
+  asked?: boolean;
+}
+
+/** An answer to "What lost you?" ("skip": closed without answering) */
+export type LostReason = "roles" | "buttons" | "lost" | "notForMe" | "liked" | "skip";
+export interface LostAnswer {
+  reason?: LostReason;
+  comment?: string;
+  when?: "left" | "finished";
+  round?: number | null;
+  coached?: boolean;
 }
 
 export interface Config {
@@ -93,6 +105,8 @@ export interface Backend {
   dev(name: string): Promise<Me>;
   signOut(): Promise<Me>;
   deleteAccount(): Promise<Me>;
+  /** "What lost you?" after the first game (server only) */
+  feedback(a: LostAnswer): Promise<{ me: Me }>;
   /** the session token, for the game server socket */
   token(): string | null;
 }
@@ -160,6 +174,10 @@ export class BrowserBackend implements Backend {
 
   private write() {
     store.set(LOCAL_KEY, JSON.stringify(this.save));
+  }
+
+  async feedback() {
+    return { me: this.view() };
   }
 
   private view(): Me {
@@ -436,6 +454,9 @@ export class ServerBackend implements Backend {
     this.session = null;
     store.set(TOKEN_KEY, null);
     return this.me();
+  }
+  feedback(a: LostAnswer) {
+    return this.call<{ me: Me }>("/api/feedback", a);
   }
   async deleteAccount() {
     await this.call("/api/me/delete", {});

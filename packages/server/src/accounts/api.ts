@@ -179,6 +179,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         if (who.role !== "owner") throw new ApiError(403, "Only the owner can manage admins");
         return send(res, 200, { members: team.list() });
       }
+      if (path === "/feedback") return send(res, 200, await admin.svc.feedback());
       if (path === "/economy") return send(res, 200, await admin.svc.economy());
       if (path === "/overview") return send(res, 200, await admin.svc.overview());
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
@@ -309,7 +310,10 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       key = "GET /api/players/:id";
       param = player[1];
     }
-    const route = key === "POST /api/track" ? (b: Record<string, unknown>, t: string | undefined) => track(b, t, w) : routes[key];
+    const route =
+      key === "POST /api/track" ? (b: Record<string, unknown>, t: string | undefined) => track(b, t, w)
+      : key === "POST /api/feedback" ? async (b: Record<string, unknown>, t: string | undefined) => svc.feedback(await me(t), b, w.tester === "claude")
+      : routes[key];
     if (!route) {
       send(res, 404, { error: "Not found" });
       return true;
