@@ -1,4 +1,4 @@
-// How each kind of cosmetic looks in the shop, the season locker and pack reveals, plus the pieces that
+// How each kind of cosmetic looks in the shop, the Wardrobe, the season track and pack reveals, plus the pieces that
 // show season items elsewhere (a banner behind the profile header, a cigar by your seat).
 
 import { cosmetic, type Cosmetic } from "@heist/profile";
