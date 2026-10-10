@@ -1,6 +1,7 @@
 // Two screens that stand in front of the game on phones: turn the phone sideways, and open Heist in a
-// real browser when it was opened inside Reddit, Instagram, Facebook or TikTok (their built-in browsers
-// lose the account, can't install the app, and cramp the table).
+// real browser when it was opened inside Instagram, Facebook or TikTok (their built-in browsers lose the
+// account, can't install the app, and cramp the table). Reddit's built-in browser turns sideways fine, so
+// Reddit players just play there; the open-in-browser steps only show if their phone won't turn.
 import { useEffect, useState } from "react";
 import { isIOS } from "./appShell";
 
@@ -11,6 +12,12 @@ export function inAppBrowser(ua = navigator.userAgent): string | null {
   if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A/.test(ua)) return "Facebook";
   if (/TikTok|musical_ly|Bytedance|BytedanceWebview|trill_/i.test(ua)) return "TikTok";
   return null;
+}
+
+/** In-app browsers that get the open-in-browser screen up front. Reddit's plays fine, so it isn't one. */
+export function gatedInApp(ua = navigator.userAgent): string | null {
+  const app = inAppBrowser(ua);
+  return app === "Reddit" ? null : app;
 }
 
 const OK_KEY = "heist.inappOk";
@@ -24,7 +31,7 @@ export function inAppWaved() {
   }
 }
 
-export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => void }) {
+export function OpenInBrowser({ app, onAnyway, back }: { app: string; onAnyway: () => void; back?: boolean }) {
   const [copied, setCopied] = useState(false);
   const url = location.href;
   const android = /Android/i.test(navigator.userAgent);
@@ -39,7 +46,9 @@ export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => 
     <div className="inapp" role="dialog" aria-label="Open Heist in your browser">
       <div className="logo">HEIST</div>
       <div className="gate-title">Open in your browser</div>
-      <div className="gate-text">{app}'s built-in browser can't run Heist properly. It takes two taps to fix:</div>
+      <div className="gate-text">
+        {back ? `If ${app}'s browser won't turn sideways, open Heist in your own browser.` : `${app}'s built-in browser can't run Heist properly.`} It takes two taps:
+      </div>
       {android ? (
         <a className="btn primary" href={intent}>
           Open in Chrome
@@ -57,19 +66,25 @@ export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => 
       <button className="btn" onClick={copy}>
         {copied ? "Link copied. Paste it in your browser" : "Copy the link"}
       </button>
-      <button
-        className="inapp-anyway"
-        onClick={() => {
-          try {
-            sessionStorage.setItem(OK_KEY, "1");
-          } catch {
-            /* ignore */
-          }
-          onAnyway();
-        }}
-      >
-        Already in your browser? Continue
-      </button>
+      {back ? (
+        <button className="inapp-anyway" onClick={onAnyway}>
+          Back
+        </button>
+      ) : (
+        <button
+          className="inapp-anyway"
+          onClick={() => {
+            try {
+              sessionStorage.setItem(OK_KEY, "1");
+            } catch {
+              /* ignore */
+            }
+            onAnyway();
+          }}
+        >
+          Already in your browser? Continue
+        </button>
+      )}
     </div>
   );
 }
@@ -110,6 +125,10 @@ function Sideways({ text, asking, onCancel }: { text: string; asking?: boolean; 
   const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
   // Android can go full screen and lock sideways; iPhones can't, so they just turn the phone
   const canLock = !isIOS() && !!el.requestFullscreen && !!orient?.lock;
+  // inside an app's built-in browser (Reddit): if the phone won't turn, offer the way out to a real browser
+  const app = inAppBrowser();
+  const [helpOpen, setHelpOpen] = useState(false);
+  if (app && helpOpen) return <OpenInBrowser app={app} back onAnyway={() => setHelpOpen(false)} />;
   return (
     <div className={"rotate-gate" + (asking ? " asking" : "")} role={asking ? "dialog" : undefined} aria-live="polite">
       <div className="rotate-phone" aria-hidden />
@@ -132,6 +151,11 @@ function Sideways({ text, asking, onCancel }: { text: string; asking?: boolean; 
       {onCancel && (
         <button className="btn" onClick={onCancel}>
           Back to the menu
+        </button>
+      )}
+      {app && (
+        <button className="inapp-anyway" onClick={() => setHelpOpen(true)}>
+          Screen won't turn? Open in your browser
         </button>
       )}
     </div>
