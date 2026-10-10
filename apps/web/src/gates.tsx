@@ -1,8 +1,8 @@
-// Two screens that stand in front of the game on phones: turn the phone sideways, and open Heist in a
-// real browser when it was opened inside Instagram, Facebook or TikTok (their built-in browsers lose the
-// account, can't install the app, and cramp the table). Reddit's built-in browser turns sideways fine, so
-// Reddit players just play there; the open-in-browser steps only show if their phone won't turn.
-import { useEffect, useState } from "react";
+// The screen that stands in front of the game when it was opened inside Instagram, Facebook or TikTok:
+// open Heist in a real browser (their built-in browsers lose the account, can't install the app, and cramp
+// the table). Reddit players play in Reddit's browser: an upright phone gets the table drawn sideways
+// (see turn.ts), since Reddit's browser never rotates.
+import { useState } from "react";
 import { isIOS } from "./appShell";
 
 /** The in-app browser Heist was opened in, or null for a real browser. */
@@ -14,7 +14,7 @@ export function inAppBrowser(ua = navigator.userAgent): string | null {
   return null;
 }
 
-/** In-app browsers that get the open-in-browser screen up front. Reddit's plays fine, so it isn't one. */
+/** In-app browsers that get the open-in-browser screen. Reddit's plays fine, so it isn't one. */
 export function gatedInApp(ua = navigator.userAgent): string | null {
   const app = inAppBrowser(ua);
   return app === "Reddit" ? null : app;
@@ -31,7 +31,7 @@ export function inAppWaved() {
   }
 }
 
-export function OpenInBrowser({ app, onAnyway, back }: { app: string; onAnyway: () => void; back?: boolean }) {
+export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => void }) {
   const [copied, setCopied] = useState(false);
   const url = location.href;
   const android = /Android/i.test(navigator.userAgent);
@@ -46,9 +46,7 @@ export function OpenInBrowser({ app, onAnyway, back }: { app: string; onAnyway: 
     <div className="inapp" role="dialog" aria-label="Open Heist in your browser">
       <div className="logo">HEIST</div>
       <div className="gate-title">Open in your browser</div>
-      <div className="gate-text">
-        {back ? `If ${app}'s browser won't turn sideways, open Heist in your own browser.` : `${app}'s built-in browser can't run Heist properly.`} It takes two taps:
-      </div>
+      <div className="gate-text">{app}'s built-in browser can't run Heist properly. It takes two taps to fix:</div>
       {android ? (
         <a className="btn primary" href={intent}>
           Open in Chrome
@@ -66,98 +64,19 @@ export function OpenInBrowser({ app, onAnyway, back }: { app: string; onAnyway: 
       <button className="btn" onClick={copy}>
         {copied ? "Link copied. Paste it in your browser" : "Copy the link"}
       </button>
-      {back ? (
-        <button className="inapp-anyway" onClick={onAnyway}>
-          Back
-        </button>
-      ) : (
-        <button
-          className="inapp-anyway"
-          onClick={() => {
-            try {
-              sessionStorage.setItem(OK_KEY, "1");
-            } catch {
-              /* ignore */
-            }
-            onAnyway();
-          }}
-        >
-          Already in your browser? Continue
-        </button>
-      )}
-    </div>
-  );
-}
-
-const PORTRAIT_PHONE = "(orientation: portrait) and (max-width: 760px) and (pointer: coarse)";
-
-/** A phone held upright: menus work like that, but a table needs it on its side. */
-export function portraitPhone() {
-  try {
-    return matchMedia(PORTRAIT_PHONE).matches;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * At a table on a phone turned upright: a "turn it back" screen over the table. CSS decides when it shows
- * (only while a table is open). The game carries on underneath, so turning the phone never leaves it.
- */
-export function RotateGate() {
-  return <Sideways text="The table needs the phone on its side. You're still in the game." />;
-}
-
-/** Asked before a game starts on an upright phone: the game opens once the phone is turned. */
-export function TurnToPlay({ onReady, onCancel }: { onReady: () => void; onCancel: () => void }) {
-  useEffect(() => {
-    const m = matchMedia(PORTRAIT_PHONE);
-    if (!m.matches) return onReady();
-    const f = () => !m.matches && onReady();
-    m.addEventListener("change", f);
-    return () => m.removeEventListener("change", f);
-  }, [onReady]);
-  return <Sideways asking text="Heist is played with the phone on its side, so the whole table fits. Your game starts when you turn it." onCancel={onCancel} />;
-}
-
-function Sideways({ text, asking, onCancel }: { text: string; asking?: boolean; onCancel?: () => void }) {
-  const el = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
-  const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-  // Android can go full screen and lock sideways; iPhones can't, so they just turn the phone
-  const canLock = !isIOS() && !!el.requestFullscreen && !!orient?.lock;
-  // inside an app's built-in browser (Reddit): if the phone won't turn, offer the way out to a real browser
-  const app = inAppBrowser();
-  const [helpOpen, setHelpOpen] = useState(false);
-  if (app && helpOpen) return <OpenInBrowser app={app} back onAnyway={() => setHelpOpen(false)} />;
-  return (
-    <div className={"rotate-gate" + (asking ? " asking" : "")} role={asking ? "dialog" : undefined} aria-live="polite">
-      <div className="rotate-phone" aria-hidden />
-      <div className="gate-title">Turn your phone sideways</div>
-      <div className="gate-text">{text}</div>
-      {canLock && (
-        <button
-          className="btn primary big"
-          onClick={() => {
-            el.requestFullscreen!()
-              .then(() => orient.lock!("landscape"))
-              .catch(() => {
-                /* not allowed here: turning the phone still works */
-              });
-          }}
-        >
-          Go full screen
-        </button>
-      )}
-      {onCancel && (
-        <button className="btn" onClick={onCancel}>
-          Back to the menu
-        </button>
-      )}
-      {app && (
-        <button className="inapp-anyway" onClick={() => setHelpOpen(true)}>
-          Screen won't turn? Open in your browser
-        </button>
-      )}
+      <button
+        className="inapp-anyway"
+        onClick={() => {
+          try {
+            sessionStorage.setItem(OK_KEY, "1");
+          } catch {
+            /* ignore */
+          }
+          onAnyway();
+        }}
+      >
+        Already in your browser? Continue
+      </button>
     </div>
   );
 }

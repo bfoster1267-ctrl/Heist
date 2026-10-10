@@ -3,6 +3,7 @@
 // windows), which is shorter so everything draws about a third bigger on a phone.
 import { useLayoutEffect, useState } from "react";
 import { safeInsets } from "../appShell";
+import { turnInsets, viewport } from "../turn";
 
 export type LayoutName = "desk" | "wide";
 
@@ -64,8 +65,8 @@ export function seatGrow(L: Layout, [x, y]: [number, number], n: number): React.
 export function useLayout() {
   // Fit inside the safe area so nothing sits under the notch or the home bar.
   const pick = () => {
-    const ins = safeInsets();
-    const w = window.innerWidth - ins.left - ins.right, h = window.innerHeight - ins.top - ins.bottom;
+    const ins = turnInsets(safeInsets()), vp = viewport();
+    const w = vp.w - ins.left - ins.right, h = vp.h - ins.top - ins.bottom;
     const L = w / h >= 1.85 ? LAYOUTS.wide : LAYOUTS.desk;
     return { L, scale: Math.min(w / L.W, h / L.H), dx: (ins.left - ins.right) / 2, dy: (ins.top - ins.bottom) / 2 };
   };

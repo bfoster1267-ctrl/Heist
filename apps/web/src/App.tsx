@@ -10,7 +10,6 @@ import "./account/account.css";
 import { Lobby, type LobbyChoice, type LobbyPage } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
-import { TurnToPlay, portraitPhone } from "./gates";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -44,20 +43,8 @@ function Game() {
   // the profile sheet and which tab it opens on (false = closed)
   const [profile, setProfile] = useState<false | LobbyPage | "account">(false);
   const finished = useRef(false);
-  // a game asked for on an upright phone waits here until the phone is turned sideways
-  const [pending, setPending] = useState<(() => void) | null>(null);
-  const waiting = useRef<(() => void) | null>(null);
-  const enter = (go: () => void) => {
-    if (!portraitPhone()) return go();
-    waiting.current = go;
-    setPending(() => go);
-  };
-  const ready = useCallback(() => {
-    const go = waiting.current;
-    waiting.current = null;
-    setPending(null);
-    go?.();
-  }, []);
+  // an upright phone needs no asking: the table draws itself sideways (turn.ts)
+  const enter = (go: () => void) => go();
   // online: the player's name, set while the friends lobby or an online table is open
   const [online, setOnline] = useState<string | null>(() =>
     inviteCode() ? savedName() : null,
@@ -231,15 +218,6 @@ function Game() {
         )}
       </AnimatePresence>
       <Rewards onSave={() => setProfile("account")} />
-      {pending && (
-        <TurnToPlay
-          onReady={ready}
-          onCancel={() => {
-            waiting.current = null;
-            setPending(null);
-          }}
-        />
-      )}
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
           {error}
