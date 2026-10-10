@@ -361,12 +361,12 @@ function Welcome({ onNew, onSignIn }: { onNew: () => void; onSignIn?: () => void
       <div className="logo">HEIST</div>
       <p className="welcome-q">Have you played Heist before?</p>
       <div className="welcome-choices">
-        <button className="btn primary lobby-big" onClick={onNew}>
+        <button className="btn primary lobby-big" data-track="welcome-new" onClick={onNew}>
           I'm new
           <span className="lobby-sub">A short game with a coach. Free.</span>
         </button>
         {onSignIn && (
-          <button className="btn lobby-big" onClick={onSignIn}>
+          <button className="btn lobby-big" data-track="welcome-account" onClick={onSignIn}>
             I have an account
             <span className="lobby-sub">Sign in and pick up where you left off</span>
           </button>

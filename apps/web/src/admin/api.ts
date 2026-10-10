@@ -281,3 +281,24 @@ export interface GameView {
   moments: Moment[];
   broken?: string;
 }
+
+export interface FunnelStep {
+  key: string;
+  label: string;
+  note: string;
+  reached: number;
+  stopped: number;
+  minutes: number | null;
+  last: { what: string; count: number }[];
+}
+
+export interface Funnel {
+  from: number;
+  to: number;
+  logStart: number | null;
+  turnsSince: number | null;
+  people: number;
+  steps: FunnelStep[];
+  worst: { step: string; label: string; stopped: number; of: number } | null;
+  newest: { person: string; userId: string; name: string; first: number; last: number; step: string; turn: number | null }[];
+}

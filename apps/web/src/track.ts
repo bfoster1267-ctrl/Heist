@@ -9,9 +9,10 @@ const base = set === "same-origin" ? "" : set?.replace(/\/$/, "");
 const TOKEN_KEY = "heist.session";
 
 interface Ev {
-  kind: "screen" | "tap";
+  kind: "screen" | "tap" | "turn";
   name: string;
   at: number;
+  data?: Record<string, unknown>;
 }
 
 let queue: Ev[] = [];
@@ -53,6 +54,11 @@ export function trackScreen(name: string) {
   if (name === lastScreen) return;
   lastScreen = name;
   add({ kind: "screen", name, at: Date.now() });
+}
+
+/** A new turn began in a game vs bots (the admin panel's drop-off funnel counts how far people get). */
+export function trackTurn(turn: number, coached: boolean) {
+  add({ kind: "turn", name: `Turn ${turn}`, at: Date.now(), data: { turn, coached } });
 }
 
 /** What a tapped control is called: its data-track, label or text. */
