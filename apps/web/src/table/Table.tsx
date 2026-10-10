@@ -72,7 +72,10 @@ export function Table({
   clean = false,
   tags,
   onName,
+  turnRef,
 }: {
+  /** kept up to date with the job the table is on (so a player walking out can say where) */
+  turnRef?: { current: number };
   settings: TableSettings;
   /** Ranked: a clean HUD, no coach tips or explainer lines, just the table and your choices */
   clean?: boolean;
@@ -176,6 +179,7 @@ export function Table({
   useWakeLock(!t.shown?.state.winners);
 
   const s = t.shown?.state;
+  if (turnRef && s) turnRef.current = s.turn;
   const pot = settings.stakes * settings.players;
   const ev = t.shown?.ev ?? null;
   const wide = L.name === "wide";
