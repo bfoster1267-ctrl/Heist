@@ -35,6 +35,16 @@ export interface Economy {
   top: AccountRow[];
 }
 
+type FeedbackReason = "roles" | "buttons" | "lost" | "notForMe" | "liked" | "skip";
+export interface Feedback {
+  at: number;
+  asked: number;
+  answered: number;
+  comments: number;
+  totals: Record<FeedbackReason, { left: number; finished: number }>;
+  rows: { id: string; name: string; guest: boolean; at: number; reason: FeedbackReason; comment: string | null; when: "left" | "finished"; round: number | null; coached: boolean }[];
+}
+
 export function saved(): Session | null {
   try {
     const s = JSON.parse(sessionStorage.getItem(KEY) ?? "null") as Session | null;

@@ -89,7 +89,11 @@ replayed like online games. The app links its privacy policy (`apps/web/public/p
 Admin routes (all `GET` with `Authorization: Bearer <admin token>` except login):
 `POST /api/admin/login {user, password}`, `/api/admin/overview`, `/api/admin/accounts?q=&sort=&show=&offset=`,
 `/api/admin/accounts/:id`, `/api/admin/activity?user=&kinds=&text=&from=&to=&before=&limit=`,
-`/api/admin/games/:id`, `/api/admin/live`.
+`/api/admin/games/:id`, `/api/admin/live`, `/api/admin/feedback` (answers to "What lost you?").
+
+Players answer "What lost you?" once, after their first game, with `POST /api/feedback {reason, comment?, when, round?, coached?}`
+(reason: `roles`, `buttons`, `lost`, `notForMe`, `liked` or `skip`). A later call with only `comment` adds a comment to that
+answer for 30 minutes; `GET /api/me` says `asked: true` from then on.
 
 ## Load test
 

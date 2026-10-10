@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
+import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
 import { Lobby, type LobbyChoice, type LobbyPage } from "./Lobby";
@@ -28,7 +29,7 @@ interface Seated extends TableSettings {
 }
 
 function Game() {
-  const { me, failed, suspended, act, showReward, error, clearError } = useAccount();
+  const { me, backend, failed, suspended, act, showReward, error, clearError } = useAccount();
   // can't reach the server: check back every few seconds and reload once it answers
   useEffect(() => {
     if (!failed) return;
@@ -43,6 +44,12 @@ function Game() {
   // the profile sheet and which tab it opens on (false = closed)
   const [profile, setProfile] = useState<false | LobbyPage | "account">(false);
   const finished = useRef(false);
+  // "What lost you?": a brand-new player's first visit to the tables, asked once when they walk out of a
+  // game or head back to the lobby (after finishing one, if they did)
+  const firstGame = useRef(false);
+  const finishedOne = useRef(false);
+  const turnRef = useRef(0);
+  const [ask, setAsk] = useState<LostAsk | null>(null);
   // an upright phone needs no asking: the table draws itself sideways (turn.ts)
   const enter = (go: () => void) => go();
   // online: the player's name, set while the friends lobby or an online table is open
@@ -86,6 +93,9 @@ function Game() {
       if (!t) return;
       if (t.quit) showReward(t.quit);
       finished.current = false;
+      turnRef.current = 0;
+      if (me && !firstGame.current)
+        firstGame.current = backend?.kind === "server" && !me.asked && !lostAsked() && !me.progress.coachGames && !me.progress.stats.games && !me.progress.xp;
       setTable({
         players: t.players ?? c.players,
         name: c.name,
@@ -99,13 +109,14 @@ function Game() {
       });
       setRound((r) => r + 1);
     },
-    [me, act, showReward],
+    [me, backend, act, showReward],
   );
 
   const gameOver = useCallback(
     async (_won: number, answers: Answer[]) => {
       if (!table || finished.current) return;
       finished.current = true;
+      if (firstGame.current) finishedOne.current = true;
       const r = await act((b) => b.soloFinish(table.gameId, answers));
       if (r) showReward(r.reward);
     },
@@ -115,9 +126,14 @@ function Game() {
   // Walking out mid-game counts as a loss: the buy-in is already in the pot.
   const exit = useCallback(() => {
     if (!finished.current) void act((b) => b.soloQuit());
+    if (firstGame.current && table && !me?.asked) {
+      firstGame.current = false;
+      markLostAsked();
+      setAsk({ when: finishedOne.current || finished.current ? "finished" : "left", round: finishedOne.current || finished.current ? null : turnRef.current, coached: !!table.coached });
+    }
     finished.current = true;
     setTable(null);
-  }, [act]);
+  }, [act, table, me]);
 
   const buyDrink = useCallback(
     async (emoji: string, count: number) => {
@@ -202,6 +218,7 @@ function Game() {
           onGameOver={gameOver}
           buyDrink={buyDrink}
           mistakes={me.progress.mistakes}
+          turnRef={turnRef}
           onAgain={() => {
             if (chips < table.stakes) return exit();
             void sit({ ...table, campaign: table.stage });
@@ -218,6 +235,7 @@ function Game() {
         )}
       </AnimatePresence>
       <Rewards onSave={() => setProfile("account")} />
+      <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
           {error}
@@ -225,6 +243,22 @@ function Game() {
       )}
     </>
   );
+}
+
+const LOST_KEY = "heist.lostAsked";
+function lostAsked() {
+  try {
+    return !!localStorage.getItem(LOST_KEY);
+  } catch {
+    return false;
+  }
+}
+function markLostAsked() {
+  try {
+    localStorage.setItem(LOST_KEY, "1");
+  } catch {
+    // storage blocked: the server still remembers
+  }
 }
 
 function savedName() {
