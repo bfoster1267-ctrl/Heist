@@ -12,7 +12,7 @@ import { cleanName, type Identity, type IdentityProvider } from "../identity";
 import { sanitizeAnswer } from "../sanitize";
 import { OAuth, OAuthError, type OAuthConfig } from "./oauth";
 import { MemoryActivityLog, type ActivityEvent, type ActivityLog } from "./activity";
-import { MemoryAccountStore, type Account, type Crm, type AccountStore, type Login, type Provider } from "./store";
+import { MemoryAccountStore, type Account, type Crm, type Feedback, FEEDBACK_REASONS, type AccountStore, type Login, type Provider } from "./store";
 import { Tokens, checkPassword, hashPassword } from "./tokens";
 
 export class ApiError extends Error {
@@ -30,6 +30,8 @@ export interface Me {
   logins: Provider[];
   progress: Progress;
   profile: PublicProfile;
+  /** they've had the "What lost you?" question (answered or closed), so it never shows again */
+  asked: boolean;
 }
 
 export interface OnlineResult {
@@ -131,7 +133,7 @@ export class AccountService {
     const progress = upgrade(a.progress);
     return {
       id: a.id, name: a.name, guest: a.guest, email: a.email ?? null, logins: a.logins.map((l) => l.provider), progress,
-      profile: publicProfile(a.id, a.name, a.createdAt, progress),
+      profile: publicProfile(a.id, a.name, a.createdAt, progress), asked: !!a.feedback,
     };
   }
 
@@ -547,6 +549,30 @@ export class AccountService {
       (a, b) => b.count - a.count,
     );
     return { players: all.length, coachGames: all.reduce((t, p) => t + p.coachGames, 0), counts };
+  }
+
+  // ------------------------------------------------------------------ "What lost you?" after the first game
+
+  /**
+   * Keep a player's answer. It's asked once: a second answer is ignored, except that the comment box can
+   * fill in a comment shortly after the tap.
+   */
+  feedback(a: Account, b: Record<string, unknown>, claude = false) {
+    return this.update(a.id, (x) => {
+      const comment = typeof b.comment === "string" ? b.comment.trim().slice(0, 1000) || null : null;
+      const f = x.feedback;
+      if (f) {
+        if (comment && !f.comment && f.reason !== "skip" && this.now() - f.at < 30 * 60_000) f.comment = comment;
+        return { me: this.me(x) };
+      }
+      const reason = FEEDBACK_REASONS.find((r) => r === b.reason);
+      if (!reason) throw new ApiError(400, "Pick an answer");
+      const round = typeof b.round === "number" && Number.isInteger(b.round) && b.round >= 0 && b.round < 100 ? b.round : null;
+      const fb: Feedback = { at: this.now(), reason, comment: reason === "skip" ? null : comment, when: b.when === "finished" ? "finished" : "left", round, coached: b.coached === true };
+      if (claude) fb.claude = true;
+      x.feedback = fb;
+      return { me: this.me(x) };
+    });
   }
 
   // ------------------------------------------------------------------ the owner's notes on a player (admin panel)
