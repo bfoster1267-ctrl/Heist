@@ -363,15 +363,17 @@ describe("admin panel API", () => {
     const bot = (await call("/api/auth/guest", {}, { "x-forwarded-for": "8.8.8.8", "user-agent": "HeistClaudeTest" })).body;
     expect(amy.me.asked).toBe(false);
 
-    expect((await call("/api/feedback", { reason: "nope" }, {}, amy.token)).status).toBe(400);
-    expect((await call("/api/feedback", { reason: "roles" }, {})).status).toBe(401);
-    const r = await call("/api/feedback", { reason: "roles", when: "left", round: 2, coached: true }, { "x-forwarded-for": "7.7.7.1" }, amy.token);
+    // each player stays on their own address (guests sharing one are counted as one person)
+    const A = { "x-forwarded-for": "7.7.7.1" };
+    expect((await call("/api/feedback", { reason: "nope" }, A, amy.token)).status).toBe(400);
+    expect((await call("/api/feedback", { reason: "roles" }, A)).status).toBe(401);
+    const r = await call("/api/feedback", { reason: "roles", when: "left", round: 2, coached: true }, A, amy.token);
     expect(r.body.me.asked).toBe(true);
     // the comment box fills in afterwards; a second answer doesn't replace the first
-    await call("/api/feedback", { comment: "  Too much to read  " }, {}, amy.token);
-    await call("/api/feedback", { reason: "liked", comment: "changed my mind" }, {}, amy.token);
+    await call("/api/feedback", { comment: "  Too much to read  " }, A, amy.token);
+    await call("/api/feedback", { reason: "liked", comment: "changed my mind" }, A, amy.token);
     await call("/api/feedback", { reason: "skip", when: "finished" }, { "x-forwarded-for": "7.7.7.2" }, ben.token);
-    await call("/api/feedback", { reason: "buttons" }, { "user-agent": "HeistClaudeTest" }, bot.token);
+    await call("/api/feedback", { reason: "buttons" }, { "x-forwarded-for": "8.8.8.8", "user-agent": "HeistClaudeTest" }, bot.token);
 
     const { body: s } = await call("/api/admin/login", { user: "admin", password: "a-long-admin-password" }, { "x-forwarded-for": "1.1.1.1" });
     const f = await get("/api/admin/feedback", s.token);
