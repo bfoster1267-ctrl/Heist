@@ -3682,28 +3682,7 @@ button:disabled {
   padding: 3px 12px;
 }
 
-/* ------------------------------------------------------------------ phones: sideways only */
-/* upright is fine for menus; a table asks for the phone on its side (html.in-game is set while one is open) */
-.rotate-gate {
-  display: none;
-}
-@media (orientation: portrait) and (max-width: 760px) and (pointer: coarse) {
-  .in-game .rotate-gate,
-  .rotate-gate.asking {
-    position: fixed;
-    inset: 0;
-    z-index: 1000;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    padding: 24px;
-    text-align: center;
-    background: radial-gradient(ellipse at 50% 30%, #1a3a2c 0%, #0b0d10 70%);
-    color: var(--paper);
-  }
-}
+/* ------------------------------------------------------------------ phones: sideways */
 .rotate-phone {
   width: 70px;
   height: 120px;
@@ -3775,4 +3754,73 @@ button:disabled {
   color: var(--muted);
   font-size: 13px;
   text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ upright phone at a table: the page turns itself */
+/* (turn.ts sets html.turned and the sizes; Reddit's browser never rotates, so this is how it plays there) */
+html.turned body {
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: var(--turn-w);
+  height: var(--turn-h);
+  transform-origin: 0 0;
+  transform: translateX(var(--turn-h)) rotate(90deg);
+}
+html.turned .rules-back.fixed .rules {
+  width: min(640px, calc(var(--turn-w) - 24px));
+  max-height: calc(var(--turn-h) - 24px);
+}
+html.turned .lobby-settings-back .settings {
+  max-height: calc(var(--turn-h) - 24px);
+}
+
+/* ------------------------------------------------------------------ polish pass (2026-10-10) */
+/* the lobby's settings open beside the gear that opened them, not across the screen */
+.lobby-settings-back .settings {
+  right: auto;
+  left: calc(12px + env(safe-area-inset-left));
+}
+/* keyboard shortcuts mean nothing on a touch screen */
+@media (pointer: coarse) {
+  .settings .keys {
+    display: none;
+  }
+}
+/* online lobby: the way back sits top-left like the profile's, out of the middle of the form */
+.online-back {
+  position: fixed;
+  z-index: 20;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  background: rgba(14, 16, 20, 0.92);
+}
+.lobby:has(> .online-back) {
+  padding-top: calc(68px + env(safe-area-inset-top));
+}
+/* online lobby on a computer: the two columns side by side, as on a phone held sideways */
+@media (min-width: 900px) and (min-height: 521px) {
+  .online-card {
+    width: min(900px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    column-gap: 28px;
+    align-items: start;
+    padding: 24px 26px 20px;
+  }
+  .online-card .lobby-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .online-card > .online-error {
+    grid-column: 1 / -1;
+  }
+}
+/* a phone held upright: the menu sits in the middle of the space between the top bar and the dock,
+   not stuck to the top with a gap underneath */
+@media (max-width: 500px) and (min-height: 521px) {
+  .lobby:has(.lobby-dock) {
+    place-items: safe center;
+  }
 }

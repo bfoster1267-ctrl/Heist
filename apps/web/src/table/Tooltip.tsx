@@ -4,6 +4,7 @@ import type { RoleId } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { RoleCard } from "./pieces";
+import { boxIn } from "../turn";
 
 interface Tip {
   text?: string;
@@ -23,11 +24,10 @@ export function TooltipLayer({ canvas, scale, H }: { canvas: React.RefObject<HTM
     const find = (t: EventTarget | null) => (t instanceof Element ? t.closest<HTMLElement>("[data-tip],[data-tip-role]") : null);
     const show = (el: HTMLElement | null) => {
       if (!el) return setTip(null);
-      const r = el.getBoundingClientRect();
-      const c = root.getBoundingClientRect();
-      const x = (r.left + r.width / 2 - c.left) / scale;
-      const top = (r.top - c.top) / scale;
-      const bottom = (r.bottom - c.top) / scale;
+      const b = boxIn(el, root);
+      const x = (b.left + b.width / 2) / scale;
+      const top = b.top / scale;
+      const bottom = (b.top + b.height) / scale;
       const below = top < H * 0.4;
       setTip({ text: el.dataset.tip, role: el.dataset.tipRole as RoleId | undefined, x, y: below ? bottom + 8 : top - 8, below });
     };

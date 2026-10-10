@@ -52,6 +52,24 @@ export interface Account {
   push?: PushSub[];
   /** the owner's notes, tags, flag and ban (admin panel only; never sent to the player) */
   crm?: Crm;
+  /** their answer to "What lost you?" after their first game (asked once; "skip" when they closed it) */
+  feedback?: Feedback;
+}
+
+export const FEEDBACK_REASONS = ["roles", "buttons", "lost", "notForMe", "liked", "skip"] as const;
+export type FeedbackReason = (typeof FEEDBACK_REASONS)[number];
+
+export interface Feedback {
+  at: number;
+  reason: FeedbackReason;
+  comment: string | null;
+  /** they walked out of their first game, or saw it to the end */
+  when: "left" | "finished";
+  /** the round they were on and whether it was Coached play */
+  round: number | null;
+  coached: boolean;
+  /** sent while Claude was testing the app */
+  claude?: boolean;
 }
 
 export interface CrmNote {

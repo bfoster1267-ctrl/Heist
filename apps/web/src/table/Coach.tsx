@@ -5,6 +5,7 @@ import { MISTAKES, coachTip, describePick, type MistakeId } from "@heist/profile
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
+import { boxIn } from "../turn";
 
 interface Step {
   anchor?: string;
@@ -41,8 +42,8 @@ export function Walkthrough({ s, canvas, scale, open, onClose }: { s: GameState;
     const root = canvas.current;
     const el = st.anchor ? root?.querySelector(`[data-anchor="${st.anchor}"]`) : null;
     if (!root || !el) return setBox(null);
-    const r = el.getBoundingClientRect(), c = root.getBoundingClientRect();
-    setBox({ x: (r.left - c.left) / scale - 8, y: (r.top - c.top) / scale - 8, w: r.width / scale + 16, h: r.height / scale + 16 });
+    const r = boxIn(el, root);
+    setBox({ x: r.left / scale - 8, y: r.top / scale - 8, w: r.width / scale + 16, h: r.height / scale + 16 });
   }, [open, i, st.anchor, canvas, scale]);
 
   if (!open) return null;

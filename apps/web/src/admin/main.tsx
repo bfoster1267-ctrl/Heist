@@ -10,6 +10,8 @@ import { Activity, Dashboard, Game, LivePage, Player, Players, type PageProps } 
 import { ServerPage } from "./server";
 import { EconomyPage } from "./economy";
 import { TeamPage } from "./team";
+import { FunnelPage } from "./funnel";
+import { FeedbackPage } from "./feedback";
 
 function useRoute() {
   const read = () => {
@@ -33,8 +35,10 @@ const NAV: [string, string][] = [
   ["", "Overview"],
   ["players", "Players"],
   ["activity", "Activity"],
+  ["dropoff", "Drop-off"],
   ["live", "Live tables"],
   ["economy", "Economy"],
+  ["feedback", "Feedback"],
   ["server", "Server"],
 ];
 
@@ -60,7 +64,7 @@ function Admin() {
   if (!s) return <SignIn onIn={setS} />;
   const props: PageProps = { s, onAuth, query, param: parts[1] };
   const page = parts[0] ?? "";
-  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", live: "Live tables", server: "Server & bill", economy: "Economy", team: "Admins", games: "Game replay" };
+  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", dropoff: "Where new players drop off", live: "Live tables", server: "Server & bill", economy: "Economy", feedback: "What lost them", team: "Admins", games: "Game replay" };
   return (
     <div className="shell">
       <header className="top">
@@ -89,9 +93,11 @@ function Admin() {
         {page === "" && <Dashboard {...props} />}
         {page === "players" && (parts[1] ? <Player key={parts[1]} {...props} /> : <Players key={query.toString()} {...props} />)}
         {page === "activity" && <Activity key={query.toString()} {...props} />}
+        {page === "dropoff" && <FunnelPage key={query.toString()} {...props} />}
         {page === "live" && <LivePage {...props} />}
         {page === "server" && <ServerPage {...props} />}
         {page === "economy" && <EconomyPage {...props} />}
+        {page === "feedback" && <FeedbackPage {...props} />}
         {page === "team" && <TeamPage {...props} />}
         {page === "games" && <Game key={parts[1]} {...props} />}
       </main>

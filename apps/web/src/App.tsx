@@ -5,12 +5,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
+import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
 import { Lobby, type LobbyChoice, type LobbyPage } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
-import { TurnToPlay, portraitPhone } from "./gates";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -29,7 +29,7 @@ interface Seated extends TableSettings {
 }
 
 function Game() {
-  const { me, failed, suspended, act, showReward, error, clearError } = useAccount();
+  const { me, backend, failed, suspended, act, showReward, error, clearError } = useAccount();
   // can't reach the server: check back every few seconds and reload once it answers
   useEffect(() => {
     if (!failed) return;
@@ -44,20 +44,14 @@ function Game() {
   // the profile sheet and which tab it opens on (false = closed)
   const [profile, setProfile] = useState<false | LobbyPage | "account">(false);
   const finished = useRef(false);
-  // a game asked for on an upright phone waits here until the phone is turned sideways
-  const [pending, setPending] = useState<(() => void) | null>(null);
-  const waiting = useRef<(() => void) | null>(null);
-  const enter = (go: () => void) => {
-    if (!portraitPhone()) return go();
-    waiting.current = go;
-    setPending(() => go);
-  };
-  const ready = useCallback(() => {
-    const go = waiting.current;
-    waiting.current = null;
-    setPending(null);
-    go?.();
-  }, []);
+  // "What lost you?": a brand-new player's first visit to the tables, asked once when they walk out of a
+  // game or head back to the lobby (after finishing one, if they did)
+  const firstGame = useRef(false);
+  const finishedOne = useRef(false);
+  const turnRef = useRef(0);
+  const [ask, setAsk] = useState<LostAsk | null>(null);
+  // an upright phone needs no asking: the table draws itself sideways (turn.ts)
+  const enter = (go: () => void) => go();
   // online: the player's name, set while the friends lobby or an online table is open
   const [online, setOnline] = useState<string | null>(() =>
     inviteCode() ? savedName() : null,
@@ -99,6 +93,9 @@ function Game() {
       if (!t) return;
       if (t.quit) showReward(t.quit);
       finished.current = false;
+      turnRef.current = 0;
+      if (me && !firstGame.current)
+        firstGame.current = backend?.kind === "server" && !me.asked && !lostAsked() && !me.progress.coachGames && !me.progress.stats.games && !me.progress.xp;
       setTable({
         players: t.players ?? c.players,
         name: c.name,
@@ -112,13 +109,14 @@ function Game() {
       });
       setRound((r) => r + 1);
     },
-    [me, act, showReward],
+    [me, backend, act, showReward],
   );
 
   const gameOver = useCallback(
     async (_won: number, answers: Answer[]) => {
       if (!table || finished.current) return;
       finished.current = true;
+      if (firstGame.current) finishedOne.current = true;
       const r = await act((b) => b.soloFinish(table.gameId, answers));
       if (r) showReward(r.reward);
     },
@@ -128,9 +126,14 @@ function Game() {
   // Walking out mid-game counts as a loss: the buy-in is already in the pot.
   const exit = useCallback(() => {
     if (!finished.current) void act((b) => b.soloQuit());
+    if (firstGame.current && table && !me?.asked) {
+      firstGame.current = false;
+      markLostAsked();
+      setAsk({ when: finishedOne.current || finished.current ? "finished" : "left", round: finishedOne.current || finished.current ? null : turnRef.current, coached: !!table.coached });
+    }
     finished.current = true;
     setTable(null);
-  }, [act]);
+  }, [act, table, me]);
 
   const buyDrink = useCallback(
     async (emoji: string, count: number) => {
@@ -216,6 +219,7 @@ function Game() {
           buyDrink={buyDrink}
           mistakes={me.progress.mistakes}
           place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
+          turnRef={turnRef}
           onAgain={() => {
             if (chips < table.stakes) return exit();
             void sit({ ...table, campaign: table.stage });
@@ -232,15 +236,7 @@ function Game() {
         )}
       </AnimatePresence>
       <Rewards onSave={() => setProfile("account")} />
-      {pending && (
-        <TurnToPlay
-          onReady={ready}
-          onCancel={() => {
-            waiting.current = null;
-            setPending(null);
-          }}
-        />
-      )}
+      <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
           {error}
@@ -248,6 +244,22 @@ function Game() {
       )}
     </>
   );
+}
+
+const LOST_KEY = "heist.lostAsked";
+function lostAsked() {
+  try {
+    return !!localStorage.getItem(LOST_KEY);
+  } catch {
+    return false;
+  }
+}
+function markLostAsked() {
+  try {
+    localStorage.setItem(LOST_KEY, "1");
+  } catch {
+    // storage blocked: the server still remembers
+  }
 }
 
 function savedName() {

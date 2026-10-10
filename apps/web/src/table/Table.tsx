@@ -74,9 +74,12 @@ export function Table({
   tags,
   onName,
   place = "At the table",
+  turnRef,
 }: {
   /** the small line under the title in the Dynamic Island / lock screen ("Table K7QX") */
   place?: string;
+  /** kept up to date with the job the table is on (so a player walking out can say where) */
+  turnRef?: { current: number };
   settings: TableSettings;
   /** Ranked: a clean HUD, no coach tips or explainer lines, just the table and your choices */
   clean?: boolean;
@@ -129,7 +132,7 @@ export function Table({
   const [showRules, setShowRules] = useState(false);
   // Coached play: an answer held back because the coach spotted a rookie mistake in it
   const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
-  // while a table is open, an upright phone gets the "turn it sideways" screen (see RotateGate)
+  // while a table is open, an upright phone draws the page sideways (see turn.ts)
   useEffect(() => {
     document.documentElement.classList.add("in-game");
     return () => document.documentElement.classList.remove("in-game");
@@ -181,6 +184,7 @@ export function Table({
   useIsland(t.shown?.state.winners ? "Game over" : t.ask && !watching ? "Your turn" : watching ? "Watching" : "Heist", place);
 
   const s = t.shown?.state;
+  if (turnRef && s) turnRef.current = s.turn;
   const pot = settings.stakes * settings.players;
   const ev = t.shown?.ev ?? null;
   const wide = L.name === "wide";

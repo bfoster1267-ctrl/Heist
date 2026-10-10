@@ -5,6 +5,7 @@ import { Bot, HeistGame, runBots, viewFor, type Answer, type Ask, type BotLevel,
 import { createSoloGame } from "@heist/profile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sfx, yourTurn } from "./sound";
+import { trackTurn } from "./track";
 
 export const HUMAN = 0;
 
@@ -93,7 +94,12 @@ export function useTable(settings: TableSettings) {
     late.current.clear();
     return newest;
   };
-  const record = (f: Frame) => history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
+  const coached = useRef(false);
+  coached.current = !!settings.coached;
+  const record = (f: Frame) => {
+    if (f.ev.t === "turn") trackTurn(f.state.turn + 1, coached.current);
+    history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
+  };
 
   const pump = useCallback(() => {
     const r = ref.current;

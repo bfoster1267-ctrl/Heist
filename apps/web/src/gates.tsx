@@ -1,7 +1,8 @@
-// Two screens that stand in front of the game on phones: turn the phone sideways, and open Heist in a
-// real browser when it was opened inside Reddit, Instagram, Facebook or TikTok (their built-in browsers
-// lose the account, can't install the app, and cramp the table).
-import { useEffect, useState } from "react";
+// The screen that stands in front of the game when it was opened inside Instagram, Facebook or TikTok:
+// open Heist in a real browser (their built-in browsers lose the account, can't install the app, and cramp
+// the table). Reddit players play in Reddit's browser: an upright phone gets the table drawn sideways
+// (see turn.ts), since Reddit's browser never rotates.
+import { useState } from "react";
 import { isIOS } from "./appShell";
 
 /** The in-app browser Heist was opened in, or null for a real browser. */
@@ -11,6 +12,12 @@ export function inAppBrowser(ua = navigator.userAgent): string | null {
   if (/FBAN|FBAV|FB_IAB|FBIOS|FB4A/.test(ua)) return "Facebook";
   if (/TikTok|musical_ly|Bytedance|BytedanceWebview|trill_/i.test(ua)) return "TikTok";
   return null;
+}
+
+/** In-app browsers that get the open-in-browser screen. Reddit's plays fine, so it isn't one. */
+export function gatedInApp(ua = navigator.userAgent): string | null {
+  const app = inAppBrowser(ua);
+  return app === "Reddit" ? null : app;
 }
 
 const OK_KEY = "heist.inappOk";
@@ -70,70 +77,6 @@ export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => 
       >
         Already in your browser? Continue
       </button>
-    </div>
-  );
-}
-
-const PORTRAIT_PHONE = "(orientation: portrait) and (max-width: 760px) and (pointer: coarse)";
-
-/** A phone held upright: menus work like that, but a table needs it on its side. */
-export function portraitPhone() {
-  try {
-    return matchMedia(PORTRAIT_PHONE).matches;
-  } catch {
-    return false;
-  }
-}
-
-/**
- * At a table on a phone turned upright: a "turn it back" screen over the table. CSS decides when it shows
- * (only while a table is open). The game carries on underneath, so turning the phone never leaves it.
- */
-export function RotateGate() {
-  return <Sideways text="The table needs the phone on its side. You're still in the game." />;
-}
-
-/** Asked before a game starts on an upright phone: the game opens once the phone is turned. */
-export function TurnToPlay({ onReady, onCancel }: { onReady: () => void; onCancel: () => void }) {
-  useEffect(() => {
-    const m = matchMedia(PORTRAIT_PHONE);
-    if (!m.matches) return onReady();
-    const f = () => !m.matches && onReady();
-    m.addEventListener("change", f);
-    return () => m.removeEventListener("change", f);
-  }, [onReady]);
-  return <Sideways asking text="Heist is played with the phone on its side, so the whole table fits. Your game starts when you turn it." onCancel={onCancel} />;
-}
-
-function Sideways({ text, asking, onCancel }: { text: string; asking?: boolean; onCancel?: () => void }) {
-  const el = document.documentElement as HTMLElement & { requestFullscreen?: () => Promise<void> };
-  const orient = screen.orientation as ScreenOrientation & { lock?: (o: string) => Promise<void> };
-  // Android can go full screen and lock sideways; iPhones can't, so they just turn the phone
-  const canLock = !isIOS() && !!el.requestFullscreen && !!orient?.lock;
-  return (
-    <div className={"rotate-gate" + (asking ? " asking" : "")} role={asking ? "dialog" : undefined} aria-live="polite">
-      <div className="rotate-phone" aria-hidden />
-      <div className="gate-title">Turn your phone sideways</div>
-      <div className="gate-text">{text}</div>
-      {canLock && (
-        <button
-          className="btn primary big"
-          onClick={() => {
-            el.requestFullscreen!()
-              .then(() => orient.lock!("landscape"))
-              .catch(() => {
-                /* not allowed here: turning the phone still works */
-              });
-          }}
-        >
-          Go full screen
-        </button>
-      )}
-      {onCancel && (
-        <button className="btn" onClick={onCancel}>
-          Back to the menu
-        </button>
-      )}
     </div>
   );
 }

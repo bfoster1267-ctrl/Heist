@@ -7,8 +7,9 @@ import type { RoomInfo } from "../protocol";
 import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
 import { byClaude, byOwner, type ActivityEvent, type ActivityLog } from "./activity";
+import { buildFunnel, type Funnel } from "./funnel";
 import type { AccountService } from "./service";
-import type { Account } from "./store";
+import { FEEDBACK_REASONS, type Account, type FeedbackReason } from "./store";
 
 const DAY = 24 * 60 * 60_000;
 
@@ -363,6 +364,29 @@ export class AdminService {
     };
   }
 
+  /**
+   * Answers to "What lost you?", newest first, with totals per answer split by whether the player walked
+   * out of their first game or finished it. Yours and Claude's are left out.
+   */
+  async feedback() {
+    const all = await this.accounts.store.all();
+    const ppl = this.people(all);
+    const rows = all
+      .filter((a) => a.feedback && !a.feedback.claude && !notPlayer(ppl, a.id))
+      .map((a) => ({ ...a.feedback!, id: a.id, name: a.name, guest: a.guest }))
+      .sort((x, y) => y.at - x.at);
+    const totals = Object.fromEntries(FEEDBACK_REASONS.map((r) => [r, { left: 0, finished: 0 }])) as Record<FeedbackReason, { left: number; finished: number }>;
+    for (const r of rows) totals[r.reason][r.when]++;
+    return {
+      at: this.now,
+      asked: rows.length,
+      answered: rows.filter((r) => r.reason !== "skip").length,
+      comments: rows.filter((r) => r.comment).length,
+      totals,
+      rows: rows.slice(0, 500),
+    };
+  }
+
   async list(q: URLSearchParams) {
     const text = (q.get("q") ?? "").trim().toLowerCase();
     const show = q.get("show");
@@ -452,6 +476,19 @@ export class AdminService {
     });
     if (!all) return { events };
     return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : e)) };
+  }
+
+  /**
+   * Where new players drop off: people first seen in ?from=..&to= (ms; the last 7 days by default), each
+   * at the furthest step they reached. The owner's and Claude's own play are left out.
+   */
+  async funnel(q: URLSearchParams): Promise<Funnel> {
+    const num = (k: string) => (q.get(k) && Number.isFinite(Number(q.get(k))) ? Number(q.get(k)) : undefined);
+    const to = num("to") ?? this.now + 1;
+    const from = num("from") ?? this.now - 7 * DAY;
+    const ppl = this.people(await this.accounts.store.all());
+    const events = this.log.window().filter((e) => e.userId && !byOwner(e) && !byClaude(e) && !notPlayer(ppl, e.userId));
+    return buildFunnel(events, (id) => ppl.of.get(id) ?? id, from, to);
   }
 
   game(id: string): GameView | null {

@@ -35,6 +35,16 @@ export interface Economy {
   top: AccountRow[];
 }
 
+type FeedbackReason = "roles" | "buttons" | "lost" | "notForMe" | "liked" | "skip";
+export interface Feedback {
+  at: number;
+  asked: number;
+  answered: number;
+  comments: number;
+  totals: Record<FeedbackReason, { left: number; finished: number }>;
+  rows: { id: string; name: string; guest: boolean; at: number; reason: FeedbackReason; comment: string | null; when: "left" | "finished"; round: number | null; coached: boolean }[];
+}
+
 export function saved(): Session | null {
   try {
     const s = JSON.parse(sessionStorage.getItem(KEY) ?? "null") as Session | null;
@@ -272,4 +282,25 @@ export interface GameView {
   quit?: boolean;
   moments: Moment[];
   broken?: string;
+}
+
+export interface FunnelStep {
+  key: string;
+  label: string;
+  note: string;
+  reached: number;
+  stopped: number;
+  minutes: number | null;
+  last: { what: string; count: number }[];
+}
+
+export interface Funnel {
+  from: number;
+  to: number;
+  logStart: number | null;
+  turnsSince: number | null;
+  people: number;
+  steps: FunnelStep[];
+  worst: { step: string; label: string; stopped: number; of: number } | null;
+  newest: { person: string; userId: string; name: string; first: number; last: number; step: string; turn: number | null }[];
 }
