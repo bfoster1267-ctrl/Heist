@@ -42,7 +42,11 @@ function canPush() {
   return typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window && "Notification" in window && import.meta.env.MODE !== "single";
 }
 
+/** whether the game server has turn alerts set up (asked once at start-up; until then, nothing is offered) */
+let serverReady = false;
+
 export function alertState(): AlertState {
+  if (!serverReady) return "unsupported";
   if (!canPush()) return isIOS() && !isStandalone() ? "needs-install" : "unsupported";
   if (Notification.permission === "denied") return "blocked";
   return Notification.permission === "granted" && read(PREF) === "1" ? "on" : "off";
@@ -75,7 +79,7 @@ async function api(path: string, body: object) {
 async function serverKey(): Promise<string | null> {
   const r = await fetch(apiBase() + "/api/push/key").catch(() => null);
   if (!r?.ok) return null;
-  return ((await r.json()) as { key: string | null }).key;
+  return ((await r.json().catch(() => ({ key: null }))) as { key: string | null }).key;
 }
 
 const bytes = (b64url: string) => {
@@ -134,9 +138,14 @@ export async function turnOffAlerts() {
 
 /** On start-up: alerts that were on get re-sent to the server (the subscription can change, or the account). */
 export function syncAlerts() {
-  if (alertState() !== "on") return;
-  void subscribe().catch(() => {
-    /* offline or signed out: next start tries again */
+  if (import.meta.env.MODE === "single") return;
+  void serverKey().then((key) => {
+    serverReady = !!key;
+    changed();
+    if (alertState() !== "on") return;
+    void subscribe().catch(() => {
+      /* offline or signed out: next start tries again */
+    });
   });
 }
 
