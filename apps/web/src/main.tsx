@@ -2,6 +2,7 @@ import { StrictMode, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { installAppShell } from "./appShell";
+import { syncAlerts } from "./alerts";
 import { OpenInBrowser, gatedInApp, inAppWaved } from "./gates";
 import { installTracking } from "./track";
 import { installTurn } from "./turn";
@@ -10,6 +11,7 @@ import "./styles.css";
 
 installAppShell();
 installTurn();
+syncAlerts();
 
 // Opened inside Instagram, Facebook or TikTok (not Reddit, whose browser plays fine): send them to a real browser before an account is made
 function Root() {

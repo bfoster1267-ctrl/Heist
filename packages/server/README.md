@@ -66,6 +66,18 @@ Settings:
 | `TOKEN_SECRET` | Signs guest tokens. Set a long random value so players keep their seats across restarts. |
 | `ALLOWED_ORIGINS` | Comma-separated web origins allowed to connect, e.g. `https://heist.example.com`. |
 | `TURN_GRACE_MS` | How long a dropped player's decision waits before a bot answers (default 20000). |
+| `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` | Turn on phone turn alerts (web push). Make a pair with `npm run vapid -w packages/server` and keep them only in the host's settings. Changing them later turns alerts off on every phone until the player opens Heist again. |
+
+## Turn alerts
+
+With VAPID keys set, a player can turn on alerts (the app offers once while they wait for a table, and in
+Settings). The browser's subscription goes to `POST /api/push/subscribe {sub}` (`/api/push/unsubscribe
+{endpoint}` undoes it; `GET /api/push/key` gives the public key). The app tells the socket when it goes to
+the background (`{t: "away", on}`); then, a few seconds after their decision comes up (or someone sits at
+their table), if they still aren't looking at that table, the server pushes "Your turn" to their phones, at
+most once every 45 seconds. Only the big push services (Google, Apple, Mozilla, Microsoft) are accepted as
+endpoints. On iPhone this needs Heist added to the Home Screen (iOS 16.4+). `src/push.ts` speaks the push
+protocol itself with `node:crypto`; its tests check it against RFC 8291's worked example.
 
 One server process holds all its tables in memory. Running more than one machine later needs rooms
 pinned to a machine by code.

@@ -4,11 +4,13 @@ import { motion } from "motion/react";
 import { useState } from "react";
 import { setPrefs, usePrefs, type MotionPref } from "../prefs";
 import { chip, getVolume, isMuted, setMuted, setVolume } from "../sound";
+import { turnOffAlerts, turnOnAlerts, useAlertState } from "../alerts";
 
 export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () => void }) {
   const prefs = usePrefs();
   const [muted, setMute] = useState(isMuted());
   const [vol, setVol] = useState(getVolume());
+  const alerts = useAlertState();
   return (
     <motion.div className="settings" role="dialog" aria-label="Settings" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
       <div className="settings-head">
@@ -45,6 +47,21 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
           onPointerUp={() => chip()}
         />
       </label>
+
+      <label className="set-row">
+        <span>Table music</span>
+        <input type="checkbox" checked={prefs.tableMusic} disabled={muted} onChange={(e) => setPrefs({ tableMusic: e.target.checked })} />
+      </label>
+      {alerts !== "unsupported" && (
+        <label className="set-row">
+          <span>Turn alerts</span>
+          {alerts === "on" || alerts === "off" ? (
+            <input type="checkbox" checked={alerts === "on"} onChange={(e) => void (e.target.checked ? turnOnAlerts() : turnOffAlerts())} />
+          ) : (
+            <span className="set-note">{alerts === "needs-install" ? "Add Heist to your Home Screen first" : "Allow notifications for Heist in your phone's settings"}</span>
+          )}
+        </label>
+      )}
 
       <div className="set-row">
         <span>Motion</span>

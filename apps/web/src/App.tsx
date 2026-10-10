@@ -220,6 +220,7 @@ function Game() {
           onGameOver={gameOver}
           buyDrink={buyDrink}
           mistakes={me.progress.mistakes}
+          place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
           turnRef={turnRef}
           onAgain={() => {
             if (chips < table.stakes) return exit();

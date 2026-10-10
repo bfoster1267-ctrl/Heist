@@ -267,7 +267,8 @@ export class FileActivityLog extends MemoryActivityLog {
 }
 
 /** Fields that never go in the log, at any depth. */
-const SECRET = /pass|token|credential|secret/i;
+// push subscriptions (endpoint and keys) let anyone holding them alert that phone
+const SECRET = /pass|token|credential|secret|endpoint|p256dh|^auth$|^sub$/i;
 
 /** A copy of a request body that is safe to log: no secrets, strings and arrays kept short. */
 export function scrub(v: unknown, depth = 0): unknown {

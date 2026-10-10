@@ -7,6 +7,7 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
 import type { Progress } from "@heist/profile";
+import type { PushSub } from "../push";
 
 export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
 
@@ -49,6 +50,8 @@ export interface Account {
   solo: SoloGame | null;
   /** bumping this signs the account out everywhere */
   sessions: number;
+  /** phones and browsers that asked for turn alerts (web push), newest last */
+  push?: PushSub[];
   /** the owner's notes, tags, flag and ban (admin panel only; never sent to the player) */
   crm?: Crm;
   /** their answer to "What lost you?" after their first game (asked once; "skip" when they closed it) */

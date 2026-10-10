@@ -13,11 +13,12 @@ import { serveStatic } from "./static";
 import { ApiError, type AccountService } from "./accounts/service";
 import { GuestIdentity, type Identity, type IdentityProvider } from "./identity";
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
-import { realClock, type Clock, type Conn, type GameOverReport, type Room } from "./room";
+import { realClock, type Clock, type Conn, type GameOverReport, type Room, type RoomDeps } from "./room";
 import { Rooms, roomOptions, type Limits } from "./rooms";
 import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
 import type { Hosting } from "./accounts/hosting";
+import type { PushMessage, Pusher } from "./push";
 
 export interface ServerOptions {
   port?: number;
@@ -49,6 +50,8 @@ export interface ServerOptions {
   admin?: { user: string; password: string; secret?: string; team?: AdminTeam };
   /** server and Render stats for the admin panel */
   hosting?: Hosting;
+  /** phone alerts (web push) for players who aren't looking when it's their turn (needs accounts) */
+  push?: Pusher;
 }
 
 export interface HeistServer {
@@ -65,7 +68,7 @@ const RATE = { burst: 30, perSec: 10 };
 const HEARTBEAT_MS = 30_000;
 const DRINK_IDS = new Set(DRINKS.map((d) => d.id));
 /** messages that don't go in the activity log: moves are in the game's own record */
-const QUIET = new Set(["ping", "hello", "answer", "list"]);
+const QUIET = new Set(["ping", "hello", "answer", "list", "away"]);
 
 interface Client {
   conn: Conn | null;
@@ -78,7 +81,13 @@ interface Client {
   ip: string;
   /** the error this message got, if any (for the activity log) */
   failed?: string;
+  /** the app is in the background (it says so when it goes and comes back) */
+  away: boolean;
 }
+
+/** at most one alert of a kind per player per this long, so a run of decisions doesn't buzz them over and over */
+const ALERT_GAP_MS = { turn: 45_000, joined: 20_000 };
+const ALERT_DELAY_MS = 4_000;
 
 export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const clock = o.clock ?? realClock;
@@ -100,7 +109,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           hosting: o.hosting,
         }
       : undefined;
-  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin }) : null;
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey }) : null;
   /** table activity, for the admin panel's log (moves themselves are in each game's record) */
   const track = (c: Client, kind: string, data?: Record<string, unknown>, error?: string) =>
     accounts && c.id && accounts.track({ kind, userId: c.id.userId, name: c.id.name, ip: c.ip, ok: !error, error, data: { ...data, ...(c.room ? { table: c.room.code } : {}) } });
@@ -112,7 +121,41 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     if (accounts) void settleOnline(r);
   };
   const badge = accounts ? (userId: string) => accounts.badge(userId) : undefined;
-  const rooms = new Rooms({ store, clock, log, onGameOver, badge, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
+  const pusher = accounts && o.push;
+  let listening = false;
+  const lastAlert = new Map<string, number>();
+  /** Alert a player's phone, unless the Heist app is open in front of them at that table. */
+  const alert: RoomDeps["alert"] = (userId, a) => {
+    // tables rebuilt at start-up ask everyone at once while their apps are still reconnecting: no alerts then
+    if (!pusher || !listening) return;
+    // a dropped connection is usually back within a moment: look again shortly before buzzing anyone
+    clock.set(() => sendAlert(userId, a), ALERT_DELAY_MS);
+  };
+  const sendAlert: NonNullable<RoomDeps["alert"]> = (userId, a) => {
+    if (!pusher || !accounts) return;
+    if (a.kind === "turn" && a.room.waitingOn() !== userId) return;
+    for (const ws of wss.clients) {
+      const c = (ws as WebSocket & { heist?: Client }).heist;
+      if (c?.id?.userId === userId && c.room === a.room && !c.away && ws.readyState === ws.OPEN) return;
+    }
+    const key = `${a.kind}:${userId}`;
+    const now = clock.now();
+    if (now - (lastAlert.get(key) ?? -Infinity) < ALERT_GAP_MS[a.kind]) return;
+    lastAlert.set(key, now);
+    if (lastAlert.size > 20_000) lastAlert.clear();
+    const r = a.room;
+    const filled = r.seats.filter((s) => s.kind === "human").length;
+    const m: PushMessage =
+      a.kind === "turn"
+        ? { title: "Your turn", body: `Table ${r.code} is waiting on you.`, tag: `turn-${r.code}`, url: "./" }
+        : { title: `${a.name ?? "Someone"} sat down`, body: `Table ${r.code}: ${filled} of ${r.players} seats taken.`, tag: `table-${r.code}`, url: "./" };
+    void (async () => {
+      for (const sub of await accounts.pushSubs(userId)) {
+        if ((await pusher.send(sub, m)) === "gone") await accounts.pushGone(userId, sub.endpoint);
+      }
+    })().catch((e) => log("alert failed", { err: String(e) }));
+  };
+  const rooms = new Rooms({ store, clock, log, onGameOver, badge, alert, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
   /** each signed-in connection's way into a room, for the matchmaker */
   const entrances = new Map<string, (room: Room) => ReturnType<Room["join"]>>();
   const queue = new Matchmaker(rooms, clock, (conn, room) => {
@@ -175,7 +218,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
-    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip };
+    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip, away: false };
     const send = (m: ServerMsg) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
     };
@@ -224,6 +267,10 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     });
 
     async function handle(m: ClientMsg) {
+      if (m.t === "away") {
+        c.away = m.on === true;
+        return;
+      }
       if (m.t === "ping") return send({ t: "pong", n: typeof m.n === "number" ? m.n : undefined, at: clock.now() });
       if (m.t === "hello") {
         if (m.v !== PROTOCOL_VERSION) return err("version", `This server speaks protocol ${PROTOCOL_VERSION}; refresh the page.`);
@@ -365,6 +412,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   beat.unref();
 
   await new Promise<void>((r) => http.listen(o.port ?? 8787, o.host ?? "0.0.0.0", r));
+  listening = true;
   log("listening", { port: (http.address() as { port: number }).port });
 
   return {
