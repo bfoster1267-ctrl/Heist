@@ -31,7 +31,7 @@ export interface LobbyChoice {
 }
 
 /** the player's own screens, opened from the bar along the bottom */
-export type LobbyPage = "career" | "season" | "shop" | "board";
+export type LobbyPage = "career" | "wardrobe" | "season" | "shop" | "board";
 
 export function Lobby({
   chips,
@@ -299,6 +299,7 @@ export function Lobby({
 const DOCK: [LobbyPage, string][] = [
   ["season", "Season pass"],
   ["shop", "Shop"],
+  ["wardrobe", "Wardrobe"],
   ["board", "Leaders"],
   ["career", "Career"],
 ];
@@ -331,6 +332,7 @@ function Icon({ name }: { name: string }) {
     book: <path d="M4 5c2.5-1.3 5.5-1.3 8 0v15c-2.5-1.3-5.5-1.3-8 0V5ZM12 5c2.5-1.3 5.5-1.3 8 0v15c-2.5-1.3-5.5-1.3-8 0" />,
     season: <path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V7ZM10 7v10" />,
     shop: <path d="M5 8h14l-1 12H6L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />,
+    wardrobe: <path d="M12 7a2 2 0 1 1 2-2M12 7v2L3 15.5c-.8.6-.4 1.5.5 1.5h17c.9 0 1.3-.9.5-1.5L12 9" />,
     board: <path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H4c0 3 1.5 5 4 5M16 6h4c0 3-1.5 5-4 5M12 13v4M8 20h8" />,
     career: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   };

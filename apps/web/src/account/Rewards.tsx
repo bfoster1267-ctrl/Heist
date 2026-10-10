@@ -161,7 +161,7 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
       </ul>
       {r.unlocked.length > 0 && (
         <div className="acct-reward-unlock">
-          Unlocked: {r.unlocked.map((id) => cosmetic(id)?.name).filter(Boolean).join(", ")}. Equip in the Shop.
+          Unlocked: {r.unlocked.map((id) => cosmetic(id)?.name).filter(Boolean).join(", ")}. Wear it in the Wardrobe.
         </div>
       )}
       {r.pass && r.pass.xp > 0 && (

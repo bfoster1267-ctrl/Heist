@@ -1621,3 +1621,56 @@
     margin-bottom: 10px;
   }
 }
+
+/* ---------------------------------------------------------------- the Wardrobe */
+.wardrobe-intro {
+  margin: 4px 0 0;
+  font-size: 14px;
+}
+.wardrobe-more {
+  justify-content: center;
+  gap: 6px;
+  min-height: 132px;
+  border-style: dashed;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.wardrobe-more:hover {
+  border-color: var(--gold);
+  color: var(--gold2);
+}
+.wardrobe-more-plus {
+  font-family: var(--title);
+  font-size: 34px;
+  line-height: 1;
+  color: var(--gold);
+}
+.wardrobe-collected {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  font-size: 24px;
+}
+.wardrobe-collected .dim {
+  font-size: 14px;
+  margin-right: 4px;
+}
+.season-wardrobe {
+  margin-top: 18px;
+  align-self: flex-start;
+}
+/* six tabs: on a narrow phone the row scrolls sideways rather than squeezing or wrapping */
+.acct-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.acct-tabs::-webkit-scrollbar {
+  display: none;
+}
+.acct-tabs button {
+  flex: none;
+  white-space: nowrap;
+}

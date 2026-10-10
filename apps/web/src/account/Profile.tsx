@@ -1,4 +1,4 @@
-// The player's profile: career stats and trackers, the cosmetics shop, leaderboards, and their account.
+// The player's profile: career stats and trackers, the Wardrobe, the cosmetics shop, leaderboards, and their account.
 
 import { ROLES, type RoleId } from "@heist/engine";
 import {
@@ -7,6 +7,7 @@ import {
 } from "@heist/profile";
 import { Cigar, Preview, bannerStyle } from "./items";
 import { Season } from "./Season";
+import { Wardrobe } from "./Wardrobe";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -17,7 +18,7 @@ import type { PublicProfile } from "@heist/profile";
 import { SignIn } from "./SignIn";
 import { useAccount } from "./useAccount";
 
-type Tab = "career" | "season" | "shop" | "board" | "account";
+type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "account";
 
 export function Profile({ onClose, tab: start = "career" }: { onClose: () => void; tab?: Tab }) {
   const { me } = useAccount();
@@ -58,6 +59,7 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
           {(
             [
               ["career", "Career"],
+              ["wardrobe", "Wardrobe"],
               ["season", "Season"],
               ["shop", "Shop"],
               ["board", "Leaderboard"],
@@ -71,7 +73,8 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
         </nav>
         <div className="acct-body">
           {tab === "career" && <Career me={me} />}
-          {tab === "season" && <Season me={me} />}
+          {tab === "wardrobe" && <Wardrobe me={me} onGo={setTab} />}
+          {tab === "season" && <Season me={me} onWardrobe={() => setTab("wardrobe")} />}
           {tab === "shop" && <Shop me={me} />}
           {tab === "board" && <Board me={me} />}
           {tab === "account" && <Account me={me} />}

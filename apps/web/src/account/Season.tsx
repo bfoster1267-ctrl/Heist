@@ -1,9 +1,9 @@
-// The season: the pass track (season XP, tier by tier), packs to open or buy with chips, and the locker
-// of season items to equip. All of it sits beside career XP and levels; nothing here changes the game.
+// The season: the pass track (season XP, tier by tier) and packs to open or buy with chips. Season items
+// are worn from the Wardrobe. All of it sits beside career XP and levels; nothing here changes the game.
 
 import {
-  ALL_COSMETICS, DEFAULT_EQUIPPED, PACK_KEEP, PACK_PRICE, PASS_TIERS, TIER_XP, cosmetic, currentPass, equippable, passTrack, seasonAt, seasonOwned,
-  tierOf, type Cosmetic, type Slot, type TierReward,
+  PACK_KEEP, PACK_PRICE, PASS_TIERS, TIER_XP, cosmetic, currentPass, passTrack, seasonAt, seasonOwned,
+  tierOf, type Slot, type TierReward,
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
@@ -26,7 +26,7 @@ const SLOT_NAMES: [Slot, string][] = [
 ];
 export const slotLabel = (s: Slot) => SLOT_NAMES.find(([k]) => k === s)?.[1] ?? s;
 
-export function Season({ me }: { me: Me }) {
+export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) {
   const { act } = useAccount();
   const p = me.progress;
   const now = Date.now();
@@ -37,7 +37,7 @@ export function Season({ me }: { me: Me }) {
     return (
       <div className="acct-empty">
         <div className="acct-empty-big">Between seasons</div>
-        The next season starts soon. Everything you earned stays in your locker.
+        The next season starts soon. Everything you earned stays in your Wardrobe.
       </div>
     );
   const pass = currentPass(p, now)!;
@@ -110,7 +110,11 @@ export function Season({ me }: { me: Me }) {
         <div className="dim">Packs only hold items you don't have yet. Once you have them all, a pack pays out season XP instead.</div>
       </section>
 
-      <Locker me={me} />
+      {onWardrobe && (
+        <button className="btn ghost season-wardrobe" onClick={onWardrobe}>
+          Wear your season items in the Wardrobe
+        </button>
+      )}
 
       <AnimatePresence>{opened && <PackReveal items={opened.items} dupeXp={opened.dupeXp} name={me.name} onClose={() => setOpened(null)} />}</AnimatePresence>
     </div>
@@ -183,59 +187,5 @@ function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp:
         </button>
       </motion.div>
     </motion.div>
-  );
-}
-
-/** Season items by kind: equip what you have; see where the rest come from. */
-function Locker({ me }: { me: Me }) {
-  const { act } = useAccount();
-  const p = me.progress;
-  const [busy, setBusy] = useState<string | null>(null);
-  const season = seasonAt(Date.now());
-  const track = season ? passTrack(season) : [];
-  const tierFor = (id: string) => track.findIndex((r) => r.kind === "item" && r.id === id) + 1;
-  const equip = async (id: string) => {
-    setBusy(id);
-    await act((b) => b.equip(id));
-    setBusy(null);
-  };
-  return (
-    <div className="acct-shop">
-      <h3>Locker</h3>
-      {SLOT_NAMES.map(([slot, label]) => {
-        const items = ALL_COSMETICS.filter((c) => c.slot === slot && c.season);
-        if (!items.length) return null;
-        const house = (DEFAULT_EQUIPPED as Record<string, string>)[slot];
-        const list: Cosmetic[] = house ? [cosmetic(house)!, ...items] : items;
-        return (
-          <section key={slot}>
-            <h4 className="season-slot">{label}</h4>
-            <div className="acct-items">
-              {list.map((c) => {
-                const have = !c.season || p.owned.includes(c.id);
-                const on = equippable(c) && p.equipped[c.slot] === c.id;
-                return (
-                  <div key={c.id} className={"acct-item" + (on ? " on" : "") + (!have ? " locked" : "")}>
-                    <Preview c={c} name={me.name} />
-                    <div className="acct-item-name">{c.name}</div>
-                    {on ? (
-                      <div className="acct-item-tag">Equipped</div>
-                    ) : !have ? (
-                      <div className="acct-item-lock">{c.source === "pass" ? `Pass tier ${tierFor(c.id)}` : "In packs"}</div>
-                    ) : equippable(c) ? (
-                      <button className="btn small gold" disabled={busy === c.id} onClick={() => equip(c.id)}>
-                        Equip
-                      </button>
-                    ) : (
-                      <div className="acct-item-tag">{c.slot === "drink" ? "In your drink menu" : "In your chat tray"}</div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        );
-      })}
-    </div>
   );
 }
