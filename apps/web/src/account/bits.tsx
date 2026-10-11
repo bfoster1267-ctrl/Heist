@@ -49,11 +49,11 @@ export function Coins({ amount, big }: { amount: number; big?: boolean }) {
 }
 
 /** The player's corner of the lobby: avatar, name, rank, XP, chips and coins. Click for the full profile. */
-export function ProfileChip({ me, onOpen }: { me: Me; onOpen: () => void }) {
+export function ProfileChip({ me, packs = 0, onOpen }: { me: Me; packs?: number; onOpen: () => void }) {
   const p = me.progress;
   const li = levelInfo(p.xp);
   return (
-    <button className="acct-chip" onClick={onOpen} aria-label="Open your profile and career stats">
+    <button className="acct-chip" onClick={onOpen} aria-label={packs ? "Open your profile: a free pack is waiting" : "Open your profile and career stats"}>
       <Avatar name={me.name} frame={p.equipped.frame} level={li.level} size={46} />
       <span className="acct-chip-body">
         <span className="acct-chip-name">
@@ -69,6 +69,7 @@ export function ProfileChip({ me, onOpen }: { me: Me; onOpen: () => void }) {
         <Chips amount={p.chips} small />
         <Coins amount={p.coins} />
       </span>
+      {packs > 0 && <span className="acct-chip-dot" title={packs === 1 ? "A free pack to open" : `${packs} free packs to open`} />}
     </button>
   );
 }

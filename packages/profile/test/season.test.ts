@@ -18,9 +18,9 @@ describe("season 1 items", () => {
     expect(items.length).toBeGreaterThanOrEqual(50);
     expect(items.length).toBeLessThanOrEqual(100);
     expect(new Set(ALL_COSMETICS.map((c) => c.id)).size).toBe(ALL_COSMETICS.length);
-    expect(S1.passItems.length + S1.packItems.length).toBe(items.length);
+    expect(S1.passItems.length + S1.packItems.length + 1).toBe(items.length); // + the tier 50 prize
     expect(new Set(items.map((c) => c.slot)).size).toBe(9);
-    expect(items.every((c) => c.rarity === "common")).toBe(true);
+    expect(items.filter((c) => c.rarity !== "common").map((c) => c.id)).toEqual([S1.prize]);
   });
   it("can't be bought with coins, and nobody starts with them", () => {
     const p = { ...newProgress(), coins: 1e9 };
@@ -31,8 +31,8 @@ describe("season 1 items", () => {
     const t = passTrack(S1);
     expect(t.length).toBe(PASS_TIERS);
     const ids = t.flatMap((r) => (r.kind === "item" ? [r.id] : []));
-    expect(new Set(ids)).toEqual(new Set(S1.passItems.map((c) => c.id)));
-    expect(t[PASS_TIERS - 1]).toEqual({ kind: "packs", packs: 3 });
+    expect(new Set(ids)).toEqual(new Set([...S1.passItems.map((c) => c.id), S1.prize]));
+    expect(t[PASS_TIERS - 1]).toEqual({ kind: "item", id: "s1.drink.vault" });
   });
 });
 
@@ -53,12 +53,13 @@ describe("season pass", () => {
     const r = settle(p, game({ at: IN_SEASON + 10 }));
     expect(r.reward.pass!.tierBefore).toBe(1);
   });
-  it("stops at the top tier and gives the final packs once", () => {
+  it("stops at the top tier and gives the prize once", () => {
     let p = newProgress();
     for (let i = 0; i < PASS_TIERS * TIER_XP / 150 + 20; i++) p = settle(p, game({ at: IN_SEASON + i })).progress;
     expect(p.pass!.xp).toBe(PASS_TIERS * TIER_XP);
-    expect(p.pass!.packs).toBe(4 + 3);
+    expect(p.pass!.packs).toBe(4);
     for (const c of S1.passItems) expect(p.owned).toContain(c.id);
+    expect(p.owned.filter((id) => id === S1.prize)).toHaveLength(1);
   });
   it("earns nothing for a quit or outside a season", () => {
     expect(settle(newProgress(), game({ quit: true })).reward.pass).toBeNull();

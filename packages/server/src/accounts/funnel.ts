@@ -114,7 +114,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     switch (e.kind) {
       case "ui.tap":
         if (d.name === "welcome-new" || (typeof d.name === "string" && d.name.startsWith("I'm new"))) t.newTap = true;
-        if (d.name === "tour-coach" || d.name === "tour-bots") t.toured = true;
+        if (d.name === "tour-coach" || d.name === "tour-bots" || d.name === "tour-save" || d.name === "tour-lobby") t.toured = true;
         break;
       case "ui.turn":
         turnsSince ??= e.at;

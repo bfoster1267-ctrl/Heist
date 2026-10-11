@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
 import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
+import { VaultGlass, isVault } from "../vault";
 
 export interface Bubble {
   seat: number;
@@ -166,7 +167,7 @@ export function ChatTray({
         ))}
       </div>
       <div className="chat-drinks">
-        <div className="chat-head">{drink ? `Send ${drink} to…` : "Send a drink"}</div>
+        <div className="chat-head">{drink ? `Send ${isVault(drink) ? "The Vault" : drink} to…` : "Send a drink"}</div>
         {drink ? (
           <div className="chat-lines">
             {rivals.map((r) => (
@@ -188,8 +189,8 @@ export function ChatTray({
         ) : (
           <div className="chat-emotes">
             {drinks.map((d) => (
-              <button key={d.id} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
-                {d.emoji}
+              <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
+                {isVault(d.emoji) ? <VaultGlass size={26} /> : d.emoji}
                 <span className="chat-price">{d.price || "free"}</span>
               </button>
             ))}

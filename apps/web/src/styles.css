@@ -2778,6 +2778,48 @@ button:disabled {
   font-size: 30px;
   z-index: 1;
 }
+/* The Vault, the season pass's legendary drink (vault.tsx) */
+.vault-glass {
+  display: block;
+  overflow: visible;
+}
+.drink.vault {
+  z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(255, 210, 90, 0.75)) drop-shadow(0 4px 4px rgba(0, 0, 0, 0.55));
+}
+.vault-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.vault-ring {
+  position: absolute;
+  left: -60px;
+  top: -60px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 102, 0.75) 0%, rgba(231, 181, 60, 0.35) 45%, transparent 70%);
+}
+.vault-coin {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff1c2, #e7b53c 55%, #8a5d0c);
+  box-shadow: 0 0 6px rgba(255, 214, 102, 0.8);
+}
+.chat-drinks .chat-vault {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: radial-gradient(circle, rgba(231, 181, 60, 0.28), transparent 70%);
+}
 /* recap */
 .modal {
   max-height: calc(100% - 30px);
@@ -3419,49 +3461,6 @@ button:disabled {
   font-size: 34px;
   letter-spacing: 5px;
 }
-/* the player's own screens, one tap away along the bottom (they used to hide behind the player card) */
-.lobby {
-  padding-bottom: calc(76px + env(safe-area-inset-bottom));
-}
-.lobby-dock {
-  position: fixed;
-  z-index: 20;
-  left: 50%;
-  bottom: calc(10px + env(safe-area-inset-bottom));
-  transform: translateX(-50%);
-  display: flex;
-  gap: 2px;
-  padding: 4px;
-  border-radius: 18px;
-  border: 1px solid var(--line);
-  background: rgba(14, 16, 20, 0.94);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-.lobby-dock button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 84px;
-  padding: 6px 10px 5px;
-  border: 0;
-  border-radius: 14px;
-  background: none;
-  color: var(--paper);
-  font-family: var(--cond);
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-.lobby-dock button:active {
-  background: rgba(231, 181, 60, 0.16);
-}
-.lobby-dock .lobby-icon {
-  width: 24px;
-  height: 24px;
-  color: var(--gold2);
-}
 .lobby-gear {
   position: fixed;
   z-index: 20;
@@ -3610,21 +3609,6 @@ button:disabled {
     width: 44px;
     height: 44px;
     font-size: 24px;
-  }
-  .lobby-dock {
-    bottom: calc(6px + env(safe-area-inset-bottom));
-    padding: 3px;
-  }
-  .lobby-dock button {
-    flex-direction: row;
-    gap: 6px;
-    min-width: 0;
-    padding: 7px 12px;
-    font-size: 14px;
-  }
-  .lobby-dock .lobby-icon {
-    width: 20px;
-    height: 20px;
   }
   .lobby-sheet {
     gap: 10px;
@@ -3891,25 +3875,11 @@ html.turned .lobby-settings-back .settings {
     grid-column: 1 / -1;
   }
 }
-/* a phone held upright: the menu sits in the middle of the space between the top bar and the dock,
+/* a phone held upright: the menu sits in the middle of the space under the top bar,
    not stuck to the top with a gap underneath */
 @media (max-width: 500px) and (min-height: 521px) {
-  .lobby:has(.lobby-dock) {
+  .lobby {
     place-items: safe center;
-  }
-}
-/* five places in the dock: on an upright phone they share the width instead of running off the edge */
-@media (max-width: 500px) {
-  .lobby-dock {
-    left: calc(8px + env(safe-area-inset-left));
-    right: calc(8px + env(safe-area-inset-right));
-    transform: none;
-  }
-  .lobby-dock button {
-    flex: 1;
-    min-width: 0;
-    padding: 6px 2px 5px;
-    font-size: 12px;
   }
 }
 
@@ -3969,4 +3939,7 @@ html.turned .lobby-settings-back .settings {
 }
 .welcome.tour-next {
   z-index: 74; /* the profile screen (80) opens over it while the player looks around */
+}
+.welcome.tour-next .lobby-change {
+  font-size: 17px;
 }

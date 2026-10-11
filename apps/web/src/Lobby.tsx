@@ -1,7 +1,7 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { LESSONS, STAGES, lesson, lessonNo } from "@heist/profile";
+import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
@@ -30,14 +30,14 @@ export interface LobbyChoice {
   coached?: boolean;
 }
 
-/** the player's own screens, opened from the bar along the bottom */
+/** the player's own screens, the tabs behind the player card */
 export type LobbyPage = "career" | "wardrobe" | "season" | "shop" | "board";
 
 /**
- * The lobby tour after a new player's first hand: tap the Wardrobe, then the Season pass (both must be
- * tapped; nothing else can be), then pick what's next: more coaching or a practice game vs bots.
+ * The lobby tour after a new player's first hand: tap the player card (nothing else can be tapped),
+ * which opens the Season pass, then pick what's next: more coaching, saving the account, or the lobby.
  */
-export type TourStep = "wardrobe" | "season" | "next";
+export type TourStep = "profile" | "next";
 
 export function Lobby({
   chips,
@@ -46,6 +46,7 @@ export function Lobby({
   onOnline,
   onOpen,
   onSignIn,
+  onSave,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -60,6 +61,8 @@ export function Lobby({
   onOpen?: (page: LobbyPage) => void;
   /** sign in to an account made before (a new player's way past the lesson) */
   onSignIn?: () => void;
+  /** a guest's way to save their progress to an account (none: they have one) */
+  onSave?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -193,17 +196,6 @@ export function Lobby({
         </div>
       </motion.div>
 
-      {onOpen && (
-        <nav className="lobby-dock" aria-label="Your stuff">
-          {DOCK.map(([page, label]) => (
-            <button key={page} data-dock={page} onClick={() => onOpen(page)}>
-              <Icon name={page} />
-              <span>{label}</span>
-            </button>
-          ))}
-        </nav>
-      )}
-
       <AnimatePresence>
         {options && (
           <Sheet title="Your table" onClose={() => setOptions(false)}>
@@ -299,19 +291,21 @@ export function Lobby({
               onTour(null);
               coach();
             }}
-            onBots={() => {
-              onTour(null);
-              save();
-              onPlay({ players: 3, name: nm(), stakes: STAKES[0].buyIn });
-            }}
+            onSave={
+              onSave &&
+              (() => {
+                onTour(null);
+                onSave();
+              })
+            }
+            onLobby={() => onTour(null)}
           />
         ) : (
           <TourSpot
             key={tour}
-            page={tour}
             onTap={() => {
-              onTour(tour === "wardrobe" ? "season" : "next");
-              onOpen(tour);
+              onTour("next");
+              onOpen("season");
             }}
           />
         ))}
@@ -320,36 +314,31 @@ export function Lobby({
   );
 }
 
-const TOUR_TEXT: Record<"wardrobe" | "season", { title: string; text: string }> = {
-  wardrobe: { title: "Your look", text: "The Wardrobe holds your table style, card backs and more. Tap it to take a look." },
-  season: { title: "The Season pass", text: "Every game earns XP toward free rewards on the Season pass. Tap it to see what's coming." },
-};
-
-/** The tour's spotlight: the lobby dims, one dock button shines, and only that button can be tapped. */
-function TourSpot({ page, onTap }: { page: "wardrobe" | "season"; onTap: () => void }) {
+/** The tour's spotlight: the lobby dims, the player card shines, and only it can be tapped. */
+function TourSpot({ onTap }: { onTap: () => void }) {
   const [r, setR] = useState<DOMRect | null>(null);
   useEffect(() => {
-    const measure = () => setR(document.querySelector(`.lobby-dock [data-dock="${page}"]`)?.getBoundingClientRect() ?? null);
+    const measure = () => setR(document.querySelector(".acct-corner .acct-chip")?.getBoundingClientRect() ?? null);
     measure();
-    // the lobby animates in, and phones turn: keep the spotlight on the button
+    // the lobby animates in, and phones turn: keep the spotlight on the card
     const t = window.setInterval(measure, 400);
     window.addEventListener("resize", measure);
     return () => {
       clearInterval(t);
       window.removeEventListener("resize", measure);
     };
-  }, [page]);
+  }, []);
   const pad = 6;
   const below = r ? r.top < window.innerHeight / 2 : false;
   return createPortal(
-    <motion.div className="tour" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label={TOUR_TEXT[page].title}>
+    <motion.div className="tour" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="Your stuff">
       {r && (
         <button
           className="tour-hole"
-          data-track={`tour-${page}`}
+          data-track="tour-profile"
           style={{ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 }}
           onClick={onTap}
-          aria-label={page === "wardrobe" ? "Open the Wardrobe" : "Open the Season pass"}
+          aria-label="Open your profile"
         />
       )}
       <motion.div
@@ -358,16 +347,24 @@ function TourSpot({ page, onTap }: { page: "wardrobe" | "season"; onTap: () => v
         animate={{ y: 0, opacity: 1 }}
         style={r ? (below ? { top: r.bottom + 18 } : { bottom: window.innerHeight - r.top + 18 }) : undefined}
       >
-        <b>{TOUR_TEXT[page].title}</b>
-        <span>{TOUR_TEXT[page].text}</span>
+        <b>Your stuff lives here</b>
+        <span>The Season pass, your look, the shop and your stats. Tap your card to see the prize at the top of the pass.</span>
       </motion.div>
     </motion.div>,
     document.body,
   );
 }
 
-/** The tour's last stop: more lessons with the coach, or a practice game against bots. */
-function TourNext({ nextLesson, onCoach, onBots }: { nextLesson?: number; onCoach: () => void; onBots: () => void }) {
+/** the season pass item the first hand gives (tier 1), to name on the save button */
+function firstPrize() {
+  const s = seasonAt(Date.now());
+  const first = s && passTrack(s)[0];
+  return first && first.kind === "item" ? cosmetic(first.id)?.name : undefined;
+}
+
+/** The tour's last stop: more lessons with the coach, saving a guest's progress, or the lobby. */
+function TourNext({ nextLesson, onCoach, onSave, onLobby }: { nextLesson?: number; onCoach: () => void; onSave?: () => void; onLobby: () => void }) {
+  const prize = firstPrize();
   return createPortal(
     <motion.div className="welcome tour-next" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="What's next">
       <div className="logo">HEIST</div>
@@ -377,23 +374,20 @@ function TourNext({ nextLesson, onCoach, onBots }: { nextLesson?: number; onCoac
           Continue coaching
           <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A game with tips on every move. Free."}</span>
         </button>
-        <button className="btn lobby-big" data-track="tour-bots" onClick={onBots}>
-          Practice vs bots
-          <span className="lobby-sub">3 players, the {STAKES[0].name} table. No coach.</span>
-        </button>
+        {onSave && (
+          <button className="btn lobby-big" data-track="tour-save" onClick={onSave}>
+            Save your progress
+            <span className="lobby-sub">{prize ? `Free. Keeps your XP and the ${prize} you just won.` : "Free. Keeps your XP and everything you've won."}</span>
+          </button>
+        )}
       </div>
+      <button className="lobby-change" data-track="tour-lobby" onClick={onLobby}>
+        Go to lobby
+      </button>
     </motion.div>,
     document.body,
   );
 }
-
-const DOCK: [LobbyPage, string][] = [
-  ["season", "Season pass"],
-  ["shop", "Shop"],
-  ["wardrobe", "Wardrobe"],
-  ["board", "Leaders"],
-  ["career", "Career"],
-];
 
 /** One of the lobby's ways to play: an icon, a name, and a line saying what it is. */
 function Mode({ icon, label, sub, onClick, disabled }: { icon: string; label: string; sub: string; onClick: () => void; disabled?: boolean }) {
@@ -421,11 +415,6 @@ function Icon({ name }: { name: string }) {
     ),
     map: <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14" />,
     book: <path d="M4 5c2.5-1.3 5.5-1.3 8 0v15c-2.5-1.3-5.5-1.3-8 0V5ZM12 5c2.5-1.3 5.5-1.3 8 0v15c-2.5-1.3-5.5-1.3-8 0" />,
-    season: <path d="M4 7h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4V7ZM10 7v10" />,
-    shop: <path d="M5 8h14l-1 12H6L5 8ZM9 8V6a3 3 0 0 1 6 0v2" />,
-    wardrobe: <path d="M12 7a2 2 0 1 1 2-2M12 7v2L3 15.5c-.8.6-.4 1.5.5 1.5h17c.9 0 1.3-.9.5-1.5L12 9" />,
-    board: <path d="M8 4h8v5a4 4 0 0 1-8 0V4ZM8 6H4c0 3 1.5 5 4 5M16 6h4c0 3-1.5 5-4 5M12 13v4M8 20h8" />,
-    career: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
   };
   return (
     <svg className="lobby-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -7,7 +7,7 @@
 
 import { cosmetic, type Cosmetic, type Rarity } from "./cosmetics";
 import type { Fail, Progress } from "./progress";
-import { SEASON_1, SEASON_1_PACK_ITEMS, SEASON_1_PASS_ITEMS } from "./season1";
+import { SEASON_1, SEASON_1_PACK_ITEMS, SEASON_1_PASS_ITEMS, VAULT_DRINK } from "./season1";
 import type { GameResult } from "./stats";
 
 export interface Season {
@@ -18,10 +18,12 @@ export interface Season {
   end: number;
   passItems: Cosmetic[];
   packItems: Cosmetic[];
+  /** the last tier's prize (a legendary item); without one the last tier is three packs */
+  prize?: string;
 }
 
 export const SEASONS: Season[] = [
-  { id: SEASON_1, name: "Opening Night", start: Date.UTC(2026, 9, 8), end: Date.UTC(2027, 0, 5), passItems: SEASON_1_PASS_ITEMS, packItems: SEASON_1_PACK_ITEMS },
+  { id: SEASON_1, name: "Opening Night", start: Date.UTC(2026, 9, 8), end: Date.UTC(2027, 0, 5), passItems: SEASON_1_PASS_ITEMS, packItems: SEASON_1_PACK_ITEMS, prize: VAULT_DRINK.id },
 ];
 
 export const seasonAt = (at: number) => SEASONS.find((s) => at >= s.start && at < s.end) ?? null;
@@ -36,12 +38,12 @@ export const PACK_TIER_COINS = 150;
 
 export type TierReward = { kind: "item"; id: string } | { kind: "coins"; coins: number } | { kind: "packs"; packs: number };
 
-/** What each tier gives, tier 1 first. Every tenth tier is a free pack (three at the top), every fifth coins, the rest items. */
+/** What each tier gives, tier 1 first. The top tier is the season's prize, every tenth a free pack, every fifth coins, the rest items. */
 export function passTrack(s: Season): TierReward[] {
   const items = s.passItems.map((c) => c.id);
   const out: TierReward[] = [];
   for (let t = 1; t <= PASS_TIERS; t++) {
-    if (t === PASS_TIERS) out.push({ kind: "packs", packs: 3 });
+    if (t === PASS_TIERS) out.push(s.prize ? { kind: "item", id: s.prize } : { kind: "packs", packs: 3 });
     else if (t % 10 === 0) out.push({ kind: "packs", packs: 1 });
     else if (t % 5 === 0 || !items.length) out.push({ kind: "coins", coins: PACK_TIER_COINS });
     else out.push({ kind: "item", id: items.shift()! });
@@ -123,7 +125,7 @@ export const PACK_SIZE = 3;
 export const PACK_KEEP = 2_500;
 
 /** Odds by rarity. Shiny and legendary tiers come later. */
-export const PACK_ODDS: Record<Rarity, number> = { common: 1 };
+export const PACK_ODDS: Record<Rarity, number> = { common: 1, legendary: 0 };
 
 
 
@@ -184,7 +186,7 @@ function rollRarity(rand: Rand): Rarity {
 
 /** How many of a season's items the player has. */
 export function seasonOwned(p: Progress, s: Season) {
-  const all = [...s.passItems, ...s.packItems];
+  const all = [...s.passItems, ...s.packItems, ...(s.prize ? [cosmetic(s.prize)!] : [])];
   return { have: all.filter((c) => p.owned.includes(c.id)).length, of: all.length };
 }
 
