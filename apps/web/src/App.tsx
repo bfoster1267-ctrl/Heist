@@ -1,5 +1,5 @@
 import type { Answer } from "@heist/engine";
-import { ALL_DRINKS, FIRST_HAND, lessonFor, type Reward } from "@heist/profile";
+import { ALL_DRINKS, FIRST_HAND, currentPass, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
@@ -162,7 +162,7 @@ function Game() {
     const firstHandDone = finished.current && table?.lesson === FIRST_HAND;
     if (firstHandDone) {
       firstGame.current = false;
-      if (!tourStarted()) setTour("wardrobe");
+      if (!tourStarted()) setTour("profile");
     }
     if (firstGame.current && table && !me?.asked) {
       firstGame.current = false;
@@ -202,6 +202,8 @@ function Game() {
       <div className="loading">Opening the vault…</div>
     );
   const chips = me.progress.chips;
+  // free packs from the season pass waiting to be opened: a dot on the player card leads to them
+  const packs = currentPass(me.progress, Date.now())?.packs ?? 0;
 
   // Online games settle chips, XP and stats on the server (the socket signs in as this account), so the
   // lobby only needs to re-read the account when money moves.
@@ -255,6 +257,7 @@ function Game() {
             onOnline={(n) => enter(() => setOnline(n))}
             onOpen={setProfile}
             onSignIn={() => setProfile("account")}
+            onSave={me.guest ? () => setProfile("account") : undefined}
             onSolitaire={() => setSol(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
@@ -263,7 +266,7 @@ function Game() {
             onTour={setTour}
           />
           <div className="acct-corner">
-            <ProfileChip me={me} onOpen={() => setProfile("career")} />
+            <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
           </div>
         </>
       ) : (
@@ -292,9 +295,9 @@ function Game() {
           />
         )}
       </AnimatePresence>
-      {profile && !table && (tour === "season" || tour === "next") && (
+      {profile && !table && tour === "next" && (
         <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
-          {tour === "season" ? "Next: Season pass →" : "Keep going →"}
+          Keep going →
         </button>
       )}
       <Rewards onSave={() => setProfile("account")} />
@@ -313,7 +316,8 @@ const TOUR_KEY = "heist.tour";
 function savedTour(): TourStep | null {
   try {
     const v = localStorage.getItem(TOUR_KEY);
-    return v === "wardrobe" || v === "season" || v === "next" ? v : null;
+    // "wardrobe" and "season" were the old tour's steps (it spotlit the lobby's bottom bar, now gone)
+    return v === "next" ? v : v === "profile" || v === "wardrobe" || v === "season" ? "profile" : null;
   } catch {
     return null;
   }

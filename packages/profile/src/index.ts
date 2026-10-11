@@ -7,7 +7,7 @@ export * from "./profile";
 export * from "./season";
 export * from "./rating";
 export * from "./campaign";
-export { SEASON_1 } from "./season1";
+export { SEASON_1, VAULT_DRINK } from "./season1";
 export * from "./coach";
 export * from "./ranked";
 export * from "./easy";

@@ -8,6 +8,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { reducedMotion } from "../prefs";
 import { Chips } from "../table/pieces";
 import type { Me } from "./backend";
 import { Coins } from "./bits";
@@ -34,6 +35,8 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
   const season = seasonAt(now);
   const [opened, setOpened] = useState<{ items: string[]; dupeXp: number } | null>(null);
   const [busy, setBusy] = useState(false);
+  // decided once when the tab opens: the first time, the track sweeps to the prize
+  const [sweep] = useState(() => !swept());
   if (!season)
     return (
       <div className="acct-empty">
@@ -75,8 +78,13 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
         <span className="acct-xp-text">{maxed ? "Pass complete" : `${into} / ${TIER_XP} season XP to tier ${tier + 1}`}</span>
       </div>
       <div className="dim season-how">Every game earns season XP: 150 for playing, +100 for a win, +50 online, +200 for your first win of the day.</div>
+      {season.prize && (
+        <div className="season-prize-line">
+          Tier {PASS_TIERS} prize: <b>{cosmetic(season.prize)?.name}</b>, a legendary drink you can send to anyone at the table.
+        </div>
+      )}
 
-      <Track rewards={passTrack(season)} tier={tier} name={me.name} />
+      <Track rewards={passTrack(season)} tier={tier} name={me.name} sweep={sweep} />
 
       <section className="season-packs">
         <h3>Packs</h3>
@@ -128,20 +136,86 @@ function rewardText(r: TierReward) {
   return cosmetic(r.id)?.name ?? r.id;
 }
 
-export function Track({ rewards, tier, name }: { rewards: TierReward[]; tier: number; name: string }) {
+const SWEPT_KEY = "heist.passSwept";
+/** whether the pass has already swept to its prize for this player (it does once, the first time it opens) */
+function swept() {
+  try {
+    return !!localStorage.getItem(SWEPT_KEY);
+  } catch {
+    return true; // storage blocked: skip it rather than sweep on every visit
+  }
+}
+
+/** Scroll `el` to `to` over `ms`, easing in and out. Resolves false if `stop()` turns true on the way. */
+function glide(el: HTMLElement, to: number, ms: number, stop: () => boolean) {
+  const from = el.scrollLeft;
+  const start = performance.now();
+  return new Promise<boolean>((done) => {
+    const step = (now: number) => {
+      if (stop()) return done(false);
+      const k = Math.min(1, (now - start) / ms);
+      el.scrollLeft = from + (to - from) * (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
+      if (k < 1) requestAnimationFrame(step);
+      else done(true);
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+/**
+ * The pass, tier by tier. `sweep`: the first time it opens, glide all the way to the prize at the top,
+ * let it shine, then come back to the next tier to earn (a touch on the track stops it).
+ */
+export function Track({ rewards, tier, name, sweep = false }: { rewards: TierReward[]; tier: number; name: string; sweep?: boolean }) {
   const row = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState(false);
   // start scrolled to the next tier to earn
   useEffect(() => {
     const el = row.current?.children[Math.max(0, tier - 1)] as HTMLElement | undefined;
     if (el && row.current) row.current.scrollLeft = el.offsetLeft - 12;
   }, [tier]);
+  useEffect(() => {
+    const el = row.current;
+    if (!sweep || !el || reducedMotion()) return;
+    try {
+      localStorage.setItem(SWEPT_KEY, "1");
+    } catch {
+      // storage blocked: swept() already says skip it
+    }
+    let stopped = false;
+    const stop = () => (stopped = true);
+    el.addEventListener("pointerdown", stop);
+    el.addEventListener("wheel", stop, { passive: true });
+    const home = el.scrollLeft;
+    const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
+    el.style.scrollBehavior = "auto";
+    void (async () => {
+      await wait(600);
+      if (stopped || !(await glide(el, el.scrollWidth - el.clientWidth, 2400, () => stopped))) return;
+      setSpot(true);
+      await wait(2300);
+      setSpot(false);
+      if (!stopped) await glide(el, home, 1000, () => stopped);
+    })().finally(() => {
+      el.style.scrollBehavior = "";
+    });
+    return () => {
+      stopped = true;
+      el.removeEventListener("pointerdown", stop);
+      el.removeEventListener("wheel", stop);
+    };
+  }, [sweep]);
   return (
     <div className="season-track" ref={row}>
       {rewards.map((r, i) => {
         const t = i + 1;
         const c = r.kind === "item" ? cosmetic(r.id) : undefined;
+        const legendary = c?.rarity === "legendary";
         return (
-          <div key={t} className={"season-tier-card" + (t <= tier ? " got" : "") + (t === tier + 1 ? " next" : "")}>
+          <div
+            key={t}
+            className={"season-tier-card" + (t <= tier ? " got" : "") + (t === tier + 1 ? " next" : "") + (legendary ? " legendary" : "") + (legendary && spot ? " spot" : "")}
+          >
             <div className="season-tier-num">{t}</div>
             {c ? (
               <Preview c={c} name={name} />
@@ -150,6 +224,7 @@ export function Track({ rewards, tier, name }: { rewards: TierReward[]; tier: nu
             )}
             <div className="season-tier-what">{rewardText(r)}</div>
             {c && <div className="season-tier-slot">{slotLabel(c.slot)}</div>}
+            {legendary && <div className="season-tier-slot season-tier-legendary">Legendary</div>}
             {t <= tier && <div className="season-tier-check">✓</div>}
           </div>
         );
@@ -177,7 +252,7 @@ function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp:
               >
                 <Preview c={c} name={name} />
                 <div className="acct-item-name">{c.name}</div>
-                <div className="season-rarity">{c.rarity ?? "common"}</div>
+                <div className={"season-rarity" + (c.rarity === "legendary" ? " legendary" : "")}>{c.rarity ?? "common"}</div>
                 <div className="season-tier-slot">{slotLabel(c.slot)}</div>
               </motion.div>
             );

@@ -13,6 +13,7 @@ import { useLook } from "../account/useAccount";
 import { FirstWin } from "../account/FirstWin";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
+import { isVault } from "../vault";
 import { Coach, CoachIdea, CoachLine, MistakeCheck, Walkthrough } from "./Coach";
 import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
@@ -186,7 +187,7 @@ export function Table({
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
     // A bot raises the glass, and sometimes sends one back to you (not online, where others wouldn't see it).
-    window.setTimeout(() => chat.say(d.seat, Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), 300);
+    window.setTimeout(() => chat.say(d.seat, isVault(d.emoji) ? "Now THAT'S a drink. 🏦" : Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), isVault(d.emoji) ? 1800 : 300);
     if (!talk && d.from === HUMAN && Math.random() < 0.35) {
       const back = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
       window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);

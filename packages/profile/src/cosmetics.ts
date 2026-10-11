@@ -10,10 +10,10 @@ export type EquipSlot = "felt" | "cardBack" | "frame" | "title" | "chat" | "bann
 export type Slot = EquipSlot | "emote" | "drink";
 
 /**
- * How rare an item is. Season 1 only has common items for now; shiny and legendary tiers get designed
- * with Brock and slot in here (plus the pack odds in season.ts).
+ * How rare an item is. Season 1's only legendary is The Vault, the drink for finishing the pass; shiny
+ * items and legendary drops slot in here later (plus the pack odds in season.ts).
  */
-export type Rarity = "common";
+export type Rarity = "common" | "legendary";
 
 export interface Cosmetic {
   id: string;
@@ -130,9 +130,11 @@ export const DRINKS: Drink[] = [
   { id: "champagne", name: "Round of Champagne", emoji: "🍾", price: 60, round: true },
 ];
 
-/** Season drinks cost a few coins to send, like the shop's, but only their owners can order them. */
+/** Season drinks cost a few coins to send, like the shop's, but only their owners can order them. Legendary ones are free. */
 export const SEASON_DRINK_PRICE = 10;
-const SEASON_DRINKS: Drink[] = SEASON_ITEMS.filter((c) => c.slot === "drink").map((c) => ({ id: c.id, name: c.name, emoji: c.emoji!, price: SEASON_DRINK_PRICE }));
+const SEASON_DRINKS: Drink[] = SEASON_ITEMS.filter((c) => c.slot === "drink").map((c) => ({
+  id: c.id, name: c.name, emoji: c.emoji!, price: c.rarity === "legendary" ? 0 : SEASON_DRINK_PRICE,
+}));
 
 /** The shop's drinks and every season's. */
 export const ALL_DRINKS: Drink[] = [...DRINKS, ...SEASON_DRINKS];

@@ -104,6 +104,12 @@ const roundRobin = (lists: Cosmetic[][]) => {
 export const SEASON_1_PASS_ITEMS = roundRobin(passHalf).map((c) => ({ ...c, source: "pass" as const }));
 export const SEASON_1_PACK_ITEMS = packHalf.flat().map((c) => ({ ...c, source: "pack" as const }));
 
-export const SEASON_ITEMS: Cosmetic[] = [...SEASON_1_PASS_ITEMS, ...SEASON_1_PACK_ITEMS];
+/**
+ * The pass's top prize (tier 50): a legendary drink, free to send. It lands with its own animation at
+ * the table (a vault door spins open, gold coins splash), keyed on its emoji so nothing else changes.
+ */
+export const VAULT_DRINK: Cosmetic = item("drink", "vault", "The Vault", { emoji: "🏦", rarity: "legendary", source: "pass" });
+
+export const SEASON_ITEMS: Cosmetic[] = [...SEASON_1_PASS_ITEMS, VAULT_DRINK, ...SEASON_1_PACK_ITEMS];
 
 export type { EquipSlot };

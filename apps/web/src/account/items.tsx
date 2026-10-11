@@ -4,6 +4,7 @@
 import { cosmetic, type Cosmetic } from "@heist/profile";
 import type { CSSProperties } from "react";
 import { Avatar } from "./bits";
+import { VaultGlass, isVault } from "../vault";
 
 /** A banner's background: its pattern over a two-color gradient. */
 export function bannerStyle(id: string | undefined): CSSProperties | undefined {
@@ -72,8 +73,15 @@ export function Preview({ c, name }: { c: Cosmetic; name: string }) {
       return <div className="acct-prev acct-prev-banner" style={bannerStyle(c.id) ?? { background: "rgba(255,255,255,0.04)" }} />;
     case "cigar":
       return <div className="acct-prev acct-prev-title">{c.colors ? <Cigar id={c.id} size={70} /> : "—"}</div>;
-    case "emote":
     case "drink":
+      if (c.emoji && isVault(c.emoji))
+        return (
+          <div className="acct-prev acct-prev-title acct-prev-legendary">
+            <VaultGlass size={44} />
+          </div>
+        );
+      return <div className="acct-prev acct-prev-title acct-prev-emoji">{c.emoji}</div>;
+    case "emote":
       return <div className="acct-prev acct-prev-title acct-prev-emoji">{c.emoji}</div>;
     default:
       return <div className="acct-prev acct-prev-title">{c.text ? `“${c.text}”` : "—"}</div>;

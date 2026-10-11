@@ -7,6 +7,7 @@ import { THEMES, setPrefs, usePrefs } from "../prefs";
 import type { Me } from "./backend";
 import { Preview } from "./items";
 import { useAccount } from "./useAccount";
+import { VaultGlass, isVault } from "../vault";
 
 /** each kind of thing you can wear, and where more of it comes from */
 const SLOTS: [EquipSlot, string, "shop" | "season"][] = [
@@ -113,7 +114,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
               <span className="dim">On your drink menu</span>
               {drinks.map((c) => (
                 <span key={c.id} title={c.name}>
-                  {c.emoji}
+                  {c.emoji && isVault(c.emoji) ? <VaultGlass size={24} /> : c.emoji}
                 </span>
               ))}
             </div>
