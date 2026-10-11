@@ -49,6 +49,8 @@ export interface Progress {
   campaign: number;
   /** Ranked: rank points, Ranked MMR and this season's record (null before the first ranked game) */
   ranked: RankedState | null;
+  /** Solitaire: games won, and paid wins today (UTC day) toward the daily cap */
+  solitaire: { won: number; day: string | null; today: number };
 }
 
 export function newProgress(): Progress {
@@ -57,6 +59,7 @@ export function newProgress(): Progress {
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
     mistakes: {}, coachGames: 0,
     rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
+    solitaire: { won: 0, day: null, today: 0 },
   };
 }
 
@@ -207,6 +210,46 @@ export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: nu
   };
 }
 
+/** A Solitaire win: a little XP and season XP, so it counts toward the pass. Paid for this many wins a day. */
+export const SOLITAIRE_XP = { xp: 30, season: 75, perDay: 10 };
+
+/** Record a won Solitaire game (wins only; the server checked it by replaying the moves). */
+export function settleSolitaire(prev: Progress, at: number): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const s = { ...p.solitaire };
+  if (s.day !== today) Object.assign(s, { day: today, today: 0 });
+  s.won++;
+  const paid = s.today < SOLITAIRE_XP.perDay;
+  if (paid) s.today++;
+  p.solitaire = s;
+  const lines: RewardLine[] = [{ label: paid ? "Solitaire win" : `Solitaire win (XP for the first ${SOLITAIRE_XP.perDay} a day)`, xp: paid ? SOLITAIRE_XP.xp : 0, coins: 0 }];
+  const xp = lines[0].xp;
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const pass = paid ? addPassXp(p, SOLITAIRE_XP.season, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+    },
+  };
+}
+
 /** Add one game's rookie mistakes to the player's tally. */
 export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
   return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
@@ -294,5 +337,5 @@ export function buyIn(prev: Progress, stakes: number): Progress | Fail {
 /** Fill in fields added after a profile was saved (old saves keep working). */
 export function upgrade(p: Partial<Progress>): Progress {
   const base = newProgress();
-  return { ...base, ...p, stats: { ...base.stats, ...p.stats }, equipped: { ...base.equipped, ...p.equipped } };
+  return { ...base, ...p, stats: { ...base.stats, ...p.stats }, equipped: { ...base.equipped, ...p.equipped }, solitaire: { ...base.solitaire, ...p.solitaire } };
 }
