@@ -87,3 +87,80 @@ export function useLayout() {
   }, []);
   return v;
 }
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/** An element's box in canvas units: its layout box run through its own transforms (seats are
+ *  centered with translate and grow with scale), measured from the canvas. Works the same when the
+ *  whole canvas is scaled or turned for an upright phone, since nothing here reads the screen. */
+function canvasBox(el: HTMLElement, canvas: HTMLElement): Box | null {
+  let x = 0, y = 0;
+  let n: HTMLElement | null = el;
+  while (n && n !== canvas) {
+    x += n.offsetLeft;
+    y += n.offsetTop;
+    n = n.offsetParent as HTMLElement | null;
+  }
+  if (!n) return null;
+  const w = el.offsetWidth, h = el.offsetHeight;
+  if (!w || !h) return null;
+  const cs = getComputedStyle(el);
+  const [sx, sy] = cs.scale && cs.scale !== "none" ? cs.scale.split(" ").map(Number) : [1, 1];
+  const m = new DOMMatrix().scale(sx, sy ?? sx).multiply(new DOMMatrix(cs.transform === "none" ? undefined : cs.transform));
+  const [ox, oy] = cs.transformOrigin.split(" ").map(parseFloat);
+  const pts = [[0, 0], [w, 0], [0, h], [w, h]].map(([px, py]) => [x + ox + m.a * (px - ox) + m.c * (py - oy) + m.e, y + oy + m.b * (px - ox) + m.d * (py - oy) + m.f]);
+  const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+  return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+}
+
+const overlap = (a: Box, b: Box) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+
+/** What the flipped Job card must not cover, and how much each one matters. Seats come first:
+ *  you read them to pick the Mark. */
+const KEEP_CLEAR: [string, number][] = [
+  [".seat", 20],
+  [".action-panel:not([data-leaving])", 4],
+  ['[data-anchor="my-hand"]', 3],
+  [".topbar", 3],
+  [".ticker", 1],
+  [".pen", 0.5],
+  [".deck", 0.3],
+  [".discard", 0.3],
+  [".pot", 0.2],
+];
+
+export interface Spot {
+  left: number;
+  top: number;
+  scale: number;
+}
+
+/** Where the flipped Job card goes: as near the middle of the felt as it can be without covering a
+ *  player's seat (or, failing that, as little of one as possible), shrinking a little if it must.
+ *  `el` is the card's wrapper; its size is read without any transform. */
+export function clearSpot(el: HTMLElement, canvas: HTMLElement, L: Layout): Spot {
+  const w = el.offsetWidth, h = el.offsetHeight;
+  // the old fixed spot: the card's top a little above the middle of the felt
+  const home = { cx: L.W / 2, top: L.name === "wide" ? 120 : 190 };
+  const keep: [Box, number][] = [];
+  for (const [sel, weight] of KEEP_CLEAR)
+    canvas.querySelectorAll<HTMLElement>(sel).forEach((o) => {
+      if (o === el || el.contains(o)) return;
+      const b = canvasBox(o, canvas);
+      if (b) keep.push([b, weight]);
+    });
+  let best: Spot & { cost: number } = { left: home.cx - w / 2, top: home.top, scale: 1, cost: Infinity };
+  for (const scale of [1, 0.88, 0.76, 0.64])
+    for (let dy = -80; dy <= 240; dy += 10)
+      for (const dx of [0, -40, 40, -80, 80, -130, 130, -180, 180, -240, 240]) {
+        const sw = w * scale, sh = h * scale;
+        const box = { x: home.cx + dx - sw / 2, y: home.top + dy + (h - sh) / 2, w: sw, h: sh };
+        if (box.x < 4 || box.y < 4 || box.x + box.w > L.W - 4 || box.y + box.h > L.H - 4) continue;
+        let cost = 0;
+        for (const [b, weight] of keep) cost += overlap(box, b) * weight;
+        // a gentle pull toward the middle and toward full size breaks ties
+        cost += Math.abs(dx) * 2 + Math.abs(dy) * 3 + (1 - scale) * 4000;
+        if (cost < best.cost) best = { left: box.x - (w - sw) / 2, top: home.top + dy, scale, cost };
+      }
+  return { left: best.left, top: best.top, scale: best.scale };
+}

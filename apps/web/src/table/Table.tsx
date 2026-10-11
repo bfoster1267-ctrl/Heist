@@ -1,7 +1,7 @@
 import { stage, type Reward } from "@heist/profile";
 import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
 import { useIsland } from "../island";
 import { buzz } from "../haptics";
@@ -18,7 +18,7 @@ import { Coach, CoachIdea, CoachLine, MistakeCheck, Walkthrough } from "./Coach"
 import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
-import { seatGrow, seatPos, useLayout } from "./layout";
+import { clearSpot, seatGrow, seatPos, useLayout, type Spot } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
@@ -305,6 +305,20 @@ export function Table({
     return () => window.removeEventListener("keydown", k);
   }, [t]);
 
+  // The flipped Job card finds a spot on the felt that leaves every seat readable (you pick the Mark
+  // off those seats). Measured again a moment later, once the decision panel has come in.
+  const flipSpot = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<Spot | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = flipSpot.current, c = canvas.current;
+      if (el && c && el.offsetWidth) setSpot(clearSpot(el, c, L));
+    };
+    place();
+    const id = window.setTimeout(place, 450);
+    return () => window.clearTimeout(id);
+  }, [t.shown?.key, L, scale, prefs.textSize, s?.n]);
+
   if (!s) return <div className="loading">Shuffling…</div>;
   const ask = walk ? null : t.ask;
   const coached = !!settings.coached && !watching && !coachOff;
@@ -331,7 +345,7 @@ export function Table({
     else if (sel.length < hs.max) setSel([...sel, id]);
   };
   const banner = ev && BANNER[ev.t] ? t.shown : null;
-  // the flipped Job card sits over the top seat, so it steps aside while you pick a hideout
+  // the flipped Job card steps aside while you pick a hideout, since that's all about the seats
   const flipShow = ev && (ev.t === "flip" || ev.t === "mark") && s.flip && t.ask?.kind !== "pickHideout" ? s.flip : null;
   const penCrew = s.players.filter((p) => p.pen > 0);
   const discardTop = s.discard[s.discard.length - 1];
@@ -552,6 +566,7 @@ export function Table({
             )}
           </LayoutGroup>
 
+          <div className="flip-spot" ref={flipSpot} style={spot ? { left: spot.left, top: spot.top, transform: `scale(${spot.scale})` } : { visibility: "hidden" }}>
           <AnimatePresence>
             {flipShow && (
               <motion.div
@@ -570,6 +585,7 @@ export function Table({
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
           <AnimatePresence>
             {banner && (
               <motion.div key={banner.key} className={"banner b-" + ev!.t} initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.35 }}>
