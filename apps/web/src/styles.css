@@ -2153,12 +2153,6 @@ button:disabled {
   font-size: 13px;
   margin-bottom: 8px;
 }
-.coach.top {
-  bottom: auto;
-  top: 70px;
-  left: 450px;
-  right: auto;
-}
 
 /* settings */
 .settings {
@@ -2331,11 +2325,6 @@ button:disabled {
 .l-wide .coach {
   bottom: 196px;
   right: 8px;
-}
-.l-wide .coach.top {
-  top: 12px;
-  bottom: auto;
-  left: 450px;
 }
 .l-wide .log {
   bottom: 10px;
@@ -3696,6 +3685,38 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+/* the coach never covers a choice: it scrolls inside its spot, and the x tucks it into a small button */
+.coach {
+  overflow-y: auto;
+}
+.coach-x {
+  border: none;
+  background: none;
+  color: var(--paper);
+  font-size: 24px;
+  line-height: 1;
+  padding: 0 4px;
+  min-width: 32px;
+  min-height: 32px;
+}
+.coach-pill {
+  position: absolute;
+  right: 14px;
+  bottom: 202px;
+  z-index: 31;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid #6fd39a;
+  background: linear-gradient(180deg, #232733, #15171d);
+  color: #9be8bb;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
 }
 .coach-off {
   margin-left: auto;
