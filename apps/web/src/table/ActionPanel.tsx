@@ -55,6 +55,7 @@ export function ActionPanel({
   setSel,
   answer,
   clock,
+  coach,
 }: {
   ask: Ask;
   s: GameState;
@@ -64,11 +65,13 @@ export function ActionPanel({
   answer: (a: Answer) => void;
   /** shown in the title row (online: the turn clock) */
   clock?: ReactNode;
+  /** Coached play: the coach's short read, sitting just above the decision buttons */
+  coach?: ReactNode;
 }) {
   const [n, setN] = useState(1);
   const [n2, setN2] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
-  // Each move swaps in a new panel while the old one fades; the coach places itself against the new one
+  // Each move swaps in a new panel while the old one fades; mark the old one so it can be told apart
   const present = useIsPresent();
   // Move keyboard focus to the first choice so the game plays from the keyboard.
   useEffect(() => {
@@ -512,6 +515,7 @@ export function ActionPanel({
         {clock}
       </div>
       {body}
+      {coach}
     </motion.div>
   );
 }

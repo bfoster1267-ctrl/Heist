@@ -13,7 +13,7 @@ import { useLook } from "../account/useAccount";
 import { FirstWin } from "../account/FirstWin";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
-import { Coach, LiveCoach, MistakeCheck, Walkthrough } from "./Coach";
+import { Coach, CoachIdea, CoachLine, MistakeCheck, Walkthrough } from "./Coach";
 import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
@@ -222,6 +222,8 @@ export function Table({
   }, [autoAsk]);
   // the lesson ideas already explained this game
   const [taught, setTaught] = useState<string[]>([]);
+  // the new ideas whose full-screen card was put away with Next (the panel's New tag brings it back)
+  const [read, setRead] = useState<string[]>([]);
 
   // Buy-ins: everyone's chips slide into the pot as the cards come out.
   const boughtIn = useRef(false);
@@ -515,6 +517,11 @@ export function Table({
                   sel={sel}
                   setSel={setSel}
                   answer={play}
+                  coach={
+                    coached && !s.winners ? (
+                      <CoachLine s={s} ask={ask} idea={idea} pick={t.game ? coachPick(t.game, ask) : null} cheer={cheer} onIdea={() => idea && setRead((x) => x.filter((r) => r !== idea.title))} />
+                    ) : undefined
+                  }
                 />
               )}
             </AnimatePresence>
@@ -527,7 +534,7 @@ export function Table({
                   t.answer(a);
                 }} />
               ) : (
-                !s.winners && !autoAsk && <LiveCoach s={s} ask={ask} idea={idea} pick={ask && t.game ? coachPick(t.game, ask) : null} cheer={cheer} onOff={() => setCoachOff(true)} />
+                <CoachIdea idea={!s.winners && !autoAsk && idea && !read.includes(idea.title) ? idea : undefined} onNext={() => idea && setRead((x) => [...x, idea.title])} onOff={() => setCoachOff(true)} />
               )
             ) : (
               !clean && !coachOff && <Coach ask={ask} blocked={walk || !!s.winners} />
