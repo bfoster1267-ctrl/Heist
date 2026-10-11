@@ -33,6 +33,8 @@ export class HeistClient {
   private any = new Set<(m: ServerMsg) => void>();
   private token: string | undefined;
   private closed = false;
+  /** the current socket has been welcomed (a drop now reconnects by itself) */
+  private live = false;
   private retry = 0;
   private spectating = false;
   /** the app is in the background (told to the server again after a reconnect) */
@@ -80,6 +82,7 @@ export class HeistClient {
         const m = JSON.parse(String(e.data)) as ServerMsg;
         if (m.t === "welcome" && !welcomed) {
           welcomed = true;
+          this.live = true;
           this.retry = 0;
           resolve();
           for (const h of this.connHandlers) h(true);
@@ -100,6 +103,7 @@ export class HeistClient {
       };
       ws.onclose = () => {
         this.ws = null;
+        this.live = false;
         this.ask = null;
         if (welcomed && !this.closed) for (const h of this.connHandlers) h(false);
         if (!this.closed && welcomed && this.opts.reconnect !== false) this.reconnectLater();
@@ -233,6 +237,16 @@ export class HeistClient {
 
   leave() {
     this.send({ t: "leave" });
+  }
+  /**
+   * Play as another account (the player signed in or out in the app since this socket said hello).
+   * Away from a table the socket reconnects at once as the new account; at a table (or before the
+   * server has welcomed us) it switches on the next hello, so a game in progress isn't dropped.
+   */
+  setToken(token: string | undefined) {
+    if (token === this.token) return;
+    this.token = token;
+    if (this.live && !this.room) this.drop();
   }
   close() {
     this.closed = true;
