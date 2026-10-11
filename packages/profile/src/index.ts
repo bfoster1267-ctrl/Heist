@@ -12,3 +12,4 @@ export * from "./coach";
 export * from "./ranked";
 export * from "./easy";
 export * from "./lessons";
+export * from "./solitaire";

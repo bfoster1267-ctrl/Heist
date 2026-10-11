@@ -47,6 +47,7 @@ export function Lobby({
   onOpen,
   onSignIn,
   onSave,
+  onSolitaire,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -63,6 +64,8 @@ export function Lobby({
   onSignIn?: () => void;
   /** a guest's way to save their progress to an account (none: they have one) */
   onSave?: () => void;
+  /** open Solitaire */
+  onSolitaire?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -88,6 +91,7 @@ export function Lobby({
   // How to play, once the first lesson is done: another game with the coach, or the rules
   const [learn, setLearn] = useState(false);
   const [camp, setCamp] = useState(false);
+  const [games, setGames] = useState(false);
   const [settings, setSettings] = useState(false);
   const [options, setOptions] = useState(false);
   const prefs = usePrefs();
@@ -184,6 +188,7 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
+          {onSolitaire && <Mode icon="cards" label="More games" sub="Solitaire · earns season XP" onClick={() => setGames(true)} />}
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
           <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
@@ -253,6 +258,29 @@ export function Lobby({
               go(0, n);
             }}
           />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {games && onSolitaire && (
+          <Sheet title="More games" onClose={() => setGames(false)}>
+            <button
+              className="btn lobby-big lobby-game"
+              onClick={() => {
+                setGames(false);
+                onSolitaire();
+              }}
+            >
+              <span className="lobby-game-art" aria-hidden="true">
+                <span className="lobby-game-card">A<i>♠</i></span>
+                <span className="lobby-game-card red">K<i>♥</i></span>
+              </span>
+              <span className="lobby-game-text">
+                Solitaire
+                <span className="lobby-sub">Classic Klondike. Wins earn XP and season pass XP.</span>
+              </span>
+            </button>
+            <p className="dim lobby-games-more">More card games are on the way.</p>
+          </Sheet>
         )}
       </AnimatePresence>
       <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
@@ -411,6 +439,12 @@ function Icon({ name }: { name: string }) {
         <circle cx="8" cy="8" r="3" />
         <circle cx="17" cy="9" r="2.5" />
         <path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 15.5c.9-.6 1.9-.9 3-.9 2.8 0 5 2.2 5 5" />
+      </>
+    ),
+    cards: (
+      <>
+        <rect x="3" y="6" width="11" height="15" rx="2" />
+        <path d="M8 6V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-5" />
       </>
     ),
     map: <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14" />,

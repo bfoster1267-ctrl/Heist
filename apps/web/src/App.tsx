@@ -11,6 +11,7 @@ import "./account/account.css";
 import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
+import { Solitaire } from "./solitaire/Solitaire";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -51,6 +52,26 @@ function Game() {
   const turnRef = useRef(0);
   const [ask, setAsk] = useState<LostAsk | null>(null);
   const [firstReward, setFirstReward] = useState<Reward | null>(null);
+  // Solitaire: from the lobby, or straight in at playheist.net/solitaire (its own link to share)
+  const [sol, setSolState] = useState(() => {
+    const on = location.pathname === "/solitaire";
+    try {
+      // someone who came for Solitaire isn't dropped into the Heist lesson when they head to the lobby
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setSol = useCallback((on: boolean) => {
+    setSolState(on);
+    try {
+      history.replaceState(null, "", on ? "/solitaire" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
   // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
   const [tour, setTourState] = useState<TourStep | null>(savedTour);
   const setTour = useCallback((t: TourStep | null) => {
@@ -82,8 +103,8 @@ function Game() {
   }, [online, showReward, act]);
   // the owner's activity log: which screen the player is on
   useEffect(() => {
-    trackScreen(profile ? `Profile: ${profile}` : table ? (table.stage ? `Campaign table ${table.stage}` : "Table vs bots") : online !== null ? "Online" : "Lobby");
-  }, [profile, table, online]);
+    trackScreen(profile ? `Profile: ${profile}` : table ? (table.stage ? `Campaign table ${table.stage}` : "Table vs bots") : online !== null ? "Online" : sol ? "Solitaire" : "Lobby");
+  }, [profile, table, online, sol]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);
@@ -208,6 +229,20 @@ function Game() {
       </>
     );
 
+  if (sol && !table)
+    return (
+      <>
+        <Solitaire
+          onExit={() => setSol(false)}
+          onHeist={() => {
+            setSol(false);
+            void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+          }}
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -223,6 +258,7 @@ function Game() {
             onOpen={setProfile}
             onSignIn={() => setProfile("account")}
             onSave={me.guest ? () => setProfile("account") : undefined}
+            onSolitaire={() => setSol(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}
