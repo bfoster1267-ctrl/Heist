@@ -124,6 +124,9 @@ export class HeistClient {
           this.opts.onToken?.(m.token);
         }
         break;
+      case "renamed":
+        this.name = m.name;
+        break;
       case "unqueued":
         this.queued = null;
         break;
@@ -218,6 +221,10 @@ export class HeistClient {
   }
   chat(text: string) {
     this.send({ t: "chat", text });
+  }
+  /** change your name (saved to your account; your seat shows it while the table waits to deal) */
+  rename(name: string) {
+    this.send({ t: "rename", name });
   }
   /** buy a drink for one seat, or a round for the table (`to` null) */
   drink(id: string, to: number | null) {

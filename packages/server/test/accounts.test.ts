@@ -395,6 +395,34 @@ describe("accounts over HTTP and the game socket", () => {
     for (const p of ps) p.c.close();
   }, 40_000);
 
+  it("lets an invited guest pick their name at the table: saved to the account, shown on the seat for everyone", async () => {
+    const accounts = new AccountService({ secret: "s" });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const url = `ws://127.0.0.1:${srv.port()}/ws`;
+    const host = new HeistClient(url, { name: "Ace" });
+    const guest = new HeistClient(url, { name: "Ace" });
+    const errs: string[] = [];
+    guest.on("error", (m) => errs.push(m.code));
+    await Promise.all([host.connect(), guest.connect()]);
+    host.create({ players: 4, stakes: 0 });
+    await until(() => !!host.room);
+    guest.join(host.room!.code);
+    await until(() => host.room?.seats.filter((x) => x.kind === "human").length === 2);
+
+    guest.rename("   ");
+    await until(() => errs.includes("bad_message"));
+    guest.rename("  Rosa <the> Fox  ");
+    await until(() => host.room?.seats[1].name === "Rosa the Fox");
+    expect(guest.name).toBe("Rosa the Fox");
+    expect((await accounts.store.get(guest.userId!))!.name).toBe("Rosa the Fox");
+    // a long name is cut to 20 characters, like everywhere else
+    guest.rename("Bartholomew the Magnificent");
+    await until(() => host.room?.seats[1].name === "Bartholomew the Magn");
+    host.close();
+    guest.close();
+  });
+
   it("serves the API, settles an online game with XP and stats, and sells drinks for coins", async () => {
     const accounts = new AccountService({ secret: "s", devLogins: true });
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });

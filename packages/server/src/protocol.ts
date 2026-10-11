@@ -91,6 +91,8 @@ export type ClientMsg =
   | { t: "answer"; askId: number; answer: Answer }
   | { t: "autopilot"; on: boolean }
   | { t: "chat"; text: string }
+  /** change your name (saved to your account); your seat shows it at once while the table hasn't dealt */
+  | { t: "rename"; name: string }
   /** buy a drink (coins) for one seat, or for everyone with a round (`to: null`) */
   | { t: "drink"; id: string; to: number | null }
   | { t: "ping"; n?: number }
@@ -138,6 +140,8 @@ export type ServerMsg =
   /** your XP, coins and level after a game (signed-in players only), and your updated progress */
   | { t: "reward"; game: number; reward: Reward; progress: Progress }
   | { t: "left" }
+  /** your new name, after a rename */
+  | { t: "renamed"; name: string }
   /** you're in the quick queue: how many are waiting, and when the table starts regardless (epoch ms) */
   | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number; ranked?: boolean }
   | { t: "unqueued" }

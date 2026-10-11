@@ -217,6 +217,14 @@ export class Room {
 
   // ------------------------------------------------------------------ membership
 
+  /** A player changed their name: their seat shows it, unless a game is being played with the old one. */
+  renamed(userId: string, name: string) {
+    const seat = this.seatOf(userId);
+    if (seat === null || this.status === "playing") return;
+    this.seats[seat].name = name;
+    this.changed();
+  }
+
   /** Add a connection. Seats the user if they had a seat, or takes an open one in the lobby; otherwise spectates. */
   join(conn: Conn, opts: { spectate?: boolean; since?: number } = {}): ErrorCode | null {
     let seat = this.seatOf(conn.userId);
