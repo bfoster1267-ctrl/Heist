@@ -400,7 +400,7 @@ export class ServerBackend implements Backend {
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
-    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached });
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached ? 2 : false });
   }
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });

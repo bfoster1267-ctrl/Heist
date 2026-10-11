@@ -1,5 +1,5 @@
 import type { Answer } from "@heist/engine";
-import { ALL_DRINKS, lessonFor, type Reward } from "@heist/profile";
+import { ALL_DRINKS, FIRST_HAND, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
@@ -8,7 +8,7 @@ import { Rewards } from "./account/Rewards";
 import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
-import { Lobby, type LobbyChoice, type LobbyPage } from "./Lobby";
+import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
 import { Table } from "./table/Table";
@@ -50,6 +50,12 @@ function Game() {
   const finishedOne = useRef(false);
   const turnRef = useRef(0);
   const [ask, setAsk] = useState<LostAsk | null>(null);
+  // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
+  const [tour, setTourState] = useState<TourStep | null>(savedTour);
+  const setTour = useCallback((t: TourStep | null) => {
+    setTourState(t);
+    saveTour(t ?? "done");
+  }, []);
   // an upright phone needs no asking: the table draws itself sideways (turn.ts)
   const enter = (go: () => void) => go();
   // online: the player's name, set while the friends lobby or an online table is open
@@ -127,6 +133,12 @@ function Game() {
   // Walking out mid-game counts as a loss: the buy-in is already in the pot.
   const exit = useCallback(() => {
     if (!finished.current) void act((b) => b.soloQuit());
+    // finished the first hand: the lobby tour comes next, not "What lost you?"
+    const firstHandDone = finished.current && table?.lesson === FIRST_HAND;
+    if (firstHandDone) {
+      firstGame.current = false;
+      if (!tourStarted()) setTour("wardrobe");
+    }
     if (firstGame.current && table && !me?.asked) {
       firstGame.current = false;
       markLostAsked();
@@ -134,7 +146,7 @@ function Game() {
     }
     finished.current = true;
     setTable(null);
-  }, [act, table, me]);
+  }, [act, table, me, setTour]);
 
   const buyDrink = useCallback(
     async (emoji: string, count: number) => {
@@ -207,6 +219,8 @@ function Game() {
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}
+            tour={me.progress.coachGames ? tour : null}
+            onTour={setTour}
           />
           <div className="acct-corner">
             <ProfileChip me={me} onOpen={() => setProfile("career")} />
@@ -237,6 +251,11 @@ function Game() {
           />
         )}
       </AnimatePresence>
+      {profile && !table && (tour === "season" || tour === "next") && (
+        <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
+          {tour === "season" ? "Next: Season pass →" : "Keep going →"}
+        </button>
+      )}
       <Rewards onSave={() => setProfile("account")} />
       <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
       {error && (
@@ -246,6 +265,31 @@ function Game() {
       )}
     </>
   );
+}
+
+const TOUR_KEY = "heist.tour";
+/** the lobby tour step a new player is on (null: never started; "done" counts as over) */
+function savedTour(): TourStep | null {
+  try {
+    const v = localStorage.getItem(TOUR_KEY);
+    return v === "wardrobe" || v === "season" || v === "next" ? v : null;
+  } catch {
+    return null;
+  }
+}
+function tourStarted() {
+  try {
+    return localStorage.getItem(TOUR_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+function saveTour(v: TourStep | "done") {
+  try {
+    localStorage.setItem(TOUR_KEY, v);
+  } catch {
+    // storage blocked: the tour just doesn't come back after a reload
+  }
 }
 
 const LOST_KEY = "heist.lostAsked";

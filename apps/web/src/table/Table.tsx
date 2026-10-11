@@ -13,7 +13,7 @@ import { useLook } from "../account/useAccount";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, LiveCoach, MistakeCheck, Walkthrough } from "./Coach";
-import { autoPick, checkMove, coachPick, ideaFor, lesson, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
+import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
 import { seatGrow, seatPos, useLayout } from "./layout";
@@ -363,7 +363,7 @@ export function Table({
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : settings.coached ? (lesson(settings.lesson) ? `Lesson ${settings.lesson}: ${lesson(settings.lesson)!.name}` : "Coached play") : `Stakes ${settings.stakes.toLocaleString()}`} · First to {s.target}
+                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : settings.coached ? (lesson(settings.lesson) ? `Lesson ${lessonNo(settings.lesson)}: ${lesson(settings.lesson)!.name}` : "Coached play") : `Stakes ${settings.stakes.toLocaleString()}`} · {s.rules.rounds === 1 ? "One hand" : `First to ${s.target}`}
                 </span>
                 {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
               </div>
@@ -616,7 +616,7 @@ export function Table({
           <Walkthrough s={s} lessonOn={lessonOn} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} firstHand={settings.coached && settings.lesson === FIRST_HAND && !forfeit} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -671,6 +671,7 @@ function GameOver({
   againLabel = "Deal again",
   forfeit,
   oneGame,
+  firstHand,
   onExit,
 }: {
   s: GameState;
@@ -682,9 +683,33 @@ function GameOver({
   forfeit?: boolean;
   /** a ranked table: no rematch, queue again from the lobby */
   oneGame?: boolean;
+  /** a new player's one-hand first lesson: no rematch, it heads on to the lobby tour by itself */
+  firstHand?: boolean;
   onExit: () => void;
 }) {
   const won = s.winners!.includes(me);
+  useEffect(() => {
+    if (!firstHand) return;
+    const t = window.setTimeout(onExit, 6000);
+    return () => clearTimeout(t);
+  }, [firstHand, onExit]);
+  if (firstHand)
+    return (
+      <motion.div className="modal-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        {won && !reducedMotion() && <Confetti />}
+        <motion.div className="modal first-hand-done" role="dialog" aria-modal="true" aria-labelledby="go-title" initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
+          <div id="go-title" className="modal-title gold">
+            {won ? "NICE HAND" : "THAT'S A HAND"}
+          </div>
+          <div className="modal-sub">That's how every turn goes: pick a target, send crew, fight. Next, a quick look around.</div>
+          <div className="btns center">
+            <button className="btn primary big" onClick={onExit} autoFocus>
+              Show me around
+            </button>
+          </div>
+        </motion.div>
+      </motion.div>
+    );
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
   return (

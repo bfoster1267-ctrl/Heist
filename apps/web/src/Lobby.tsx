@@ -1,7 +1,7 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState, type ReactNode } from "react";
-import { LESSONS, STAGES, lesson } from "@heist/profile";
+import { LESSONS, STAGES, lesson, lessonNo } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
@@ -33,6 +33,12 @@ export interface LobbyChoice {
 /** the player's own screens, opened from the bar along the bottom */
 export type LobbyPage = "career" | "wardrobe" | "season" | "shop" | "board";
 
+/**
+ * The lobby tour after a new player's first hand: tap the Wardrobe, then the Season pass (both must be
+ * tapped; nothing else can be), then pick what's next: more coaching or a practice game vs bots.
+ */
+export type TourStep = "wardrobe" | "season" | "next";
+
 export function Lobby({
   chips,
   onPlay,
@@ -44,6 +50,8 @@ export function Lobby({
   cleared = 0,
   newbie = false,
   nextLesson,
+  tour,
+  onTour,
 }: {
   chips: number;
   onPlay: (c: LobbyChoice) => void;
@@ -59,6 +67,10 @@ export function Lobby({
   newbie?: boolean;
   /** the Coached play lesson they'd play next (none: they've done them all) */
   nextLesson?: number;
+  /** the lobby tour step showing now (none: no tour) */
+  tour?: TourStep | null;
+  /** move the tour on (null: it's over) */
+  onTour?: (step: TourStep | null) => void;
 }) {
   const [players, setPlayers] = useState(() => remembered("heist.players", [3, 4, 5, 6], 4));
   const [name, setName] = useState(() => {
@@ -133,7 +145,7 @@ export function Lobby({
             <>
               <button className="btn primary lobby-big" onClick={coach}>
                 Learn to play
-                <span className="lobby-sub">A quick game with a coach. Free.</span>
+                <span className="lobby-sub">Play one hand with a coach. Free.</span>
               </button>
               <p className="lobby-locked">Quick Play and online tables open after your first lesson.</p>
               {onSignIn && (
@@ -167,7 +179,7 @@ export function Lobby({
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
-          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${nextLesson} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
+          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
         <InstallHint />
         <div className="fine">
@@ -181,7 +193,7 @@ export function Lobby({
       {onOpen && (
         <nav className="lobby-dock" aria-label="Your stuff">
           {DOCK.map(([page, label]) => (
-            <button key={page} onClick={() => onOpen(page)}>
+            <button key={page} data-dock={page} onClick={() => onOpen(page)}>
               <Icon name={page} />
               <span>{label}</span>
             </button>
@@ -260,7 +272,7 @@ export function Lobby({
               }}
             >
               Play with a coach
-              <span className="lobby-sub">{nextLesson ? `Lesson ${nextLesson} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A short game with tips on every move. Free."}</span>
+              <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A short game with tips on every move. Free."}</span>
             </button>
             <button
               className="btn lobby-big"
@@ -292,7 +304,100 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
+      <AnimatePresence>
+        {tour && onTour && onOpen && (tour === "next" ? (
+          <TourNext
+            key="next"
+            nextLesson={nextLesson}
+            onCoach={() => {
+              onTour(null);
+              coach();
+            }}
+            onBots={() => {
+              onTour(null);
+              save();
+              onPlay({ players: 3, name: nm(), stakes: STAKES[0].buyIn });
+            }}
+          />
+        ) : (
+          <TourSpot
+            key={tour}
+            page={tour}
+            onTap={() => {
+              onTour(tour === "wardrobe" ? "season" : "next");
+              onOpen(tour);
+            }}
+          />
+        ))}
+      </AnimatePresence>
     </div>
+  );
+}
+
+const TOUR_TEXT: Record<"wardrobe" | "season", { title: string; text: string }> = {
+  wardrobe: { title: "Your look", text: "The Wardrobe holds your table style, card backs and more. Tap it to take a look." },
+  season: { title: "The Season pass", text: "Every game earns XP toward free rewards on the Season pass. Tap it to see what's coming." },
+};
+
+/** The tour's spotlight: the lobby dims, one dock button shines, and only that button can be tapped. */
+function TourSpot({ page, onTap }: { page: "wardrobe" | "season"; onTap: () => void }) {
+  const [r, setR] = useState<DOMRect | null>(null);
+  useEffect(() => {
+    const measure = () => setR(document.querySelector(`.lobby-dock [data-dock="${page}"]`)?.getBoundingClientRect() ?? null);
+    measure();
+    // the lobby animates in, and phones turn: keep the spotlight on the button
+    const t = window.setInterval(measure, 400);
+    window.addEventListener("resize", measure);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener("resize", measure);
+    };
+  }, [page]);
+  const pad = 6;
+  const below = r ? r.top < window.innerHeight / 2 : false;
+  return createPortal(
+    <motion.div className="tour" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label={TOUR_TEXT[page].title}>
+      {r && (
+        <button
+          className="tour-hole"
+          data-track={`tour-${page}`}
+          style={{ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 }}
+          onClick={onTap}
+          aria-label={page === "wardrobe" ? "Open the Wardrobe" : "Open the Season pass"}
+        />
+      )}
+      <motion.div
+        className="tour-card"
+        initial={{ y: 12, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        style={r ? (below ? { top: r.bottom + 18 } : { bottom: window.innerHeight - r.top + 18 }) : undefined}
+      >
+        <b>{TOUR_TEXT[page].title}</b>
+        <span>{TOUR_TEXT[page].text}</span>
+      </motion.div>
+    </motion.div>,
+    document.body,
+  );
+}
+
+/** The tour's last stop: more lessons with the coach, or a practice game against bots. */
+function TourNext({ nextLesson, onCoach, onBots }: { nextLesson?: number; onCoach: () => void; onBots: () => void }) {
+  return createPortal(
+    <motion.div className="welcome tour-next" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="What's next">
+      <div className="logo">HEIST</div>
+      <p className="welcome-q">You're all set. What's next?</p>
+      <div className="welcome-choices">
+        <button className="btn primary lobby-big" data-track="tour-coach" onClick={onCoach}>
+          Continue coaching
+          <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A game with tips on every move. Free."}</span>
+        </button>
+        <button className="btn lobby-big" data-track="tour-bots" onClick={onBots}>
+          Practice vs bots
+          <span className="lobby-sub">3 players, the {STAKES[0].name} table. No coach.</span>
+        </button>
+      </div>
+    </motion.div>,
+    document.body,
   );
 }
 
@@ -368,7 +473,7 @@ function Welcome({ onNew, onSignIn }: { onNew: () => void; onSignIn?: () => void
       <div className="welcome-choices">
         <button className="btn primary lobby-big" data-track="welcome-new" onClick={onNew}>
           I'm new
-          <span className="lobby-sub">A short game with a coach. Free.</span>
+          <span className="lobby-sub">Play one hand with a coach. Free.</span>
         </button>
         {onSignIn && (
           <button className="btn lobby-big" data-track="welcome-account" onClick={onSignIn}>

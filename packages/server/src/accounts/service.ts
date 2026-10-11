@@ -479,6 +479,7 @@ export class AccountService {
    * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in). `coached`: Coached play
    * (always 3 players, gentle bots for clients that ask, no buy-in, small XP, kept out of the career and the rating).
    * `lessons`: the client can teach Coached play's lessons, so a player's first coached games are one (lessons.ts).
+   * `true` is an older client that knows lessons 1-4 only; 2 also knows the one-hand first lesson.
    */
   async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown, gentle?: unknown, lessons?: unknown) {
     const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
@@ -490,7 +491,7 @@ export class AccountService {
     const n = coach ? COACH_PLAYERS : players;
     const buy = coach ? 0 : stakes;
     // Coached play deals a friendly game: the seed where following the coach wins fastest (it replays as usual)
-    const les = coach && gentle === true && lessons === true ? lessonFor(a.progress.coachGames) : undefined;
+    const les = coach && gentle === true && (lessons === true || lessons === 2) ? lessonFor(a.progress.coachGames, lessons === 2) : undefined;
     const seed = coach && gentle === true ? easySeed(() => randomInt(2 ** 31), n, 16, 250, undefined, les) : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
       if (st && st.n > x.progress.campaign + 1) throw new ApiError(403, "Clear the stage before that one first");
