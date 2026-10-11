@@ -651,7 +651,7 @@ function RotateHint() {
   );
 }
 
-function Confetti() {
+export function Confetti() {
   const bits = Array.from({ length: 46 }, (_, i) => i);
   return (
     <div className="confetti" aria-hidden>
