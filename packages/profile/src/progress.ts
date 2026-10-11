@@ -212,10 +212,13 @@ export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: nu
 }
 
 /**
- * Solitaire XP, paid the same in season XP. Too small to be worth grinding, so no cap a person will
- * meet; the daily ceiling only stops a script farming new positions.
+ * Solitaire XP a day (paid the same in season XP): about two games, so Solitaire is a side snack and
+ * Heist stays the game worth grinding (one Heist game pays more pass XP than this whole day).
  */
-export const SOLITAIRE_DAY_XP = 2000;
+export const SOLITAIRE_DAY_XP = 500;
+
+/** Solitaire XP still to be earned today. */
+export const solitaireRoom = (p: Progress, at: number) => Math.max(0, SOLITAIRE_DAY_XP - (p.solitaire.day === day(at) ? p.solitaire.xp ?? 0 : 0));
 
 /**
  * Pay for Solitaire play the server has checked by replaying the moves. `gained` is what the deal

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solGain, solSolved, solWon, tallySol, tallyXp, tapMove, upgrade, SOL_XP, SOLITAIRE_DAY_XP, SEASONS, type Klondike, type SolMove } from "../src";
+import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solitaireRoom, solGain, solSolved, solWon, tallySol, tallyXp, tapMove, upgrade, SOL_XP, SOLITAIRE_DAY_XP, SEASONS, type Klondike, type SolMove } from "../src";
 
 /** A greedy player: foundations first, then any column move that turns a card over, else draw. */
 function greedy(seed: number, limit = 3000): { k: Klondike; moves: SolMove[] } {
@@ -82,7 +82,7 @@ describe("solitaire", () => {
     expect(solGain(first.paid, tallySol(seed, ["d", "d", "d"])).gained.moves).toBe(1);
   });
 
-  it("pays each part in XP and season XP alike, up to a daily ceiling only a script would reach", () => {
+  it("pays each part in XP and season XP alike, up to a small daily allowance", () => {
     const at = SEASONS[0].start + 1000;
     const p = newProgress();
     const t = { moves: 120, aces: 4, stacks: 4, won: true };
@@ -97,6 +97,8 @@ describe("solitaire", () => {
     expect(capped.reward.xp).toBe(10);
     expect(settleSolitaire(capped.progress, at, { moves: 5, aces: 0, stacks: 0, won: false }).reward.xp).toBe(0);
     expect(settleSolitaire(capped.progress, at + 86_400_000, { moves: 5, aces: 0, stacks: 0, won: false }).reward.xp).toBe(5);
+    expect(solitaireRoom(capped.progress, at)).toBe(0);
+    expect(solitaireRoom(capped.progress, at + 86_400_000)).toBe(SOLITAIRE_DAY_XP);
     expect(upgrade({ xp: 5 } as never).solitaire).toEqual({ won: 0, day: null, xp: 0 });
   });
 });

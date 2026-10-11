@@ -491,3 +491,11 @@
   font-size: 30px;
   text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(212, 175, 55, 0.7);
 }
+.sol-float.note {
+  width: 180px;
+  margin-left: -90px;
+}
+.sol-float.note small {
+  font-size: 11px;
+  color: var(--gold);
+}
