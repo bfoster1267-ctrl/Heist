@@ -1,5 +1,5 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { STAGES, botLevelsFor, createSoloGame, type SoloSetup } from "@heist/profile";
+import { FIRST_HAND, STAGES, botLevelsFor, createSoloGame, type SoloSetup } from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -180,6 +180,23 @@ describe("accounts", () => {
     const next = await svc.soloStart(await acct(), 3, 100);
     expect(next.quit).toBeNull();
     expect(next.me.progress.stats.quits).toBe(0);
+  });
+
+  it("starts a new learner on the one-hand first lesson, and older clients on lesson 1", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const learner = async (name: string) => {
+      const { token } = await svc.guest(undefined, name);
+      return () => svc.require(token);
+    };
+    const acct = await learner("Newbie");
+    const first = await svc.soloStart(await acct(), 3, 0, true, undefined, true, true, 2);
+    expect(first.lesson).toBe(FIRST_HAND);
+    const g = playSolo(first.seed, 3, { gentle: true, lesson: first.lesson });
+    expect((await svc.soloFinish(await acct(), first.gameId, g.answers)).me.progress.coachGames).toBe(1);
+    expect((await svc.soloStart(await acct(), 3, 0, true, undefined, true, true, 2)).lesson).toBe(1);
+    // an older cached client only knows lessons 1-4
+    const old = await learner("Oldclient");
+    expect((await svc.soloStart(await old(), 3, 0, true, undefined, true, true, true)).lesson).toBe(1);
   });
 
   it("scales vs-bots tables to a hidden skill rating, replaying them with the same bots", async () => {

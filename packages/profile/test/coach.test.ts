@@ -1,6 +1,6 @@
 import { HeistGame, Rng, randomAnswer, runBots, type Answer, type Ask, type Card, type GameState } from "@heist/engine";
 import { describe, expect, it } from "vitest";
-import { addMistakes, checkMove, coachPick, coachTip, createSoloGame, describePick, newProgress, replaySolo, settleCoached, type MistakeId } from "../src";
+import { addMistakes, checkMove, coachPick, coachTip, createSoloGame, describePick, newProgress, replaySolo, settleCoached, SEASONS, TIER_XP, passTrack, type MistakeId } from "../src";
 
 const fresh = (): GameState => structuredClone(new HeistGame({ seed: 7, seats: [0, 1, 2, 3].map((i) => ({ name: `P${i}`, bot: i > 0 })) }).s);
 const score = (id: number, n: number): Card => ({ id, kind: "S", score: n, cash: 2, color: 0 });
@@ -93,6 +93,18 @@ describe("the coach", () => {
     expect(c.progress.chips).toBe(p.chips);
     expect(c.progress.stats).toEqual(p.stats);
     expect(c.progress.coachGames).toBe(1);
+    expect(c.reward.pass).toBeNull();
+  });
+
+  it("opens season pass tier 1 on a new player's first hand, and only then", () => {
+    const s1 = SEASONS[0];
+    const at = s1.start + 1000;
+    const first = settleCoached(newProgress(), true, { at });
+    expect(first.reward.pass).toMatchObject({ tierBefore: 0, tierAfter: 1, xp: TIER_XP });
+    expect(first.reward.pass!.rewards).toEqual(passTrack(s1).slice(0, 1));
+    expect(first.progress.pass?.xp).toBe(TIER_XP);
+    // a second first-hand (a replayed lesson) gives nothing more
+    expect(settleCoached(first.progress, true, { at }).reward.pass).toBeNull();
   });
 
   it("follows the coach's pick through a whole game against gentle bots: legal, never flagged, and the tips only name cards you hold", () => {

@@ -5,7 +5,7 @@
 import { COSMETICS, DEFAULT_EQUIPPED, cosmetic, drink, equippable, freeWith, unlocked, type EquipSlot } from "./cosmetics";
 import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForLevel } from "./levels";
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
-import { addPassXp, passLines, type PassResult, type PassState } from "./season";
+import { TIER_XP, addPassXp, passLines, type PassResult, type PassState } from "./season";
 import { addCounts, type MistakeCounts } from "./coach";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
@@ -171,9 +171,11 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
 
 /** Coached play pays a little XP and nothing else: no chips, coins, season XP or career stats. */
 export const COACH_XP = { played: 25, won: 25 };
+/** The one exception: a new player's very first hand opens season pass tier 1, so the pass is something they already have. */
+export const FIRST_HAND_PASS_XP = TIER_XP;
 
-/** Record a finished Coached play game. */
-export function settleCoached(prev: Progress, won: boolean): { progress: Progress; reward: Reward } {
+/** Record a finished Coached play game (`firstHand` at `at`: the new player's one-hand first lesson). */
+export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: number }): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const lines: RewardLine[] = [{ label: "Coached game", xp: COACH_XP.played, coins: 0 }];
   if (won) lines.push({ label: "Won", xp: COACH_XP.won, coins: 0 });
@@ -192,13 +194,15 @@ export function settleCoached(prev: Progress, won: boolean): { progress: Progres
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
+  // only ever once: their first coached game, before any season XP
+  const pass = firstHand && !prev.coachGames && !prev.pass?.xp ? addPassXp(p, FIRST_HAND_PASS_XP, firstHand.at) : null;
   p.coachGames++;
   return {
     progress: p,
     reward: {
       xp, coins, lines, payout: 0,
       levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
-      unlocked: unlockedNow, canPrestige: canPrestige(p), pass: null,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
     },
   };
 }
