@@ -3709,7 +3709,7 @@ button:disabled {
 }
 .coach-card-btns .btn {
   font-size: 22px;
-  padding: 12px 22px;
+  padding: 16px 26px;
 }
 .coach-card-btns .btn.primary {
   min-width: 190px;
@@ -3743,7 +3743,11 @@ button:disabled {
 .coach-line-btns {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 0 6px;
+}
+.coach-line-btns .coach-hint {
+  margin-top: 4px;
+  padding: 2px 10px;
 }
 .coach-line-btns .coach-new-tag {
   font-size: 11px;

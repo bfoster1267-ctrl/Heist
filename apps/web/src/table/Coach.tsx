@@ -228,7 +228,7 @@ export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState;
           )}
           {said && !hint && (
             <button className="coach-hint" onClick={() => setHint(true)}>
-              Stuck? Get a hint
+              Get a hint
             </button>
           )}
         </div>
