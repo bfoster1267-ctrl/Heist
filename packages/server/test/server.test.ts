@@ -181,4 +181,20 @@ describe("game server over WebSockets", () => {
     expect(a.c.room?.seats.filter((s) => s.kind === "bot").length).toBe(2);
     expect(srv.queue.size).toBe(0);
   }, 30_000);
+
+  it("quick queue: a dropped connection while waiting gets back in line on reconnect and is still dealt in", async () => {
+    const srv = await startServer({ port: 0, host: "127.0.0.1", rate: FAST, queueWaitMs: 300 });
+    servers.push(srv);
+    const url = `ws://127.0.0.1:${srv.port()}/ws`;
+    const a = player(url, "Ann");
+    await a.c.connect();
+    a.c.queue(6, 250);
+    await until(() => a.seen.some((m) => m.t === "queue"));
+    a.c.drop(); // phone locked, app switched, or the server restarted
+    await until(() => a.seen.filter((m) => m.t === "welcome").length >= 2, 10_000);
+    const r = await a.over;
+    expect(r.winners.length).toBeGreaterThan(0);
+    expect(a.c.room?.seats.filter((s) => s.kind === "bot").length).toBe(5);
+    expect(srv.queue.size).toBe(0);
+  }, 30_000);
 });
