@@ -7,6 +7,7 @@ import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForL
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
 import { TIER_XP, addPassXp, passLines, type PassResult, type PassState } from "./season";
 import { addCounts, type MistakeCounts } from "./coach";
+import { SOL_XP, type SolTally } from "./solitaire";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -49,8 +50,8 @@ export interface Progress {
   campaign: number;
   /** Ranked: rank points, Ranked MMR and this season's record (null before the first ranked game) */
   ranked: RankedState | null;
-  /** Solitaire: games won, and paid wins today (UTC day) toward the daily cap */
-  solitaire: { won: number; day: string | null; today: number };
+  /** Solitaire: games won, and XP paid today (UTC day) toward the daily ceiling */
+  solitaire: { won: number; day: string | null; xp: number };
 }
 
 export function newProgress(): Progress {
@@ -59,7 +60,7 @@ export function newProgress(): Progress {
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
     mistakes: {}, coachGames: 0,
     rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
-    solitaire: { won: 0, day: null, today: 0 },
+    solitaire: { won: 0, day: null, xp: 0 },
   };
 }
 
@@ -210,21 +211,40 @@ export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: nu
   };
 }
 
-/** A Solitaire win: a little XP and season XP, so it counts toward the pass. Paid for this many wins a day. */
-export const SOLITAIRE_XP = { xp: 30, season: 75, perDay: 10 };
+/**
+ * Solitaire XP a day (paid the same in season XP): about two games, so Solitaire is a side snack and
+ * Heist stays the game worth grinding (one Heist game pays more pass XP than this whole day).
+ */
+export const SOLITAIRE_DAY_XP = 500;
 
-/** Record a won Solitaire game (wins only; the server checked it by replaying the moves). */
-export function settleSolitaire(prev: Progress, at: number): { progress: Progress; reward: Reward } {
+/** Solitaire XP still to be earned today. */
+export const solitaireRoom = (p: Progress, at: number) => Math.max(0, SOLITAIRE_DAY_XP - (p.solitaire.day === day(at) ? p.solitaire.xp ?? 0 : 0));
+
+/**
+ * Pay for Solitaire play the server has checked by replaying the moves. `gained` is what the deal
+ * earned beyond what was already paid for it (see tallySol).
+ */
+export function settleSolitaire(prev: Progress, at: number, gained: SolTally): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
-  const s = { ...p.solitaire };
-  if (s.day !== today) Object.assign(s, { day: today, today: 0 });
-  s.won++;
-  const paid = s.today < SOLITAIRE_XP.perDay;
-  if (paid) s.today++;
+  // (saves from before the XP ceiling have no xp yet)
+  const s = { ...p.solitaire, xp: p.solitaire.xp ?? 0 };
+  if (s.day !== today) Object.assign(s, { day: today, xp: 0 });
+  if (gained.won) s.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.moves, "new move", "new moves"), xp: gained.moves * SOL_XP.move, coins: 0 },
+    { label: plural(gained.aces, "ace sent up", "aces sent up"), xp: gained.aces * SOL_XP.ace, coins: 0 },
+    { label: plural(gained.stacks, "suit finished", "suits finished"), xp: gained.stacks * SOL_XP.stack, coins: 0 },
+    { label: "Solitaire solved", xp: gained.won ? SOL_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+  const room = Math.max(0, SOLITAIRE_DAY_XP - s.xp);
+  const total = lines.reduce((t, l) => t + l.xp, 0);
+  if (total > room) lines = [{ label: "Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
+  s.xp += Math.min(total, room);
+  const season = Math.min(total, room);
   p.solitaire = s;
-  const lines: RewardLine[] = [{ label: paid ? "Solitaire win" : `Solitaire win (XP for the first ${SOLITAIRE_XP.perDay} a day)`, xp: paid ? SOLITAIRE_XP.xp : 0, coins: 0 }];
-  const xp = lines[0].xp;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
   const after = levelInfo(p.xp);
@@ -239,7 +259,7 @@ export function settleSolitaire(prev: Progress, at: number): { progress: Progres
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const pass = paid ? addPassXp(p, SOLITAIRE_XP.season, at) : null;
+  const pass = season ? addPassXp(p, season, at) : null;
   return {
     progress: p,
     reward: {

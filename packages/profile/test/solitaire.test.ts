@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solSolved, solWon, tapMove, upgrade, SOLITAIRE_XP, SEASONS, type Klondike, type SolMove } from "../src";
+import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solitaireRoom, solGain, solSolved, solWon, tallySol, tallyXp, tapMove, upgrade, SOL_XP, SOLITAIRE_DAY_XP, SEASONS, type Klondike, type SolMove } from "../src";
 
 /** A greedy player: foundations first, then any column move that turns a card over, else draw. */
 function greedy(seed: number, limit = 3000): { k: Klondike; moves: SolMove[] } {
@@ -67,20 +67,38 @@ describe("solitaire", () => {
     expect(won).toBeGreaterThan(0);
   });
 
-  it("pays XP and season XP for the first wins of the day only", () => {
+  it("counts only positions never seen before, and each ace and suit once", () => {
+    const seed = 7;
+    expect(tallySol(seed, [])).toEqual({ moves: 0, aces: 0, stacks: 0, won: false });
+    // flipping through the whole stock twice: the second pass is all positions already seen
+    const pass = Array.from({ length: 25 }, () => "d");
+    expect(tallySol(seed, pass).moves).toBe(24); // 24 draws, then back where it started
+    expect(tallySol(seed, [...pass, ...pass]).moves).toBe(24);
+    expect(() => tallySol(seed, ["t0>t0"])).toThrow();
+    // undo and redo pays nothing twice
+    const first = solGain(undefined, tallySol(seed, ["d", "d"]));
+    expect(first.gained.moves).toBe(2);
+    expect(solGain(first.paid, tallySol(seed, ["d"])).any).toBe(false);
+    expect(solGain(first.paid, tallySol(seed, ["d", "d", "d"])).gained.moves).toBe(1);
+  });
+
+  it("pays each part in XP and season XP alike, up to a small daily allowance", () => {
     const at = SEASONS[0].start + 1000;
-    let p = newProgress();
-    for (let i = 0; i < SOLITAIRE_XP.perDay; i++) {
-      const r = settleSolitaire(p, at);
-      expect(r.reward.xp).toBe(SOLITAIRE_XP.xp);
-      expect(r.reward.pass?.xp).toBe(SOLITAIRE_XP.season);
-      p = r.progress;
-    }
-    const over = settleSolitaire(p, at);
-    expect(over.reward.xp).toBe(0);
-    expect(over.reward.pass).toBeNull();
-    expect(over.progress.solitaire.won).toBe(SOLITAIRE_XP.perDay + 1);
-    expect(settleSolitaire(over.progress, at + 86_400_000).reward.xp).toBe(SOLITAIRE_XP.xp);
-    expect(upgrade({ xp: 5 } as never).solitaire).toEqual({ won: 0, day: null, today: 0 });
+    const p = newProgress();
+    const t = { moves: 120, aces: 4, stacks: 4, won: true };
+    const r = settleSolitaire(p, at, t);
+    expect(r.reward.xp).toBe(120 + 4 * SOL_XP.ace + 4 * SOL_XP.stack + SOL_XP.win);
+    expect(r.reward.xp).toBe(tallyXp(t));
+    expect(r.reward.pass?.xp).toBe(r.reward.xp);
+    expect(r.progress.solitaire.won).toBe(1);
+    expect(r.reward.lines.map((l) => l.label).slice(0, 3)).toEqual(["120 new moves", "4 aces sent up", "4 suits finished"]);
+    const near = { ...r.progress, solitaire: { ...r.progress.solitaire, xp: SOLITAIRE_DAY_XP - 10 } };
+    const capped = settleSolitaire(near, at, { moves: 50, aces: 0, stacks: 0, won: false });
+    expect(capped.reward.xp).toBe(10);
+    expect(settleSolitaire(capped.progress, at, { moves: 5, aces: 0, stacks: 0, won: false }).reward.xp).toBe(0);
+    expect(settleSolitaire(capped.progress, at + 86_400_000, { moves: 5, aces: 0, stacks: 0, won: false }).reward.xp).toBe(5);
+    expect(solitaireRoom(capped.progress, at)).toBe(0);
+    expect(solitaireRoom(capped.progress, at + 86_400_000)).toBe(SOLITAIRE_DAY_XP);
+    expect(upgrade({ xp: 5 } as never).solitaire).toEqual({ won: 0, day: null, xp: 0 });
   });
 });

@@ -162,3 +162,50 @@ export function replaySol(seed: number, moves: readonly unknown[]): Klondike {
   }
   return k;
 }
+
+/**
+ * What a deal's moves have earned so far: positions the game had never been in before (so shuffling a
+ * card back and forth, or flipping through the stock again, earns nothing), aces sent up, suits
+ * finished, and the win. Throws on an illegal move, like replaySol.
+ */
+export interface SolTally {
+  moves: number;
+  aces: number;
+  stacks: number;
+  won: boolean;
+}
+
+const key = (k: Klondike) => `${k.stock}|${k.waste}|${k.found.map((f) => f.length)}|${k.cols.map((c) => `${c.down.length}:${c.up}`).join("/")}`;
+
+export function tallySol(seed: number, moves: readonly unknown[]): SolTally {
+  let k = dealKlondike(seed);
+  const seen = new Set([key(k)]);
+  const aces = new Set<number>();
+  const stacks = new Set<number>();
+  for (const m of moves) {
+    const next = typeof m === "string" ? applySol(k, m) : null;
+    if (!next) throw new Error("illegal move");
+    k = next;
+    seen.add(key(k));
+    k.found.forEach((f, i) => {
+      if (f.length) aces.add(i);
+      if (f.length === 13) stacks.add(i);
+    });
+  }
+  return { moves: seen.size - 1, aces: aces.size, stacks: stacks.size, won: solWon(k) };
+}
+
+/** XP (and season XP) for each part of a tally. */
+export const SOL_XP = { move: 1, ace: 2, stack: 3, win: 0 };
+export const tallyXp = (t: SolTally) => t.moves * SOL_XP.move + t.aces * SOL_XP.ace + t.stacks * SOL_XP.stack + (t.won ? SOL_XP.win : 0);
+
+/** What a new tally earns beyond what the deal was already paid for, and the new paid-for mark. */
+export function solGain(paid: SolTally | undefined, t: SolTally) {
+  const p = paid ?? { moves: 0, aces: 0, stacks: 0, won: false };
+  const gained = { moves: Math.max(0, t.moves - p.moves), aces: Math.max(0, t.aces - p.aces), stacks: Math.max(0, t.stacks - p.stacks), won: t.won && !p.won };
+  return {
+    gained,
+    paid: { moves: Math.max(t.moves, p.moves), aces: Math.max(t.aces, p.aces), stacks: Math.max(t.stacks, p.stacks), won: t.won || p.won },
+    any: tallyXp(gained) > 0,
+  };
+}
