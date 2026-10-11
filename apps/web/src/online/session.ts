@@ -151,6 +151,8 @@ export class OnlineSession {
       case "error":
         // a stale or late answer after a timeout isn't worth a message
         if (m.code !== "stale_ask" && m.code !== "not_your_turn") this.error = m.msg;
+        // a turned-down queue request (or a table that couldn't be dealt) means we're not in line any more
+        if (!this.client.queued) this.queue = null;
         break;
     }
     for (const f of this.frameListeners) f(m);

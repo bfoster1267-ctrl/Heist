@@ -37,6 +37,8 @@ export class HeistClient {
   private spectating = false;
   /** the app is in the background (told to the server again after a reconnect) */
   private away = false;
+  /** the quick-queue line we're waiting in (sent again after a reconnect, since the server drops it with the socket) */
+  queued: { players: number; stakes: number; ranked: boolean } | null = null;
 
   constructor(
     private url: string,
@@ -83,6 +85,7 @@ export class HeistClient {
           for (const h of this.connHandlers) h(true);
           // back after a drop: rejoin the table and pick up after the last frame we played
           if (this.room) this.send({ t: "join", code: this.room.code, spectate: this.spectating, since: this.game ? this.nextFrame : undefined });
+          else if (this.queued) this.queue(this.queued.players, this.queued.stakes, this.queued.ranked);
           if (this.away) this.send({ t: "away", on: true });
         }
         // a suspended account is turned away for good: stop trying to reconnect
@@ -121,7 +124,15 @@ export class HeistClient {
           this.opts.onToken?.(m.token);
         }
         break;
+      case "unqueued":
+        this.queued = null;
+        break;
+      case "error":
+        // the server turned the queue request down: we're not in line
+        if (this.queued && (m.code === "no_chips" || m.code === "ranked_locked" || m.code === "bad_message" || m.code === "bad_state")) this.queued = null;
+        break;
       case "room":
+        this.queued = null;
         this.room = m.room;
         this.seat = m.you.seat;
         break;
@@ -165,10 +176,12 @@ export class HeistClient {
     this.send({ t: "list" });
   }
   create(options: CreateRoomOptions) {
+    this.queued = null;
     this.spectating = false;
     this.send({ t: "create", options });
   }
   join(code: string, spectate = false) {
+    this.queued = null;
     this.spectating = spectate;
     this.game = 0;
     this.nextFrame = 0;
@@ -184,9 +197,11 @@ export class HeistClient {
   }
   /** Quick queue: get dealt into the next table of this size and stakes. */
   queue(players: number, stakes: number, ranked = false) {
+    this.queued = { players, stakes, ranked };
     this.send({ t: "queue", players, stakes, ...(ranked ? { ranked: true } : {}) });
   }
   unqueue() {
+    this.queued = null;
     this.send({ t: "unqueue" });
   }
   sit() {

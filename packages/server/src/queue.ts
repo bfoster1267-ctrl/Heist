@@ -149,10 +149,18 @@ export class Matchmaker {
       rules: { bribes: false, placeCrew: false, openDeals: false }, botLevel: botLevelFor(avg), ranked: line.ranked,
     });
     if (!room) {
-      for (const w of group) w.conn.send({ t: "error", code: "bad_state", msg: "The server is full right now. Try again in a minute." });
+      for (const w of group) {
+        w.conn.send({ t: "unqueued" });
+        w.conn.send({ t: "error", code: "bad_state", msg: "The server is full right now. Try again in a minute." });
+      }
       return;
     }
-    const seated = group.filter((w) => this.seat(w.conn, room) === null);
+    const seated = group.filter((w) => {
+      if (this.seat(w.conn, room) === null) return true;
+      // couldn't sit them (socket gone mid-deal, say): say so, or their screen waits on a table that never comes
+      w.conn.send({ t: "unqueued" });
+      return false;
+    });
     if (seated.length) {
       room.start(null);
       this.log?.(line.ranked ? "ranked table" : "quick table", { room: room.code, people: seated.length, players: line.players });
