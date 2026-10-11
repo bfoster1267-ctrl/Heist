@@ -224,7 +224,7 @@ export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId
 }
 
 /** The action panel changes height with each decision (and with the text size), so sit the tip just
- *  above it rather than at a fixed height that can cover the panel's title. The panel is swapped for a
+ *  above it (or beside it, clear of your hand) rather than at a fixed spot that can cover a choice. The panel is swapped for a
  *  new one after every move, so it's looked up again on each change rather than once. */
 function useAbovePanel(on: boolean) {
   const [el, setEl] = useState<HTMLElement | null>(null);
@@ -266,10 +266,22 @@ function useAbovePanel(on: boolean) {
         el.style.maxHeight = `${Math.max(60, room)}px`;
         el.style.bottom = `${H - panel.offsetTop + 8}px`;
       }
+      // Your hand is a choice too (lay a card, bank, discard): lift the coach above it if it landed on it
+      const hand = parent.querySelector<HTMLElement>('[data-anchor="my-hand"]');
+      if (!hand) return;
+      const k = boxIn(parent, parent).width / parent.offsetWidth || 1;
+      const a = boxIn(el, parent), b = boxIn(hand, parent);
+      const [ax, ay, aw, ah] = [a.left / k, a.top / k, a.width / k, a.height / k];
+      const [bx, by, bw] = [b.left / k, b.top / k, b.width / k];
+      if (ax >= bx + bw || bx >= ax + aw || ay + ah <= by) return;
+      if (ah > by - 16) el.style.maxHeight = `${Math.max(60, by - 16)}px`;
+      el.style.bottom = `${H - by + 8}px`;
     };
     const ro = new ResizeObserver(place);
     const mo = new MutationObserver(() => current() !== watched && place());
     ro.observe(el);
+    const hand = parent.querySelector('[data-anchor="my-hand"]');
+    if (hand) ro.observe(hand);
     mo.observe(parent, { childList: true, subtree: true, attributeFilter: ["data-leaving"] });
     place();
     return () => {
