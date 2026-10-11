@@ -7,6 +7,7 @@ import {
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Chips } from "../table/pieces";
 import type { Me } from "./backend";
 import { Coins } from "./bits";
@@ -158,7 +159,8 @@ function Track({ rewards, tier, name }: { rewards: TierReward[]; tier: number; n
 }
 
 function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp: number; name: string; onClose: () => void }) {
-  return (
+  // Portaled to <body>: inside the profile screen it sat under the header on phones.
+  return createPortal(
     <motion.div className="acct-card-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div className="season-reveal" initial={{ scale: 0.9 }} animate={{ scale: 1 }} role="dialog" aria-label="Pack opened">
         <div className="season-reveal-title">Pack opened</div>
@@ -186,6 +188,7 @@ function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp:
           Nice
         </button>
       </motion.div>
-    </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

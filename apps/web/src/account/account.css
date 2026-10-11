@@ -1298,6 +1298,8 @@
   background: #15121d;
   border: 1px solid rgba(214, 91, 208, 0.5);
   box-shadow: 0 0 40px rgba(122, 75, 214, 0.35);
+  max-height: 100%; /* short sideways phones: scroll inside the box instead of spilling off screen */
+  overflow-y: auto;
 }
 .season-reveal-title {
   font-family: var(--title);
