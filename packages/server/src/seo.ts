@@ -2,6 +2,8 @@
 // would find only "Heist" and an empty box. Each public page gets its own title, description and a short
 // block of plain text inside #root (React replaces it as soon as the app starts).
 
+import { BLOG_PATHS } from "./blog";
+
 const SITE = "https://playheist.net";
 
 interface Page {
@@ -17,7 +19,7 @@ const PAGES: Record<string, Page> = {
       "Heist is a free online card game for 3 to 6 players. Pull jobs with your crew, split the score, and double-cross at the right moment. Play friends or bots in your browser.",
     text: `<h1>Heist, the online card game of double-crosses</h1>
 <p>Heist is a free card game for 3 to 6 players that you play in your browser on a phone or computer. Join crews, pull jobs, and decide when to betray the table. Play friends, quick-match strangers, or practice against bots.</p>
-<p><a href="/solitaire">Play free solitaire</a></p>`,
+<p><a href="/solitaire">Play free solitaire</a> · <a href="/blog">Blog</a></p>`,
   },
   "/solitaire": {
     title: "Solitaire: Play Free Klondike Solitaire Online, No Download",
@@ -74,7 +76,7 @@ Sitemap: ${SITE}/sitemap.xml
 
 export const SITEMAP = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${Object.keys(PAGES)
+${[...Object.keys(PAGES), ...BLOG_PATHS]
   .map((p) => `  <url><loc>${SITE}${p}</loc></url>`)
   .join("\n")}
 </urlset>
