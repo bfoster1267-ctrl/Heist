@@ -1,6 +1,6 @@
 // Klondike solitaire (draw one). Tap a card to send it where it fits, or drag it. Undo, a hint, and the
 // game finishes itself once every card is face up. Every new move, ace and finished suit pays a little XP
-// and season XP (floating up from the card as it's earned), and solving it pays 100. It's paid when the
+// and season XP (floating up from the card as it's earned); solving it pays nothing extra. It's paid when the
 // player leaves, deals again or wins; the server replays the moves first, so nothing is paid twice.
 
 import {
@@ -288,7 +288,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
       x = colX(i);
       y = tabY + col.down.length * offsets[i].down + Math.max(0, col.up.length - 1) * offsets[i].up;
     } else if (!k.waste.length) x = colX(0);
-    const tag = maxed ? "MAXED TODAY · HEIST PAYS MORE" : gained.won ? "SOLVED" : gained.stacks ? "SUIT DONE" : gained.aces ? "ACE" : null;
+    const tag = maxed ? "MAXED TODAY · HEIST PAYS MORE" : gained.stacks ? "SUIT DONE" : gained.aces ? "ACE" : null;
     const id = ++floatId.current;
     setFloats((f) => [...f.slice(-5), { id, x: x + b.cw / 2, y, xp, tag }]);
     // not cleared by the next move: fast play still lets each one finish and go

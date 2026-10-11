@@ -196,7 +196,7 @@ export function tallySol(seed: number, moves: readonly unknown[]): SolTally {
 }
 
 /** XP (and season XP) for each part of a tally. */
-export const SOL_XP = { move: 1, ace: 2, stack: 3, win: 50 };
+export const SOL_XP = { move: 1, ace: 2, stack: 3, win: 0 };
 export const tallyXp = (t: SolTally) => t.moves * SOL_XP.move + t.aces * SOL_XP.ace + t.stacks * SOL_XP.stack + (t.won ? SOL_XP.win : 0);
 
 /** What a new tally earns beyond what the deal was already paid for, and the new paid-for mark. */

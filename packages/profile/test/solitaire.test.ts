@@ -91,7 +91,7 @@ describe("solitaire", () => {
     expect(r.reward.xp).toBe(tallyXp(t));
     expect(r.reward.pass?.xp).toBe(r.reward.xp);
     expect(r.progress.solitaire.won).toBe(1);
-    expect(r.reward.lines.map((l) => l.label).slice(0, 4)).toEqual(["120 new moves", "4 aces sent up", "4 suits finished", "Solitaire solved"]);
+    expect(r.reward.lines.map((l) => l.label).slice(0, 3)).toEqual(["120 new moves", "4 aces sent up", "4 suits finished"]);
     const near = { ...r.progress, solitaire: { ...r.progress.solitaire, xp: SOLITAIRE_DAY_XP - 10 } };
     const capped = settleSolitaire(near, at, { moves: 50, aces: 0, stacks: 0, won: false });
     expect(capped.reward.xp).toBe(10);
