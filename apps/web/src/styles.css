@@ -1601,13 +1601,21 @@ button:disabled {
   top: 0;
   margin: -10px 0 0 -10px;
 }
-.flip-show {
+/* placed by clearSpot() in layout.ts so it never covers a seat */
+.flip-spot {
   position: absolute;
-  left: 640px;
-  top: 290px;
-  margin: -100px 0 0 -65px;
+  left: 0;
+  top: 0;
   z-index: 35;
+  pointer-events: none;
+  transition: left 0.25s, top 0.25s, transform 0.25s;
+}
+.flip-show {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  white-space: nowrap;
   filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.8));
 }
 .flip-caption {
@@ -2268,9 +2276,6 @@ button:disabled {
 .l-wide .job {
   top: 252px;
   scale: 0.84;
-}
-.l-wide .flip-show {
-  top: 220px;
 }
 .l-wide .banner {
   top: 125px;
