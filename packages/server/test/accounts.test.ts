@@ -128,6 +128,18 @@ describe("accounts", () => {
     expect((await svc.dev("Dana")).me.id).not.toBe(a.me.id);
   });
 
+  it("only pays a Solitaire game the server can replay as a win", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Sol");
+    const acct = () => svc.require(token);
+    const g = await svc.solitaireStart(await acct());
+    expect(typeof g.seed).toBe("number");
+    await expect(svc.solitaireFinish(await acct(), g.gameId, ["d", "d"])).rejects.toThrow(/isn't won/);
+    await expect(svc.solitaireFinish(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
+    await expect(svc.solitaireFinish(await acct(), "nope", [])).rejects.toThrow(/isn't running/);
+    expect((await acct()).progress.xp).toBe(0);
+  });
+
   it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {
     const svc = new AccountService({ secret: "s" });
     const { token } = await svc.guest(undefined, "Solo");

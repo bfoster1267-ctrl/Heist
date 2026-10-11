@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, replaySol, solWon, settleSolitaire, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -528,6 +528,35 @@ export class AccountService {
       if (!x.solo) throw new ApiError(400, "No game in progress");
       const reward = this.settleQuit(x);
       return { me: this.me(x), reward };
+    });
+  }
+
+  /** Deal a Solitaire game. Starting another one just replaces it (nothing is at stake). */
+  solitaireStart(a: Account) {
+    return this.update(a.id, (x) => {
+      x.solitaire = { gameId: `k_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.solitaire.gameId, seed: x.solitaire.seed };
+    });
+  }
+
+  /** A Solitaire win: the server replays the moves from the seed and pays only a real win. */
+  solitaireFinish(a: Account, gameId: unknown, moves: unknown) {
+    return this.update(a.id, (x) => {
+      const g = x.solitaire;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let won = false;
+      try {
+        won = solWon(replaySol(g.seed, moves));
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (!won) throw new ApiError(400, "That game isn't won yet");
+      x.solitaire = null;
+      const r = settleSolitaire(x.progress, this.now());
+      x.progress = r.progress;
+      return { me: this.me(x), reward: r.reward };
     });
   }
 

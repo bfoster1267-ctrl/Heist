@@ -1,0 +1,142 @@
+/* Solitaire: the Heist felt, paper cards, gold trim */
+.sol {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt2) 70%, #06261a 100%);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  padding-top: env(safe-area-inset-top);
+}
+.sol-bar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 16px, 744px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  z-index: 600;
+}
+.sol-btn {
+  padding: 6px 10px;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.sol-stat {
+  flex: 1;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 0.5px;
+  color: var(--paper);
+  opacity: 0.8;
+}
+.sol-slot {
+  position: absolute;
+  border-radius: 7px;
+  border: 1.5px solid rgba(242, 232, 211, 0.18);
+  background: rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(242, 232, 211, 0.35);
+  font-size: 22px;
+  padding: 0;
+}
+.sol-stock {
+  cursor: pointer;
+  font-family: var(--body);
+}
+.sol-slot-suit {
+  font-size: 26px;
+  color: rgba(242, 232, 211, 0.22);
+}
+.sol-slot-suit.red {
+  color: rgba(214, 69, 43, 0.35);
+}
+.sol-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 7px;
+  background: linear-gradient(180deg, #fbf6ea, var(--paper));
+  border: 1px solid rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: #15171b;
+  cursor: grab;
+  touch-action: none;
+  font-family: var(--cond);
+  font-weight: 700;
+  line-height: 1;
+}
+.sol-card.red {
+  color: #c2321c;
+}
+.sol-card.back {
+  background:
+    repeating-linear-gradient(45deg, rgba(231, 181, 60, 0.16) 0 3px, transparent 3px 8px),
+    linear-gradient(160deg, #7a1d22, #3a0b10);
+  border: 1px solid rgba(231, 181, 60, 0.55);
+  box-shadow: inset 0 0 0 3px #3a0b10, inset 0 0 0 4px rgba(231, 181, 60, 0.45), 0 1px 3px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.sol-card.lifted {
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.55);
+  cursor: grabbing;
+}
+.sol-corner {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+.sol-corner span {
+  font-size: 0.8em;
+}
+.sol-pip {
+  position: absolute;
+  right: 6%;
+  bottom: 6%;
+  font-size: 1.6em;
+  opacity: 0.9;
+}
+.sol-win {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 16px;
+}
+.sol-win-card {
+  width: min(100%, 380px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+  padding: 22px;
+  border-radius: 18px;
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, #1c1f26, #101216);
+}
+.sol-win-title {
+  font-family: var(--title);
+  font-size: 48px;
+  letter-spacing: 3px;
+  color: var(--gold);
+}
+.sol-heist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}

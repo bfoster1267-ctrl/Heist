@@ -46,6 +46,7 @@ export function Lobby({
   onOnline,
   onOpen,
   onSignIn,
+  onSolitaire,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -60,6 +61,8 @@ export function Lobby({
   onOpen?: (page: LobbyPage) => void;
   /** sign in to an account made before (a new player's way past the lesson) */
   onSignIn?: () => void;
+  /** open Solitaire */
+  onSolitaire?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -181,6 +184,7 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
+          {onSolitaire && <Mode icon="cards" label="Solitaire" sub="Quick game · earns season XP" onClick={onSolitaire} />}
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
           <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
@@ -417,6 +421,12 @@ function Icon({ name }: { name: string }) {
         <circle cx="8" cy="8" r="3" />
         <circle cx="17" cy="9" r="2.5" />
         <path d="M2 20c0-3.3 2.7-6 6-6s6 2.7 6 6M14 15.5c.9-.6 1.9-.9 3-.9 2.8 0 5 2.2 5 5" />
+      </>
+    ),
+    cards: (
+      <>
+        <rect x="3" y="6" width="11" height="15" rx="2" />
+        <path d="M8 6V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2h-5" />
       </>
     ),
     map: <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2ZM9 4v14M15 6v14" />,
