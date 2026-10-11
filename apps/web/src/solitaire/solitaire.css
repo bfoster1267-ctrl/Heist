@@ -399,3 +399,63 @@
   text-align: center;
   font-size: 13px;
 }
+
+/* a strip under the top bar: the online queue while you play */
+.sol-banner {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 12px, 748px);
+  z-index: 600;
+}
+.queue-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 6px 0 12px;
+  border-radius: 15px;
+  border: 1px solid rgba(89, 179, 106, 0.55);
+  background: rgba(8, 24, 14, 0.85);
+  font-family: var(--cond);
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.queue-strip > span:nth-child(2) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.queue-strip b {
+  color: var(--gold2);
+  font-variant-numeric: tabular-nums;
+}
+.queue-strip-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cash);
+  box-shadow: 0 0 8px var(--cash);
+  animation: queue-pulse 1.2s ease-in-out infinite;
+}
+@keyframes queue-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.queue-strip-x {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--paper);
+  font-size: 12px;
+  cursor: pointer;
+}

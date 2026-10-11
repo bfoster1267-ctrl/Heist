@@ -7,7 +7,7 @@ import {
   type Klondike, type PlayingCard, type SolMove,
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
@@ -58,7 +58,13 @@ function findHint(k: Klondike): Hint {
   return k.stock.length || k.waste.length ? { pile: "s", depth: 0 } : null;
 }
 
-export function Solitaire({ onExit, onHeist }: { onExit: () => void; onHeist: () => void }) {
+export function Solitaire({ onExit, onHeist, banner }: {
+  onExit: () => void;
+  /** the win card's "Try a hand of Heist" (left out while waiting in the online queue) */
+  onHeist?: () => void;
+  /** a strip under the top bar (the online queue and its timer) */
+  banner?: ReactNode;
+}) {
   const { backend, act, showReward } = useAccount();
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<Klondike[]>([]);
@@ -184,7 +190,8 @@ export function Solitaire({ onExit, onHeist }: { onExit: () => void; onHeist: ()
   };
 
   // where everything sits
-  const barH = 52;
+  const stripH = banner ? 36 : 0;
+  const barH = 52 + stripH;
   const rowY = b.gap * 2 + barH;
   const colX = (i: number) => b.left + i * (b.cw + b.gap);
   const tabY = rowY + b.ch + b.gap * 3;
@@ -268,7 +275,8 @@ export function Solitaire({ onExit, onHeist }: { onExit: () => void; onHeist: ()
     <div className={"sol" + (small ? " sol-small" : "")} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrag(null)}>
       <div className="sol-felt-rim" />
       <div className="sol-board" ref={board}>
-      <div className="sol-bar" style={{ height: barH }}>
+      {banner && <div className="sol-banner">{banner}</div>}
+      <div className="sol-bar" style={{ height: 52 }}>
         <button className="sol-icon-btn" onClick={onExit} aria-label="Back to the lobby">
           <Icon d="M15 5 8 12l7 7" />
         </button>
@@ -359,10 +367,12 @@ export function Solitaire({ onExit, onHeist }: { onExit: () => void; onHeist: ()
               <button className="btn primary big" onClick={() => void deal()} autoFocus>
                 Deal again
               </button>
-              <button className="btn big sol-heist" onClick={onHeist}>
-                Try a hand of Heist
-                <span className="lobby-sub">The betrayal card game this site is built around</span>
-              </button>
+              {onHeist && (
+                <button className="btn big sol-heist" onClick={onHeist}>
+                  Try a hand of Heist
+                  <span className="lobby-sub">The betrayal card game this site is built around</span>
+                </button>
+              )}
               <button className="btn ghost" onClick={onExit}>
                 Lobby
               </button>

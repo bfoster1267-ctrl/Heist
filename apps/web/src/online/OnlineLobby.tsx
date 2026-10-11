@@ -11,6 +11,7 @@ import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
 import { dismissAlertsAsk, shouldAskForAlerts, turnOnAlerts, useAlertState } from "../alerts";
+import { Solitaire } from "../solitaire/Solitaire";
 import "./online.css";
 
 function useSession(sess: OnlineSession) {
@@ -58,6 +59,11 @@ export function OnlineLobby({
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
   const room = sess.room;
+  const [sol, setSol] = useState(false);
+  // when this player got in line, for the wait clock
+  const queuedAt = useRef(0);
+  if (sess.queue && !queuedAt.current) queuedAt.current = Date.now();
+  else if (!sess.queue) queuedAt.current = 0;
   const joined = useRef(false);
   useEffect(() => {
     if (join && !joined.current && sess.status === "online") {
@@ -102,6 +108,11 @@ export function OnlineLobby({
     return <OnlineTable sess={sess} onExit={leave} onWin={onWin} onEnd={onEnd} />;
   }
 
+  // Solitaire while waiting in the queue: the queue timer rides along on top, and the table takes over
+  // the moment it's dealt (the return above)
+  if (sol && !room)
+    return <Solitaire onExit={() => setSol(false)} banner={sess.queue ? <QueueStrip sess={sess} since={queuedAt.current} /> : <div className="queue-strip">Not in the queue any more</div>} />;
+
   return (
     <div className="lobby">
       {!room && (
@@ -117,7 +128,7 @@ export function OnlineLobby({
         </button>
       )}
       <motion.div className="lobby-card online-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-        {room ? <RoomView sess={sess} onLeave={() => sess.leave()} /> : <Pick sess={sess} chips={chips} />}
+        {room ? <RoomView sess={sess} onLeave={() => sess.leave()} /> : <Pick sess={sess} chips={chips} onSolitaire={() => setSol(true)} />}
         {sess.error && (
           <div className="online-error" onClick={() => sess.clearError()}>
             {sess.error}
@@ -154,7 +165,7 @@ function lastTable(): string | null {
 type Mode = "casual" | "ranked";
 const MODE_KEY = "heist.mode";
 
-function Pick({ sess, chips }: { sess: OnlineSession; chips: number }) {
+function Pick({ sess, chips, onSolitaire }: { sess: OnlineSession; chips: number; onSolitaire: () => void }) {
   const { me } = useAccount();
   const [mode, setModeState] = useState<Mode>(() => {
     try {
@@ -298,7 +309,7 @@ function Pick({ sess, chips }: { sess: OnlineSession; chips: number }) {
           </div>
         )}
         {sess.queue ? (
-          <QueueCard sess={sess} />
+          <QueueCard sess={sess} onSolitaire={onSolitaire} />
         ) : ranked ? (
           <div className="start-row">
             <button className="btn gold huge" disabled={!online || !!locked || chips < buyIn} onClick={() => sess.client.queue(RANKED_PLAYERS, buyIn, true)}>
@@ -358,16 +369,42 @@ function AlertsAsk() {
   );
 }
 
-/** Waiting in the quick queue: who's in line, and when bots fill the rest. */
-function QueueCard({ sess }: { sess: OnlineSession }) {
-  const q = sess.queue!;
-  const now = useSyncExternalStore(
+/** Seconds now, ticking once a second. */
+function useSeconds() {
+  return useSyncExternalStore(
     (cb) => {
       const t = window.setInterval(cb, 1000);
       return () => clearInterval(t);
     },
     () => Math.floor(Date.now() / 1000),
   );
+}
+const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+
+/** The queue, squeezed into one line above Solitaire: who's in, the timer, and a way out of line. */
+function QueueStrip({ sess, since }: { sess: OnlineSession; since: number }) {
+  const q = sess.queue!;
+  const now = useSeconds();
+  const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
+  const waited = Math.max(0, now - Math.floor(since / 1000));
+  return (
+    <div className="queue-strip" role="status">
+      <span className="queue-strip-dot" aria-hidden />
+      <span>
+        {q.ranked ? "Ranked" : "Finding players"} · {q.waiting}/{q.players} · <b>{mmss(waited)}</b>
+        {!q.ranked && (left > 0 ? ` · bots in ${mmss(left)}` : " · dealing...")}
+      </span>
+      <button className="queue-strip-x" onClick={() => sess.client.unqueue()} aria-label="Leave the queue">
+        ✕
+      </button>
+    </div>
+  );
+}
+
+/** Waiting in the quick queue: who's in line, and when bots fill the rest. */
+function QueueCard({ sess, onSolitaire }: { sess: OnlineSession; onSolitaire: () => void }) {
+  const q = sess.queue!;
+  const now = useSeconds();
   const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
   return (
     <div className="queue-card" role="status">
@@ -378,6 +415,9 @@ function QueueCard({ sess }: { sess: OnlineSession }) {
       <div className="fine">
         {q.ranked ? "No bots in Ranked: the table deals when six are in line." : left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}
       </div>
+      <button className="btn primary" onClick={onSolitaire}>
+        Play Solitaire while you wait
+      </button>
       <button className="btn ghost" onClick={() => sess.client.unqueue()}>
         Cancel
       </button>
