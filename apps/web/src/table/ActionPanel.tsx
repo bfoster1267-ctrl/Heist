@@ -1,5 +1,5 @@
 import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
-import { motion } from "motion/react";
+import { motion, useIsPresent } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { buzz } from "../haptics";
 import { click } from "../sound";
@@ -68,6 +68,8 @@ export function ActionPanel({
   const [n, setN] = useState(1);
   const [n2, setN2] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
+  // Each move swaps in a new panel while the old one fades; the coach places itself against the new one
+  const present = useIsPresent();
   // Move keyboard focus to the first choice so the game plays from the keyboard.
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -496,6 +498,7 @@ export function ActionPanel({
     <motion.div
       ref={panel}
       className={"action-panel" + (ask.kind === "keepRole" ? " wide" : "")}
+      data-leaving={present ? undefined : ""}
       key={ask.kind}
       role="group"
       aria-labelledby="action-title"
