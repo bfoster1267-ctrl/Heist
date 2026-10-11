@@ -4,6 +4,7 @@
 import { readFile, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
+import { pageHtml, ROBOTS, SITEMAP } from "./seo";
 
 const TYPES: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -28,6 +29,12 @@ export async function serveStatic(dir: string, req: IncomingMessage, res: Server
     return false;
   }
   if (path.startsWith("/api/") || path === "/ws") return false;
+  if (path === "/robots.txt" || path === "/sitemap.xml") {
+    const robots = path === "/robots.txt";
+    res.writeHead(200, { "content-type": robots ? "text/plain; charset=utf-8" : "application/xml", "cache-control": "public, max-age=3600" });
+    res.end(req.method === "HEAD" ? undefined : robots ? ROBOTS : SITEMAP);
+    return true;
+  }
   const root = normalize(dir);
   let file = normalize(join(root, path));
   if (file !== root && !file.startsWith(root + sep)) return false;
@@ -37,9 +44,10 @@ export async function serveStatic(dir: string, req: IncomingMessage, res: Server
     if (extname(path)) return false;
     file = join(root, path === "/admin" ? "admin.html" : "index.html");
   }
-  const body = await readFile(file).catch(() => null);
+  let body: Buffer | string | null = await readFile(file).catch(() => null);
   if (!body) return false;
   const name = file.slice(root.length);
+  if (name === sep + "index.html") body = pageHtml(body.toString("utf8"), path === "/index.html" ? "/" : path);
   // hashed build files never change; the page, manifest and service worker must always be fresh
   const immutable = name.startsWith(sep + "assets" + sep);
   res.writeHead(200, {
