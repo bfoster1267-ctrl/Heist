@@ -125,6 +125,9 @@ export function applySol(k: Klondike, m: SolMove): Klondike | null {
 
 export const solWon = (k: Klondike) => k.found.every((f) => f.length === 13);
 
+/** Cards on the foundations (what Solitaire pays for, a little at a time). */
+export const solFound = (k: Klondike) => k.found.reduce((n, f) => n + f.length, 0);
+
 /** Everything is face up and the stock is empty: the rest plays itself. */
 export const solSolved = (k: Klondike) => !k.stock.length && !k.waste.length && k.cols.every((c) => !c.down.length);
 

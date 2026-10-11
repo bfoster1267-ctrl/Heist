@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, replaySol, settleSolitaire, solWon, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, replaySol, settleSolitaire, solFound, solWon, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -88,6 +88,8 @@ export interface Backend {
   /** deal a Solitaire game; a win is paid after the moves replay from the seed */
   solitaireStart(): Promise<{ gameId: string; seed: number }>;
   solitaireFinish(gameId: string, moves: string[]): Promise<{ me: Me; reward: Reward }>;
+  /** bank the cards on the foundations so far (paid once each); null when nothing new */
+  solitaireCards(gameId: string, moves: string[]): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -233,7 +235,7 @@ export class BrowserBackend implements Backend {
     return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, lesson, me: this.view(), quit };
   }
 
-  private sol: { gameId: string; seed: number } | null = null;
+  private sol: { gameId: string; seed: number; paid?: number } | null = null;
   async solitaireStart() {
     const seed = Math.floor(Math.random() * 2 ** 31);
     this.sol = { gameId: `l_${seed}`, seed };
@@ -243,7 +245,18 @@ export class BrowserBackend implements Backend {
     const g = this.sol;
     if (!g || g.gameId !== gameId || !solWon(replaySol(g.seed, moves))) throw new BackendError("That game isn't won yet");
     this.sol = null;
-    const r = settleSolitaire(this.save.progress, Date.now());
+    const r = settleSolitaire(this.save.progress, Date.now(), { won: true, cards: 52 - (g.paid ?? 0) });
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+  async solitaireCards(gameId: string, moves: string[]) {
+    const g = this.sol;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const up = solFound(replaySol(g.seed, moves));
+    if (up <= (g.paid ?? 0)) return { me: this.view(), reward: null };
+    const r = settleSolitaire(this.save.progress, Date.now(), { won: false, cards: up - (g.paid ?? 0) });
+    g.paid = up;
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
@@ -429,6 +442,9 @@ export class ServerBackend implements Backend {
   }
   solitaireFinish(gameId: string, moves: string[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solitaire/finish", { gameId, moves });
+  }
+  solitaireCards(gameId: string, moves: string[]) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/solitaire/cards", { gameId, moves });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

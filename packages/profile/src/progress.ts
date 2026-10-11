@@ -49,8 +49,8 @@ export interface Progress {
   campaign: number;
   /** Ranked: rank points, Ranked MMR and this season's record (null before the first ranked game) */
   ranked: RankedState | null;
-  /** Solitaire: games won, and paid wins today (UTC day) toward the daily cap */
-  solitaire: { won: number; day: string | null; today: number };
+  /** Solitaire: games won, and paid wins and foundation cards today (UTC day) toward the daily caps */
+  solitaire: { won: number; day: string | null; today: number; cards: number };
 }
 
 export function newProgress(): Progress {
@@ -59,7 +59,7 @@ export function newProgress(): Progress {
     equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
     mistakes: {}, coachGames: 0,
     rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
-    solitaire: { won: 0, day: null, today: 0 },
+    solitaire: { won: 0, day: null, today: 0, cards: 0 },
   };
 }
 
@@ -212,19 +212,39 @@ export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: nu
 
 /** A Solitaire win: a little XP and season XP, so it counts toward the pass. Paid for this many wins a day. */
 export const SOLITAIRE_XP = { xp: 30, season: 75, perDay: 10 };
+/**
+ * Each card sent up to a foundation pays too, so a game cut short (the online table was dealt) still
+ * counts. Paid for this many cards a day, about four whole games.
+ */
+export const SOLITAIRE_CARD = { xp: 1, season: 2, perDay: 200 };
 
-/** Record a won Solitaire game (wins only; the server checked it by replaying the moves). */
-export function settleSolitaire(prev: Progress, at: number): { progress: Progress; reward: Reward } {
+/**
+ * Pay for Solitaire play the server has checked by replaying the moves: `cards` new cards on the
+ * foundations (never the same card twice in one deal), and the win itself when `won`.
+ */
+export function settleSolitaire(prev: Progress, at: number, o: { won?: boolean; cards?: number } = {}): { progress: Progress; reward: Reward } {
+  const won = o.won ?? true;
   const p: Progress = structuredClone(prev);
   const today = day(at);
   const s = { ...p.solitaire };
-  if (s.day !== today) Object.assign(s, { day: today, today: 0 });
-  s.won++;
-  const paid = s.today < SOLITAIRE_XP.perDay;
-  if (paid) s.today++;
+  if (s.day !== today) Object.assign(s, { day: today, today: 0, cards: 0 });
+  const lines: RewardLine[] = [];
+  let season = 0;
+  const cards = Math.max(0, Math.min(o.cards ?? 0, SOLITAIRE_CARD.perDay - s.cards));
+  s.cards += cards;
+  if (cards) {
+    lines.push({ label: `${cards} card${cards === 1 ? "" : "s"} to the foundations`, xp: cards * SOLITAIRE_CARD.xp, coins: 0 });
+    season += cards * SOLITAIRE_CARD.season;
+  }
+  if (won) {
+    s.won++;
+    const paid = s.today < SOLITAIRE_XP.perDay;
+    if (paid) s.today++;
+    lines.push({ label: paid ? "Solitaire win" : `Solitaire win (XP for the first ${SOLITAIRE_XP.perDay} a day)`, xp: paid ? SOLITAIRE_XP.xp : 0, coins: 0 });
+    if (paid) season += SOLITAIRE_XP.season;
+  }
   p.solitaire = s;
-  const lines: RewardLine[] = [{ label: paid ? "Solitaire win" : `Solitaire win (XP for the first ${SOLITAIRE_XP.perDay} a day)`, xp: paid ? SOLITAIRE_XP.xp : 0, coins: 0 }];
-  const xp = lines[0].xp;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
   const after = levelInfo(p.xp);
@@ -239,7 +259,7 @@ export function settleSolitaire(prev: Progress, at: number): { progress: Progres
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const pass = paid ? addPassXp(p, SOLITAIRE_XP.season, at) : null;
+  const pass = season ? addPassXp(p, season, at) : null;
   return {
     progress: p,
     reward: {

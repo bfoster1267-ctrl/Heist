@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solSolved, solWon, tapMove, upgrade, SOLITAIRE_XP, SEASONS, type Klondike, type SolMove } from "../src";
+import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solFound, solSolved, solWon, tapMove, upgrade, SOLITAIRE_CARD, SOLITAIRE_XP, SEASONS, type Klondike, type SolMove } from "../src";
 
 /** A greedy player: foundations first, then any column move that turns a card over, else draw. */
 function greedy(seed: number, limit = 3000): { k: Klondike; moves: SolMove[] } {
@@ -81,6 +81,24 @@ describe("solitaire", () => {
     expect(over.reward.pass).toBeNull();
     expect(over.progress.solitaire.won).toBe(SOLITAIRE_XP.perDay + 1);
     expect(settleSolitaire(over.progress, at + 86_400_000).reward.xp).toBe(SOLITAIRE_XP.xp);
-    expect(upgrade({ xp: 5 } as never).solitaire).toEqual({ won: 0, day: null, today: 0 });
+    expect(upgrade({ xp: 5 } as never).solitaire).toEqual({ won: 0, day: null, today: 0, cards: 0 });
+  });
+
+  it("pays for cards on the foundations up to a daily cap, and counts them on a win", () => {
+    const at = SEASONS[0].start + 1000;
+    let p = newProgress();
+    const r = settleSolitaire(p, at, { won: false, cards: 5 });
+    expect(r.reward.xp).toBe(5 * SOLITAIRE_CARD.xp);
+    expect(r.reward.pass?.xp).toBe(5 * SOLITAIRE_CARD.season);
+    expect(r.progress.solitaire.won).toBe(0);
+    p = r.progress;
+    const big = settleSolitaire(p, at, { won: false, cards: SOLITAIRE_CARD.perDay });
+    expect(big.reward.xp).toBe((SOLITAIRE_CARD.perDay - 5) * SOLITAIRE_CARD.xp);
+    p = big.progress;
+    expect(settleSolitaire(p, at, { won: false, cards: 3 }).reward.xp).toBe(0);
+    const win = settleSolitaire(p, at, { won: true, cards: 10 });
+    expect(win.reward.xp).toBe(SOLITAIRE_XP.xp);
+    expect(settleSolitaire(p, at + 86_400_000, { won: true, cards: 52 }).reward.xp).toBe(SOLITAIRE_XP.xp + 52 * SOLITAIRE_CARD.xp);
+    expect(solFound(dealKlondike(1))).toBe(0);
   });
 });

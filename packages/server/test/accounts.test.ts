@@ -1,5 +1,5 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { FIRST_HAND, STAGES, botLevelsFor, createSoloGame, type SoloSetup } from "@heist/profile";
+import { FIRST_HAND, SOLITAIRE_CARD, STAGES, botLevelsFor, createSoloGame, dealKlondike, type SoloSetup } from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -138,6 +138,25 @@ describe("accounts", () => {
     await expect(svc.solitaireFinish(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
     await expect(svc.solitaireFinish(await acct(), "nope", [])).rejects.toThrow(/isn't running/);
     expect((await acct()).progress.xp).toBe(0);
+  });
+
+  it("pays Solitaire foundation cards once each, after replaying the moves", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Cards");
+    const acct = () => svc.require(token);
+    // find a deal with an ace showing on the table
+    let g = await svc.solitaireStart(await acct());
+    let col = -1;
+    while (col < 0) {
+      col = dealKlondike(g.seed).cols.findIndex((c) => c.up[0] % 13 === 0);
+      if (col < 0) g = await svc.solitaireStart(await acct());
+    }
+    const moves = [`t${col}>f`];
+    const r = await svc.solitaireCards(await acct(), g.gameId, moves);
+    expect(r.reward?.xp).toBe(SOLITAIRE_CARD.xp);
+    expect((await svc.solitaireCards(await acct(), g.gameId, moves)).reward).toBeNull();
+    await expect(svc.solitaireCards(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
+    expect((await acct()).progress.xp).toBe(SOLITAIRE_CARD.xp);
   });
 
   it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {
