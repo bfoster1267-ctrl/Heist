@@ -95,6 +95,16 @@ function Game() {
     return session(online).onMessage((m) => {
       if (m.t === "frames" && m.frames[0]?.i === 0)
         onlineEnd.current = { reward: null, ended: false };
+      if (m.t === "renamed") {
+        // the server saved it to the account; keep the copy guests use for their next invite too
+        try {
+          localStorage.setItem("heist.name", m.name);
+        } catch {
+          /* storage blocked */
+        }
+        void act((b) => b.me());
+        return;
+      }
       if (m.t !== "reward") return;
       void act((b) => b.me());
       if (onlineEnd.current.ended) showReward(m.reward);

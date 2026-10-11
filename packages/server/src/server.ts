@@ -11,7 +11,7 @@ import { AdminAuth, AdminService, type AdminTeam } from "./accounts/admin";
 import { accountsApi } from "./accounts/api";
 import { serveStatic } from "./static";
 import { ApiError, type AccountService } from "./accounts/service";
-import { GuestIdentity, type Identity, type IdentityProvider } from "./identity";
+import { GuestIdentity, cleanName, type Identity, type IdentityProvider } from "./identity";
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
 import { realClock, type Clock, type Conn, type GameOverReport, type Room, type RoomDeps } from "./room";
 import { Rooms, roomOptions, type Limits } from "./rooms";
@@ -328,6 +328,15 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           const takesSeat = m.spectate !== true && room.status === "lobby" && room.seatOf(conn.userId) === null;
           if (accounts && takesSeat && !(await accounts.canAfford(conn.userId, room.stakes))) return err("no_chips", "Not enough chips for that table");
           enter(room, { spectate: m.spectate === true, since: m.since });
+          return;
+        }
+        case "rename": {
+          const name = cleanName(m.name, "");
+          if (!name) return err("bad_message", "Pick a name");
+          if (accounts) await accounts.renameId(conn.userId, name);
+          conn.name = c.id!.name = name;
+          send({ t: "renamed", name });
+          c.room?.renamed(conn.userId, name);
           return;
         }
         case "leave":

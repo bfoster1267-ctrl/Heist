@@ -426,6 +426,24 @@ function QueueCard({ sess, onSolitaire }: { sess: OnlineSession; onSolitaire: ()
   );
 }
 
+/** names a player gets without choosing one: guests start as "Ace" (or "Player" on the server) */
+const STOCK_NAME = /^(Ace|Player|Guest\b.*)$/;
+const ASKED_KEY = "heist.askedName";
+function askedName() {
+  try {
+    return sessionStorage.getItem(ASKED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+function markAskedName() {
+  try {
+    sessionStorage.setItem(ASKED_KEY, "1");
+  } catch {
+    /* private mode: asked again next table, which is fine */
+  }
+}
+
 function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void }) {
   const room = sess.room!;
   const host = room.hostId === sess.client.userId;
@@ -444,6 +462,14 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
     }
   };
   const humans = room.seats.filter((s) => s.kind === "human").length;
+  // tap your own seat to change your name; a stock name (an invited friend who's new here) is asked once
+  const mine = sess.seat === null ? null : room.seats[sess.seat];
+  const [editing, setEditing] = useState(() => !!mine && STOCK_NAME.test(mine.name) && !askedName());
+  const [draft, setDraft] = useState("");
+  useEffect(() => {
+    if (editing) markAskedName();
+  }, [editing]);
+  if (editing && !mine) setEditing(false);
   return (
     <>
       <div className="lobby-col">
@@ -464,15 +490,49 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
         <div className="field">
           <span>Seats</span>
           <div className="room-seats">
-            {room.seats.map((s) => (
-              <div key={s.seat} className={"room-seat" + (s.kind === "open" ? " open" : "") + (s.seat === sess.seat ? " me" : "")}>
-                <CrewBadge color={s.seat} size={28} />
-                <span>{s.kind === "open" ? "Open seat" : s.name}</span>
-                {s.kind === "human" && s.userId === room.hostId && <span className="tag">host</span>}
-                {s.kind === "human" && !s.connected && <span className="tag dim">away</span>}
-              </div>
-            ))}
+            {room.seats.map((s) =>
+              s.seat === sess.seat && editing ? (
+                <form
+                  key={s.seat}
+                  className="room-seat me editing"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (draft.trim() && draft.trim() !== s.name) sess.client.rename(draft);
+                    setEditing(false);
+                  }}
+                >
+                  <CrewBadge color={s.seat} size={28} />
+                  <input className="seat-name-input" value={draft} maxLength={20} placeholder="Your name" autoFocus aria-label="Your name" onChange={(e) => setDraft(e.target.value)} />
+                  <button className="btn gold small" type="submit" disabled={!draft.trim()}>
+                    Save
+                  </button>
+                </form>
+              ) : s.seat === sess.seat ? (
+                <button
+                  key={s.seat}
+                  className="room-seat me"
+                  title="Change your name"
+                  onClick={() => {
+                    setDraft(s.name);
+                    setEditing(true);
+                  }}
+                >
+                  <CrewBadge color={s.seat} size={28} />
+                  <span>{s.name}</span>
+                  {s.userId === room.hostId && <span className="tag">host</span>}
+                  <span className={"tag dim" + (s.userId === room.hostId ? " near" : "")}>✎ name</span>
+                </button>
+              ) : (
+                <div key={s.seat} className={"room-seat" + (s.kind === "open" ? " open" : "")}>
+                  <CrewBadge color={s.seat} size={28} />
+                  <span>{s.kind === "open" ? "Open seat" : s.name}</span>
+                  {s.kind === "human" && s.userId === room.hostId && <span className="tag">host</span>}
+                  {s.kind === "human" && !s.connected && <span className="tag dim">away</span>}
+                </div>
+              ),
+            )}
           </div>
+          {editing && <div className="fine">Pick the name everyone at the table will see.</div>}
         </div>
         {host ? (
           <button className="btn primary huge" onClick={() => sess.client.start()}>

@@ -372,6 +372,11 @@ export class AccountService {
     return this.update(a.id, (x) => ((x.name = n), this.me(x)));
   }
 
+  /** A rename from the game socket, which knows the player by id rather than by session. */
+  renameId(id: string, name: string) {
+    return this.update(id, (x) => ((x.name = name), x.name));
+  }
+
   buy(a: Account, id: unknown) {
     return this.update(a.id, (x) => (this.apply(x, buy(x.progress, String(id))), this.me(x)));
   }
