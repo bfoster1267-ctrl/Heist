@@ -4,6 +4,7 @@
 import { readFile, stat } from "node:fs/promises";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { extname, join, normalize, sep } from "node:path";
+import { blogPage } from "./blog";
 import { pageHtml, ROBOTS, SITEMAP } from "./seo";
 
 const TYPES: Record<string, string> = {
@@ -33,6 +34,13 @@ export async function serveStatic(dir: string, req: IncomingMessage, res: Server
     const robots = path === "/robots.txt";
     res.writeHead(200, { "content-type": robots ? "text/plain; charset=utf-8" : "application/xml", "cache-control": "public, max-age=3600" });
     res.end(req.method === "HEAD" ? undefined : robots ? ROBOTS : SITEMAP);
+    return true;
+  }
+  if (path === "/blog" || path.startsWith("/blog/")) {
+    const html = blogPage(path);
+    if (!html) return false;
+    res.writeHead(200, { "content-type": TYPES[".html"], "cache-control": "public, max-age=600" });
+    res.end(req.method === "HEAD" ? undefined : html);
     return true;
   }
   const root = normalize(dir);

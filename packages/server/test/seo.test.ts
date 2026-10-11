@@ -20,3 +20,18 @@ describe("seo", () => {
     expect(ROBOTS).toContain("Disallow: /admin");
   });
 });
+
+import { blogPage, POSTS } from "../src/blog";
+
+describe("blog", () => {
+  it("serves the index and every post with a link into the game", () => {
+    expect(blogPage("/blog")).toContain("The Heist Blog");
+    for (const p of POSTS) {
+      const html = blogPage("/blog/" + p.slug)!;
+      expect(html).toContain(`<link rel="canonical" href="https://playheist.net/blog/${p.slug}"`);
+      expect(html).toContain('href="/">Play Heist free');
+      expect(SITEMAP).toContain(`/blog/${p.slug}</loc>`);
+    }
+    expect(blogPage("/blog/nope")).toBeNull();
+  });
+});
