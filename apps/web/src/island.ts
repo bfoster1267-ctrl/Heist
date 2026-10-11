@@ -4,15 +4,23 @@
 // in its media notification. Off in Settings (or with Sound off), nothing plays and nothing shows.
 import { useEffect, useRef } from "react";
 import { getPrefs, usePrefs } from "./prefs";
-import { getVolume, isMuted, onDuck, onSoundChange } from "./sound";
+import { getMusicVolume, isMuted, onDuck, onSoundChange } from "./sound";
 
-/** the music sits under the table sounds (the file itself is mixed quiet, as iPhones ignore volume here) */
-const LEVEL = 0.6;
+/**
+ * Settings > Music at full plays the file this much louder than it's mixed. iPhones ignore an audio
+ * element's volume, so the level is baked into the audio itself: the track is decoded once and replayed
+ * from a copy scaled to the slider.
+ */
+const BOOST = 1.6;
 
 const TAP = ["touchend", "click", "keydown"] as const;
 
 let el: HTMLAudioElement | null = null;
 let loading: Promise<void> | null = null;
+/** the file as it came (used if this browser can't decode it for us) */
+let raw = "";
+let pcm: { data: Float32Array; rate: number } | null = null;
+let baked = -1;
 function audio() {
   if (!el) {
     el = new Audio();
@@ -22,14 +30,62 @@ function audio() {
     // ranges, and a blob needs neither
     const a = el;
     loading = fetch("./table-music.m4a")
-      .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
-      .then((b) => void (a.src = URL.createObjectURL(b)))
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then(async (buf) => {
+        raw = URL.createObjectURL(new Blob([buf], { type: "audio/mp4" }));
+        try {
+          const d = await new OfflineAudioContext(1, 1, 32000).decodeAudioData(buf.slice(0));
+          pcm = { data: d.getChannelData(0), rate: d.sampleRate };
+        } catch {
+          pcm = null;
+        }
+        bake(a);
+      })
       .catch(() => {
         loading = null;
         el = null;
       });
   }
   return el;
+}
+
+/** the track as a 16-bit WAV at `gain` */
+function wav(p: { data: Float32Array; rate: number }, gain: number) {
+  const n = p.data.length;
+  const b = new DataView(new ArrayBuffer(44 + n * 2));
+  const str = (o: number, x: string) => [...x].forEach((c, i) => b.setUint8(o + i, c.charCodeAt(0)));
+  str(0, "RIFF");
+  b.setUint32(4, 36 + n * 2, true);
+  str(8, "WAVEfmt ");
+  b.setUint32(16, 16, true);
+  b.setUint16(20, 1, true);
+  b.setUint16(22, 1, true);
+  b.setUint32(24, p.rate, true);
+  b.setUint32(28, p.rate * 2, true);
+  b.setUint16(32, 2, true);
+  b.setUint16(34, 16, true);
+  str(36, "data");
+  b.setUint32(40, n * 2, true);
+  for (let i = 0; i < n; i++) b.setInt16(44 + i * 2, Math.max(-1, Math.min(1, p.data[i] * gain)) * 32767, true);
+  return URL.createObjectURL(new Blob([b.buffer], { type: "audio/wav" }));
+}
+
+/** put the music at the Settings level, picking up where it was */
+function bake(a: HTMLAudioElement) {
+  if (!pcm) {
+    if (!a.src && raw) a.src = raw;
+    return;
+  }
+  const g = Math.round(getMusicVolume() * 20) / 20;
+  if (g === baked || g === 0) return;
+  baked = g;
+  const t = a.currentTime;
+  const playing = !a.paused;
+  const old = a.src;
+  a.src = wav(pcm, g * BOOST);
+  if (old && old !== raw) URL.revokeObjectURL(old);
+  if (t) a.addEventListener("loadedmetadata", () => (a.currentTime = t), { once: true });
+  if (playing) void a.play().catch(() => {});
 }
 
 const media = () => (typeof navigator !== "undefined" && "mediaSession" in navigator ? navigator.mediaSession : null);
@@ -53,11 +109,20 @@ export function useIsland(title: string, place: string) {
       if (waitTap) for (const e of TAP) window.removeEventListener(e, waitTap, true);
       waitTap = null;
     };
-    const want = () => getPrefs().tableMusic && !isMuted() && !paused.current;
+    const want = () => getPrefs().tableMusic && getMusicVolume() > 0 && !isMuted() && !paused.current;
     // under a big sting the music dips, then eases back (computers and Android; iPhones ignore volume here)
     let ducked = 1;
     let easing = 0;
-    const level = () => (a.volume = Math.min(1, getVolume() * LEVEL * ducked));
+    const level = () => (a.volume = ducked);
+    // the Music slider: re-bake once it settles, not on every step of the drag
+    let rebake = 0;
+    const offLevel = onSoundChange(() => {
+      window.clearTimeout(rebake);
+      rebake = window.setTimeout(() => {
+        bake(a);
+        sync();
+      }, 250);
+    });
     const offDuck = onDuck((ms) => {
       ducked = 0.35;
       level();
@@ -114,7 +179,9 @@ export function useIsland(title: string, place: string) {
       live = false;
       off();
       offDuck();
+      offLevel();
       window.clearInterval(easing);
+      window.clearTimeout(rebake);
       unwait();
       a.pause();
       if (m) {

@@ -9,11 +9,18 @@ let dry: AudioNode | null = null;
 let wet: AudioNode | null = null;
 let noiseBuf: AudioBuffer | null = null;
 let muted = false;
+/** the sound effects' level (Settings > Effects) */
 let volume = 0.8;
+/** the table music's level (Settings > Music), set apart so the music never drowns the table out */
+let music = 0.5;
 try {
   muted = localStorage.getItem("heist.muted") === "1";
-  const v = Number(localStorage.getItem("heist.volume"));
-  if (localStorage.getItem("heist.volume") !== null && Number.isFinite(v)) volume = Math.min(1, Math.max(0, v));
+  const read = (k: string, d: number) => {
+    const v = Number(localStorage.getItem(k));
+    return localStorage.getItem(k) !== null && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d;
+  };
+  volume = read("heist.volume", volume);
+  music = read("heist.musicVolume", music);
 } catch {
   /* storage blocked */
 }
@@ -40,6 +47,17 @@ export function setVolume(v: number) {
   watchers.forEach((f) => f());
   try {
     localStorage.setItem("heist.volume", String(v));
+  } catch {
+    /* storage blocked */
+  }
+}
+
+export const getMusicVolume = () => music;
+export function setMusicVolume(v: number) {
+  music = v;
+  watchers.forEach((f) => f());
+  try {
+    localStorage.setItem("heist.musicVolume", String(v));
   } catch {
     /* storage blocked */
   }
