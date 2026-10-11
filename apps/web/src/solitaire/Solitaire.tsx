@@ -113,7 +113,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
   // Solitaire XP left today when the deal started (a little a day: Heist is the game to grind)
   const meNow = useRef(me);
   meNow.current = me;
-  const room = useRef(0);
+  const dayLeft = useRef(0);
   const maxedShown = useRef(false);
   const live = useRef({ game, moves });
   live.current = { game, moves };
@@ -141,7 +141,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
     banked.current = NOTHING;
     setFloats([]);
     const g = backend ? await backend.solitaireStart().catch(() => null) : null;
-    room.current = meNow.current ? solitaireRoom(meNow.current.progress, Date.now()) : SOLITAIRE_DAY_XP;
+    dayLeft.current = meNow.current ? solitaireRoom(meNow.current.progress, Date.now()) : SOLITAIRE_DAY_XP;
     maxedShown.current = false;
     // offline (or no server): still playable, it just can't pay XP
     const next = g ?? { gameId: null, seed: Math.floor(Math.random() * 2 ** 31) };
@@ -268,9 +268,9 @@ export function Solitaire({ onExit, onHeist, banner }: {
   useEffect(() => {
     if (!tally || !k) return;
     const { gained, paid, any } = solGain(best.current, tally);
-    const before = Math.min(tallyXp(best.current), room.current);
+    const before = Math.min(tallyXp(best.current), dayLeft.current);
     best.current = paid;
-    const xp = Math.min(tallyXp(paid), room.current) - before;
+    const xp = Math.min(tallyXp(paid), dayLeft.current) - before;
     // the day's Solitaire XP runs out: say so once, and point at Heist
     const maxed = any && xp < tallyXp(gained) && !maxedShown.current;
     if (maxed) maxedShown.current = true;
@@ -360,7 +360,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
   const secs = Math.floor((now - started) / 1000);
   const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
   const won = solWon(k);
-  const shownXp = Math.min(tallyXp(best.current), room.current);
+  const shownXp = Math.min(tallyXp(best.current), dayLeft.current);
   const small = b.cw < 64;
   return (
     <div className={"sol" + (small ? " sol-small" : "")} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrag(null)}>
