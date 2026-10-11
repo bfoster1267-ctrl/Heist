@@ -1,4 +1,4 @@
-import { stage } from "@heist/profile";
+import { stage, type Reward } from "@heist/profile";
 import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -10,6 +10,7 @@ import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN as LOCAL_SEAT, useTable, type HistoryEntry, type TableSettings, type TableSource } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
 import { useLook } from "../account/useAccount";
+import { FirstWin } from "../account/FirstWin";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
 import { Coach, LiveCoach, MistakeCheck, Walkthrough } from "./Coach";
@@ -90,7 +91,10 @@ export function Table({
   onName,
   place = "At the table",
   turnRef,
+  firstReward,
 }: {
+  /** the new player's first hand: what it earned, shown on its game-over card */
+  firstReward?: Reward | null;
   /** the small line under the title in the Dynamic Island / lock screen ("Table K7QX") */
   place?: string;
   /** kept up to date with the job the table is on (so a player walking out can say where) */
@@ -616,7 +620,7 @@ export function Table({
           <Walkthrough s={s} lessonOn={lessonOn} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} firstHand={settings.coached && settings.lesson === FIRST_HAND && !forfeit} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} firstHand={settings.coached && settings.lesson === FIRST_HAND && !forfeit} firstReward={firstReward} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -672,8 +676,10 @@ function GameOver({
   forfeit,
   oneGame,
   firstHand,
+  firstReward,
   onExit,
 }: {
+  firstReward?: Reward | null;
   s: GameState;
   me: number;
   pot: number;
@@ -690,23 +696,30 @@ function GameOver({
   const won = s.winners!.includes(me);
   useEffect(() => {
     if (!firstHand) return;
-    const t = window.setTimeout(onExit, 6000);
+    // long enough to watch the XP and the season pass land
+    const t = window.setTimeout(onExit, firstReward ? 12000 : 6000);
     return () => clearTimeout(t);
-  }, [firstHand, onExit]);
+  }, [firstHand, firstReward, onExit]);
   if (firstHand)
     return (
       <motion.div className="modal-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         {won && !reducedMotion() && <Confetti />}
         <motion.div className="modal first-hand-done" role="dialog" aria-modal="true" aria-labelledby="go-title" initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
-          <div id="go-title" className="modal-title gold">
-            {won ? "NICE HAND" : "THAT'S A HAND"}
-          </div>
-          <div className="modal-sub">That's how every turn goes: pick a target, send crew, fight. Next, a quick look around.</div>
-          <div className="btns center">
-            <button className="btn primary big" onClick={onExit} autoFocus>
-              Show me around
-            </button>
-          </div>
+          {firstReward ? (
+            <FirstWin r={firstReward} won={won} name={s.players[me]?.name ?? ""} onNext={onExit} />
+          ) : (
+            <>
+              <div id="go-title" className="modal-title gold">
+                {won ? "NICE HAND" : "THAT'S A HAND"}
+              </div>
+              <div className="modal-sub">That's how every turn goes: pick a target, send crew, fight. Next, a quick look around.</div>
+              <div className="btns center">
+                <button className="btn primary big" onClick={onExit} autoFocus>
+                  Show me around
+                </button>
+              </div>
+            </>
+          )}
         </motion.div>
       </motion.div>
     );

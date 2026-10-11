@@ -127,7 +127,7 @@ function rewardText(r: TierReward) {
   return cosmetic(r.id)?.name ?? r.id;
 }
 
-function Track({ rewards, tier, name }: { rewards: TierReward[]; tier: number; name: string }) {
+export function Track({ rewards, tier, name }: { rewards: TierReward[]; tier: number; name: string }) {
   const row = useRef<HTMLDivElement>(null);
   // start scrolled to the next tier to earn
   useEffect(() => {

@@ -50,6 +50,7 @@ function Game() {
   const finishedOne = useRef(false);
   const turnRef = useRef(0);
   const [ask, setAsk] = useState<LostAsk | null>(null);
+  const [firstReward, setFirstReward] = useState<Reward | null>(null);
   // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
   const [tour, setTourState] = useState<TourStep | null>(savedTour);
   const setTour = useCallback((t: TourStep | null) => {
@@ -100,6 +101,7 @@ function Game() {
       if (t.quit) showReward(t.quit);
       finished.current = false;
       turnRef.current = 0;
+      setFirstReward(null);
       if (me && !firstGame.current)
         firstGame.current = backend?.kind === "server" && !me.asked && !lostAsked() && !me.progress.coachGames && !me.progress.stats.games && !me.progress.xp;
       setTable({
@@ -125,7 +127,9 @@ function Game() {
       finished.current = true;
       if (firstGame.current) finishedOne.current = true;
       const r = await act((b) => b.soloFinish(table.gameId, answers));
-      if (r) showReward(r.reward);
+      // the first hand shows its reward (and season pass tier 1) on its own game-over card
+      if (r && table.lesson === FIRST_HAND) setFirstReward(r.reward);
+      else if (r) showReward(r.reward);
     },
     [table, act, showReward],
   );
@@ -236,6 +240,7 @@ function Game() {
           mistakes={me.progress.mistakes}
           place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
           turnRef={turnRef}
+          firstReward={table.lesson === FIRST_HAND ? firstReward : null}
           onAgain={() => {
             if (chips < table.stakes) return exit();
             void sit({ ...table, campaign: table.stage });

@@ -1674,3 +1674,25 @@
   flex: none;
   white-space: nowrap;
 }
+
+/* a new player's first hand: the win, its XP, and season pass tier 1 */
+.first-win-xp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 0 14px;
+}
+.first-win-pass {
+  margin-bottom: 12px;
+  text-align: center;
+}
+.first-win-pass-head {
+  font-family: var(--cond);
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+.first-win-pass .season-track {
+  justify-content: center;
+  overflow: visible;
+}

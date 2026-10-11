@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, easySeed, lessonFor, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -548,7 +548,7 @@ export class AccountService {
       // every vs-bots game feeds the rookie-mistake tally the coach leans on
       x.progress = addMistakes(x.progress, rep.mistakes);
       if (g.coached) {
-        const c = settleCoached(x.progress, won);
+        const c = settleCoached(x.progress, won, g.lesson === FIRST_HAND ? { at: this.now() } : undefined);
         x.progress = c.progress;
         this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage, gentle: g.gentle, lesson: g.lesson },
           answers: answers as never, startedAt: g.startedAt, endedAt: this.now(), quit: false, winners: rep.winners });

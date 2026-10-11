@@ -1,6 +1,6 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { LESSONS, STAGES, lesson, lessonNo } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
@@ -87,12 +87,6 @@ export function Lobby({
   const [camp, setCamp] = useState(false);
   const [settings, setSettings] = useState(false);
   const [options, setOptions] = useState(false);
-  // a first visit asks one question before anything else: new here, or back with an account?
-  const [welcome, setWelcomeState] = useState(() => newbie && !flag("heist.welcomed"));
-  const setWelcome = (v: boolean) => {
-    setWelcomeState(v);
-    if (!v) setFlag("heist.welcomed");
-  };
   const prefs = usePrefs();
   // the table you picked last time, or the best one you can still afford
   const table = chips >= STAKES[stake].buyIn ? stake : Math.max(0, STAKES.filter((st) => chips >= st.buyIn).length - 1);
@@ -115,6 +109,15 @@ export function Lobby({
     save();
     onPlay({ players: 3, name: nm(), stakes: 0, coached: true });
   };
+  // a first visit goes straight into the one-hand first lesson: no question screen first
+  // (players with an account sign in from the lobby afterwards)
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current || !newbie || flag("heist.welcomed")) return;
+    started.current = true;
+    setFlag("heist.welcomed");
+    coach();
+  }, []);
   return (
     <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
@@ -286,23 +289,6 @@ export function Lobby({
           </Sheet>
         )}
       </AnimatePresence>
-      <AnimatePresence>
-        {welcome && (
-          <Welcome
-            onNew={() => {
-              setWelcome(false);
-              coach();
-            }}
-            onSignIn={
-              onSignIn &&
-              (() => {
-                setWelcome(false);
-                onSignIn();
-              })
-            }
-          />
-        )}
-      </AnimatePresence>
       <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
       <AnimatePresence>
         {tour && onTour && onOpen && (tour === "next" ? (
@@ -462,29 +448,6 @@ function setFlag(key: string) {
   } catch {
     /* storage blocked: asks again next visit */
   }
-}
-
-/** The first screen a new visitor sees: start the lesson, or sign in to the account they already have. */
-function Welcome({ onNew, onSignIn }: { onNew: () => void; onSignIn?: () => void }) {
-  return createPortal(
-    <motion.div className="welcome" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="Welcome to Heist">
-      <div className="logo">HEIST</div>
-      <p className="welcome-q">Have you played Heist before?</p>
-      <div className="welcome-choices">
-        <button className="btn primary lobby-big" data-track="welcome-new" onClick={onNew}>
-          I'm new
-          <span className="lobby-sub">Play one hand with a coach. Free.</span>
-        </button>
-        {onSignIn && (
-          <button className="btn lobby-big" data-track="welcome-account" onClick={onSignIn}>
-            I have an account
-            <span className="lobby-sub">Sign in and pick up where you left off</span>
-          </button>
-        )}
-      </div>
-    </motion.div>,
-    document.body,
-  );
 }
 
 function remembered(key: string, allowed: number[], fallback: number) {
