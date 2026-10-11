@@ -56,7 +56,7 @@ function outcome(key: string, out: unknown): Record<string, unknown> {
   if (key === "POST /api/chips/refill") x.chips = o.refilled;
   if (key === "POST /api/prestige") Object.assign(x, { coins: o.coins, unlocked: o.unlocked });
   if (key === "POST /api/solo/start") Object.assign(x, { gameId: o.gameId, players: o.players, stage: o.stage });
-  if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/cards") x.reward = o.reward && { xp: o.reward.xp };
+  if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") x.reward = o.reward && { xp: o.reward.xp };
   if (key === "POST /api/solo/finish" || key === "POST /api/solo/quit") x.reward = o.reward && { xp: o.reward.xp, coins: o.reward.coins, payout: o.reward.payout };
   return x;
 }
@@ -127,7 +127,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     // a finished game's moves are kept with the game itself (the admin panel replays them)
     const sent =
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
-      : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/cards") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
+      : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
     svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ok: !error, error, data: Object.keys(data).length ? data : undefined });
@@ -239,8 +239,8 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/solo/start": async (b, t) => svc.soloStart(await me(t), b.players, b.stakes, b.scaled, b.campaign, b.coached, b.gentle, b.lessons),
     "POST /api/solo/finish": async (b, t) => svc.soloFinish(await me(t), b.gameId, b.answers),
     "POST /api/solitaire/start": async (_b, t) => svc.solitaireStart(await me(t)),
-    "POST /api/solitaire/finish": async (b, t) => svc.solitaireFinish(await me(t), b.gameId, b.moves),
-    "POST /api/solitaire/cards": async (b, t) => svc.solitaireCards(await me(t), b.gameId, b.moves),
+    "POST /api/solitaire/finish": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves, true),
+    "POST /api/solitaire/bank": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
@@ -340,7 +340,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (key.startsWith("POST /api/auth/") || key === "POST /api/me/password") {
         if (limited(ip)) throw new ApiError(429, "Too many tries. Wait a few minutes and try again.");
       }
-      body = req.method === "POST" ? await readBody(req, key === "POST /api/solo/finish" || key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/cards" ? SOLO_BODY_LIMIT : BODY_LIMIT) : {};
+      body = req.method === "POST" ? await readBody(req, key === "POST /api/solo/finish" || key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" ? SOLO_BODY_LIMIT : BODY_LIMIT) : {};
       if (param) body = { ...body, id: param };
       const out = await route(body, token, url.searchParams, param);
       send(res, 200, out);

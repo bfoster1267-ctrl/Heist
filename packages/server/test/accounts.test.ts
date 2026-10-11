@@ -1,5 +1,5 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { FIRST_HAND, SOLITAIRE_CARD, STAGES, botLevelsFor, createSoloGame, dealKlondike, type SoloSetup } from "@heist/profile";
+import { FIRST_HAND, SOL_XP, STAGES, botLevelsFor, createSoloGame, dealKlondike, type SoloSetup } from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -134,13 +134,13 @@ describe("accounts", () => {
     const acct = () => svc.require(token);
     const g = await svc.solitaireStart(await acct());
     expect(typeof g.seed).toBe("number");
-    await expect(svc.solitaireFinish(await acct(), g.gameId, ["d", "d"])).rejects.toThrow(/isn't won/);
-    await expect(svc.solitaireFinish(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
-    await expect(svc.solitaireFinish(await acct(), "nope", [])).rejects.toThrow(/isn't running/);
+    await expect(svc.solitaireBank(await acct(), g.gameId, ["d", "d"], true)).rejects.toThrow(/isn't won/);
+    await expect(svc.solitaireBank(await acct(), g.gameId, ["t0>t0"], true)).rejects.toThrow(/check out/);
+    await expect(svc.solitaireBank(await acct(), "nope", [], true)).rejects.toThrow(/isn't running/);
     expect((await acct()).progress.xp).toBe(0);
   });
 
-  it("pays Solitaire foundation cards once each, after replaying the moves", async () => {
+  it("pays a Solitaire deal's moves once each, after replaying them", async () => {
     const svc = new AccountService({ secret: "s" });
     const { token } = await svc.guest(undefined, "Cards");
     const acct = () => svc.require(token);
@@ -152,11 +152,12 @@ describe("accounts", () => {
       if (col < 0) g = await svc.solitaireStart(await acct());
     }
     const moves = [`t${col}>f`];
-    const r = await svc.solitaireCards(await acct(), g.gameId, moves);
-    expect(r.reward?.xp).toBe(SOLITAIRE_CARD.xp);
-    expect((await svc.solitaireCards(await acct(), g.gameId, moves)).reward).toBeNull();
-    await expect(svc.solitaireCards(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
-    expect((await acct()).progress.xp).toBe(SOLITAIRE_CARD.xp);
+    const r = await svc.solitaireBank(await acct(), g.gameId, moves);
+    expect(r.reward?.xp).toBe(SOL_XP.move + SOL_XP.ace);
+    expect((await svc.solitaireBank(await acct(), g.gameId, moves)).reward).toBeNull();
+    expect((await svc.solitaireBank(await acct(), g.gameId, [])).reward).toBeNull(); // undone: nothing taken back, nothing new
+    await expect(svc.solitaireBank(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
+    expect((await acct()).progress.xp).toBe(SOL_XP.move + SOL_XP.ace);
   });
 
   it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {

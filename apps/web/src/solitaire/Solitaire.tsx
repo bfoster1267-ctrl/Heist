@@ -1,11 +1,11 @@
 // Klondike solitaire (draw one). Tap a card to send it where it fits, or drag it. Undo, a hint, and the
-// game finishes itself once every card is face up. Every card sent to a foundation pays a little XP and
-// season XP (banked every few cards, and when the player leaves), and a win pays a bonus; the server
-// replays the moves before paying, so Solitaire players are already moving up the Heist season pass.
+// game finishes itself once every card is face up. Every new move, ace and finished suit pays a little XP
+// and season XP (floating up from the card as it's earned), and solving it pays 100. It's paid when the
+// player leaves, deals again or wins; the server replays the moves first, so nothing is paid twice.
 
 import {
-  applySol, autoMove, cardRank, cardRed, cardSuit, dealKlondike, solFound, solSolved, solWon, tapMove, SOLITAIRE_CARD,
-  type Klondike, type PlayingCard, type SolMove,
+  applySol, autoMove, cardRank, cardRed, cardSuit, dealKlondike, solGain, solSolved, solWon, tallySol, tallyXp, tapMove,
+  type Klondike, type PlayingCard, type SolMove, type SolTally,
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -17,8 +17,15 @@ import { Confetti } from "../table/Table";
 import "./solitaire.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
-/** Bank the foundation cards with the server every this many new ones (and on leaving or a new deal). */
-const BANK_EVERY = 3;
+interface Float {
+  id: number;
+  x: number;
+  y: number;
+  xp: number;
+  tag: string | null;
+}
+
+const NOTHING: SolTally = { moves: 0, aces: 0, stacks: 0, won: false };
 
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
 
@@ -89,40 +96,45 @@ export function Solitaire({ onExit, onHeist, banner }: {
   const k = hist[hist.length - 1];
   const reduce = reducedMotion();
 
-  // XP for cards on the foundations, banked a few at a time; a game cut short (the online table was
-  // dealt, or the player left) still pays for what got up there
-  const banked = useRef(0);
-  const [earned, setEarned] = useState(0);
-  const [capped, setCapped] = useState(false);
-  const live = useRef({ game, moves, k, done });
-  live.current = { game, moves, k, done };
-  const bank = useCallback(async (leaving = false) => {
-    const { game: g, moves: ms, k: now, done: over } = live.current;
-    // once it plays itself out, the win pays the rest (unless the player leaves first)
-    if (!g?.gameId || !now || over || solWon(now) || (solSolved(now) && !leaving)) return;
-    const up = solFound(now);
-    if (up <= banked.current) return;
-    const sent = up - banked.current;
-    banked.current = up;
-    const r = await act((x) => x.solitaireCards(g.gameId!, ms));
-    if (!r) return;
-    const xp = r.reward?.xp ?? 0;
-    if (live.current.game === g) setEarned((e) => e + xp);
-    if (xp < sent * SOLITAIRE_CARD.xp) setCapped(true);
-    // a level reached on the way up gets the full reward card
-    if (r.reward && r.reward.levelAfter > r.reward.levelBefore) showReward(r.reward);
+  // what this deal has earned so far (the most it has ever reached: undoing doesn't take XP back, and
+  // redoing doesn't pay twice), and what the server has paid for
+  const tally = useMemo(() => {
+    if (!game) return null;
+    try {
+      return tallySol(game.seed, moves);
+    } catch {
+      return null;
+    }
+  }, [game, moves]);
+  const best = useRef(NOTHING);
+  const banked = useRef(NOTHING);
+  const [floats, setFloats] = useState<Float[]>([]);
+  const floatId = useRef(0);
+  const live = useRef({ game, moves });
+  live.current = { game, moves };
+  /** Pay what the deal earned since it was last paid; leaving shows what it came to. */
+  const bank = useCallback(async (show: boolean) => {
+    const { game: g, moves: ms } = live.current;
+    if (!g?.gameId || !solGain(banked.current, best.current).any) return;
+    // a win pays through the win itself
+    if (best.current.won) return;
+    banked.current = best.current;
+    const r = await act((x) => x.solitaireBank(g.gameId!, ms));
+    if (r?.reward && (show || r.reward.levelAfter > r.reward.levelBefore)) showReward(r.reward);
   }, [act, showReward]);
-  const found = k ? solFound(k) : 0;
-  useEffect(() => {
-    if (found - banked.current >= BANK_EVERY) void bank();
-  }, [found, bank]);
-  // leaving (the lobby, or the online table taking over) banks what's left
+  // leaving (the lobby, or the online table being dealt) pays and shows it; so does putting the phone away
   useEffect(() => () => void bank(true), [bank]);
+  useEffect(() => {
+    const away = () => document.visibilityState === "hidden" && void bank(false);
+    document.addEventListener("visibilitychange", away);
+    return () => document.removeEventListener("visibilitychange", away);
+  }, [bank]);
 
   const deal = useCallback(async () => {
     await bank(true);
-    banked.current = 0;
-    setEarned(0);
+    best.current = NOTHING;
+    banked.current = NOTHING;
+    setFloats([]);
     const g = backend ? await backend.solitaireStart().catch(() => null) : null;
     // offline (or no server): still playable, it just can't pay XP
     const next = g ?? { gameId: null, seed: Math.floor(Math.random() * 2 ** 31) };
@@ -178,8 +190,9 @@ export function Solitaire({ onExit, onHeist, banner }: {
     winSound();
     buzz("win");
     const id = game?.gameId;
+    if (tally) banked.current = solGain(best.current, tally).paid;
     if (id) void act((x) => x.solitaireFinish(id, moves)).then((r) => r && showReward(r.reward));
-  }, [k, done, game, moves, act, showReward]);
+  }, [k, done, game, moves, tally, act, showReward]);
 
   // cards that just turned face up flip over; cards that just reached a foundation flash gold
   const prev = useRef<{ up: Set<number>; found: Set<number> }>({ up: new Set(), found: new Set() });
@@ -244,6 +257,35 @@ export function Solitaire({ onExit, onHeist, banner }: {
     });
   }, [k, b.ch, room]);
 
+  // XP floats up from the card that earned it: +1 for a new move, bigger for an ace, a suit, the win
+  useEffect(() => {
+    if (!tally || !k) return;
+    const { gained, paid } = solGain(best.current, tally);
+    best.current = paid;
+    const xp = tallyXp(gained);
+    if (!xp || !game?.gameId) return;
+    // where: the pile the last move landed on
+    const before = hist[hist.length - 2];
+    let x = colX(1);
+    let y = rowY;
+    const s = before ? k.found.findIndex((f, i) => f.length > before.found[i].length) : -1;
+    const to = /t(\d)$|t(\d):/.exec(moves[moves.length - 1] ?? "");
+    if (s >= 0) x = colX(3 + s);
+    else if (to) {
+      const i = Number(to[1] ?? to[2]);
+      const col = k.cols[i];
+      x = colX(i);
+      y = tabY + col.down.length * offsets[i].down + Math.max(0, col.up.length - 1) * offsets[i].up;
+    } else if (!k.waste.length) x = colX(0);
+    const tag = gained.won ? "SOLVED" : gained.stacks ? "SUIT DONE" : gained.aces ? "ACE" : null;
+    const id = ++floatId.current;
+    setFloats((f) => [...f.slice(-5), { id, x: x + b.cw / 2, y, xp, tag }]);
+    // not cleared by the next move: fast play still lets each one finish and go
+    window.setTimeout(() => setFloats((f) => f.filter((q) => q.id !== id)), tag ? 1400 : 900);
+    // only a new tally makes a float
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tally]);
+
   if (!k) return <div className="sol" />;
 
   type Placed = { c: PlayingCard; x: number; y: number; z: number; up: boolean; pile: Pile | "s"; depth: number };
@@ -307,8 +349,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
   const secs = Math.floor((now - started) / 1000);
   const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
   const won = solWon(k);
-  // banked XP plus the cards not banked yet (until the day's card XP runs out)
-  const shownXp = earned + (capped || done ? 0 : Math.max(0, found - banked.current) * SOLITAIRE_CARD.xp);
+  const shownXp = tallyXp(best.current);
   const small = b.cw < 64;
   return (
     <div className={"sol" + (small ? " sol-small" : "")} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrag(null)}>
@@ -393,6 +434,23 @@ export function Solitaire({ onExit, onHeist, banner }: {
           </motion.div>
         );
       })}
+
+      <AnimatePresence>
+        {floats.map((f) => (
+          <motion.div
+            key={f.id}
+            className={"sol-float" + (f.tag ? " big" : "")}
+            style={{ left: f.x, top: f.y }}
+            initial={{ opacity: 0, y: 0, scale: f.tag ? 0.6 : 0.8 }}
+            animate={{ opacity: [0, 1, 1, 0], y: reduce ? 0 : f.tag ? -70 : -44, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: f.tag ? 1.3 : 0.85, ease: "easeOut", opacity: { times: [0, 0.15, 0.7, 1], duration: f.tag ? 1.3 : 0.85 } }}
+          >
+            +{f.xp}
+            {f.tag && <small>{f.tag}</small>}
+          </motion.div>
+        ))}
+      </AnimatePresence>
 
       </div>
 

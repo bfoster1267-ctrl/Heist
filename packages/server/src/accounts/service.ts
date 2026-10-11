@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, replaySol, solWon, solFound, settleSolitaire, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solGain, settleSolitaire, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -540,41 +540,29 @@ export class AccountService {
     });
   }
 
-  /** Replay a Solitaire game's moves from its seed (a bad list is never paid). */
-  private solitaireReplay(x: Account, gameId: unknown, moves: unknown) {
-    const g = x.solitaire;
-    if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
-    if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
-    try {
-      return { g, k: replaySol(g.seed, moves) };
-    } catch {
-      throw new ApiError(400, "That game doesn't check out");
-    }
-  }
-
   /**
-   * Bank the cards sent to the foundations so far in a game still being played (the online table can
-   * be dealt before it's won). Only the most the deal has ever had up there is paid, once.
+   * Pay for a Solitaire deal so far: the server replays the moves from the seed and pays only what
+   * they earned beyond what this deal was already paid (new positions, aces, finished suits, the
+   * win). Banked as the player goes, and when they leave (the online table can be dealt mid-game);
+   * `finish` is the win, which closes the deal.
    */
-  solitaireCards(a: Account, gameId: unknown, moves: unknown) {
+  solitaireBank(a: Account, gameId: unknown, moves: unknown, finish = false) {
     return this.update(a.id, (x) => {
-      const { g, k } = this.solitaireReplay(x, gameId, moves);
-      const cards = solFound(k) - (g.paid ?? 0);
-      if (cards <= 0) return { me: this.me(x), reward: null };
-      g.paid = solFound(k);
-      const r = settleSolitaire(x.progress, this.now(), { won: false, cards });
-      x.progress = r.progress;
-      return { me: this.me(x), reward: r.reward };
-    });
-  }
-
-  /** A Solitaire win: the server replays the moves from the seed and pays only a real win. */
-  solitaireFinish(a: Account, gameId: unknown, moves: unknown) {
-    return this.update(a.id, (x) => {
-      const { g, k } = this.solitaireReplay(x, gameId, moves);
-      if (!solWon(k)) throw new ApiError(400, "That game isn't won yet");
-      x.solitaire = null;
-      const r = settleSolitaire(x.progress, this.now(), { won: true, cards: 52 - (g.paid ?? 0) });
+      const g = x.solitaire;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallySol(g.seed, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      const { gained, paid, any } = solGain(g.paid, t);
+      g.paid = paid;
+      if (t.won) x.solitaire = null;
+      if (!any) return { me: this.me(x), reward: null };
+      const r = settleSolitaire(x.progress, this.now(), gained);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });

@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
-import type { Progress } from "@heist/profile";
+import type { Progress, SolTally } from "@heist/profile";
 import type { PushSub } from "../push";
 
 export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
@@ -49,7 +49,7 @@ export interface Account {
   /** the vs-bots game in progress (its buy-in is already paid) */
   solo: SoloGame | null;
   /** the Solitaire deal in progress (the server keeps the seed, to replay the moves of a win) */
-  solitaire?: { gameId: string; seed: number; startedAt: number; /** most cards on the foundations paid for so far */ paid?: number } | null;
+  solitaire?: { gameId: string; seed: number; startedAt: number; /** what the deal's moves have been paid for so far */ paid?: SolTally } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */

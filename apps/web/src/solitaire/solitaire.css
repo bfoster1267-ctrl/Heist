@@ -463,3 +463,31 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+/* XP rising off the card that earned it */
+.sol-float {
+  position: absolute;
+  width: 96px;
+  margin-left: -48px;
+  margin-top: -6px;
+  z-index: 900;
+  pointer-events: none;
+  text-align: center;
+  font-family: var(--title);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6), 0 0 10px rgba(212, 175, 55, 0.45);
+}
+.sol-float small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--cond);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--paper);
+}
+.sol-float.big {
+  font-size: 30px;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(212, 175, 55, 0.7);
+}
