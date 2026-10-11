@@ -61,6 +61,8 @@ interface Trail {
   lastWhat: string;
   newTap: boolean;
   lesson: boolean;
+  /** tapped through the lobby tour after the first hand (picked coaching or bots at the end) */
+  toured: boolean;
   coachedGames: Set<string>;
   turn: number;
   finished: boolean;
@@ -98,7 +100,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     const p = personOf(e.userId!);
     let t = trails.get(p);
     if (!t) {
-      t = { ids: new Set(), userId: e.userId!, name: e.name ?? "", first: e.at, last: e.at, lastWhat: what(e), newTap: false, lesson: false, coachedGames: new Set(), turn: 0, finished: false, games: 0, online: false, back: false, signedUp: false };
+      t = { ids: new Set(), userId: e.userId!, name: e.name ?? "", first: e.at, last: e.at, lastWhat: what(e), newTap: false, lesson: false, toured: false, coachedGames: new Set(), turn: 0, finished: false, games: 0, online: false, back: false, signedUp: false };
       trails.set(p, t);
     }
     t.ids.add(e.userId!);
@@ -112,6 +114,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     switch (e.kind) {
       case "ui.tap":
         if (d.name === "welcome-new" || (typeof d.name === "string" && d.name.startsWith("I'm new"))) t.newTap = true;
+        if (d.name === "tour-coach" || d.name === "tour-bots") t.toured = true;
         break;
       case "ui.turn":
         turnsSince ??= e.at;
@@ -143,10 +146,12 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
   const turns = TURNS.filter((n) => n <= maxTurn);
   const defs: { key: string; label: string; note: string; did: (t: Trail) => boolean }[] = [
     { key: "visit", label: "Opened the site", note: "any visit", did: () => true },
-    { key: "new", label: "Tapped I'm new", note: "on the first-visit welcome", did: (t) => t.newTap },
+    // the welcome question went away 2026-10-11: new visitors now go straight into the first hand
+    { key: "new", label: "Tapped I'm new", note: "first-visit welcome (now skipped: counts going straight in)", did: (t) => t.newTap || t.lesson },
     { key: "lesson", label: "Started the coached game", note: "Learn to play", did: (t) => t.lesson },
     ...turns.map((n) => ({ key: `turn${n}`, label: `Reached turn ${n}`, note: "of the coached game", did: (t: Trail) => t.turn >= n })),
     { key: "finish", label: "Finished the coached game", note: "played it to the end", did: (t) => t.finished },
+    { key: "tour", label: "Finished the lobby tour", note: "Wardrobe, Season pass, then picked what's next", did: (t) => t.toured },
     { key: "again", label: "Played another game", note: "a second game of any kind", did: (t) => t.games >= 2 || t.online },
     { key: "back", label: "Came back later", note: "12+ hours after the first visit", did: (t) => t.back },
     { key: "signup", label: "Signed up", note: "made an account", did: (t) => t.signedUp },

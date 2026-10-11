@@ -1,10 +1,14 @@
-// Coached play lessons: a new player's first four coached games teach the game a piece at a time.
-//  - Lessons 1 and 2 have no Roles, no bets and a deck of Score cards only. The coach plays every decision
+// Coached play lessons: a new player's first five coached games teach the game a piece at a time.
+//  - The first is a single hand: one round (everyone is the Boss once), then the game ends and the new
+//    player is shown around the lobby. It teaches the fight and sending crew.
+//  - The next two have no Roles, no bets and a deck of Score cards only. The coach plays every decision
 //    you haven't been handed yet, and hands over one more kind each hand you play as the Boss.
-//  - Lesson 3 adds the trick cards (Fixer, Backup, Double-Cross), one per hand.
-//  - Lesson 4 adds Roles, from a short list of simple ones, and side bets.
+//  - Then the trick cards (Fixer, Backup, Double-Cross), one per hand.
+//  - The last adds Roles, from a short list of simple ones, and side bets.
 // After that, Coached play is the full game. The lesson's rules go in the solo ticket, so the server
 // replays it like any other game; the coach's moves are ordinary answers.
+// A lesson's `n` is its id in solo tickets and saved games, so it never changes: the first hand came later
+// and is n 5. Show players its place in the list (lessonNo), not n.
 
 import { Bot, type Answer, type Ask, type GameState, type HeistGame, type RoleId, type RuleOptions } from "@heist/engine";
 import { coachPick } from "./coach";
@@ -24,6 +28,7 @@ export interface Idea {
 }
 
 export interface Lesson {
+  /** id kept in tickets and saved games (not the lesson's place in the list: see lessonNo) */
   n: number;
   name: string;
   /** one line for the lobby and the table's top bar */
@@ -45,27 +50,37 @@ const ACTION: Idea = { hand: 2, kinds: ["action", "again"], at: ["action"], titl
 /** what an earlier lesson taught: yours from the start, not explained again */
 const known = (...ideas: Idea[]): Idea => ({ hand: 0, kinds: ideas.flatMap((i) => i.kinds), title: "", text: "" });
 
+/** the first hand: one round, then the new player is shown around the lobby (FIRST_HAND is its id) */
+export const FIRST_HAND = 5;
+
 // A coached game deals a friendly seed, so it's short: about 2 or 3 of your hands. Each lesson teaches about
 // three ideas, one per hand, and any it doesn't reach move to the next lesson's start.
 export const LESSONS: Lesson[] = [
   {
+    n: FIRST_HAND,
+    name: "Your first hand",
+    blurb: "Lesson 1 of 5. One hand: the coach plays most of it and shows you the fight.",
+    rules: { noRoles: true, scoresOnly: true, noBets: true, rounds: 1 },
+    ideas: [FIGHT, SEND],
+  },
+  {
     n: 1,
-    name: "The fight",
-    blurb: "Lesson 1 of 4. The coach plays most of your turn and hands you one new move each hand.",
+    name: "Pick the target",
+    blurb: "Lesson 2 of 5. The coach plays most of your turn and hands you one new move each hand.",
     rules: { noRoles: true, scoresOnly: true, noBets: true },
-    ideas: [FIGHT, SEND, TARGET, { ...JOIN, hand: 3 }, { ...CASH, hand: 4 }, { ...ACTION, hand: 5 }],
+    ideas: [known(FIGHT, SEND), { ...TARGET, hand: 1 }, { ...JOIN, hand: 2 }, { ...CASH, hand: 3 }, { ...ACTION, hand: 4 }],
   },
   {
     n: 2,
     name: "Your turn",
-    blurb: "Lesson 2 of 4. You take over the rest of your turn: picking sides, cash and crew, and your move.",
+    blurb: "Lesson 3 of 5. You take over the rest of your turn: picking sides, cash and crew, and your move.",
     rules: { noRoles: true, scoresOnly: true, noBets: true },
     ideas: [known(FIGHT, SEND, TARGET), JOIN, CASH, ACTION],
   },
   {
     n: 3,
     name: "Dirty tricks",
-    blurb: "Lesson 3 of 4. The trick cards join the deck, one new one each hand.",
+    blurb: "Lesson 4 of 5. The trick cards join the deck, one new one each hand.",
     rules: { noRoles: true, noBets: true },
     ideas: [
       known(FIGHT, SEND, TARGET, JOIN, CASH, ACTION),
@@ -77,7 +92,7 @@ export const LESSONS: Lesson[] = [
   {
     n: 4,
     name: "Roles and bets",
-    blurb: "Lesson 4 of 4. Everything so far, plus a Role that bends one rule your way, and side bets.",
+    blurb: "Lesson 5 of 5. Everything so far, plus a Role that bends one rule your way, and side bets.",
     rules: { rolePool: SIMPLE_ROLES },
     rest: true,
     ideas: [
@@ -89,8 +104,18 @@ export const LESSONS: Lesson[] = [
 
 export const lesson = (n: number | undefined): Lesson | undefined => (n ? LESSONS.find((l) => l.n === n) : undefined);
 
-/** The lesson a player's next coached game teaches (undefined: they've done them all; it's the full game). */
-export const lessonFor = (coachGames: number): number | undefined => (coachGames < LESSONS.length ? coachGames + 1 : undefined);
+/**
+ * The lesson a player's next coached game teaches (undefined: they've done them all; it's the full game).
+ * `firstHand` false: for an older cached client that only knows lessons 1-4, which it plays in order.
+ */
+export const lessonFor = (coachGames: number, firstHand = true): number | undefined =>
+  firstHand ? LESSONS[coachGames]?.n : coachGames < 4 ? coachGames + 1 : undefined;
+
+/** A lesson's place in the list, counted from 1, as players see it ("Lesson 2 of 5"). */
+export const lessonNo = (n: number | undefined): number | undefined => {
+  const i = LESSONS.findIndex((l) => l.n === n);
+  return i < 0 ? undefined : i + 1;
+};
 
 /** How many hands `seat` has started as the Boss so far (0 before their first turn). */
 export function handOf(s: GameState, seat: number): number {

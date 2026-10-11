@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, easySeed, lessonFor, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -479,6 +479,7 @@ export class AccountService {
    * normal bots). `campaign`: play that stage instead (it sets the table, and has no buy-in). `coached`: Coached play
    * (always 3 players, gentle bots for clients that ask, no buy-in, small XP, kept out of the career and the rating).
    * `lessons`: the client can teach Coached play's lessons, so a player's first coached games are one (lessons.ts).
+   * `true` is an older client that knows lessons 1-4 only; 2 also knows the one-hand first lesson.
    */
   async soloStart(a: Account, players: unknown, stakes: unknown, scaled?: unknown, campaign?: unknown, coached?: unknown, gentle?: unknown, lessons?: unknown) {
     const st = campaign === undefined || campaign === null ? undefined : typeof campaign === "number" ? stage(campaign) : undefined;
@@ -490,7 +491,7 @@ export class AccountService {
     const n = coach ? COACH_PLAYERS : players;
     const buy = coach ? 0 : stakes;
     // Coached play deals a friendly game: the seed where following the coach wins fastest (it replays as usual)
-    const les = coach && gentle === true && lessons === true ? lessonFor(a.progress.coachGames) : undefined;
+    const les = coach && gentle === true && (lessons === true || lessons === 2) ? lessonFor(a.progress.coachGames, lessons === 2) : undefined;
     const seed = coach && gentle === true ? easySeed(() => randomInt(2 ** 31), n, 16, 250, undefined, les) : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
       if (st && st.n > x.progress.campaign + 1) throw new ApiError(403, "Clear the stage before that one first");
@@ -547,7 +548,7 @@ export class AccountService {
       // every vs-bots game feeds the rookie-mistake tally the coach leans on
       x.progress = addMistakes(x.progress, rep.mistakes);
       if (g.coached) {
-        const c = settleCoached(x.progress, won);
+        const c = settleCoached(x.progress, won, g.lesson === FIRST_HAND ? { at: this.now() } : undefined);
         x.progress = c.progress;
         this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage, gentle: g.gentle, lesson: g.lesson },
           answers: answers as never, startedAt: g.startedAt, endedAt: this.now(), quit: false, winners: rep.winners });

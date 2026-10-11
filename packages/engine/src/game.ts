@@ -361,19 +361,24 @@ export class HeistGame {
         this.endLastCall();
         break;
       }
+      if (s.rules.rounds && s.turn + 1 >= s.rules.rounds * s.n) {
+        this.endLastCall(true);
+        break;
+      }
       s.boss = (s.boss + 1) % s.n;
       s.turn++;
     }
     s.phase = "over";
   }
 
-  private endLastCall() {
+  /** Last Call (or a learner table's last round): most Footholds wins, then the most cash. */
+  private endLastCall(roundsUp = false) {
     const s = this.s;
     const key = s.players.map((p) => this.footholds(p.seat) * 1000 + this.cash(p.seat));
     const best = Math.max(...key);
     s.winners = s.players.filter((p) => key[p.seat] === best).map((p) => p.seat);
     s.endReason = "last_call";
-    this.emit({ t: "gameOver", winners: s.winners, reason: "last_call" }, `Last Call. ${s.winners.map((w) => this.name(w)).join(" and ")} win${s.winners.length > 1 ? "" : "s"} on Footholds.`);
+    this.emit({ t: "gameOver", winners: s.winners, reason: "last_call" }, `${roundsUp ? "That's the last hand" : "Last Call"}. ${s.winners.map((w) => this.name(w)).join(" and ")} win${s.winners.length > 1 ? "" : "s"} on Footholds.`);
   }
 
   private checkWin(): boolean {

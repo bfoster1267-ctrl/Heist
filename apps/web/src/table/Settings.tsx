@@ -3,13 +3,14 @@
 import { motion } from "motion/react";
 import { useState } from "react";
 import { setPrefs, usePrefs, type MotionPref } from "../prefs";
-import { chip, getVolume, isMuted, setMuted, setVolume } from "../sound";
+import { chip, getMusicVolume, getVolume, isMuted, setMusicVolume, setMuted, setVolume } from "../sound";
 import { turnOffAlerts, turnOnAlerts, useAlertState } from "../alerts";
 
 export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () => void }) {
   const prefs = usePrefs();
   const [muted, setMute] = useState(isMuted());
   const [vol, setVol] = useState(getVolume());
+  const [music, setMusic] = useState(getMusicVolume());
   const alerts = useAlertState();
   return (
     <motion.div className="settings" role="dialog" aria-label="Settings" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
@@ -32,7 +33,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         />
       </label>
       <label className="set-row">
-        <span>Volume</span>
+        <span>Effects</span>
         <input
           type="range"
           min={0}
@@ -49,8 +50,22 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
 
       <label className="set-row">
-        <span>Table music</span>
-        <input type="checkbox" checked={prefs.tableMusic} disabled={muted} onChange={(e) => setPrefs({ tableMusic: e.target.checked })} />
+        <span>Music</span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={prefs.tableMusic ? music : 0}
+          disabled={muted}
+          aria-valuetext={prefs.tableMusic && music > 0 ? `${Math.round(music * 100)}%` : "Off"}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setMusicVolume(v);
+            setMusic(v);
+            if ((v > 0) !== prefs.tableMusic) setPrefs({ tableMusic: v > 0 });
+          }}
+        />
       </label>
       {alerts !== "unsupported" && (
         <label className="set-row">

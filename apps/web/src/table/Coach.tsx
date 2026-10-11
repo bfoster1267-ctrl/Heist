@@ -3,7 +3,7 @@
 import type { Answer, Ask, GameState } from "@heist/engine";
 import { MISTAKES, coachTip, describePick, type Idea, type MistakeId } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
 import { boxIn } from "../turn";
 
@@ -112,185 +112,153 @@ const COACH: Partial<Record<Ask["kind"], { title: string; text: string }>> = {
   discard: { title: "Hand limit", text: "You can hold 7 cards at the end of your turn. Pick the extras to throw away." },
 };
 
+/**
+ * A coach card that covers the whole table on purpose: it can't get cut off or sit on a button, and Next
+ * puts it away so the decision is yours. It lives inside the table canvas, so it turns and scales with it
+ * (phone upright, on its side, notch and all).
+ */
+function CoachCard({ tone, title, tag, label, children, actions, delay = 0 }: { tone: string; title: string; tag?: string; label: string; children: React.ReactNode; actions: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div className={"coach-sheet " + tone} role="dialog" aria-modal="true" aria-label={label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay }}>
+      <motion.div className="coach-card" initial={{ y: 24, scale: 0.96 }} animate={{ y: 0, scale: 1 }} transition={{ delay, type: "spring", stiffness: 260, damping: 24 }}>
+        <div className="coach-card-title">
+          {tag && <span className="coach-new-tag">{tag}</span>}
+          {title}
+        </div>
+        <div className="coach-card-text">{children}</div>
+        <div className="coach-card-btns">{actions}</div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 /** One coach tip, the first time each kind of decision comes up. */
 export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
   const prefs = usePrefs();
   const tip = ask && !blocked && prefs.tips && !prefs.seen.includes(ask.kind) ? COACH[ask.kind] : undefined;
-  const above = useAbovePanel(!!tip);
   return (
     <AnimatePresence>
       {tip && ask && (
-        <motion.div
+        <CoachCard
           key={ask.kind}
-          ref={above}
-          className="coach"
-          role="note"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ delay: 0.25 }}
+          tone="tip"
+          title={tip.title}
+          label={tip.title}
+          delay={0.25}
+          actions={
+            <>
+              <button className="btn ghost" onClick={() => setPrefs({ tips: false })}>
+                No more tips
+              </button>
+              <span style={{ flex: 1 }} />
+              <button className="btn primary" autoFocus onClick={() => markSeen(ask.kind)}>
+                Next
+              </button>
+            </>
+          }
         >
-          <div className="coach-title">{tip.title}</div>
-          <div className="coach-text">{tip.text}</div>
-          <div className="btns">
-            <button className="btn small primary" onClick={() => markSeen(ask.kind)}>
-              Got it
-            </button>
-            <button className="btn small ghost" onClick={() => setPrefs({ tips: false })}>
-              No more tips
-            </button>
-          </div>
-        </motion.div>
+          {tip.text}
+        </CoachCard>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/** Coached play: a new idea gets the whole screen once. Next hands the decision back to you. */
+export function CoachIdea({ idea, onNext, onOff }: { idea: Idea | undefined; onNext: () => void; onOff: () => void }) {
+  return (
+    <AnimatePresence>
+      {idea && (
+        <CoachCard
+          key={idea.title}
+          tone="live"
+          tag="New"
+          title={idea.title}
+          label={`New idea: ${idea.title}`}
+          delay={0.35}
+          actions={
+            <>
+              <button className="btn ghost" onClick={onOff}>
+                Skip coaching
+              </button>
+              <span style={{ flex: 1 }} />
+              <button className="btn primary" autoFocus onClick={onNext}>
+                Next
+              </button>
+            </>
+          }
+        >
+          {idea.text}
+        </CoachCard>
       )}
     </AnimatePresence>
   );
 }
 
 /**
- * Coached play: the coach's read of every decision, docked beside your action panel. The coach never plays
- * for you: its own pick stays hidden until you ask for a hint, and a good move gets a cheer.
+ * Coached play: the coach's short read of the decision, sitting just above your decision buttons as part
+ * of the panel, so it moves with it and never covers a choice. The coach's own pick stays hidden until you
+ * ask for a hint, and a good move gets a cheer.
  */
-export function LiveCoach({ s, ask, idea, pick, cheer, onOff }: { s: GameState; ask: Ask | null; idea?: Idea; pick: Answer | null; cheer: string | null; onOff: () => void }) {
-  const tip = ask ? coachTip(s, ask) : "";
-  const said = ask && pick ? describePick(s, ask, pick) : "";
-  const key = JSON.stringify(ask);
-  const [hintFor, setHintFor] = useState<string | null>(null);
-  // tucked away into a small button until you want it back
-  const [shut, setShut] = useState(false);
-  const above = useAbovePanel(!!tip);
+export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState; ask: Ask; idea?: Idea; pick: Answer | null; cheer: string | null; onIdea: () => void }) {
+  const tip = coachTip(s, ask);
+  const said = pick ? describePick(s, ask, pick) : "";
+  const [hint, setHint] = useState(false);
+  if (!tip && !cheer && !idea) return null;
   return (
-    <AnimatePresence>
-      {tip && ask && shut && (
-        <motion.button key="pill" ref={above} className="coach-pill" onClick={() => setShut(false)} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          Coach{idea && <span className="coach-new-tag">New</span>}
-        </motion.button>
+    <div className="coach-line" role="note" aria-label="Coach">
+      {cheer && <div className="coach-cheer">{cheer}</div>}
+      {tip && (
+        <div className="coach-line-text">
+          <b>Coach:</b> {tip}
+        </div>
       )}
-      {tip && ask && !shut && (
-        <motion.div key={key} ref={above} className="coach live" role="note" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-          <div className="coach-title">
-            Coach
-            <button className="coach-off" onClick={onOff}>
-              Skip coaching
-            </button>
-            <button className="coach-x" aria-label="Hide the coach" onClick={() => setShut(true)}>
-              ×
-            </button>
-          </div>
-          {cheer && <div className="coach-cheer">{cheer}</div>}
+      {hint && said ? (
+        <div className="coach-pick">
+          <b>Hint:</b> {said}
+        </div>
+      ) : null}
+      {(idea || (said && !hint)) && (
+        <div className="coach-line-btns">
           {idea && (
-            <div className="coach-new">
+            <button className="coach-hint" onClick={onIdea}>
               <span className="coach-new-tag">New</span>
-              <b>{idea.title}.</b> {idea.text}
-            </div>
+              {idea.title}
+            </button>
           )}
-          <div className="coach-text">{tip}</div>
-          {said &&
-            (hintFor === key ? (
-              <div className="coach-pick">
-                <b>Hint:</b> {said}
-              </div>
-            ) : (
-              <button className="coach-hint" onClick={() => setHintFor(key)}>
-                Stuck? Get a hint
-              </button>
-            ))}
-        </motion.div>
+          {said && !hint && (
+            <button className="coach-hint" onClick={() => setHint(true)}>
+              Get a hint
+            </button>
+          )}
+        </div>
       )}
-    </AnimatePresence>
+    </div>
   );
 }
 
 /** Coached play: a rookie mistake is caught before it's played. You can still play it. */
 export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId; before: number; onAnyway: () => void; onChange: () => void }) {
   const m = MISTAKES[id];
-  const above = useAbovePanel(true);
   return (
-    <motion.div ref={above} className="coach live mistake" role="alertdialog" aria-label={m.title} initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }}>
-      <div className="coach-title">Hold on: {m.title.toLowerCase()}</div>
-      <div className="coach-text">
-        {m.why}
-        {before > 0 && <> You've made this one {before} time{before === 1 ? "" : "s"} before.</>}
-      </div>
-      <div className="btns">
-        <button className="btn small primary" autoFocus onClick={onChange}>
-          Change my move
-        </button>
-        <button className="btn small ghost" onClick={onAnyway}>
-          Do it anyway
-        </button>
-      </div>
-    </motion.div>
+    <CoachCard
+      tone="mistake"
+      title={`Hold on: ${m.title.toLowerCase()}`}
+      label={m.title}
+      actions={
+        <>
+          <button className="btn ghost" onClick={onAnyway}>
+            Do it anyway
+          </button>
+          <span style={{ flex: 1 }} />
+          <button className="btn primary" autoFocus onClick={onChange}>
+            Change my move
+          </button>
+        </>
+      }
+    >
+      {m.why}
+      {before > 0 && <> You've made this one {before} time{before === 1 ? "" : "s"} before.</>}
+    </CoachCard>
   );
-}
-
-/** The action panel changes height with each decision (and with the text size), so sit the tip just
- *  above it (or beside it, clear of your hand) rather than at a fixed spot that can cover a choice. The panel is swapped for a
- *  new one after every move, so it's looked up again on each change rather than once. */
-function useAbovePanel(on: boolean) {
-  const [el, setEl] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    const parent = el?.offsetParent as HTMLElement | null;
-    if (!on || !el || !parent) return;
-    let watched: HTMLElement | null = null;
-    // the newest panel that isn't on its way out
-    const current = () => {
-      const panels = parent.querySelectorAll<HTMLElement>(".action-panel:not([data-leaving])");
-      return panels[panels.length - 1] ?? null;
-    };
-    const place = () => {
-      const panel = current();
-      if (panel !== watched) {
-        if (watched) ro.unobserve(watched);
-        if (panel) ro.observe(panel);
-        watched = panel;
-      }
-      el.style.right = "";
-      el.style.maxWidth = "";
-      el.style.maxHeight = "";
-      if (!panel) return void (el.style.bottom = "");
-      const H = parent.clientHeight;
-      const h = el.offsetHeight;
-      const room = panel.offsetTop - 16;
-      const panelBottom = H - panel.offsetTop - panel.offsetHeight;
-      if (h <= room) {
-        // above the panel
-        el.style.bottom = `${H - panel.offsetTop + 8}px`;
-      } else if (panel.offsetLeft >= 220) {
-        // no room above (a phone on its side): beside it, so the coach never covers the buttons
-        el.style.right = `${parent.clientWidth - panel.offsetLeft + 8}px`;
-        el.style.maxWidth = `${panel.offsetLeft - 16}px`;
-        el.style.maxHeight = `${H - 16}px`;
-        el.style.bottom = `${Math.max(8, Math.min(panelBottom, H - el.offsetHeight - 8))}px`;
-      } else {
-        // squeezed into whatever room there is above, scrolling if it has to
-        el.style.maxHeight = `${Math.max(60, room)}px`;
-        el.style.bottom = `${H - panel.offsetTop + 8}px`;
-      }
-      // Your hand is a choice too (lay a card, bank, discard): lift the coach above it if it landed on it
-      const hand = parent.querySelector<HTMLElement>('[data-anchor="my-hand"]');
-      if (!hand) return;
-      const k = boxIn(parent, parent).width / parent.offsetWidth || 1;
-      const a = boxIn(el, parent), b = boxIn(hand, parent);
-      const [ax, ay, aw, ah] = [a.left / k, a.top / k, a.width / k, a.height / k];
-      const [bx, by, bw] = [b.left / k, b.top / k, b.width / k];
-      if (ax >= bx + bw || bx >= ax + aw || ay + ah <= by) return;
-      if (ah > by - 16) el.style.maxHeight = `${Math.max(60, by - 16)}px`;
-      el.style.bottom = `${H - by + 8}px`;
-    };
-    const ro = new ResizeObserver(place);
-    const mo = new MutationObserver(() => current() !== watched && place());
-    ro.observe(el);
-    const hand = parent.querySelector('[data-anchor="my-hand"]');
-    if (hand) ro.observe(hand);
-    mo.observe(parent, { childList: true, subtree: true, attributeFilter: ["data-leaving"] });
-    place();
-    return () => {
-      ro.disconnect();
-      mo.disconnect();
-    };
-  }, [on, el]);
-  // A coach on its way out lets go of its ref after the next one has taken it: keep the newest.
-  return useCallback((n: HTMLElement | null) => {
-    if (n) setEl(n);
-  }, []);
 }

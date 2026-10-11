@@ -4,7 +4,7 @@
 import { cosmetic, rankName, rankOf, xpToNext, type RankedResult, type Reward } from "@heist/profile";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
-import { lose as loseSound, win as winSound } from "../sound";
+import { levelUp, lose as loseSound, win as winSound } from "../sound";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Coins } from "./bits";
@@ -117,7 +117,10 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
   const [stage, setStage] = useState(0);
   useEffect(() => {
     if (!leveled) return;
-    const t = window.setTimeout(() => setStage(1), 1300);
+    const t = window.setTimeout(() => {
+      setStage(1);
+      levelUp();
+    }, 1300);
     return () => clearTimeout(t);
   }, [leveled]);
   const lvl = stage === 1 ? r.levelAfter : r.levelBefore;

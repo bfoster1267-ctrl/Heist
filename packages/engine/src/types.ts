@@ -97,6 +97,8 @@ export interface RuleOptions {
   noBets?: boolean;
   /** Learner tables: Roles are dealt from this pool instead of all 13 (needs 2 per player). */
   rolePool?: RoleId[];
+  /** Learner tables: the game ends after this many rounds (everyone Boss once per round), scored like Last Call. */
+  rounds?: number;
 }
 
 /** One finished job, kept so players (and bots) can look back at who backed whom and who got burned. */

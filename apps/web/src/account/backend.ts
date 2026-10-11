@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -238,7 +238,7 @@ export class BrowserBackend implements Backend {
     const won = rep.winners.includes(0);
     this.save.progress = addMistakes(this.save.progress, rep.mistakes);
     if (g.coached) {
-      const c = settleCoached(this.save.progress, won);
+      const c = settleCoached(this.save.progress, won, g.lesson === FIRST_HAND ? { at: Date.now() } : undefined);
       this.save.progress = c.progress;
       this.write();
       return { me: this.view(), reward: c.reward };
@@ -400,7 +400,7 @@ export class ServerBackend implements Backend {
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
-    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached });
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached ? 2 : false });
   }
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });

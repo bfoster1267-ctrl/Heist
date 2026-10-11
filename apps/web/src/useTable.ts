@@ -126,7 +126,7 @@ export function useTable(settings: TableSettings) {
     const after = viewFor(f.state, HUMAN);
     const before = shownRef.current?.state ?? after;
     const flightMs = flightHook.current ? flightHook.current(f.ev, before, after) : 0;
-    sfx(f.ev, HUMAN);
+    sfx(f.ev, HUMAN, after);
     const apply = () => {
       const s: Shown = { state: after, msg: f.msg, ev: f.ev, key: ++counter.current };
       shownRef.current = s;
