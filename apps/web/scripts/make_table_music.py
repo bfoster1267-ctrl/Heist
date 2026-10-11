@@ -83,7 +83,7 @@ cr = cr - lp(cr, 0.3)
 out += cr * 0.02
 
 peak = np.max(np.abs(out))
-out = out / peak * 10 ** (-16 / 20)   # quiet: peak -16 dBFS
+out = out / peak * 10 ** (-22 / 20)   # quiet: peak -22 dBFS, so the table sounds sit clearly on top
 pcm = (out * 32767).astype(np.int16)
 w = wave.open("table-music.wav", "wb"); w.setnchannels(1); w.setsampwidth(2); w.setframerate(SR); w.writeframes(pcm.tobytes()); w.close()
 print("seconds", N / SR)
