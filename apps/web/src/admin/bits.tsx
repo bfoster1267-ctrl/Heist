@@ -185,6 +185,16 @@ const LABELS: Record<string, string> = {
   "admin.tags": "You set tags",
   "admin.flag": "You flagged / cleared",
   "admin.ban": "You suspended / lifted",
+  "admin.chats": "You read their chats",
+  "dm.send": "Sent a message",
+  "chats.group": "Started a group chat",
+  "chats.add": "Added people to a group chat",
+  "chats.rename": "Renamed a group chat",
+  "chats.leave": "Left a group chat",
+  "friends.request": "Sent a friend request",
+  "friends.accept": "Accepted a friend",
+  "friends.remove": "Unfriended / declined",
+  "friends.invite": "Invited a friend to a table",
   "admin.team": "Added an admin",
   "admin.unteam": "Removed an admin",
 };
@@ -224,6 +234,7 @@ export function detailOf(e: ActivityEvent): string {
     case "solo.quit":
       return [d.moves ? `${d.moves} moves` : "", d.reward ? `+${d.reward.xp} XP` : "", d.reward?.payout ? `paid ${num(d.reward.payout)}` : ""].filter(Boolean).join(" · ");
     case "table.chat":
+    case "dm.send":
     case "lounge.say":
       return `“${d.text ?? ""}”`;
     case "lounge.report":

@@ -7,7 +7,7 @@ import { cosmetic } from "@heist/profile";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Stars } from "./bits";
 import { chatStyle } from "./items";
-import { badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
+import { SYSTEM, badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
 import "./friends.css";
 
@@ -69,6 +69,7 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
           ))}
         </section>
       )}
+      <Groups meId={meId} onOpen={setChat} />
       <AddFriend />
       <section>
         <h3>Friends{v?.friends.length ? ` (${v.friends.length})` : ""}</h3>
@@ -113,6 +114,60 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
         </section>
       )}
     </div>
+  );
+}
+
+/** Group chats you're in, newest first, and a way to start one. */
+function Groups({ meId, onOpen }: { meId: string; onOpen: (id: string) => void }) {
+  const v = useFriends();
+  const [making, setMaking] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  if (!v || !v.groups || !v.friends.length) return null;
+  return (
+    <section>
+      <div className="fr-head">
+        <h3>Group chats</h3>
+        {!making && (
+          <button className="btn gold small" onClick={() => setMaking(true)}>
+            New group
+          </button>
+        )}
+      </div>
+      {making && (
+        <PickFriends
+          label="Start chat"
+          withName
+          onPick={async (ids, name) => {
+            try {
+              const { id } = await friendsApi.createGroup(name, ids);
+              setMaking(false);
+              onOpen(id);
+            } catch (e) {
+              setErr(e instanceof Error ? e.message : "Couldn't start that chat");
+            }
+          }}
+          onCancel={() => setMaking(false)}
+        />
+      )}
+      {err && <div className="fr-err">{err}</div>}
+      {v.groups.map((g) => (
+        <button key={g.id} className="fr-row fr-friend" onClick={() => onOpen(g.id)}>
+          <span className="fr-person">
+            <span className="fr-faces">
+              {g.members
+                .filter((p) => p.id !== meId)
+                .slice(0, 3)
+                .map((p) => (
+                  <Avatar key={p.id} name={p.name} frame={p.frame} size={26} />
+                ))}
+            </span>
+            <span className="fr-name">{g.name || groupTitle(g.members.filter((p) => p.id !== meId).map((p) => p.name))}</span>
+          </span>
+          <span className="fr-last">{g.last ? `${g.last.who ? `${g.last.who}: ` : ""}${g.last.text}` : ""}</span>
+          {g.unread > 0 && <span className="fr-badge">{g.unread}</span>}
+        </button>
+      ))}
+    </section>
   );
 }
 
@@ -216,9 +271,12 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
   const [err, setErr] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
-  const [sure, setSure] = useState(false);
+  // the header's extra: unfriend (or, in a group, add friends / rename / leave)
+  const [menu, setMenu] = useState<null | "menu" | "unfriend" | "add" | "rename" | "leave">(null);
   const list = useRef<HTMLDivElement>(null);
-  const friend = useFriends()?.friends.find((f) => f.id === id);
+  const v = useFriends();
+  const friend = v?.friends.find((f) => f.id === id);
+  const [nonce, reload] = useState(0);
   useEffect(() => {
     let live = true;
     const load = () =>
@@ -232,7 +290,7 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
       live = false;
       clearInterval(timer);
     };
-  }, [id]);
+  }, [id, nonce]);
   const count = t?.messages.length ?? 0;
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight });
@@ -250,58 +308,115 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
     }
     setSending(false);
   };
-  const name = t?.friend.name ?? friend?.name ?? "";
+  const group = t?.group;
+  const people = new Map((t?.people ?? []).map((p) => [p.id, p]));
+  const groupRow = v?.groups?.find((g) => g.id === id);
+  const name = group ? group.name || groupTitle(group.members.filter((m) => m !== meId).map((m) => people.get(m)?.name ?? "").filter(Boolean)) : (t?.friend?.name ?? friend?.name ?? groupRow?.name ?? "");
   const lastMine = t ? [...t.messages].reverse().find((m) => m.from === meId) : undefined;
-  // each side's lines show in the chat bubble they wear from the Wardrobe
+  // everyone's lines show in the chat bubble they wear from the Wardrobe
   const bubble = (chat: string | undefined) => chatStyle(cosmetic(chat ?? "chat.house") ?? cosmetic("chat.house"));
-  const mineLook = bubble(t?.chat);
-  const theirLook = bubble(t?.friend.chat);
+  const lookOf = (from: string) => bubble(from === meId ? t?.chat : group ? people.get(from)?.chat : t?.friend?.chat);
+  const act = async (f: () => Promise<unknown>) => {
+    try {
+      await f();
+      setMenu(null);
+      reload((n) => n + 1);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Couldn't do that");
+    }
+  };
   return (
     <div className="fr fr-chat">
       <div className="fr-chat-head">
         <button className="btn ghost small" onClick={onBack}>
           ← Friends
         </button>
-        <span className="fr-chat-name" onClick={() => onPlayer?.(id)}>
+        <span className="fr-chat-name" onClick={() => !group && onPlayer?.(id)}>
           {name}
-          {t && <span className={"fr-dot inline" + (t.friend.online ? " on" : "")} />}
+          {t?.friend && <span className={"fr-dot inline" + (t.friend.online ? " on" : "")} />}
+          {group && <span className="fr-chat-sub">{group.members.length} people</span>}
         </span>
-        {sure ? (
-          <span className="fr-sure">
-            Unfriend?
-            <button
-              className="btn danger small"
-              onClick={async () => {
-                await friendsApi.remove(id).catch(() => {});
-                onBack();
-              }}
-            >
-              Yes
+        <button className="btn ghost small" aria-expanded={!!menu} onClick={() => setMenu(menu ? null : "menu")}>
+          ⋯
+        </button>
+      </div>
+      {menu === "menu" &&
+        (group ? (
+          <div className="fr-menu">
+            <button className="btn small" onClick={() => setMenu("add")}>
+              Add friends
             </button>
-            <button className="btn ghost small" onClick={() => setSure(false)}>
-              No
+            <button className="btn small" onClick={() => setMenu("rename")}>
+              Rename
             </button>
-          </span>
+            <button className="btn danger small" onClick={() => setMenu("leave")}>
+              Leave chat
+            </button>
+          </div>
         ) : (
-          <button className="btn ghost small" onClick={() => setSure(true)}>
+          <div className="fr-menu">
+            <button className="btn danger small" onClick={() => setMenu("unfriend")}>
+              Unfriend {name}
+            </button>
+          </div>
+        ))}
+      {menu === "unfriend" && (
+        <div className="fr-sure">
+          Unfriend {name}? You won't be able to message each other.
+          <button className="btn danger small" onClick={() => void friendsApi.remove(id).then(onBack, onBack)}>
             Unfriend
           </button>
-        )}
-      </div>
+          <button className="btn ghost small" onClick={() => setMenu(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
+      {menu === "leave" && group && (
+        <div className="fr-sure">
+          Leave {name}? You'll stop getting its messages.
+          <button className="btn danger small" onClick={() => void friendsApi.leaveGroup(id).then(onBack, onBack)}>
+            Leave
+          </button>
+          <button className="btn ghost small" onClick={() => setMenu(null)}>
+            Cancel
+          </button>
+        </div>
+      )}
+      {menu === "rename" && group && <RenameGroup name={group.name} onSave={(n) => void act(() => friendsApi.renameGroup(id, n))} onCancel={() => setMenu(null)} />}
+      {menu === "add" && group && (
+        <PickFriends
+          skip={group.members}
+          label="Add"
+          onPick={(ids) => void act(() => friendsApi.addToGroup(id, ids))}
+          onCancel={() => setMenu(null)}
+        />
+      )}
       <div className="fr-msgs" ref={list}>
         {!t ? (
           <div className="dim">{err ?? "Loading…"}</div>
         ) : !t.messages.length ? (
-          <div className="dim fr-empty">Say hi to {name}. Messages here are just between the two of you.</div>
+          <div className="dim fr-empty">Say hi to {name}.</div>
         ) : (
-          t.messages.map((m: Dm) => (
-            <div key={m.at + m.from} className={"fr-msg" + (m.from === meId ? " mine" : "")}>
-              <span className="fr-bubble" style={m.from === meId ? mineLook : theirLook}>
-                {m.text}
-              </span>
-              {m === lastMine && t.theirRead >= m.at && <span className="fr-seen">Seen</span>}
-            </div>
-          ))
+          t.messages.map((m: Dm, i) => {
+            if (m.from === SYSTEM)
+              return (
+                <div key={m.at + m.from} className="fr-sys">
+                  {m.text}
+                </div>
+              );
+            const mine = m.from === meId;
+            // in a group, a run of lines from one person shows their name once
+            const first = group && !mine && t.messages[i - 1]?.from !== m.from;
+            return (
+              <div key={m.at + m.from} className={"fr-msg" + (mine ? " mine" : "")}>
+                {first && <span className="fr-from">{people.get(m.from)?.name ?? "Someone"}</span>}
+                <span className="fr-bubble" style={lookOf(m.from)}>
+                  {m.text}
+                </span>
+                {!group && m === lastMine && t.theirRead >= m.at && <span className="fr-seen">Seen</span>}
+              </div>
+            );
+          })
         )}
       </div>
       {t && !t.friends ? (
@@ -321,6 +436,68 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
         </form>
       )}
       {t && err && <div className="fr-err">{err}</div>}
+      <div className="fr-note">Heist staff can read chats to keep everyone safe.</div>
+    </div>
+  );
+}
+
+/** "Bo, Cy and 2 more": a group with no name goes by its people. */
+function groupTitle(names: string[]) {
+  if (names.length <= 3) return names.join(", ");
+  return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
+}
+
+function RenameGroup({ name, onSave, onCancel }: { name: string; onSave: (n: string) => void; onCancel: () => void }) {
+  const [n, setN] = useState(name);
+  return (
+    <form
+      className="fr-send"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSave(n.trim());
+      }}
+    >
+      <input value={n} maxLength={30} placeholder="Name the chat" autoFocus aria-label="Chat name" onChange={(e) => setN(e.target.value)} />
+      <button className="btn gold small" type="submit">
+        Save
+      </button>
+      <button className="btn ghost small" type="button" onClick={onCancel}>
+        Cancel
+      </button>
+    </form>
+  );
+}
+
+/** Tick friends to start a group chat or add them to one. */
+function PickFriends({ skip = [], label, withName, onPick, onCancel }: { skip?: string[]; label: string; withName?: boolean; onPick: (ids: string[], name: string) => void; onCancel: () => void }) {
+  const v = useFriends();
+  const [picked, setPicked] = useState<string[]>([]);
+  const [name, setName] = useState("");
+  const list = (v?.friends ?? []).filter((f) => !skip.includes(f.id));
+  return (
+    <div className="fr-pick">
+      {withName && <input className="fr-search" value={name} maxLength={30} placeholder="Name the chat (optional)" aria-label="Chat name" onChange={(e) => setName(e.target.value)} />}
+      {!list.length ? (
+        <div className="dim">{v?.friends.length ? "All your friends are already in this chat." : "Add some friends first."}</div>
+      ) : (
+        <div className="fr-pick-list">
+          {list.map((f) => (
+            <label key={f.id} className="fr-row fr-pick-row">
+              <input type="checkbox" checked={picked.includes(f.id)} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, f.id] : p.filter((x) => x !== f.id)))} />
+              <PersonTag p={f} online={f.online} />
+            </label>
+          ))}
+        </div>
+      )}
+      <div className="fr-menu">
+        <button className="btn primary small" disabled={!picked.length} onClick={() => onPick(picked, name.trim())}>
+          {label}
+          {picked.length ? ` (${picked.length})` : ""}
+        </button>
+        <button className="btn ghost small" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
     </div>
   );
 }

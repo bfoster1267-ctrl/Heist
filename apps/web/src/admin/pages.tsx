@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { AuthError, get, post, type AccountDetail, type AccountRow, type ActivityEvent, type Economy, type GameView, type Live, type Overview, type ServerReport, type Session } from "./api";
 import { CrmPanel } from "./crm";
+import { ChatsPanel } from "./chats";
 import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when } from "./bits";
 
 type Load<T> = { data: T | null; error: string | null; reload: () => void; loading: boolean };
@@ -519,6 +520,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
       </div>
       {raw && <pre className="card raw">{JSON.stringify(a, null, 2)}</pre>}
       <CrmPanel key={a.id} s={s} onAuth={onAuth} d={d} />
+      <ChatsPanel key={`chats-${a.id}`} s={s} onAuth={onAuth} id={a.id} />
       <section className="stats">
         <Stat label="Chips" value={num(r.chips)} tone="gold" />
         <Stat label="Coins" value={num(r.coins)} />

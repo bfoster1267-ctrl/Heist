@@ -1356,3 +1356,25 @@ h4 {
     margin-left: 0;
   }
 }
+
+/* a player's chats */
+.admin-chat {
+  margin: 6px 0;
+}
+.admin-chat-lines {
+  margin-top: 6px;
+  padding: 8px 10px;
+  max-height: 360px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.admin-chat-lines .me {
+  color: #f6d77a;
+}
+.admin-chat-lines .sys {
+  opacity: 0.6;
+  font-style: italic;
+}

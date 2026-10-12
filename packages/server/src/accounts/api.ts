@@ -143,8 +143,6 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     const sent =
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
       : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
-      // a message between friends stays between them: the log keeps who and how long, not what
-      : key === "POST /api/dm/send" ? { to: body.to, chars: typeof body.text === "string" ? body.text.length : 0 }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
     svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ok: !error, error, data: Object.keys(data).length ? data : undefined });
@@ -214,6 +212,12 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         return send(res, 200, { ...(await admin.hosting.report()), live: (await admin.svc.overview()).live });
       }
       if (path === "/tags") return send(res, 200, { tags: await admin.svc.tags() });
+      const chats = path.match(/^\/accounts\/([\w-]{1,60})\/chats$/);
+      if (chats) {
+        if (!o.social) throw new ApiError(404, "Not found");
+        svc.track({ kind: "admin.chats", userId: chats[1], ip, data: { by: who.user } });
+        return send(res, 200, { chats: await o.social.chatsOf(chats[1]) });
+      }
       if (id?.[1] === "accounts") {
         const a = await admin.svc.account(id[2]);
         return a ? send(res, 200, a) : send(res, 404, { error: "No such account" });
@@ -278,6 +282,10 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/friends/dismiss": async (b, t) => social().dismiss(await me(t), b.code),
     "GET /api/dm": async (_, t, q) => social().thread(await me(t), q.get("with"), q.has("before") ? Number(q.get("before")) : undefined),
     "POST /api/dm/send": async (b, t) => social().send(await me(t), b.to, b.text),
+    "POST /api/chats/group": async (b, t) => social().createGroup(await me(t), b.name, b.members),
+    "POST /api/chats/add": async (b, t) => social().addToGroup(await me(t), b.id, b.members),
+    "POST /api/chats/rename": async (b, t) => social().renameGroup(await me(t), b.id, b.name),
+    "POST /api/chats/leave": async (b, t) => social().leaveGroup(await me(t), b.id),
     "GET /api/coach/mistakes": async () => svc.mistakes(),
     "GET /api/leaderboard": async (_, __, q) => ({ rows: await svc.leaderboard(q.get("by")) }),
     "GET /api/players/:id": async (_, __, ___, id) => svc.publicProfile(id),

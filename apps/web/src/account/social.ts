@@ -31,8 +31,18 @@ export interface Invite {
   at: number;
 }
 
+export interface GroupRow {
+  id: string;
+  name: string;
+  members: Person[];
+  unread: number;
+  last: { text: string; at: number; who: string } | null;
+}
+
 export interface FriendsView {
   friends: Friend[];
+  /** group chats you're in (older servers don't send it) */
+  groups?: GroupRow[];
   incoming: (Person & { at: number })[];
   outgoing: (Person & { at: number })[];
   invites: Invite[];
@@ -44,8 +54,14 @@ export interface Dm {
   at: number;
 }
 
+/** a line like "Ann added Bo" in a group chat */
+export const SYSTEM = "system";
+
+/** A chat: with one friend (`friend`), or a group (`group` and everyone in `people`). */
 export interface Thread {
-  friend: Person & { online: boolean };
+  friend?: Person & { online: boolean };
+  group?: { id: string; name: string; members: string[] };
+  people?: (Person & { online: boolean })[];
   /** the bubble your own messages show in */
   chat?: string;
   friends: boolean;
@@ -131,7 +147,7 @@ export function useFriends(): FriendsView | null {
 /** Requests waiting on you, unread messages and live invites, for a badge. */
 export function badgeCount(v: FriendsView | null) {
   if (!v) return 0;
-  return v.incoming.length + v.invites.length + v.friends.reduce((n, f) => n + f.unread, 0);
+  return v.incoming.length + v.invites.length + v.friends.reduce((n, f) => n + f.unread, 0) + (v.groups ?? []).reduce((n, g) => n + g.unread, 0);
 }
 
 const after = async <T>(p: Promise<T>) => {
@@ -155,4 +171,8 @@ export const friendsApi = {
   },
   thread: (id: string) => api().request<Thread>(`/api/dm?with=${encodeURIComponent(id)}`),
   send: (to: string, text: string) => api().request<{ message: Dm }>("/api/dm/send", { to, text }),
+  createGroup: (name: string, members: string[]) => after(api().request<{ id: string }>("/api/chats/group", { name, members })),
+  addToGroup: (id: string, members: string[]) => after(api().request("/api/chats/add", { id, members })),
+  renameGroup: (id: string, name: string) => after(api().request("/api/chats/rename", { id, name })),
+  leaveGroup: (id: string) => after(api().request("/api/chats/leave", { id })),
 };

@@ -94,11 +94,15 @@ also counts as "online".
 | `POST /api/friends/accept {id}` / `remove {id}` | accept; decline, cancel or unfriend |
 | `POST /api/friends/invite {id, code}` | invite a friend to your open table: pushes "./?table=CODE" to their phones |
 | `POST /api/friends/dismiss {code}` | close an invite |
-| `GET /api/dm?with=` / `POST /api/dm/send {to, text}` | read (marks read) and send messages, friends only |
+| `GET /api/dm?with=` / `POST /api/dm/send {to, text}` | read (marks read) and send messages: `with`/`to` is a friend's id, or a group chat's `g_...` id |
+| `POST /api/chats/group {name, members}` | start a group chat with your friends (up to 20 people) |
+| `POST /api/chats/add {id, members}` / `rename {id, name}` / `leave {id}` | any member adds their friends, renames, or leaves |
+| `GET /api/admin/accounts/:id/chats` | the owner reads a player's chats (logged as `admin.chats`) |
 
 Requests, new friends, invites and messages are pushed with the same VAPID keys as turn alerts. Tapping
 one opens the Home Screen app at its link; if Heist is already open, the service worker posts
-`{t: "heist-open", url}` to it instead. Message text is never written to the activity log.
+`{t: "heist-open", url}` to it instead. Messages are logged like table chat, and the privacy policy says
+staff can read them.
 
 One server process holds all its tables in memory. Running more than one machine later needs rooms
 pinned to a machine by code.

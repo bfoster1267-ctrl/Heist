@@ -163,6 +163,47 @@ describe("direct messages", () => {
   });
 });
 
+describe("group chats", () => {
+  it("starts a group with friends, delivers lines to everyone, and lets members add, rename and leave", async () => {
+    const s = await setup();
+    await friends(s, s.ids.ann, s.ids.bo);
+    await friends(s, s.ids.ann, s.ids.cy);
+    // only your friends can be added
+    await expect(s.social.createGroup(await s.acct(s.ids.bo), "x", [s.ids.cy])).rejects.toThrow(/your friends/);
+    await expect(s.social.createGroup(await s.acct(s.ids.ann), "x", [])).rejects.toThrow(/at least one/);
+
+    const { id } = await s.social.createGroup(await s.acct(s.ids.ann), "Friday crew", [s.ids.bo]);
+    expect(id).toMatch(/^g_/);
+    const before = s.pushed.length;
+    await s.social.send(await s.acct(s.ids.ann), id, "game at 9?");
+    expect(s.pushed.slice(before)).toMatchObject([{ to: s.ids.bo, m: { title: "Friday crew", body: "Ann: game at 9?", url: `./?chat=${id}` } }]);
+
+    let bo = (await s.social.view(await s.acct(s.ids.bo))).groups;
+    expect(bo).toMatchObject([{ id, name: "Friday crew", unread: 1, last: { text: "game at 9?", who: "Ann" } }]);
+    // Cy isn't in it yet
+    expect((await s.social.view(await s.acct(s.ids.cy))).groups).toEqual([]);
+    await expect(s.social.thread(await s.acct(s.ids.cy), id)).rejects.toThrow(/not in that group/);
+
+    await s.social.addToGroup(await s.acct(s.ids.ann), id, [s.ids.cy]);
+    await s.social.renameGroup(await s.acct(s.ids.cy), id, "Heist night");
+    const th = await s.social.thread(await s.acct(s.ids.cy), id);
+    expect("group" in th ? th.group.name : null).toBe("Heist night");
+    expect(th.messages.map((m) => m.text)).toEqual(["Ann started the chat with Bo", "game at 9?", "Ann added Cy", 'Cy named the chat "Heist night"']);
+    bo = (await s.social.view(await s.acct(s.ids.bo))).groups;
+    // system lines don't count as unread
+    expect(bo[0].unread).toBe(1);
+
+    await s.social.leaveGroup(await s.acct(s.ids.bo), id);
+    expect((await s.social.view(await s.acct(s.ids.bo))).groups).toEqual([]);
+    await expect(s.social.send(await s.acct(s.ids.bo), id, "hi")).rejects.toThrow(/not in that group/);
+
+    // the owner sees every chat a player was in, with the words
+    const chats = await s.social.chatsOf(s.ids.bo);
+    expect(chats.map((c) => c.kind)).toEqual(["group"]);
+    expect(chats[0].messages.some((m) => m.text === "game at 9?" && m.name === "Ann")).toBe(true);
+  });
+});
+
 describe("friends over HTTP", () => {
   it("serves the friends routes to signed-in players only", async () => {
     const svc = new AccountService({ secret: "s", devLogins: true });
@@ -188,9 +229,9 @@ describe("friends over HTTP", () => {
     expect(th.json.messages.map((m: { text: string }) => m.text)).toEqual(["hi Bo"]);
     // no such table on this server
     expect((await call(a.token, "/api/friends/invite", { id: b.me.id, code: "ABCDE" })).status).toBe(404);
-    // a message's words stay out of the owner's activity log
+    // the owner can read players' messages (the privacy policy says so)
     const logged = svc.activity.window().filter((e) => e.kind === "dm.send");
     expect(logged).toHaveLength(1);
-    expect(JSON.stringify(logged[0].data)).not.toContain("hi Bo");
+    expect(JSON.stringify(logged[0].data)).toContain("hi Bo");
   });
 });
