@@ -113,6 +113,29 @@ function canvasBox(el: HTMLElement, canvas: HTMLElement): Box | null {
   return { x: Math.min(...xs), y: Math.min(...ys), w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
 }
 
+/** How tall the decision panel can be on a phone held sideways without covering a player's seat. The
+ *  panel is pinned to the bottom right corner and grows upward, so it stops just under the lowest
+ *  seat above it. null when there's no seat in the way (or the panel isn't pinned to the bottom). */
+export function panelRoom(panel: HTMLElement, canvas: HTMLElement): number | null {
+  if (!canvas.classList.contains("l-wide") || panel.classList.contains("wide")) return null;
+  // its box without the slide-in transform, which would move the bottom while it settles
+  let x0 = 0, top = 0;
+  for (let n: HTMLElement | null = panel; n && n !== canvas; n = n.offsetParent as HTMLElement | null) {
+    if (!n.offsetParent) return null;
+    x0 += n.offsetLeft;
+    top += n.offsetTop;
+  }
+  const x1 = x0 + panel.offsetWidth, bottom = top + panel.offsetHeight;
+  let under = -1;
+  canvas.querySelectorAll<HTMLElement>(".seat").forEach((s) => {
+    const b = canvasBox(s, canvas);
+    if (!b || b.x + b.w <= x0 || b.x >= x1 || b.y + b.h >= bottom) return;
+    under = Math.max(under, b.y + b.h);
+  });
+  // never squeeze it below a usable size: a short scroll beats buttons nobody can reach
+  return under < 0 ? null : Math.max(150, bottom - under - 10);
+}
+
 const overlap = (a: Box, b: Box) => Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
 
 /** What the flipped Job card must not cover, and how much each one matters. Seats come first:

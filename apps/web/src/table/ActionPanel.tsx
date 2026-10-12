@@ -1,8 +1,9 @@
 import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
 import { motion, useIsPresent } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { buzz } from "../haptics";
 import { click } from "../sound";
+import { panelRoom } from "./layout";
 import { pressable } from "./Seat";
 import { CardFace, Crew, RoleCard } from "./pieces";
 
@@ -30,12 +31,14 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
   );
 }
 
-function Btn({ children, onClick, kind = "", disabled }: { children: React.ReactNode; onClick: () => void; kind?: string; disabled?: boolean }) {
+function Btn({ children, onClick, kind = "", disabled, label }: { children: React.ReactNode; onClick: () => void; kind?: string; disabled?: boolean; label?: string }) {
   return (
     <motion.button
       whileTap={{ scale: 0.94 }}
       className={"btn " + kind}
       disabled={disabled}
+      aria-label={label}
+      title={label}
       onClick={() => {
         click();
         buzz("tap");
@@ -81,8 +84,25 @@ export function ActionPanel({
     }, 60);
     return () => clearTimeout(t);
   }, [ask]);
+  // On a phone held sideways the panel grows up from the bottom corner; stop it under the seat above
+  const [room, setRoom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const el = panel.current, canvas = el?.closest<HTMLElement>(".canvas");
+      if (el && canvas) setRoom(panelRoom(el, canvas));
+    };
+    fit();
+    // seats grow a moment later when it's their turn, and the window can turn
+    const t = window.setTimeout(fit, 450);
+    window.addEventListener("resize", fit);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", fit);
+    };
+  }, [ask]);
   const P = s.players[seat];
   const name = (p: number) => s.players[p].name;
+  const color = (p: number) => s.players[p].color;
   const me = seat;
   useEffect(() => {
     setSel([]);
@@ -194,35 +214,60 @@ export function ActionPanel({
         </div>
       );
       break;
-    case "action":
+    case "action": {
       title = "Your move";
+      // Short buttons: the rival's crew shape and the hideout's number, so the panel stays clear of the seats
+      const where = (p: number, h: number, inThere = false) => (
+        <span className="move-target">
+          <Crew color={color(p)} size={22} />
+          <span className="ho-num">{h + 1}</span>
+          {inThere && <span className="ho-in">in</span>}
+        </span>
+      );
       body = (
-        <>
-          <div className="btns wrap">
+        <div className="move-grid">
+          <div className="btns">
             {ask.canHit && (
-              <Btn kind="primary big" onClick={() => answer({ kind: "action", choice: "hit" })}>
-                {P.role === "mastermind" ? "Hit (pick the Mark)" : "Hit (flip for the Mark)"}
+              <Btn kind="primary big" label={P.role === "mastermind" ? "Hit (pick the Mark)" : "Hit (flip for the Mark)"} onClick={() => answer({ kind: "action", choice: "hit" })}>
+                Hit
               </Btn>
             )}
-            {ask.busts.map((b) => (
-              <Btn key={`b${b.hideout}-${b.rival}`} kind="danger" onClick={() => answer({ kind: "action", choice: "bust", hideout: b.hideout, rival: b.rival })}>
-                Bust {name(b.rival)} out of hideout {b.hideout + 1}
-              </Btn>
-            ))}
-            {ask.wanted.map((w) => (
-              <Btn key={`w${w.mark}-${w.hideout}`} kind="warn" onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
-                Wanted: hit {name(w.mark)}'s hideout {w.hideout + 1}
-                {s.players[w.mark].hideouts[w.hideout][seat] > 0 ? " (you're already in)" : ""}
-              </Btn>
-            ))}
             <Btn kind="ghost" onClick={() => answer({ kind: "action", choice: "pass" })}>
               Lay low
             </Btn>
           </div>
-          {ask.wanted.length > 0 && <div className="hint">Wanted: {name(ask.wanted[0].leader)} leads. Hit a hideout holding their crew.</div>}
-        </>
+          {ask.busts.length > 0 && (
+            <div className="btns wrap">
+              <span className="lbl">Bust</span>
+              {ask.busts.map((b) => (
+                <Btn key={`b${b.hideout}-${b.rival}`} kind="danger target" label={`Bust ${name(b.rival)} out of hideout ${b.hideout + 1}`} onClick={() => answer({ kind: "action", choice: "bust", hideout: b.hideout, rival: b.rival })}>
+                  {where(b.rival, b.hideout)}
+                </Btn>
+              ))}
+            </div>
+          )}
+          {ask.wanted.length > 0 && (
+            <div className="btns wrap">
+              <span className="lbl">Wanted</span>
+              {ask.wanted.map((w) => {
+                const inThere = s.players[w.mark].hideouts[w.hideout][seat] > 0;
+                return (
+                  <Btn key={`w${w.mark}-${w.hideout}`} kind="warn target" label={`Wanted: hit ${name(w.mark)}'s hideout ${w.hideout + 1}${inThere ? " (you're already in)" : ""}`} onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
+                    {where(w.mark, w.hideout, inThere)}
+                  </Btn>
+                );
+              })}
+            </div>
+          )}
+          {ask.wanted.length > 0 && (
+            <div className="hint">
+              <Crew color={color(ask.wanted[0].leader)} size={14} /> {name(ask.wanted[0].leader)} leads. Hit their crew.
+            </div>
+          )}
+        </div>
       );
       break;
+    }
     case "pickMark":
       title = ask.why === "mastermind" ? "Mastermind: pick the Mark" : "Nobody's color. Pick the Mark";
       body = (
@@ -500,8 +545,9 @@ export function ActionPanel({
   return (
     <motion.div
       ref={panel}
-      className={"action-panel" + (ask.kind === "keepRole" ? " wide" : "")}
+      className={"action-panel" + (ask.kind === "keepRole" ? " wide" : ask.kind === "action" ? " compact" : "")}
       data-leaving={present ? undefined : ""}
+      style={room ? { maxHeight: room, overflowY: "auto" } : undefined}
       key={ask.kind}
       role="group"
       aria-labelledby="action-title"
