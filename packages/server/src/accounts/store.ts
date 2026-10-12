@@ -60,6 +60,16 @@ export interface Account {
   crm?: Crm;
   /** their answer to "What lost you?" after their first game (asked once; "skip" when they closed it) */
   feedback?: Feedback;
+  /** friends, and friend requests either way (see social.ts) */
+  friends?: FriendLinks;
+}
+
+export interface FriendLinks {
+  ids: string[];
+  /** requests waiting on this player's answer */
+  incoming: { id: string; at: number }[];
+  /** requests this player sent that haven't been answered */
+  outgoing: { id: string; at: number }[];
 }
 
 export const FEEDBACK_REASONS = ["roles", "buttons", "lost", "notForMe", "liked", "skip"] as const;

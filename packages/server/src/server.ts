@@ -19,6 +19,7 @@ import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
 import type { Hosting } from "./accounts/hosting";
 import type { PushMessage, Pusher } from "./push";
+import { Social, type DmStore } from "./accounts/social";
 
 export interface ServerOptions {
   port?: number;
@@ -52,6 +53,8 @@ export interface ServerOptions {
   hosting?: Hosting;
   /** phone alerts (web push) for players who aren't looking when it's their turn (needs accounts) */
   push?: Pusher;
+  /** where direct messages between friends are kept (default: memory) */
+  dms?: DmStore;
 }
 
 export interface HeistServer {
@@ -109,7 +112,31 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           hosting: o.hosting,
         }
       : undefined;
-  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey }) : null;
+  /** open sockets per signed-in player, for friends' "online" dots */
+  const connected = new Map<string, number>();
+  const pushTo = async (userId: string, m: PushMessage) => {
+    if (!pusher || !accounts) return 0;
+    let n = 0;
+    for (const sub of await accounts.pushSubs(userId)) {
+      const r = await pusher.send(sub, m);
+      if (r === "gone") await accounts.pushGone(userId, sub.endpoint);
+      else n++;
+    }
+    return n;
+  };
+  const social = accounts
+    ? new Social(accounts, {
+        dms: o.dms,
+        now: () => clock.now(),
+        notify: pushTo,
+        connected: (id) => (connected.get(id) ?? 0) > 0,
+        tableOpen: (code) => {
+          const r = rooms.get(code);
+          return !!r && r.status !== "over";
+        },
+      })
+    : undefined;
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey, social }) : null;
   /** table activity, for the admin panel's log (moves themselves are in each game's record) */
   const track = (c: Client, kind: string, data?: Record<string, unknown>, error?: string) =>
     accounts && c.id && accounts.track({ kind, userId: c.id.userId, name: c.id.name, ip: c.ip, ok: !error, error, data: { ...data, ...(c.room ? { table: c.room.code } : {}) } });
@@ -149,11 +176,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       a.kind === "turn"
         ? { title: "Your turn", body: `Table ${r.code} is waiting on you.`, tag: `turn-${r.code}`, url: "./" }
         : { title: `${a.name ?? "Someone"} sat down`, body: `Table ${r.code}: ${filled} of ${r.players} seats taken.`, tag: `table-${r.code}`, url: "./" };
-    void (async () => {
-      for (const sub of await accounts.pushSubs(userId)) {
-        if ((await pusher.send(sub, m)) === "gone") await accounts.pushGone(userId, sub.endpoint);
-      }
-    })().catch((e) => log("alert failed", { err: String(e) }));
+    void pushTo(userId, m).catch((e) => log("alert failed", { err: String(e) }));
   };
   const rooms = new Rooms({ store, clock, log, onGameOver, badge, alert, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
   /** each signed-in connection's way into a room, for the matchmaker */
@@ -233,6 +256,9 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       if (c.conn) {
         queue.leave(c.conn.id, false);
         entrances.delete(c.conn.id);
+        const n = (connected.get(c.conn.userId) ?? 1) - 1;
+        if (n > 0) connected.set(c.conn.userId, n);
+        else connected.delete(c.conn.userId);
       }
       if (c.room && c.conn) c.room.disconnect(c.conn.id);
       c.room = null;
@@ -285,6 +311,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           throw x;
         }
         c.conn = { id: randomBytes(8).toString("base64url"), userId: c.id.userId, name: c.id.name, send };
+        connected.set(c.id.userId, (connected.get(c.id.userId) ?? 0) + 1);
         entrances.set(c.conn.id, (room) => enter(room, {}));
         track(c, "online.connect");
         return send({ t: "welcome", v: PROTOCOL_VERSION, userId: c.id.userId, name: c.id.name, token: c.id.token });
@@ -439,6 +466,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       await new Promise<void>((r) => http.close(() => r()));
       await store.flush();
       await accounts?.store.flush();
+      await social?.dms.flush();
       await accounts?.activity.flush();
     },
   };

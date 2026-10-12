@@ -24,6 +24,7 @@ import { FileAccountStore } from "./accounts/store";
 import { startServer } from "./server";
 import { FileStore } from "./store";
 import { Pusher } from "./push";
+import { FileDmStore } from "./accounts/social";
 
 const env = process.env;
 const log = (msg: string, extra?: object) => console.log(JSON.stringify({ at: new Date().toISOString(), msg, ...extra }));
@@ -65,6 +66,7 @@ const server = await startServer({
   admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET, team: AdminTeam.inDir(dataDir) } : undefined,
   hosting: new Hosting({ dataDir, renderKey: env.RENDER_API_KEY || undefined, serviceId: env.RENDER_SERVICE_ID || undefined, plan: "starter", diskGb: 1 }),
   push,
+  dms: new FileDmStore(dataDir),
   queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),

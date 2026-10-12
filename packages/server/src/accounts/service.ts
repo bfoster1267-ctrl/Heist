@@ -104,6 +104,11 @@ export class AccountService {
 
   // ------------------------------------------------------------------ helpers
 
+  /** Change one account, in order with every other change to it (friends and requests touch two accounts). */
+  edit<T>(id: string, fn: (a: Account) => Promise<T> | T): Promise<T> {
+    return this.update(id, fn);
+  }
+
   /** Run changes to one account in order. */
   private async update<T>(id: string, fn: (a: Account) => Promise<T> | T): Promise<T> {
     return this.queued(id, async () => {
@@ -313,6 +318,7 @@ export class AccountService {
       x.progress = newProgress();
       x.solo = null;
       x.push = undefined;
+      x.friends = undefined;
       return x;
     });
     this.badges.delete(a.id);

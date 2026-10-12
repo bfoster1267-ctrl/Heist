@@ -17,12 +17,17 @@ import type { LeaderRow, Me } from "./backend";
 import type { PublicProfile } from "@heist/profile";
 import { SignIn } from "./SignIn";
 import { useAccount } from "./useAccount";
+import { AddFriendButton, Friends } from "./Friends";
+import { badgeCount, friendsAvailable, useFriends } from "./friends";
 
-type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "account";
+type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
-export function Profile({ onClose, tab: start = "career" }: { onClose: () => void; tab?: Tab }) {
+export function Profile({ onClose, tab: start = "career", chat }: { onClose: () => void; tab?: Tab; /** a friend's chat to open on the Friends tab */ chat?: string | null }) {
   const { me } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
+  const waiting = badgeCount(useFriends());
+  // a player card opened from the friends list
+  const [card, setCard] = useState<string | null>(null);
   // signing in from here lands on the career that just loaded
   const guest = me?.guest;
   const [wasGuest, setWasGuest] = useState(guest);
@@ -63,11 +68,13 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
               ["season", "Season"],
               ["shop", "Shop"],
               ["board", "Leaderboard"],
+              ...(friendsAvailable() ? [["friends", "Friends"]] : []),
               ["account", me.guest ? "Sign in" : "Account"],
             ] as [Tab, string][]
           ).map(([k, label]) => (
             <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
               {label}
+              {k === "friends" && waiting > 0 && <span className="fr-badge tab">{waiting}</span>}
             </button>
           ))}
         </nav>
@@ -77,8 +84,10 @@ export function Profile({ onClose, tab: start = "career" }: { onClose: () => voi
           {tab === "season" && <Season me={me} onWardrobe={() => setTab("wardrobe")} />}
           {tab === "shop" && <Shop me={me} />}
           {tab === "board" && <Board me={me} />}
+          {tab === "friends" && <Friends meId={me.id} chat={chat} onPlayer={setCard} />}
           {tab === "account" && <Account me={me} />}
         </div>
+        <AnimatePresence>{card && <PlayerCard id={card} onClose={() => setCard(null)} />}</AnimatePresence>
       </motion.div>
     </motion.div>
   );
@@ -459,7 +468,7 @@ function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
 
 /** A player's profile, opened from the leaderboard or by tapping their name at a table: everything you see on your own. */
 export function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
-  const { backend } = useAccount();
+  const { backend, me } = useAccount();
   const [p, setP] = useState<PublicProfile | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -517,6 +526,11 @@ export function PlayerCard({ id, onClose }: { id: string; onClose: () => void })
                   {title?.text ? ` · ${title.text}` : ""}
                 </div>
                 <div className="dim acct-card-joined">Playing since {new Date(p.joined).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</div>
+                {friendsAvailable() && me && me.id !== id && (
+                  <div className="acct-card-friend">
+                    <AddFriendButton id={id} small />
+                  </div>
+                )}
               </div>
             </div>
             <div className="acct-card-body">

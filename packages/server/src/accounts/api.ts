@@ -6,6 +6,7 @@ import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
 import type { Hosting } from "./hosting";
 import { ApiError, type AccountService } from "./service";
+import type { Social } from "./social";
 
 const BODY_LIMIT = 16 * 1024;
 /** a finished solo game posts every answer the player gave */
@@ -29,7 +30,12 @@ export interface ApiOptions {
   admin?: { auth: AdminAuth; svc: AdminService; hosting?: Hosting };
   /** the VAPID public key browsers subscribe to turn alerts with (alerts are off without one) */
   pushKey?: string;
+  /** friends, table invites and direct messages */
+  social?: Social;
 }
+
+/** calls the app makes every few seconds while it's open: not worth a line each in the activity log */
+const UNLOGGED = new Set(["GET /api/config", "POST /api/track", "GET /api/friends", "GET /api/dm", "GET /api/friends/search"]);
 
 /** where a request came from: its address, the app install's id when it sent one, and whether Claude's testing sent it */
 type Where = { ip: string; device?: string; tester?: "claude" };
@@ -76,6 +82,10 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
   };
 
   const me = (token: string | undefined) => svc.require(token);
+  const social = () => {
+    if (!o.social) throw new ApiError(404, "Friends aren't set up on this server");
+    return o.social;
+  };
   const opened = new Map<string, number>();
   const reports = new Map<string, number[]>();
   const adminTries = new Map<string, number[]>();
@@ -110,7 +120,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
 
   /** Log one API call: who, what they sent (no secrets), and how it went. */
   async function record(key: string, body: Record<string, unknown>, token: string | undefined, w: Where, out: unknown, error?: string) {
-    if (key === "GET /api/config" || key === "POST /api/track") return;
+    if (UNLOGGED.has(key)) return;
     const res = out as { me?: { id: string; name: string } } | undefined;
     let who = res?.me ? { id: res.me.id, name: res.me.name } : null;
     if (!who) {
@@ -128,6 +138,8 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     const sent =
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
       : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
+      // a message between friends stays between them: the log keeps who and how long, not what
+      : key === "POST /api/dm/send" ? { to: body.to, chars: typeof body.text === "string" ? body.text.length : 0 }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
     svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ok: !error, error, data: Object.keys(data).length ? data : undefined });
@@ -252,6 +264,15 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       return svc.pushSubscribe(await me(t), b.sub);
     },
     "POST /api/push/unsubscribe": async (b, t) => svc.pushUnsubscribe(await me(t), b.endpoint),
+    "GET /api/friends": async (_, t) => social().view(await me(t)),
+    "GET /api/friends/search": async (_, t, q) => ({ people: await social().search(await me(t), q.get("q")) }),
+    "POST /api/friends/request": async (b, t) => social().request(await me(t), b.id),
+    "POST /api/friends/accept": async (b, t) => social().accept(await me(t), b.id),
+    "POST /api/friends/remove": async (b, t) => social().remove(await me(t), b.id),
+    "POST /api/friends/invite": async (b, t) => social().invite(await me(t), b.id, b.code),
+    "POST /api/friends/dismiss": async (b, t) => social().dismiss(await me(t), b.code),
+    "GET /api/dm": async (_, t, q) => social().thread(await me(t), q.get("with"), q.has("before") ? Number(q.get("before")) : undefined),
+    "POST /api/dm/send": async (b, t) => social().send(await me(t), b.to, b.text),
     "GET /api/coach/mistakes": async () => svc.mistakes(),
     "GET /api/leaderboard": async (_, __, q) => ({ rows: await svc.leaderboard(q.get("by")) }),
     "GET /api/players/:id": async (_, __, ___, id) => svc.publicProfile(id),

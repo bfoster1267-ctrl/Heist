@@ -396,6 +396,11 @@ export class ServerBackend implements Backend {
     return this.session;
   }
 
+  /** Any API route (friends and messages use this; they only exist on the server). */
+  request<T>(path: string, body?: object): Promise<T> {
+    return this.call<T>(path, body);
+  }
+
   private async call<T>(path: string, body?: object): Promise<T> {
     const r = await fetch(this.base + path, {
       method: body ? "POST" : "GET",
