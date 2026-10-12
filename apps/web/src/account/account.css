@@ -849,7 +849,7 @@
 /* ---------------------------------------------------------------- rewards */
 .acct-reward {
   position: fixed;
-  top: 12px;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
   left: 50%;
   margin-left: min(-190px, calc(-50vw + 16px));
   width: min(380px, calc(100vw - 32px));
@@ -1073,7 +1073,7 @@
 /* phones sideways: a smaller reward card so it doesn't cover the table */
 @media (max-height: 500px) {
   .acct-reward {
-    top: 6px;
+    top: calc(env(safe-area-inset-top, 0px) + 6px);
     padding: 8px 12px;
     width: min(320px, calc(100vw - 32px));
     margin-left: min(-160px, calc(-50vw + 16px));
