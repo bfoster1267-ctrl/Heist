@@ -25,6 +25,10 @@ export interface ActivityEvent {
   device?: string;
   /** "app" for things the app reports about itself (screens, taps); everything else comes from the server */
   source?: "app";
+  /** the browser's user agent: kept on a guest's first visit, each app open and calls from no account (for spotting bots) */
+  ua?: string;
+  /** the page that linked to the site, on a guest's first visit (e.g. a Reddit post) */
+  ref?: string;
   /** "claude" when Claude's own testing sent it (not a player) */
   tester?: "claude";
   ok?: boolean;

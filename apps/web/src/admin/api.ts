@@ -124,6 +124,8 @@ export interface AccountRow {
   you: boolean;
   /** made by Claude's own testing, not a player */
   claude?: boolean;
+  /** why this visit looks like a robot (left out of the stats), or null */
+  bot?: string | null;
 }
 
 export interface Crm {
@@ -221,6 +223,8 @@ export interface Overview {
     yours: number;
     /** accounts Claude made while testing, also left out */
     claude?: number;
+    /** robot visits (link previews, crawlers), left out of everything */
+    bots?: number;
   };
   active: { day: number; week: number; month: number };
   economy: { chips: number; coins: number; packsBought: number; gamesPlayed: number; drinksSent: number };
@@ -241,6 +245,10 @@ export interface ActivityEvent {
   claude?: boolean;
   /** the owner's own (only sent when asked to include it) */
   you?: boolean;
+  /** a robot's visit (only sent when asked to include it) */
+  bot?: boolean;
+  ua?: string;
+  ref?: string;
   ok?: boolean;
   error?: string;
   data?: Record<string, unknown>;
@@ -311,4 +319,28 @@ export interface Funnel {
   steps: FunnelStep[];
   worst: { step: string; label: string; stopped: number; of: number } | null;
   newest: { person: string; userId: string; name: string; first: number; last: number; step: string; turn: number | null }[];
+}
+
+export interface BotRow {
+  person: string;
+  id: string;
+  accounts: number;
+  firstSeen: number;
+  lastSeen: number;
+  kind: "crawler" | "untouched";
+  reason: string;
+  source: string | null;
+  ref: string | null;
+  ua: string | null;
+  ips: { ip: string; host: string | null }[];
+  events: number;
+  last: string;
+}
+
+export interface Bots {
+  at: number;
+  rows: BotRow[];
+  total: number;
+  kinds: { crawler: number; untouched: number };
+  sources: { source: string; count: number }[];
 }

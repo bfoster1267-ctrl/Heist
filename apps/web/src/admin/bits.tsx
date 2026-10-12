@@ -213,6 +213,15 @@ export function detailOf(e: ActivityEvent): string {
   const d = (e.data ?? {}) as Record<string, any>;
   const chips = (n: unknown) => `${num(Number(n))} chips`;
   switch (e.kind) {
+    case "auth.guest": {
+      // where a new visitor came from
+      if (!e.ref) return d.name ? `name: ${d.name}` : "";
+      try {
+        return `from ${new URL(e.ref).hostname.replace(/^www\./, "")}`;
+      } catch {
+        return "";
+      }
+    }
     case "auth.register":
     case "auth.login":
       return d.email ?? "";
