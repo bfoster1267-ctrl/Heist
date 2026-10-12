@@ -1823,17 +1823,41 @@
   box-shadow: -20px 0 50px rgba(0, 0, 0, 0.55);
   padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) 14px;
 }
-/* upright phones: a sheet from the bottom, the lobby still peeking above it */
-@media (max-width: 560px) and (orientation: portrait) {
+/* phones, either way up: the Lounge takes the whole screen, like a messaging app */
+@media (max-width: 560px), (max-height: 520px) {
   .lounge {
-    top: 10vh;
     left: 0;
     width: auto;
     border-left: 0;
-    border-top: 1px solid var(--line);
-    border-radius: 20px 20px 0 0;
-    padding-top: 14px;
+    box-shadow: none;
     padding-left: calc(12px + env(safe-area-inset-left));
+  }
+}
+/* sideways phones: a slim header, and the conversation kept to a readable width */
+@media (max-height: 520px) {
+  .lounge {
+    padding: calc(6px + env(safe-area-inset-top)) max(calc(12px + env(safe-area-inset-right)), calc(50vw - 380px)) calc(6px + env(safe-area-inset-bottom)) max(calc(12px + env(safe-area-inset-left)), calc(50vw - 380px));
+  }
+  .lounge-head {
+    align-items: center;
+    padding-bottom: 6px;
+  }
+  .lounge-head > div {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .lounge-title {
+    font-size: 24px;
+  }
+  .lounge-sub {
+    margin-top: 0;
+  }
+  .lounge-form {
+    padding-top: 6px;
+  }
+  .lounge-fine:not(:has(.lounge-err, .lounge-unmute)) {
+    display: none;
   }
 }
 .lounge-head {
