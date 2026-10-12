@@ -1742,25 +1742,108 @@
 }
 
 /* ---------------------------------------------------------------- the Lounge (app-wide chat, 2026-10-12) */
-.lounge-btn {
+.lounge-dock {
   position: fixed;
-  right: calc(14px + env(safe-area-inset-right));
-  bottom: calc(14px + env(safe-area-inset-bottom));
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
   z-index: 19;
+  width: min(420px, calc(100vw - 32px));
+  translate: -50% 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 10px;
-  max-width: 260px;
-  padding: 9px 14px 9px 11px;
+  pointer-events: none;
+}
+/* wide screens and sideways phones: the lobby fills the middle, so the Lounge keeps to the corner */
+@media (min-width: 900px), (max-height: 520px) {
+  .lounge-dock {
+    left: auto;
+    right: calc(16px + env(safe-area-inset-right));
+    translate: none;
+    width: min(360px, 42vw);
+    align-items: flex-end;
+  }
+  .lounge-dock .lounge-floats {
+    align-items: flex-end;
+  }
+}
+/* sideways phones are short: one line floats at a time, without the name row */
+@media (max-height: 520px) {
+  .lounge-float:not(:last-child),
+  .lounge-float-name {
+    display: none;
+  }
+  .lounge-dock .lounge-float .acct-avatar {
+    margin-top: 2px;
+  }
+}
+.lounge-floats {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+.lounge-float {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+.lounge-float .acct-avatar {
+  flex: none;
+  margin-top: 16px;
+}
+.lounge-float-say {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.lounge-float-name {
+  margin: 0 0 2px 4px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--paper);
+  text-shadow: 0 1px 3px #000;
+}
+.lounge-float .lounge-bubble {
+  display: block;
+  border-top-left-radius: 4px;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.lounge-float .lounge-drink {
+  margin: 0 auto;
+  background: rgba(30, 24, 10, 0.92);
+}
+.lounge-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px 9px 12px;
   background: rgba(14, 16, 20, 0.92);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 999px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   color: var(--paper);
   cursor: pointer;
-  text-align: left;
+  pointer-events: auto;
 }
-.lounge-btn.fresh {
+.lounge-pill.fresh {
   border-color: var(--gold);
   box-shadow: 0 0 0 1px var(--gold), 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 22px rgba(231, 181, 60, 0.35);
 }
@@ -1770,23 +1853,20 @@
   height: 26px;
   color: var(--gold);
 }
-.lounge-btn-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.lounge-pill .lounge-icon {
+  width: 22px;
+  height: 22px;
 }
-.lounge-btn-name {
+.lounge-pill-name {
   font-family: var(--cond);
   font-weight: 700;
   font-size: 17px;
-  line-height: 1.1;
+  letter-spacing: 0.3px;
 }
-.lounge-btn-peek {
-  font-size: 12px;
+.lounge-pill-here {
+  font-size: 13px;
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .lounge-btn-count {
   position: absolute;
@@ -1823,17 +1903,41 @@
   box-shadow: -20px 0 50px rgba(0, 0, 0, 0.55);
   padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) 14px;
 }
-/* upright phones: a sheet from the bottom, the lobby still peeking above it */
-@media (max-width: 560px) and (orientation: portrait) {
+/* phones, either way up: the Lounge takes the whole screen, like a messaging app */
+@media (max-width: 560px), (max-height: 520px) {
   .lounge {
-    top: 10vh;
     left: 0;
     width: auto;
     border-left: 0;
-    border-top: 1px solid var(--line);
-    border-radius: 20px 20px 0 0;
-    padding-top: 14px;
+    box-shadow: none;
     padding-left: calc(12px + env(safe-area-inset-left));
+  }
+}
+/* sideways phones: a slim header, and the conversation kept to a readable width */
+@media (max-height: 520px) {
+  .lounge {
+    padding: calc(6px + env(safe-area-inset-top)) max(calc(12px + env(safe-area-inset-right)), calc(50vw - 380px)) calc(6px + env(safe-area-inset-bottom)) max(calc(12px + env(safe-area-inset-left)), calc(50vw - 380px));
+  }
+  .lounge-head {
+    align-items: center;
+    padding-bottom: 6px;
+  }
+  .lounge-head > div {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .lounge-title {
+    font-size: 24px;
+  }
+  .lounge-sub {
+    margin-top: 0;
+  }
+  .lounge-form {
+    padding-top: 6px;
+  }
+  .lounge-fine:not(:has(.lounge-err, .lounge-unmute)) {
+    display: none;
   }
 }
 .lounge-head {
@@ -2038,4 +2142,112 @@
 }
 .bubble.worn::after {
   border-top-color: var(--chat-bg, var(--paper));
+}
+
+/* drinks in the Lounge: the picker under a line, and the line everyone sees */
+.lounge-pour {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+.lounge-pour button {
+  position: relative;
+  min-width: 40px;
+  min-height: 40px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  font-size: 24px;
+  cursor: pointer;
+}
+.lounge-pour button:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.lounge-drink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px auto 4px;
+  padding: 6px 14px;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 999px;
+  background: rgba(231, 181, 60, 0.1);
+  border: 1px solid rgba(231, 181, 60, 0.25);
+  color: var(--paper);
+  font-size: 14px;
+}
+.lounge-drink b {
+  color: var(--gold2);
+}
+.lounge-drink.for-me {
+  background: rgba(231, 181, 60, 0.22);
+  border-color: var(--gold);
+}
+.lounge-drink-emoji {
+  font-size: 22px;
+}
+
+/* the Lounge with a Friends tab (direct messages and groups, from Friends.tsx) */
+.lounge-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.lounge-tabs button {
+  position: relative;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--title);
+  font-size: 22px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.lounge-tabs button.on {
+  background: rgba(231, 181, 60, 0.16);
+  color: var(--gold2);
+}
+.lounge-tab-count {
+  display: inline-block;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--cond);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: 0;
+  vertical-align: 3px;
+}
+.lounge-sub-tabbed {
+  margin: 8px 2px 0;
+}
+.lounge-friends {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 8px;
+}
+.lounge-float-dm {
+  color: var(--gold2);
+  font-weight: 600;
 }

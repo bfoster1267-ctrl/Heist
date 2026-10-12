@@ -16,6 +16,8 @@ export interface LoungeMsg {
   name: string;
   text: string;
   badge?: Badge;
+  /** a drink sent from the Lounge: the line reads "<name> sent <to> a <drink>" */
+  drink?: { id: string; emoji: string; to: string; toId: string };
 }
 
 export interface LoungeFeed {
@@ -67,16 +69,40 @@ export class Lounge {
   /** Post a line. Throws a LoungeError the player can read when it's refused. */
   say(user: { id: string; name: string; badge?: Badge }, raw: unknown): LoungeMsg {
     const text = cleanLine(raw);
+    const mine = this.msgs.filter((m) => m.userId === user.id).at(-1);
+    if (mine && !mine.drink && mine.text === text && this.now() - mine.at < 60_000) throw new LoungeError("You just said that");
+    this.pace(user.id);
+    return this.post({ userId: user.id, name: user.name, text, ...(user.badge ? { badge: user.badge } : {}) });
+  }
+
+  /** The line a drink is about: who gets it (never yourself). Check `pace` and charge before `sendDrink`. */
+  drinkFor(from: string, msgId: unknown): LoungeMsg {
+    const m = typeof msgId === "number" ? this.msgs.find((x) => x.id === msgId) : undefined;
+    if (!m) throw new LoungeError("That line is gone");
+    if (m.userId === from) throw new LoungeError("Buying yourself a drink? Send it to someone else.");
+    return m;
+  }
+
+  /** Post a drink line ("Ace sent Mia a Whiskey"). Drinks share the talking pace. */
+  sendDrink(user: { id: string; name: string; badge?: Badge }, to: LoungeMsg, d: { id: string; name: string; emoji: string }): LoungeMsg {
+    this.pace(user.id);
+    return this.post({ userId: user.id, name: user.name, text: d.name, drink: { id: d.id, emoji: d.emoji, to: to.name, toId: to.userId }, ...(user.badge ? { badge: user.badge } : {}) });
+  }
+
+  /** Throws when this player is talking too fast; `check` only looks, without counting a line. */
+  pace(userId: string, check = false) {
     const t = this.now();
-    const recent = (this.said.get(user.id) ?? []).filter((x) => t - x < 60_000);
+    const recent = (this.said.get(userId) ?? []).filter((x) => t - x < 60_000);
     if (recent.length && t - recent[recent.length - 1] < GAP_MS) throw new LoungeError("Slow down a little");
     if (recent.length >= PER_MIN) throw new LoungeError("That's a lot of talking. Wait a minute.");
-    const mine = this.msgs.filter((m) => m.userId === user.id).at(-1);
-    if (mine && mine.text === text && t - mine.at < 60_000) throw new LoungeError("You just said that");
+    if (check) return;
     recent.push(t);
-    this.said.set(user.id, recent);
+    this.said.set(userId, recent);
     if (this.said.size > 5_000) this.said.clear();
-    const m: LoungeMsg = { id: this.next++, at: t, userId: user.id, name: user.name, text, ...(user.badge ? { badge: user.badge } : {}) };
+  }
+
+  private post(x: Omit<LoungeMsg, "id" | "at">): LoungeMsg {
+    const m: LoungeMsg = { id: this.next++, at: this.now(), ...x };
     this.msgs.push(m);
     if (this.msgs.length > KEEP) {
       for (const old of this.msgs.splice(0, this.msgs.length - KEEP)) this.reports.delete(old.id);

@@ -93,9 +93,22 @@ describe("the Lounge", () => {
     expect(feed.msgs[0].badge.chat).toBe("s1.chat.crimson");
     expect((await call(`/api/lounge?after=${feed.last}`)).body.msgs).toEqual([]);
 
+    // a drink for whoever said a line: paid in coins, shown to everyone
+    const pal = (await call("/api/auth/dev", undefined, { name: "Pal" })).body as { token: string; me: { id: string } };
+    const p = (await accounts.store.get(pal.me.id))!;
+    await accounts.store.put({ ...p, progress: { ...p.progress, xp: 500 } });
+    const coins = p.progress.coins;
+    expect((await call("/api/lounge/drink", vet.token, { to: feed.msgs[0].id, id: "beer" })).status).toBe(400); // not to yourself
+    expect((await call("/api/lounge/drink", pal.token, { to: feed.msgs[0].id, id: "champagne" })).status).toBe(400); // rounds stay at tables
+    const sent = await call("/api/lounge/drink", pal.token, { to: feed.msgs[0].id, id: "beer" });
+    expect(sent.status).toBe(200);
+    expect(sent.body.msg.drink).toMatchObject({ id: "beer", to: "Vet", toId: vet.me.id });
+    expect(sent.body.me.progress.coins).toBe(coins - 5);
+    expect((await accounts.store.get(vet.me.id))!.progress.drinksReceived).toBe(1);
+
     const rep = await call("/api/lounge/report", fresh.token, { id: feed.msgs[0].id });
     expect(rep.body).toMatchObject({ ok: true, hidden: false });
     await accounts.ban(vet.me.id, "spam", 1);
-    expect((await call("/api/lounge")).body.msgs).toEqual([]);
+    expect((await call("/api/lounge")).body.msgs.map((m: { userId: string }) => m.userId)).toEqual([pal.me.id]);
   });
 });

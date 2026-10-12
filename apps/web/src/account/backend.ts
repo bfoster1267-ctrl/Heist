@@ -87,6 +87,8 @@ export interface LoungeMsg {
   text: string;
   /** level, frame, title and the chat bubble the sender wears */
   badge?: Badge;
+  /** a drink sent from the Lounge ("<name> sent <to> a <text>") */
+  drink?: { id: string; emoji: string; to: string; toId: string };
 }
 export interface LoungeFeed {
   msgs: LoungeMsg[];
@@ -142,6 +144,8 @@ export interface Backend {
   lounge?(after: number): Promise<LoungeFeed>;
   loungeSay?(text: string): Promise<{ msg: LoungeMsg }>;
   loungeReport?(id: number): Promise<{ ok: boolean; hidden?: boolean }>;
+  /** send a drink (coins) to whoever said line `to` */
+  loungeDrink?(to: number, id: string): Promise<{ msg: LoungeMsg; me: Me }>;
 }
 
 const store = {
@@ -432,6 +436,9 @@ export class ServerBackend implements Backend {
   }
   loungeSay(text: string) {
     return this.call<{ msg: LoungeMsg }>("/api/lounge/say", { text });
+  }
+  loungeDrink(to: number, id: string) {
+    return this.call<{ msg: LoungeMsg; me: Me }>("/api/lounge/drink", { to, id });
   }
   loungeReport(id: number) {
     return this.call<{ ok: boolean; hidden?: boolean }>("/api/lounge/report", { id });
