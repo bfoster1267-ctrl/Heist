@@ -170,6 +170,8 @@ const LABELS: Record<string, string> = {
   "table.sit": "Took a seat",
   "table.autopilot": "Autopilot",
   "table.chat": "Chat",
+  "lounge.say": "Lounge chat",
+  "lounge.report": "Reported a Lounge line",
   "table.drink": "Sent a drink",
   "ui.screen": "Screen",
   "ui.tap": "Tapped",
@@ -222,7 +224,10 @@ export function detailOf(e: ActivityEvent): string {
     case "solo.quit":
       return [d.moves ? `${d.moves} moves` : "", d.reward ? `+${d.reward.xp} XP` : "", d.reward?.payout ? `paid ${num(d.reward.payout)}` : ""].filter(Boolean).join(" · ");
     case "table.chat":
+    case "lounge.say":
       return `“${d.text ?? ""}”`;
+    case "lounge.report":
+      return d.reported ? `${d.reported.name}: “${d.reported.text}”${d.hidden ? " · taken down" : ""}` : "";
     case "table.create":
       return d.options ? `${d.options.players ?? "?"} players · ${chips(d.options.stakes ?? 0)}` : "";
     case "table.join":

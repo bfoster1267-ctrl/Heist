@@ -3,6 +3,7 @@ import { ALL_DRINKS, FIRST_HAND, currentPass, lessonFor, type Reward } from "@he
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
+import { Lounge } from "./account/Lounge";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
 import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
@@ -283,6 +284,8 @@ function Game() {
           <div className="acct-corner">
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
           </div>
+          {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
+          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge /> : null}
         </>
       ) : (
         <Table
