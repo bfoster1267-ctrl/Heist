@@ -6,6 +6,7 @@ import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
 import { ALL_DRINKS, RANKED_LEVEL, RANKED_PLAYERS, levelInfo, rankedPublic } from "@heist/profile";
 import { PlayerCard } from "../account/Profile";
+import { Lounge } from "../account/Lounge";
 import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
@@ -135,6 +136,8 @@ export function OnlineLobby({
           </div>
         )}
       </motion.div>
+      {/* chat with everyone while you pick a table, wait in the queue or wait for friends to sit down */}
+      <Lounge />
     </div>
   );
 }
@@ -575,6 +578,8 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
   const mine = sess.seat === null ? null : seats[sess.seat];
   // tap a player's name for their full profile
   const [card, setCard] = useState<string | null>(null);
+  // everyone's lines show in the chat bubble they wear
+  const looks = useMemo(() => Object.fromEntries(seats.map((s) => [s.seat, s.badge?.chat])), [seats]);
   const tags = useMemo(() => {
     const t: Record<number, string> = {};
     for (const s of seats) if (s.badge?.rank) t[s.seat] = s.badge.rank;
@@ -593,6 +598,7 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
         seat={sess.seat ?? 0}
         useSource={useSource}
         talk={talk}
+        bubbleLooks={looks}
         watching={sess.seat === null}
         away={away}
         clock={<TurnClock sess={sess} />}

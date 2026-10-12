@@ -15,6 +15,7 @@ import { GuestIdentity, cleanName, type Identity, type IdentityProvider } from "
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
 import { realClock, type Clock, type Conn, type GameOverReport, type Room, type RoomDeps } from "./room";
 import { Rooms, roomOptions, type Limits } from "./rooms";
+import { Lounge } from "./lounge";
 import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
 import type { Hosting } from "./accounts/hosting";
@@ -109,7 +110,9 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           hosting: o.hosting,
         }
       : undefined;
-  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey }) : null;
+  /** the Lounge, the app-wide chat room (it needs accounts: only players who've finished a game talk) */
+  const lounge = accounts ? new Lounge(() => clock.now()) : undefined;
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey, lounge }) : null;
   /** table activity, for the admin panel's log (moves themselves are in each game's record) */
   const track = (c: Client, kind: string, data?: Record<string, unknown>, error?: string) =>
     accounts && c.id && accounts.track({ kind, userId: c.id.userId, name: c.id.name, ip: c.ip, ok: !error, error, data: { ...data, ...(c.room ? { table: c.room.code } : {}) } });
@@ -180,6 +183,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   // a suspended player is dropped from every socket at once (their seat plays dead weight from then on)
   if (accounts)
     accounts.onBan = (userId) => {
+      lounge?.removeUser(userId);
       for (const ws of wss.clients) {
         const c = (ws as WebSocket & { heist?: Client }).heist;
         if (c?.id?.userId !== userId) continue;

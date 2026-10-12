@@ -5,6 +5,7 @@ import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
+import { chatStyle } from "../account/items";
 import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
 import { VaultGlass, isVault } from "../vault";
@@ -92,18 +93,19 @@ function keepOnTable(el: HTMLElement, x: number, bottom: number) {
   el.style.setProperty("--tail", `${Math.max(14, Math.min(x - left, w - 14))}px`);
 }
 
-/** `mine`: your seat, whose bubbles wear your equipped chat style */
-export function Bubbles({ bubbles, pos, mine }: { bubbles: Bubble[]; pos: (seat: number) => [number, number]; mine?: number }) {
+/** `mine`: your seat, whose bubbles wear your equipped chat style; `looks`: the chat bubble each other seat wears (online) */
+export function Bubbles({ bubbles, pos, mine, looks }: { bubbles: Bubble[]; pos: (seat: number) => [number, number]; mine?: number; looks?: Record<number, string | undefined> }) {
   return (
     <AnimatePresence>
       {bubbles.map((b) => {
         const [x, y] = pos(b.seat);
         const emoji = [...b.text].length <= 2;
+        const look = b.seat !== mine && looks?.[b.seat] && looks[b.seat] !== "chat.house" ? cosmetic(looks[b.seat]!) : undefined;
         return (
           <motion.div
             key={b.key}
-            className={"bubble" + (emoji ? " emoji" : "") + (b.seat === mine ? " mine" : "")}
-            style={{ left: x, top: y - 62 }}
+            className={"bubble" + (emoji ? " emoji" : "") + (b.seat === mine ? " mine" : "") + (look?.chat ? " worn" : "")}
+            style={{ left: x, top: y - 62, ...chatStyle(look) }}
             ref={(el) => {
               if (el) keepOnTable(el, x, y - 62);
             }}
