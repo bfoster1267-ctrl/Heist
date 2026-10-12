@@ -205,58 +205,85 @@
   font-weight: 600;
 }
 
-/* the vote button: a chip with an arrow and the count */
+/* the vote column: up, the score, down */
 .board-vote {
   flex: none;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 1px;
-  width: 48px;
-  min-height: 52px;
-  padding: 4px 0;
+  width: 46px;
+  padding: 2px 0;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.035);
   color: var(--paper);
   font-family: var(--cond);
+}
+.board-vote button {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
   cursor: pointer;
-  transition: transform 0.12s, background 0.15s, border-color 0.15s;
+  transition: transform 0.12s, color 0.15s;
+}
+.board-vote button:active {
+  transform: scale(0.88);
 }
 .board-vote svg {
-  width: 16px;
-  height: 16px;
+  width: 17px;
+  height: 17px;
   fill: currentColor;
-  opacity: 0.75;
 }
 .board-vote b {
   font-size: 17px;
+  line-height: 1;
   font-variant-numeric: tabular-nums;
 }
-.board-vote:active {
-  transform: scale(0.94);
+.board-vote.up {
+  border-color: rgba(231, 181, 60, 0.65);
+  background: rgba(231, 181, 60, 0.13);
 }
-.board-vote.on {
-  border-color: rgba(231, 181, 60, 0.7);
-  background: rgba(231, 181, 60, 0.16);
+.board-vote.up b,
+.board-vote.up .board-vote-up {
   color: var(--gold2);
 }
-.board-vote.on svg {
-  opacity: 1;
+.board-vote.down {
+  border-color: rgba(143, 199, 255, 0.45);
+  background: rgba(143, 199, 255, 0.08);
 }
+.board-vote.down b,
+.board-vote.down .board-vote-down {
+  color: #8fc7ff;
+}
+/* in an opened post: a row, with the up button spelled out */
 .board-vote.big {
   flex-direction: row;
-  gap: 8px;
+  width: auto;
+  display: inline-flex;
+  margin-top: 12px;
+  padding: 0 4px;
+  gap: 4px;
+}
+.board-vote.big button {
   width: auto;
   min-height: 44px;
-  margin-top: 12px;
-  padding: 0 18px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--cond);
   font-size: 16px;
   font-weight: 700;
 }
 .board-vote.big b {
-  font-size: 18px;
+  font-size: 19px;
+  min-width: 24px;
+  text-align: center;
 }
 
 /* one post, opened */
@@ -480,8 +507,7 @@
   margin-top: 6px;
 }
 .board-like-row .board-vote {
-  width: 42px;
-  min-height: 42px;
+  width: 40px;
 }
 .board-like-title {
   flex: 1;

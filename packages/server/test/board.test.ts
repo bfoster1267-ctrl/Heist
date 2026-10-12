@@ -22,7 +22,7 @@ describe("the feedback board", () => {
     expect(() => b.add(ann, { kind: "idea", title: "no" })).toThrow(/title/);
     expect(() => b.add(ann, { kind: "idea", title: "see spam.com" })).toThrow(/Links/);
     const bug = b.add(ann, { kind: "bug", title: "Cards overlap on iPhone", body: "line one\n\n\n\nline two shit", device: "iPhone 15" });
-    expect(bug.votes).toBe(1);
+    expect(bug).toMatchObject({ score: 1, ups: 1, mine: 1 });
     expect(b.post(bug.id)!.body).toBe("line one\n\nline two s***");
     now += 1;
     const idea = b.add(bo, { kind: "idea", title: "Dark mode table" });
@@ -33,9 +33,16 @@ describe("the feedback board", () => {
     b.add(bo, { kind: "other", title: "Third today" });
     expect(() => b.add(bo, { kind: "other", title: "Fourth today" })).toThrow(/3 posts today/);
 
-    expect(b.vote("bo", bug.id, true)).toEqual({ votes: 2, voted: true });
-    expect(b.vote("bo", bug.id, true).votes).toBe(2); // once each
-    expect(b.list("bo")[0]).toMatchObject({ id: bug.id, votes: 2, voted: true });
+    expect(b.vote("bo", bug.id, 1)).toEqual({ score: 2, ups: 2, downs: 0, mine: 1 });
+    expect(b.vote("bo", bug.id, 1).score).toBe(2); // once each
+    expect(b.list("bo")[0]).toMatchObject({ id: bug.id, score: 2, mine: 1 });
+    // a downvote replaces an upvote, and sinks a post below others
+    expect(b.vote("cy", idea.id, -1)).toEqual({ score: 0, ups: 1, downs: 1, mine: -1 });
+    expect(b.vote("bo", idea.id, -1).score).toBe(-2); // the author changed their mind
+    expect(b.list().at(-1)!.id).toBe(idea.id);
+    expect(b.vote("bo", idea.id, 1).score).toBe(0);
+    expect(b.vote("cy", idea.id, 0).score).toBe(1);
+    expect(() => b.vote("cy", idea.id, 5)).toThrow(/up or down/);
     expect(b.list(undefined, "new")[0].title).toBe("Third today");
 
     b.comment(bo, idea.id, "yes please");
@@ -44,11 +51,11 @@ describe("the feedback board", () => {
 
     // the owner: a duplicate folded in, a bug confirmed (paid once), a team reply
     const dupe = b.add(ann, { kind: "idea", title: "Night theme please" });
-    b.vote("cy", dupe.id, true);
+    b.vote("cy", dupe.id, 1);
     b.manage(dupe.id, { mergeInto: idea.id });
     expect(b.list().some((p) => p.id === dupe.id)).toBe(false);
     expect(b.post(dupe.id)!.id).toBe(idea.id);
-    expect(b.post(idea.id)!.votes).toBe(3);
+    expect(b.post(idea.id)!.score).toBe(3);
     expect(b.manage(bug.id, { status: "planned" }).pay).toBe(true);
     expect(b.manage(bug.id, { status: "shipped" }).pay).toBe(false);
     expect(b.manage(idea.id, { status: "planned" }).pay).toBe(false); // ideas pay when they ship
@@ -94,14 +101,24 @@ describe("the feedback board", () => {
     const posted = await call("/api/board/new", vet.token, { kind: "bug", title: "Chips vanish", device: "test" });
     expect(posted.status).toBe(200);
     const id = posted.body.post.id;
-    expect((await call("/api/board/vote", vet.token, { id, on: false })).body).toEqual({ votes: 0, voted: false });
+    expect((await call("/api/board/vote", vet.token, { id, dir: 0 })).body).toEqual({ score: 0, ups: 0, downs: 0, mine: 0 });
+    expect((await call("/api/board/vote", vet.token, { id, dir: 1 })).body.score).toBe(1);
+    // a backer: paid too when it's confirmed
+    const pal = (await call("/api/auth/dev", undefined, { name: "Pal" })).body as { token: string; me: { id: string } };
+    const pa = (await accounts.store.get(pal.me.id))!;
+    await accounts.store.put({ ...pa, progress: { ...pa.progress, xp: 500 } });
+    expect((await call("/api/board/vote", pal.token, { id, dir: 1 })).body.score).toBe(2);
+    const palCoins = (await accounts.store.get(pal.me.id))!.progress.coins;
     expect((await call(`/api/board/post?id=${id}`)).body.post.title).toBe("Chips vanish");
 
     const admin = (await call("/api/admin/login", undefined, { user: "admin", password: "a-long-admin-password" })).body as { token: string };
     const coins = (await accounts.store.get(vet.me.id))!.progress.coins;
     const set = await call(`/api/admin/board/${id}`, admin.token, { status: "planned" });
     expect(set.body.paid).toBe(100);
+    expect(set.body.voters).toBe(1);
     expect((await accounts.store.get(vet.me.id))!.progress.coins).toBe(coins + 100);
+    expect((await accounts.store.get(pal.me.id))!.progress.coins).toBe(palCoins + 25);
+    expect((await call(`/api/admin/board/${id}`, admin.token, { status: "shipped" })).body.paid).toBe(0); // once
     await call(`/api/admin/board/${id}`, admin.token, { reply: "On it" });
     const seen = (await call(`/api/board/post?id=${id}`)).body.post;
     expect(seen.thread[0]).toMatchObject({ name: "Heist team", team: true, text: "On it" });

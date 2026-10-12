@@ -39,6 +39,8 @@ export interface BoardPost {
   badge?: Badge;
   /** who upvoted (the author counts as the first vote) */
   votes: string[];
+  /** who downvoted */
+  downs?: string[];
   comments: BoardComment[];
   status: BoardStatus;
   statusAt?: number;
@@ -48,7 +50,7 @@ export interface BoardPost {
   mergedInto?: number;
   reports?: string[];
   hidden?: boolean;
-  /** the author was paid for it (once) */
+  /** the author and its upvoters were paid for it (once) */
   rewarded?: boolean;
 }
 
@@ -62,8 +64,12 @@ export interface BoardRow {
   userId: string;
   name: string;
   badge?: Badge;
-  votes: number;
-  voted: boolean;
+  /** upvotes minus downvotes */
+  score: number;
+  ups: number;
+  downs: number;
+  /** this reader's vote: 1 up, -1 down, 0 none */
+  mine: Vote;
   comments: number;
   status: BoardStatus;
   statusAt?: number;
@@ -71,7 +77,10 @@ export interface BoardRow {
   answered: boolean;
 }
 
+export type Vote = 1 | -1 | 0;
 export class BoardError extends LoungeError {}
+
+const scoreOf = (p: BoardPost) => p.votes.length - (p.downs?.length ?? 0);
 
 /** reports from this many players hide a post or comment until the owner looks */
 const REPORTS_TO_HIDE = 3;
@@ -83,8 +92,10 @@ const TITLE = { min: 4, max: 80 };
 const BODY_MAX = 1_000;
 const COMMENT_MAX = 500;
 
-/** the coins a player gets when their bug is confirmed or their idea ships */
+/** the coins a player gets when their bug is confirmed or their post ships */
 export const BOARD_REWARD = 100;
+/** the coins each player who upvoted it gets then */
+export const BOARD_VOTER_REWARD = 25;
 
 interface Saved {
   next: number;
@@ -144,8 +155,10 @@ export class Board {
       userId: p.userId,
       name: p.name,
       ...(p.badge ? { badge: p.badge } : {}),
-      votes: p.votes.length,
-      voted: !!me && p.votes.includes(me),
+      score: scoreOf(p),
+      ups: p.votes.length,
+      downs: p.downs?.length ?? 0,
+      mine: !me ? 0 : p.votes.includes(me) ? 1 : p.downs?.includes(me) ? -1 : 0,
       comments: p.comments.filter((c) => !c.hidden).length,
       status: p.status,
       ...(p.statusAt ? { statusAt: p.statusAt } : {}),
@@ -157,7 +170,7 @@ export class Board {
   list(me?: string, sort: unknown = "top"): BoardRow[] {
     const shown = this.posts.filter((p) => !p.hidden && !p.mergedInto);
     const done = (p: BoardPost) => p.status === "shipped" || p.status === "wont";
-    shown.sort(sort === "new" ? (a, b) => b.at - a.at : (a, b) => Number(done(a)) - Number(done(b)) || b.votes.length - a.votes.length || b.at - a.at);
+    shown.sort(sort === "new" ? (a, b) => b.at - a.at : (a, b) => Number(done(a)) - Number(done(b)) || scoreOf(b) - scoreOf(a) || b.at - a.at);
     return shown.slice(0, 200).map((p) => this.row(p, me));
   }
 
@@ -218,14 +231,16 @@ export class Board {
     return this.row(p, user.id);
   }
 
-  /** Upvote (or take it back). Returns the new count. */
-  vote(userId: string, id: unknown, on: unknown): { votes: number; voted: boolean } {
+  /** Vote up (1), down (-1) or take your vote back (0). Returns the new counts. */
+  vote(userId: string, id: unknown, dir: unknown): { score: number; ups: number; downs: number; mine: Vote } {
     const p = this.must(id);
-    const has = p.votes.includes(userId);
-    if (on !== false && !has) p.votes.push(userId);
-    if (on === false && has) p.votes = p.votes.filter((v) => v !== userId);
+    if (dir !== 1 && dir !== -1 && dir !== 0) throw new BoardError("Vote up or down");
+    p.votes = p.votes.filter((v) => v !== userId);
+    p.downs = (p.downs ?? []).filter((v) => v !== userId);
+    if (dir === 1) p.votes.push(userId);
+    if (dir === -1) p.downs.push(userId);
     this.changed();
-    return { votes: p.votes.length, voted: p.votes.includes(userId) };
+    return { score: scoreOf(p), ups: p.votes.length, downs: p.downs.length, mine: dir };
   }
 
   comment(user: { id: string; name: string; badge?: Badge }, id: unknown, raw: unknown, team = false): BoardComment {
@@ -270,13 +285,14 @@ export class Board {
   // ------------------------------------------------------------------ the owner's side
 
   /** Every post for the admin panel, most voted first, with the device and reports. */
-  all(): (BoardPost & { voteCount: number })[] {
-    return [...this.posts].sort((a, b) => b.votes.length - a.votes.length || b.at - a.at).map((p) => ({ ...p, voteCount: p.votes.length }));
+  all(): (BoardPost & { score: number })[] {
+    return [...this.posts].sort((a, b) => scoreOf(b) - scoreOf(a) || b.at - a.at).map((p) => ({ ...p, score: scoreOf(p) }));
   }
 
   /**
-   * The owner's changes to one post. Returns the post, and whether its author is now owed the reward (a
-   * bug marked planned, in progress or shipped, or an idea marked shipped, paid once) and who to tell.
+   * The owner's changes to one post. Returns the post, and whether it's now owed the reward (paid once,
+   * to the author and everyone who upvoted it): a bug marked planned, in progress or shipped, or any other
+   * post marked shipped.
    */
   manage(id: unknown, b: { status?: unknown; hide?: unknown; mergeInto?: unknown }): { post: BoardPost; pay: boolean; statusChanged: boolean } {
     const p = this.find(id);
@@ -298,8 +314,9 @@ export class Board {
       if (!into || into.id === p.id || into.mergedInto) throw new BoardError("Merge it into a post that's still up");
       p.mergedInto = into.id;
       into.votes = [...new Set([...into.votes, ...p.votes])];
+      into.downs = [...new Set([...(into.downs ?? []), ...(p.downs ?? [])])].filter((v) => !into.votes.includes(v));
     }
-    const confirmed = p.kind === "bug" ? ["planned", "doing", "shipped"].includes(p.status) : p.kind === "idea" && p.status === "shipped";
+    const confirmed = p.kind === "bug" ? ["planned", "doing", "shipped"].includes(p.status) : p.status === "shipped";
     const pay = statusChanged && confirmed && !p.rewarded && !p.mergedInto;
     if (pay) p.rewarded = true;
     this.changed();

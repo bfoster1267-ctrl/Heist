@@ -1,5 +1,6 @@
-// The players' feedback board (the Lounge's Feedback tab), most voted first: tag each post's status
-// (players see it, the author gets a buzz, and a confirmed bug or a shipped idea pays them coins), answer as
+// The players' feedback board (the Lounge's Feedback tab), best scored first: tag each post's status
+// (players see it, the author gets a buzz, and a confirmed bug or a shipped post pays its author and every
+// player who upvoted it coins), answer as
 // the Heist team, merge duplicates, and take down or bring back what players reported.
 
 import { useState } from "react";
@@ -27,7 +28,9 @@ interface Post {
   body: string;
   userId: string;
   name: string;
-  voteCount: number;
+  score: number;
+  votes: string[];
+  downs?: string[];
   comments: Comment[];
   status: Status;
   statusAt?: number;
@@ -50,7 +53,7 @@ const STATUSES: [Status, string][] = [
 type Show = "open" | "done" | "reported" | "all";
 
 export function BoardPage({ s, onAuth }: PageProps) {
-  const r = useAdmin<{ posts: Post[]; reward: number }>(s, "/board", onAuth);
+  const r = useAdmin<{ posts: Post[]; reward: number; voterReward: number }>(s, "/board", onAuth);
   usePoll(r.reload, 60_000);
   const [show, setShow] = useState<Show>("open");
   const [kind, setKind] = useState<Kind | "all">("all");
@@ -93,7 +96,7 @@ export function BoardPage({ s, onAuth }: PageProps) {
         shown.map((p) => <PostCard key={p.id} p={p} s={s} reward={r.data!.reward} onChange={r.reload} />)
       )}
       <p className="dim small">
-        Most voted first. Setting a bug to Planned, In progress or Shipped, or an idea to Shipped, pays its author {r.data.reward} coins (once) and buzzes them. Shipping a post also buzzes everyone who voted for it.
+        Best score (up minus down) first. Setting a bug to Planned, In progress or Shipped, or any other post to Shipped, pays its author {r.data.reward} coins and everyone who voted it up {r.data.voterReward} coins (once), and buzzes them.
       </p>
     </>
   );
@@ -108,8 +111,8 @@ function PostCard({ p, s, reward, onChange }: { p: Post; s: Session; reward: num
     setBusy(true);
     setMsg(null);
     try {
-      const out = await post<{ paid?: number }>(`/board/${p.id}`, body, s);
-      setMsg(out.paid ? `Paid ${p.name} ${out.paid} coins.` : (done ?? null));
+      const out = await post<{ paid?: number; voters?: number }>(`/board/${p.id}`, body, s);
+      setMsg(out.paid ? `Paid ${p.name} ${out.paid} coins${out.voters ? ` and ${out.voters} backer${out.voters === 1 ? "" : "s"}` : ""}.` : (done ?? null));
       onChange();
       return true;
     } catch (e) {
@@ -123,8 +126,10 @@ function PostCard({ p, s, reward, onChange }: { p: Post; s: Session; reward: num
     <div className="card" style={{ opacity: p.hidden ? 0.6 : 1 }}>
       <div className="card-head" style={{ alignItems: "flex-start", gap: 12 }}>
         <div style={{ textAlign: "center", minWidth: 48 }}>
-          <div style={{ fontSize: 24, fontWeight: 700 }}>{num(p.voteCount)}</div>
-          <div className="dim small">votes</div>
+          <div style={{ fontSize: 24, fontWeight: 700 }}>{num(p.score)}</div>
+          <div className="dim small">
+            ▲{num(p.votes.length)} ▼{num(p.downs?.length ?? 0)}
+          </div>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="dim small">

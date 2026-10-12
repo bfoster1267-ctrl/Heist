@@ -79,6 +79,7 @@ export interface LeaderRow {
 }
 
 export type BoardKind = "bug" | "idea" | "balance" | "other";
+export type BoardVote = 1 | -1 | 0;
 export type BoardStatus = "new" | "review" | "planned" | "doing" | "shipped" | "wont";
 /** A post on the feedback board (the Lounge's Feedback tab) */
 export interface BoardRow {
@@ -90,14 +91,19 @@ export interface BoardRow {
   userId: string;
   name: string;
   badge?: Badge;
-  votes: number;
-  voted: boolean;
+  /** upvotes minus downvotes */
+  score: number;
+  ups: number;
+  downs: number;
+  /** your vote: 1 up, -1 down, 0 none */
+  mine: BoardVote;
   comments: number;
   status: BoardStatus;
   statusAt?: number;
   /** the Heist team has answered */
   answered: boolean;
 }
+export type BoardVoted = Pick<BoardRow, "score" | "ups" | "downs" | "mine">;
 export interface BoardComment {
   id: number;
   at: number;
@@ -112,8 +118,9 @@ export interface BoardView {
   posts: BoardRow[];
   canPost: boolean;
   why?: string;
-  /** coins for a confirmed bug or a shipped idea */
+  /** coins for a confirmed bug or a shipped post, and for each player who upvoted it */
   reward: number;
+  voterReward: number;
 }
 
 /** A line in the Lounge, the app-wide chat (server only) */
@@ -188,7 +195,7 @@ export interface Backend {
   board?(sort: "top" | "new"): Promise<BoardView>;
   boardPost?(id: number): Promise<{ post: BoardRow & { thread: BoardComment[] } }>;
   boardNew?(p: { kind: BoardKind; title: string; body: string; device?: string }): Promise<{ post: BoardRow }>;
-  boardVote?(id: number, on: boolean): Promise<{ votes: number; voted: boolean }>;
+  boardVote?(id: number, dir: BoardVote): Promise<BoardVoted>;
   boardComment?(id: number, text: string): Promise<{ comment: BoardComment }>;
   boardReport?(id: number, comment?: number): Promise<{ ok: boolean; hidden?: boolean }>;
 }
@@ -494,8 +501,8 @@ export class ServerBackend implements Backend {
   boardNew(p: { kind: BoardKind; title: string; body: string; device?: string }) {
     return this.call<{ post: BoardRow }>("/api/board/new", p);
   }
-  boardVote(id: number, on: boolean) {
-    return this.call<{ votes: number; voted: boolean }>("/api/board/vote", { id, on });
+  boardVote(id: number, dir: BoardVote) {
+    return this.call<BoardVoted>("/api/board/vote", { id, dir });
   }
   boardComment(id: number, text: string) {
     return this.call<{ comment: BoardComment }>("/api/board/comment", { id, text });

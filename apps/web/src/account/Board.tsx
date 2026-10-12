@@ -1,12 +1,13 @@
 // The Feedback tab in the Lounge: a board where players report bugs, suggest features, flag balance and
-// leave other feedback. Everyone upvotes ("Me too" on a bug) and comments; the most voted rise to the top,
+// leave other feedback. Everyone votes up or down and comments; the best scored rise to the top,
 // and the Heist team tags each post (Looking at it, Planned, In progress, Shipped, Not now) and answers in
-// gold from the admin panel. A confirmed bug or a shipped idea pays its author coins.
+// gold from the admin panel. A confirmed bug or a shipped post pays its author coins, and everyone who
+// upvoted it a few too.
 // The server side is packages/server/src/board.ts.
 
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
-import type { Backend, BoardComment, BoardKind, BoardRow, BoardStatus } from "./backend";
+import type { Backend, BoardComment, BoardKind, BoardRow, BoardStatus, BoardVote, BoardVoted } from "./backend";
 import { Avatar } from "./bits";
 import { MessageRow } from "./Lounge";
 import "./board.css";
@@ -100,7 +101,7 @@ type View = { at: "list" } | { at: "post"; id: number } | { at: "new" };
 export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me: string; onPlayer: (userId: string) => void }) {
   const [sort, setSort] = useState<"top" | "new">("top");
   const [posts, setPosts] = useState<BoardRow[] | null>(null);
-  const [can, setCan] = useState<{ canPost: boolean; why?: string; reward: number }>({ canPost: false, reward: 0 });
+  const [can, setCan] = useState<{ canPost: boolean; why?: string; reward: number; voterReward: number }>({ canPost: false, reward: 0, voterReward: 0 });
   const [view, setView] = useState<View>({ at: "list" });
   const [err, setErr] = useState<string | null>(null);
 
@@ -109,7 +110,7 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
     try {
       const v = await backend.board(sort);
       setPosts(v.posts);
-      setCan({ canPost: v.canPost, why: v.why, reward: v.reward });
+      setCan({ canPost: v.canPost, why: v.why, reward: v.reward, voterReward: v.voterReward });
       setErr(null);
     } catch (x) {
       setErr(x instanceof Error ? x.message : "Couldn't load the board");
@@ -121,13 +122,12 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
     return () => window.clearInterval(t);
   }, [pull]);
 
-  const vote = async (p: BoardRow) => {
+  const vote = async (p: BoardRow, dir: BoardVote) => {
     if (!backend.boardVote || !can.canPost) return setErr(can.why ?? "Finish your first game to vote");
     // show it at once; the server's count wins when it answers
-    const on = !p.voted;
-    setPosts((ps) => ps?.map((x) => (x.id === p.id ? { ...x, voted: on, votes: x.votes + (on ? 1 : -1) } : x)) ?? ps);
+    setPosts((ps) => ps?.map((x) => (x.id === p.id ? { ...x, ...voted(x, dir) } : x)) ?? ps);
     try {
-      const r = await backend.boardVote(p.id, on);
+      const r = await backend.boardVote(p.id, dir);
       setPosts((ps) => ps?.map((x) => (x.id === p.id ? { ...x, ...r } : x)) ?? ps);
     } catch (x) {
       setErr(x instanceof Error ? x.message : "That vote didn't count");
@@ -152,7 +152,9 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
                 <span aria-hidden>+</span> Post
               </button>
             </div>
-            <p className="board-lede">Vote for what matters most to you. The top posts are what we work on next.</p>
+            <p className="board-lede">
+              Vote up what matters to you, down what doesn't. The top posts are what we work on next{can.voterReward ? `, and if we do one you backed, you get ${can.voterReward} coins` : ""}.
+            </p>
             {err && (
               <div className="board-err" onClick={() => setErr(null)}>
                 {err}
@@ -162,7 +164,7 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
               {posts === null && <p className="lounge-empty">Opening the board...</p>}
               {posts?.length === 0 && <p className="lounge-empty">Nothing here yet. Spotted a bug or got an idea? Be the first to post.</p>}
               {posts?.map((p) => (
-                <PostCard key={p.id} p={p} onVote={() => void vote(p)} onOpen={() => setView({ at: "post", id: p.id })} />
+                <PostCard key={p.id} p={p} onVote={(d) => void vote(p, d)} onOpen={() => setView({ at: "post", id: p.id })} />
               ))}
             </div>
           </motion.div>
@@ -190,7 +192,8 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
               backend={backend}
               posts={posts ?? []}
               reward={can.reward}
-              onVote={(p) => void vote(p)}
+              voterReward={can.voterReward}
+              onVote={(p, d) => void vote(p, d)}
               onOpen={(id) => setView({ at: "post", id })}
               onCancel={() => setView({ at: "list" })}
               onPosted={(p) => {
@@ -205,24 +208,37 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
   );
 }
 
-function VoteButton({ p, onVote, big }: { p: BoardRow; onVote: () => void; big?: boolean }) {
-  const label = p.kind === "bug" ? "Me too" : "Vote";
+/** What a vote does to the counts, before the server answers. */
+function voted(p: BoardRow, dir: BoardVote): BoardVoted {
+  const ups = p.ups - (p.mine === 1 ? 1 : 0) + (dir === 1 ? 1 : 0);
+  const downs = p.downs - (p.mine === -1 ? 1 : 0) + (dir === -1 ? 1 : 0);
+  return { ups, downs, score: ups - downs, mine: dir };
+}
+
+const Arrow = ({ down }: { down?: boolean }) => (
+  <svg viewBox="0 0 24 24" aria-hidden>
+    <path d={down ? "M12 19l7-9H5z" : "M12 5l7 9H5z"} />
+  </svg>
+);
+
+/** Up, the score, down. Tapping your own vote again takes it back. */
+function VoteButton({ p, onVote, big }: { p: BoardRow; onVote: (dir: BoardVote) => void; big?: boolean }) {
+  const up = p.kind === "bug" ? "Me too" : "Vote up";
+  const press = (dir: 1 | -1) => (e: { stopPropagation: () => void }) => {
+    e.stopPropagation();
+    onVote(p.mine === dir ? 0 : dir);
+  };
   return (
-    <button
-      className={"board-vote" + (p.voted ? " on" : "") + (big ? " big" : "")}
-      onClick={(e) => {
-        e.stopPropagation();
-        onVote();
-      }}
-      aria-pressed={p.voted}
-      aria-label={`${p.voted ? "Take back your vote" : label}: ${p.votes} so far`}
-    >
-      <svg viewBox="0 0 24 24" aria-hidden>
-        <path d="M12 5l7 9H5z" />
-      </svg>
-      <b>{p.votes}</b>
-      {big && <span>{p.voted ? (p.kind === "bug" ? "You too" : "Voted") : label}</span>}
-    </button>
+    <div className={"board-vote" + (p.mine === 1 ? " up" : p.mine === -1 ? " down" : "") + (big ? " big" : "")} onClick={(e) => e.stopPropagation()}>
+      <button className="board-vote-up" onClick={press(1)} aria-pressed={p.mine === 1} aria-label={p.mine === 1 ? "Take back your upvote" : up}>
+        <Arrow />
+        {big && <span>{p.mine === 1 ? (p.kind === "bug" ? "You too" : "Voted") : up}</span>}
+      </button>
+      <b aria-label={`Score ${p.score}: ${p.ups} up, ${p.downs} down`}>{p.score}</b>
+      <button className="board-vote-down" onClick={press(-1)} aria-pressed={p.mine === -1} aria-label={p.mine === -1 ? "Take back your downvote" : "Vote down"}>
+        <Arrow down />
+      </button>
+    </div>
   );
 }
 
@@ -230,7 +246,7 @@ function StatusPill({ s }: { s: BoardStatus }) {
   return STATUS[s] ? <span className={`board-status s-${s}`}>{STATUS[s]}</span> : null;
 }
 
-function PostCard({ p, onVote, onOpen }: { p: BoardRow; onVote: () => void; onOpen: () => void }) {
+function PostCard({ p, onVote, onOpen }: { p: BoardRow; onVote: (dir: BoardVote) => void; onOpen: () => void }) {
   const k = KINDS[p.kind];
   return (
     <div className={`board-card k-${p.kind}` + (p.status === "shipped" || p.status === "wont" ? " done" : "")} role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()}>
@@ -265,7 +281,7 @@ function PostView({
   canPost: boolean;
   why?: string;
   onPlayer: (userId: string) => void;
-  onVoted: (id: number, r: { votes: number; voted: boolean }) => void;
+  onVoted: (id: number, r: BoardVoted) => void;
   onBack: () => void;
 }) {
   const [post, setPost] = useState<(BoardRow & { thread: BoardComment[] }) | null>(null);
@@ -285,11 +301,11 @@ function PostView({
     };
   }, [backend, id]);
 
-  const vote = async () => {
+  const vote = async (dir: BoardVote) => {
     if (!post || !backend.boardVote) return;
     if (!canPost) return setErr(why ?? "Finish your first game to vote");
     try {
-      const r = await backend.boardVote(post.id, !post.voted);
+      const r = await backend.boardVote(post.id, dir);
       setPost({ ...post, ...r });
       onVoted(post.id, r);
     } catch (x) {
@@ -353,7 +369,7 @@ function PostView({
                 </button>
               )}
             </div>
-            <VoteButton p={post} onVote={() => void vote()} big />
+            <VoteButton p={post} onVote={(d) => void vote(d)} big />
           </article>
           <div className="board-comments-head">{post.thread.length ? (post.thread.length === 1 ? "1 comment" : `${post.thread.length} comments`) : "No comments yet"}</div>
           {post.thread.map((c, i) =>
@@ -405,12 +421,13 @@ function PostView({
 }
 
 function NewPost({
-  backend, posts, reward, onVote, onOpen, onCancel, onPosted,
+  backend, posts, reward, voterReward, onVote, onOpen, onCancel, onPosted,
 }: {
   backend: Backend;
   posts: BoardRow[];
   reward: number;
-  onVote: (p: BoardRow) => void;
+  voterReward: number;
+  onVote: (p: BoardRow, dir: BoardVote) => void;
   onOpen: (id: number) => void;
   onCancel: () => void;
   onPosted: (p: BoardRow) => void;
@@ -427,7 +444,7 @@ function NewPost({
     return posts
       .map((p) => ({ p, n: [...words(p.title)].filter((w) => mine.has(w)).length }))
       .filter((x) => x.n > 0 && x.p.status !== "wont")
-      .sort((a, b) => b.n - a.n || b.p.votes - a.p.votes)
+      .sort((a, b) => b.n - a.n || b.p.score - a.p.score)
       .slice(0, 3)
       .map((x) => x.p);
   }, [title, posts]);
@@ -468,7 +485,11 @@ function NewPost({
               </button>
             ))}
           </div>
-          {reward > 0 && <p className="board-lede">Your bug gets confirmed or your idea ships? You get {reward} coins.</p>}
+          {reward > 0 && (
+            <p className="board-lede">
+              Your bug gets confirmed or your post ships? You get {reward} coins{voterReward ? `, and everyone who voted it up gets ${voterReward}` : ""}.
+            </p>
+          )}
         </div>
       ) : (
         <form className="board-list board-form" onSubmit={send}>
@@ -487,7 +508,7 @@ function NewPost({
               <div className="board-like-head">Already posted? Vote instead</div>
               {like.map((p) => (
                 <div key={p.id} className="board-like-row">
-                  <VoteButton p={p} onVote={() => onVote(p)} />
+                  <VoteButton p={p} onVote={(d) => onVote(p, d)} />
                   <button className="board-like-title" type="button" onClick={() => onOpen(p.id)}>
                     {p.title}
                   </button>

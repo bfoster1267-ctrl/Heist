@@ -4,7 +4,7 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { badgeOf, drink as drinkInfo, upgrade, type Progress } from "@heist/profile";
 import { LoungeError, type Lounge } from "../lounge";
-import { BOARD_REWARD, type Board, type BoardPost } from "../board";
+import { BOARD_REWARD, BOARD_VOTER_REWARD, type Board, type BoardPost } from "../board";
 import type { PushMessage } from "../push";
 import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
@@ -228,7 +228,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (path === "/tags") return send(res, 200, { tags: await admin.svc.tags() });
       if (path === "/board") {
         if (!o.board) throw new ApiError(404, "Not found");
-        return send(res, 200, { posts: o.board.all(), reward: BOARD_REWARD });
+        return send(res, 200, { posts: o.board.all(), reward: BOARD_REWARD, voterReward: BOARD_VOTER_REWARD });
       }
       const chats = path.match(/^\/accounts\/([\w-]{1,60})\/chats$/);
       if (chats) {
@@ -324,9 +324,17 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     if (typeof b.commentId === "number") return { comment: refuse(() => board.manageComment(id, b.commentId, b.hideComment !== false)) };
     if (typeof b.reply === "string") return { comment: refuse(() => board.comment({ id: "heist-team", name: "Heist team" }, id, b.reply, true)), post: board.all().find((p) => p.id === id) };
     const { post, pay, statusChanged } = refuse(() => board.manage(id, b));
-    if (pay) await svc.giveCoins(post.userId, BOARD_REWARD, `board #${post.id}`).catch(() => {});
+    // the author, then everyone who upvoted it (the author's own vote doesn't pay twice)
+    let voters = 0;
+    if (pay) {
+      await svc.giveCoins(post.userId, BOARD_REWARD, `board #${post.id}`).catch(() => {});
+      for (const v of post.votes) {
+        if (v === post.userId) continue;
+        if (await svc.giveCoins(v, BOARD_VOTER_REWARD, `board vote #${post.id}`).then(() => true, () => false)) voters++;
+      }
+    }
     if (statusChanged) void tellBoard(post, pay);
-    return { post: { ...post, voteCount: post.votes.length }, paid: pay ? BOARD_REWARD : 0 };
+    return { post: { ...post, score: post.votes.length - (post.downs?.length ?? 0) }, paid: pay ? BOARD_REWARD : 0, voters };
   }
 
   /** A post's new status reaches its author (with the coins, when paid) and, when it ships, everyone who voted. */
@@ -338,8 +346,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     const title = p.title.length > 60 ? `${p.title.slice(0, 57)}...` : p.title;
     const tag = `board-${p.id}`;
     await o.notify(p.userId, { title: `Your post ${what}`, body: paid ? `"${title}". Thanks! +${BOARD_REWARD} coins.` : `"${title}"`, tag }).catch(() => 0);
-    if (p.status !== "shipped") return;
-    for (const v of p.votes) if (v !== p.userId) await o.notify(v, { title: "Something you voted for shipped", body: `"${title}"`, tag }).catch(() => 0);
+    if (p.status !== "shipped" && !paid) return;
+    const head = p.status === "shipped" ? "Something you voted for shipped" : "A bug you backed was confirmed";
+    for (const v of p.votes) if (v !== p.userId) await o.notify(v, { title: head, body: paid ? `"${title}". +${BOARD_VOTER_REWARD} coins for backing it.` : `"${title}"`, tag }).catch(() => 0);
   }
 
   /** The feedback board: anyone reads it; players who've finished a game post, vote and comment. */
@@ -367,7 +376,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       "GET /api/board": async (_, t, q) => {
         const a = await svc.fromToken(t).catch(() => null);
         const no = a && svc.banOf(a) ? "This account is suspended" : why(a);
-        return { posts: board.list(a?.id, q.get("sort")), canPost: !no, reward: BOARD_REWARD, ...(no ? { why: no } : {}) };
+        return { posts: board.list(a?.id, q.get("sort")), canPost: !no, reward: BOARD_REWARD, voterReward: BOARD_VOTER_REWARD, ...(no ? { why: no } : {}) };
       },
       "GET /api/board/post": async (_, t, q) => {
         const a = await svc.fromToken(t).catch(() => null);
@@ -381,7 +390,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       },
       "POST /api/board/vote": async (b, t) => {
         const a = await player(t);
-        return refuse(() => board.vote(a.id, b.id, b.on));
+        return refuse(() => board.vote(a.id, b.id, b.dir));
       },
       "POST /api/board/comment": async (b, t) => {
         const a = await player(t);
