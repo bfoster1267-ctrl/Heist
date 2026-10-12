@@ -3,15 +3,17 @@
 // alerts on, so tapping it opens Heist from the Home Screen, full screen, straight into the table. A text
 // with the table link stays as the fallback for friends without the app.
 
+import { cosmetic } from "@heist/profile";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Stars } from "./bits";
-import { badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./friends";
+import { chatStyle } from "./items";
+import { badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
 import "./friends.css";
 
 /** Open a table from an invite: the app reloads into it (from the lobby, Solitaire or another table's lobby). */
 export function joinTable(code: string) {
-  location.assign(`/?table=${encodeURIComponent(code)}`);
+  location.assign(new URL(`./?table=${encodeURIComponent(code)}`, location.href).href);
 }
 
 function ago(t: number | null) {
@@ -250,6 +252,10 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
   };
   const name = t?.friend.name ?? friend?.name ?? "";
   const lastMine = t ? [...t.messages].reverse().find((m) => m.from === meId) : undefined;
+  // each side's lines show in the chat bubble they wear from the Wardrobe
+  const bubble = (chat: string | undefined) => chatStyle(cosmetic(chat ?? "chat.house") ?? cosmetic("chat.house"));
+  const mineLook = bubble(t?.chat);
+  const theirLook = bubble(t?.friend.chat);
   return (
     <div className="fr fr-chat">
       <div className="fr-chat-head">
@@ -290,7 +296,9 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
         ) : (
           t.messages.map((m: Dm) => (
             <div key={m.at + m.from} className={"fr-msg" + (m.from === meId ? " mine" : "")}>
-              <span>{m.text}</span>
+              <span className="fr-bubble" style={m.from === meId ? mineLook : theirLook}>
+                {m.text}
+              </span>
               {m === lastMine && t.theirRead >= m.at && <span className="fr-seen">Seen</span>}
             </div>
           ))
@@ -306,7 +314,7 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
             void send();
           }}
         >
-          <input value={text} maxLength={300} placeholder={`Message ${name}`} onChange={(e) => setText(e.target.value)} aria-label="Message" enterKeyHint="send" />
+          <input value={text} maxLength={200} placeholder={`Message ${name}`} onChange={(e) => setText(e.target.value)} aria-label="Message" enterKeyHint="send" />
           <button className="btn primary small" type="submit" disabled={!text.trim() || sending}>
             Send
           </button>
@@ -380,11 +388,34 @@ export function InviteFriends({ code, seated, onText }: { code: string; /** user
 
 /** The lobby's way into friends: a button with a count of what's waiting. */
 export function FriendsButton({ onOpen }: { onOpen: () => void }) {
-  const n = badgeCount(useFriends());
+  const v = useFriends();
+  const n = badgeCount(v);
+  // friends need the game server: nothing to show until the list has loaded from it
+  if (!v) return null;
   return (
     <button className="fr-open" onClick={onOpen} aria-label={n ? `Friends: ${n} waiting` : "Friends"}>
       <span aria-hidden>👥</span> Friends
       {n > 0 && <span className="fr-badge">{n}</span>}
     </button>
+  );
+}
+
+/** A friend's invite while the app is open (their phone also buzzed, if alerts are on). */
+export function InviteToast({ busy, here }: { /** in a game: hold invites until it's over */ busy?: boolean; /** the table you're at already */ here?: string | null }) {
+  const v = useFriends();
+  const i = busy ? undefined : v?.invites.filter((x) => x.code !== here).at(-1);
+  if (!i) return null;
+  return (
+    <div className="fr-toast" role="alert">
+      <span>
+        <b>{i.name}</b> invited you to table <b>{i.code}</b>
+      </span>
+      <button className="btn primary small" onClick={() => joinTable(i.code)}>
+        Join
+      </button>
+      <button className="btn ghost small" aria-label="Not now" onClick={() => void friendsApi.dismiss(i.code)}>
+        ✕
+      </button>
+    </div>
   );
 }

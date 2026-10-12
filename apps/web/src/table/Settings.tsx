@@ -69,7 +69,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
       {alerts !== "unsupported" && (
         <label className="set-row">
-          <span>Turn alerts</span>
+          <span>Turn alerts and invites</span>
           {alerts === "on" || alerts === "off" ? (
             <input type="checkbox" checked={alerts === "on"} onChange={(e) => void (e.target.checked ? turnOnAlerts() : turnOffAlerts())} />
           ) : (

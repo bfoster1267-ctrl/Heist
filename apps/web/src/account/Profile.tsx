@@ -18,14 +18,15 @@ import type { PublicProfile } from "@heist/profile";
 import { SignIn } from "./SignIn";
 import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
-import { badgeCount, friendsAvailable, useFriends } from "./friends";
+import { badgeCount, useFriends } from "./social";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
 export function Profile({ onClose, tab: start = "career", chat }: { onClose: () => void; tab?: Tab; /** a friend's chat to open on the Friends tab */ chat?: string | null }) {
   const { me } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
-  const waiting = badgeCount(useFriends());
+  const friends = useFriends();
+  const waiting = badgeCount(friends);
   // a player card opened from the friends list
   const [card, setCard] = useState<string | null>(null);
   // signing in from here lands on the career that just loaded
@@ -68,7 +69,7 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
               ["season", "Season"],
               ["shop", "Shop"],
               ["board", "Leaderboard"],
-              ...(friendsAvailable() ? [["friends", "Friends"]] : []),
+              ...(friends || tab === "friends" ? [["friends", "Friends"] as [Tab, string]] : []),
               ["account", me.guest ? "Sign in" : "Account"],
             ] as [Tab, string][]
           ).map(([k, label]) => (
@@ -469,6 +470,7 @@ function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
 /** A player's profile, opened from the leaderboard or by tapping their name at a table: everything you see on your own. */
 export function PlayerCard({ id, onClose }: { id: string; onClose: () => void }) {
   const { backend, me } = useAccount();
+  const friends = useFriends();
   const [p, setP] = useState<PublicProfile | null>(null);
   const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
@@ -526,7 +528,7 @@ export function PlayerCard({ id, onClose }: { id: string; onClose: () => void })
                   {title?.text ? ` · ${title.text}` : ""}
                 </div>
                 <div className="dim acct-card-joined">Playing since {new Date(p.joined).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</div>
-                {friendsAvailable() && me && me.id !== id && (
+                {friends && me && me.id !== id && (
                   <div className="acct-card-friend">
                     <AddFriendButton id={id} small />
                   </div>

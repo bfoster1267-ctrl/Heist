@@ -1740,3 +1740,302 @@
   justify-content: center;
   overflow: visible;
 }
+
+/* ---------------------------------------------------------------- the Lounge (app-wide chat, 2026-10-12) */
+.lounge-btn {
+  position: fixed;
+  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 19;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 260px;
+  padding: 9px 14px 9px 11px;
+  background: rgba(14, 16, 20, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: var(--paper);
+  cursor: pointer;
+  text-align: left;
+}
+.lounge-btn.fresh {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 22px rgba(231, 181, 60, 0.35);
+}
+.lounge-icon {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  color: var(--gold);
+}
+.lounge-btn-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lounge-btn-name {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 17px;
+  line-height: 1.1;
+}
+.lounge-btn-peek {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lounge-btn-count {
+  position: absolute;
+  top: -7px;
+  left: -7px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 22px;
+  text-align: center;
+}
+.lounge-back {
+  position: fixed;
+  inset: 0;
+  z-index: 78;
+  background: rgba(0, 0, 0, 0.4);
+}
+.lounge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(390px, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: #101318;
+  border-left: 1px solid var(--line);
+  box-shadow: -20px 0 50px rgba(0, 0, 0, 0.55);
+  padding: calc(12px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) 14px;
+}
+/* upright phones: a sheet from the bottom, the lobby still peeking above it */
+@media (max-width: 560px) and (orientation: portrait) {
+  .lounge {
+    top: 10vh;
+    left: 0;
+    width: auto;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 20px 20px 0 0;
+    padding-top: 14px;
+    padding-left: calc(12px + env(safe-area-inset-left));
+  }
+}
+.lounge-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.lounge-title {
+  font-family: var(--title);
+  font-size: 30px;
+  letter-spacing: 1px;
+  color: var(--gold2);
+  line-height: 1;
+}
+.lounge-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lounge-live {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 3px;
+  border-radius: 50%;
+  background: var(--cash);
+  box-shadow: 0 0 8px var(--cash);
+}
+.lounge-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px 2px 10px;
+}
+.lounge-empty {
+  margin: 30px 10px;
+  text-align: center;
+  color: var(--muted);
+}
+.lounge-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 3px;
+}
+.lounge-row.first {
+  margin-top: 12px;
+}
+.lounge-row.mine {
+  justify-content: flex-end;
+}
+.lounge-who {
+  flex: none;
+  width: 34px;
+}
+.lounge-avatar {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+.lounge-say {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: calc(100% - 42px);
+}
+.lounge-row.mine .lounge-say {
+  align-items: flex-end;
+}
+.lounge-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 3px 2px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--paper);
+}
+.lounge-tag {
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: rgba(231, 181, 60, 0.14);
+  color: var(--gold2);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+.lounge-tag.rank {
+  background: rgba(31, 158, 143, 0.18);
+  color: #7fe3dc;
+}
+.lounge-bubble {
+  max-width: 100%;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--chat-bg, var(--paper));
+  color: var(--chat-ink, #16181d);
+  box-shadow: 0 0 0 2px var(--chat-edge, transparent);
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
+  text-align: left;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.lounge-row.first:not(.mine) .lounge-bubble {
+  border-top-left-radius: 4px;
+}
+.lounge-row.mine .lounge-bubble {
+  border-bottom-right-radius: 4px;
+}
+.lounge-bubble.emoji {
+  font-size: 28px;
+  padding: 2px 10px;
+}
+.lounge-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.lounge-acts .danger {
+  color: #ff8a7a;
+}
+.lounge-note {
+  margin: 4px 0 6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(31, 158, 143, 0.16);
+  color: #bdf1ea;
+  font-size: 13px;
+  cursor: pointer;
+}
+.lounge-form {
+  display: flex;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.lounge-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 16px; /* 16px keeps iPhone Safari from zooming in */
+}
+.lounge-input:focus {
+  outline: 2px solid var(--gold);
+  outline-offset: 1px;
+}
+.lounge-locked {
+  padding: 12px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--paper);
+  font-size: 14px;
+  text-align: center;
+}
+.lounge-fine {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.lounge-err {
+  color: #ff8a7a;
+}
+.lounge-unmute {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--gold2);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* other players' table bubbles wear their own chat style too */
+.bubble.worn {
+  background: var(--chat-bg, var(--paper));
+  color: var(--chat-ink, #16181d);
+  box-shadow: 0 0 0 2px var(--chat-edge, transparent), 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.bubble.worn::after {
+  border-top-color: var(--chat-bg, var(--paper));
+}

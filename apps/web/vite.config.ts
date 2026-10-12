@@ -51,7 +51,13 @@ self.addEventListener("notificationclick", (e) => {
   e.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
       const w = wins[0];
-      return w ? w.focus() : self.clients.openWindow(url);
+      // Heist is already open: bring it up and tell it where the notification points (a friend's table,
+      // a chat); it decides whether to go there now. Otherwise open the app at that address.
+      if (w) {
+        w.postMessage({ t: "heist-open", url });
+        return w.focus();
+      }
+      return self.clients.openWindow(url);
     }),
   );
 });

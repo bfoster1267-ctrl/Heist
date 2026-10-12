@@ -186,20 +186,25 @@ button.fr-friend > .fr-person {
   align-items: flex-start;
   max-width: 80%;
 }
-.fr-msg > span:first-child {
-  padding: 7px 11px;
+/* the same worn chat bubble as the Lounge and the table */
+.fr-bubble {
+  padding: 7px 12px;
   border-radius: 14px 14px 14px 4px;
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--chat-bg, var(--paper));
+  color: var(--chat-ink, #16181d);
+  box-shadow: 0 0 0 2px var(--chat-edge, transparent);
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16px;
+  line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .fr-msg.mine {
   align-self: flex-end;
   align-items: flex-end;
 }
-.fr-msg.mine > span:first-child {
+.fr-msg.mine .fr-bubble {
   border-radius: 14px 14px 4px 14px;
-  background: var(--gold);
-  color: #17130a;
 }
 .fr-seen {
   font-size: 11px;
@@ -220,14 +225,24 @@ button.fr-friend > .fr-person {
   overflow-y: auto;
 }
 
-/* the lobby button, under the player card */
+/* the lobby button, under the player card (beside it on a phone held sideways) */
+.acct-corner:has(.fr-open) {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+@media (max-height: 520px) {
+  .acct-corner:has(.fr-open) {
+    flex-direction: row-reverse;
+    align-items: center;
+  }
+}
 .fr-open {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-top: 8px;
-  float: right;
   padding: 7px 14px;
   border-radius: 999px;
   border: 1px solid var(--line);
@@ -252,7 +267,7 @@ button.fr-friend > .fr-person {
 .fr-toast {
   position: fixed;
   left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom));
+  top: calc(12px + env(safe-area-inset-top));
   transform: translateX(-50%);
   z-index: 60;
   display: flex;

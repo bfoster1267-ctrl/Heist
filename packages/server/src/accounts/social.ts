@@ -1,6 +1,7 @@
 // Friends: requests, the friends list, inviting a friend to your table, and direct messages between friends.
 // Friend links live on each account (both sides, changed in each account's own queue). Messages live in
-// their own file (dms.json), one conversation per pair of friends, the newest few hundred kept.
+// their own file (dms.json), one conversation per pair of friends, the newest few hundred kept. Messages go
+// through the Lounge's filter (lounge.ts).
 //
 // An invite or a message reaches a friend two ways: their phone gets a notification (web push, for players
 // who turned alerts on; tapping it opens the Home Screen app, full screen, straight into the table or the
@@ -9,6 +10,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { levelInfo } from "@heist/profile";
+import { LoungeError, cleanLine } from "../lounge";
 import type { PushMessage } from "../push";
 import { ApiError, type AccountService } from "./service";
 import type { Account, FriendLinks } from "./store";
@@ -18,7 +20,6 @@ export const MAX_FRIENDS = 200;
 const MAX_PENDING = 50;
 /** messages kept per conversation */
 const KEEP_MESSAGES = 300;
-export const DM_MAX_CHARS = 300;
 /** an invite shows in the app for this long */
 const INVITE_MS = 15 * 60_000;
 /** a player counts as online while their app checked in within this long */
@@ -51,6 +52,8 @@ export interface Person {
   level: number;
   prestige: number;
   frame: string;
+  /** the chat bubble they wear (messages show in it) */
+  chat: string;
 }
 
 export interface Invite {
@@ -141,8 +144,15 @@ export interface SocialOptions {
 
 const pairKey = (a: string, b: string) => (a < b ? `${a}|${b}` : `${b}|${a}`);
 const links = (a: Account): FriendLinks => (a.friends ??= { ids: [], incoming: [], outgoing: [] });
-const cleanText = (raw: unknown) =>
-  typeof raw === "string" ? raw.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, DM_MAX_CHARS) : "";
+/** The Lounge's filter: swears starred out, slurs and links refused (a link from a "friend" is the usual scam). */
+function cleanText(raw: unknown): string {
+  try {
+    return cleanLine(raw);
+  } catch (e) {
+    if (e instanceof LoungeError) throw new ApiError(400, e.message.replace(/ in the Lounge/, " in messages"));
+    throw e;
+  }
+}
 
 export class Social {
   readonly dms: DmStore;
@@ -183,7 +193,7 @@ export class Social {
 
   private person(a: Account): Person {
     const p = a.progress;
-    return { id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, frame: p.equipped.frame };
+    return { id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, frame: p.equipped.frame, chat: p.equipped.chat };
   }
 
   private async other(id: unknown): Promise<Account> {
@@ -358,6 +368,8 @@ export class Social {
     if (c && (c.read[me.id] ?? 0) < newest) this.dms.put(key, { ...c, read: { ...c.read, [me.id]: newest } });
     return {
       friend: { ...this.person(them), online: this.online(them.id) },
+      /** the bubble your own messages show in */
+      chat: me.progress.equipped.chat,
       friends: !!me.friends?.ids.includes(them.id),
       messages,
       /** when they last read what you sent */
@@ -369,7 +381,6 @@ export class Social {
     const them = await this.other(id);
     if (!me.friends?.ids.includes(them.id) || !them.friends?.ids.includes(me.id)) throw new ApiError(403, "You can only message friends");
     const clean = cleanText(text);
-    if (!clean) throw new ApiError(400, "Say something");
     this.limit(me.id, "dm", 30);
     const key = pairKey(me.id, them.id);
     const c = this.dms.get(key) ?? { messages: [], read: {} };

@@ -6,6 +6,8 @@ import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
 import { ALL_DRINKS, RANKED_LEVEL, RANKED_PLAYERS, levelInfo, rankedPublic } from "@heist/profile";
 import { PlayerCard } from "../account/Profile";
+import { Lounge } from "../account/Lounge";
+import { InviteFriends, InviteToast } from "../account/Friends";
 import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
@@ -135,6 +137,9 @@ export function OnlineLobby({
           </div>
         )}
       </motion.div>
+      {/* chat with everyone while you pick a table, wait in the queue or wait for friends to sit down */}
+      <Lounge />
+      <InviteToast here={room?.code} />
     </div>
   );
 }
@@ -349,7 +354,7 @@ function AlertsAsk() {
     <div className="alerts-ask" role="note">
       <div>
         <b>Get a buzz on your turn?</b>
-        <div className="fine">If you switch apps while you wait, we'll tell you when it's your move.</div>
+        <div className="fine">If you switch apps while you wait, we'll tell you when it's your move. Friends can invite you to their tables the same way.</div>
       </div>
       <div className="alerts-ask-btns">
         <button
@@ -477,8 +482,10 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
       <div className="lobby-col">
         <div className="tagline">Table code</div>
         <div className="room-code">{room.code}</div>
+        {/* friends get a notification that opens the app at this table; a texted link is for everyone else */}
+        <InviteFriends code={room.code} seated={room.seats.map((s) => s.userId)} onText={share} />
         <button className="btn gold big" onClick={share}>
-          {copied ? "Link copied" : "Invite friends"}
+          {copied ? "Link copied" : "Text an invite link"}
         </button>
         <div className="fine">
           {room.players} players · Buy-in {room.stakes.toLocaleString()} · {room.isPrivate ? "Friends only" : "Open to anyone"}
@@ -575,6 +582,8 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
   const mine = sess.seat === null ? null : seats[sess.seat];
   // tap a player's name for their full profile
   const [card, setCard] = useState<string | null>(null);
+  // everyone's lines show in the chat bubble they wear
+  const looks = useMemo(() => Object.fromEntries(seats.map((s) => [s.seat, s.badge?.chat])), [seats]);
   const tags = useMemo(() => {
     const t: Record<number, string> = {};
     for (const s of seats) if (s.badge?.rank) t[s.seat] = s.badge.rank;
@@ -593,6 +602,7 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
         seat={sess.seat ?? 0}
         useSource={useSource}
         talk={talk}
+        bubbleLooks={looks}
         watching={sess.seat === null}
         away={away}
         clock={<TurnClock sess={sess} />}

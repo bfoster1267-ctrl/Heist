@@ -5,7 +5,7 @@
 
 import {
   easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
-  botLevelsFor, soloRivals, stage, summarize, upgrade, type Fail, type Progress, type PublicProfile, type Reward,
+  botLevelsFor, soloRivals, stage, summarize, upgrade, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 import { deviceId } from "../device";
@@ -78,6 +78,28 @@ export interface LeaderRow {
   mmr?: number;
 }
 
+/** A line in the Lounge, the app-wide chat (server only) */
+export interface LoungeMsg {
+  id: number;
+  at: number;
+  userId: string;
+  name: string;
+  text: string;
+  /** level, frame, title and the chat bubble the sender wears */
+  badge?: Badge;
+}
+export interface LoungeFeed {
+  msgs: LoungeMsg[];
+  /** lines taken down since (reported, or the sender was suspended) */
+  gone: number[];
+  last: number;
+  /** players looking at the Lounge in the last minute */
+  here: number;
+  canPost: boolean;
+  /** why this player can't talk yet */
+  why?: string;
+}
+
 export interface Backend {
   readonly kind: "server" | "browser";
   readonly config: Config;
@@ -116,6 +138,10 @@ export interface Backend {
   feedback(a: LostAnswer): Promise<{ me: Me }>;
   /** the session token, for the game server socket */
   token(): string | null;
+  /** the Lounge (server only): what's new after a line id, say something, flag a line */
+  lounge?(after: number): Promise<LoungeFeed>;
+  loungeSay?(text: string): Promise<{ msg: LoungeMsg }>;
+  loungeReport?(id: number): Promise<{ ok: boolean; hidden?: boolean }>;
 }
 
 const store = {
@@ -399,6 +425,16 @@ export class ServerBackend implements Backend {
   /** Any API route (friends and messages use this; they only exist on the server). */
   request<T>(path: string, body?: object): Promise<T> {
     return this.call<T>(path, body);
+  }
+
+  lounge(after: number) {
+    return this.call<LoungeFeed>(`/api/lounge${after ? `?after=${after}` : ""}`);
+  }
+  loungeSay(text: string) {
+    return this.call<{ msg: LoungeMsg }>("/api/lounge/say", { text });
+  }
+  loungeReport(id: number) {
+    return this.call<{ ok: boolean; hidden?: boolean }>("/api/lounge/report", { id });
   }
 
   private async call<T>(path: string, body?: object): Promise<T> {

@@ -79,6 +79,27 @@ most once every 45 seconds. Only the big push services (Google, Apple, Mozilla, 
 endpoints. On iPhone this needs Heist added to the Home Screen (iOS 16.4+). `src/push.ts` speaks the push
 protocol itself with `node:crypto`; its tests check it against RFC 8291's worked example.
 
+## Friends, invites and messages
+
+`src/accounts/social.ts`. Friend links live on both accounts; messages live in `dms.json` in `DATA_DIR`
+(the newest 300 per pair of friends), filtered like the Lounge (swears starred, slurs and links refused).
+The app checks `GET /api/friends` every 20 seconds while it's open (every 5 on a friends screen), which
+also counts as "online".
+
+| Route | Does |
+| --- | --- |
+| `GET /api/friends` | friends (online, unread, last message), requests both ways, live invites |
+| `GET /api/friends/search?q=` | players by name (not yourself, not untouched guests) |
+| `POST /api/friends/request {id}` | ask to be friends (or say yes, if they asked you) |
+| `POST /api/friends/accept {id}` / `remove {id}` | accept; decline, cancel or unfriend |
+| `POST /api/friends/invite {id, code}` | invite a friend to your open table: pushes "./?table=CODE" to their phones |
+| `POST /api/friends/dismiss {code}` | close an invite |
+| `GET /api/dm?with=` / `POST /api/dm/send {to, text}` | read (marks read) and send messages, friends only |
+
+Requests, new friends, invites and messages are pushed with the same VAPID keys as turn alerts. Tapping
+one opens the Home Screen app at its link; if Heist is already open, the service worker posts
+`{t: "heist-open", url}` to it instead. Message text is never written to the activity log.
+
 One server process holds all its tables in memory. Running more than one machine later needs rooms
 pinned to a machine by code.
 

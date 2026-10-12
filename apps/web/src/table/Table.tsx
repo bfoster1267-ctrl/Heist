@@ -83,6 +83,7 @@ export function Table({
   seat = LOCAL_SEAT,
   useSource = useTable,
   talk,
+  bubbleLooks,
   watching = false,
   away,
   clock,
@@ -123,13 +124,15 @@ export function Table({
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
   useSource?: (settings: TableSettings) => TableSource;
-  /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
+  /** online: the chat bubble each seat wears (from its badge), so everyone's lines show in their own style */
+  bubbleLooks?: Record<number, string | undefined>;
   /** Watching, not playing (online): the table is drawn from `seat`, but it isn't yours. */
   watching?: boolean;
   /** online: seats whose player has dropped or is on autopilot */
   away?: Record<number, "away" | "bot">;
   /** online: the turn clock, shown on your action panel */
   clock?: ReactNode;
+  /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
   talk?: {
     send: (text: string) => void;
     listen: (heard: (seat: number, text: string) => void) => () => void;
@@ -597,7 +600,7 @@ export function Table({
           </AnimatePresence>
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
-          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} mine={watching ? undefined : HUMAN} />
+          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} mine={watching ? undefined : HUMAN} looks={bubbleLooks} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
             {showChat && !watching && (

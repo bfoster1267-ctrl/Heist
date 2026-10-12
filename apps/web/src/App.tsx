@@ -3,6 +3,9 @@ import { ALL_DRINKS, FIRST_HAND, currentPass, lessonFor, type Reward } from "@he
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
+import { Lounge } from "./account/Lounge";
+import { FriendsButton, InviteToast, joinTable } from "./account/Friends";
+import { useFriendsSync } from "./account/social";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
 import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
@@ -31,6 +34,8 @@ interface Seated extends TableSettings {
 
 function Game() {
   const { me, backend, failed, suspended, act, showReward, error, clearError } = useAccount();
+  // friends, requests, invites and messages stay fresh while the app is open
+  useFriendsSync(backend, !!me);
   // can't reach the server: check back every few seconds and reload once it answers
   useEffect(() => {
     if (!failed) return;
@@ -43,7 +48,9 @@ function Game() {
   const [table, setTable] = useState<Seated | null>(null);
   const [round, setRound] = useState(0);
   // the profile sheet and which tab it opens on (false = closed)
-  const [profile, setProfile] = useState<false | LobbyPage | "account">(false);
+  const [profile, setProfile] = useState<false | LobbyPage | "account" | "friends">(() => (opened().friends ? "friends" : false));
+  // a friend's chat to open (from a message notification)
+  const [chatWith, setChatWith] = useState<string | null>(() => opened().chat);
   const finished = useRef(false);
   // "What lost you?": a brand-new player's first visit to the tables, asked once when they walk out of a
   // game or head back to the lobby (after finishing one, if they did)
@@ -111,6 +118,28 @@ function Game() {
       else onlineEnd.current.reward = m.reward;
     });
   }, [online, showReward, act]);
+  // Tapping a notification while Heist is already open: the service worker hands over where it points.
+  // An invite goes straight to the table, unless you're in a game (then its invite card waits for you).
+  const busy = useRef(false);
+  busy.current = !!table || (online !== null && session(online).room?.status === "playing" && session(online).seat !== null);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const got = (e: MessageEvent) => {
+      if (e.data?.t !== "heist-open" || typeof e.data.url !== "string") return;
+      const q = new URL(e.data.url, location.href).searchParams;
+      const code = q.get("table");
+      if (code && /^[A-Za-z2-9]{5}$/.test(code)) {
+        if (!busy.current) joinTable(code.toUpperCase());
+        return;
+      }
+      if (q.get("chat") || q.get("friends")) {
+        setChatWith(q.get("chat"));
+        if (!busy.current) setProfile("friends");
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", got);
+    return () => navigator.serviceWorker.removeEventListener("message", got);
+  }, []);
   // the owner's activity log: which screen the player is on
   useEffect(() => {
     trackScreen(profile ? `Profile: ${profile}` : table ? (table.stage ? `Campaign table ${table.stage}` : "Table vs bots") : online !== null ? "Online" : sol ? "Solitaire" : "Lobby");
@@ -282,7 +311,10 @@ function Game() {
           />
           <div className="acct-corner">
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
+            {!tour && <FriendsButton onOpen={() => setProfile("friends")} />}
           </div>
+          {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
+          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge /> : null}
         </>
       ) : (
         <Table
@@ -306,7 +338,11 @@ function Game() {
           <Profile
             key={profile}
             tab={profile}
-            onClose={() => setProfile(false)}
+            chat={profile === "friends" ? chatWith : null}
+            onClose={() => {
+              setProfile(false);
+              setChatWith(null);
+            }}
           />
         )}
       </AnimatePresence>
@@ -316,6 +352,7 @@ function Game() {
         </button>
       )}
       <Rewards onSave={() => setProfile("account")} />
+      <InviteToast busy={!!table} />
       <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
@@ -324,6 +361,27 @@ function Game() {
       )}
     </>
   );
+}
+
+/** Opened from a friend request or message notification: ?friends=1 or ?chat=<friend> (read once, then cleared). */
+let openedWith: { friends: boolean; chat: string | null } | null = null;
+function opened() {
+  if (openedWith) return openedWith;
+  let q: URLSearchParams;
+  try {
+    q = new URLSearchParams(location.search);
+  } catch {
+    return (openedWith = { friends: false, chat: null });
+  }
+  const chat = q.get("chat");
+  openedWith = { friends: q.has("friends") || !!chat, chat: chat && /^[\w-]{1,60}$/.test(chat) ? chat : null };
+  if (openedWith.friends)
+    try {
+      history.replaceState(null, "", location.pathname);
+    } catch {
+      /* fine without */
+    }
+  return openedWith;
 }
 
 const TOUR_KEY = "heist.tour";

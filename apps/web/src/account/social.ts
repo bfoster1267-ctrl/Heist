@@ -11,6 +11,8 @@ export interface Person {
   level: number;
   prestige: number;
   frame: string;
+  /** the chat bubble they wear */
+  chat?: string;
 }
 
 export interface Friend extends Person {
@@ -44,6 +46,8 @@ export interface Dm {
 
 export interface Thread {
   friend: Person & { online: boolean };
+  /** the bubble your own messages show in */
+  chat?: string;
   friends: boolean;
   messages: Dm[];
   theirRead: number;
@@ -123,9 +127,6 @@ export function useFriends(): FriendsView | null {
     () => view,
   );
 }
-
-/** Whether friends work here at all (they need the game server). */
-export const friendsAvailable = () => !!server;
 
 /** Requests waiting on you, unread messages and live invites, for a badge. */
 export function badgeCount(v: FriendsView | null) {

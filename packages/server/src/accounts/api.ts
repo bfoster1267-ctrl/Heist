@@ -2,6 +2,8 @@
 // `Authorization: Bearer` header. Every route is listed in packages/server/README.md.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
+import { badgeOf, upgrade, type Progress } from "@heist/profile";
+import { LoungeError, type Lounge } from "../lounge";
 import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
 import type { Hosting } from "./hosting";
@@ -32,10 +34,12 @@ export interface ApiOptions {
   pushKey?: string;
   /** friends, table invites and direct messages */
   social?: Social;
+  /** the Lounge, the app-wide chat room (off without one) */
+  lounge?: Lounge;
 }
 
 /** calls the app makes every few seconds while it's open: not worth a line each in the activity log */
-const UNLOGGED = new Set(["GET /api/config", "POST /api/track", "GET /api/friends", "GET /api/dm", "GET /api/friends/search"]);
+const UNLOGGED = new Set(["GET /api/config", "POST /api/track", "GET /api/friends", "GET /api/dm", "GET /api/friends/search", "GET /api/lounge"]);
 
 /** where a request came from: its address, the app install's id when it sent one, and whether Claude's testing sent it */
 type Where = { ip: string; device?: string; tester?: "claude" };
@@ -63,6 +67,7 @@ function outcome(key: string, out: unknown): Record<string, unknown> {
   if (key === "POST /api/prestige") Object.assign(x, { coins: o.coins, unlocked: o.unlocked });
   if (key === "POST /api/solo/start") Object.assign(x, { gameId: o.gameId, players: o.players, stage: o.stage });
   if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") x.reward = o.reward && { xp: o.reward.xp };
+  if (key === "POST /api/lounge/report" && o.reported) Object.assign(x, { reported: o.reported, hidden: o.hidden });
   if (key === "POST /api/solo/finish" || key === "POST /api/solo/quit") x.reward = o.reward && { xp: o.reward.xp, coins: o.reward.coins, payout: o.reward.payout };
   return x;
 }
@@ -276,7 +281,41 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "GET /api/coach/mistakes": async () => svc.mistakes(),
     "GET /api/leaderboard": async (_, __, q) => ({ rows: await svc.leaderboard(q.get("by")) }),
     "GET /api/players/:id": async (_, __, ___, id) => svc.publicProfile(id),
+    ...(o.lounge ? loungeRoutes(o.lounge) : {}),
   };
+
+  /** The Lounge: anyone can read it; players who've finished a game (lesson, solo or online) can talk. */
+  function loungeRoutes(lounge: Lounge): Record<string, Handler> {
+    const why = (a: { progress: Progress } | null) => {
+      if (!a) return "Open the app to join the Lounge";
+      const p = a.progress;
+      return p.xp || p.coachGames || p.prestige ? null : "Finish your first game to chat in the Lounge";
+    };
+    return {
+      "GET /api/lounge": async (_, t, q) => {
+        const a = await svc.fromToken(t).catch(() => null);
+        const after = Number(q.get("after"));
+        const no = a && svc.banOf(a) ? "This account is suspended" : why(a);
+        return { ...lounge.feed(Number.isInteger(after) && after > 0 ? after : 0, a?.id), canPost: !no, ...(no ? { why: no } : {}) };
+      },
+      "POST /api/lounge/say": async (b, t) => {
+        const a = await me(t);
+        const no = why(a);
+        if (no) throw new ApiError(403, no);
+        try {
+          return { msg: lounge.say({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, b.text) };
+        } catch (e) {
+          if (e instanceof LoungeError) throw new ApiError(400, e.message);
+          throw e;
+        }
+      },
+      "POST /api/lounge/report": async (b, t) => {
+        const a = await me(t);
+        const r = lounge.report(a.id, b.id);
+        return r ? { ok: true, hidden: r.hidden, reported: { userId: r.msg.userId, name: r.msg.name, text: r.msg.text } } : { ok: false };
+      },
+    };
+  }
 
   function cors(req: IncomingMessage, res: ServerResponse): boolean {
     const origin = req.headers.origin;
