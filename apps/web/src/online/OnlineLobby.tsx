@@ -6,8 +6,7 @@ import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
 import { ALL_DRINKS, RANKED_LEVEL, RANKED_PLAYERS, levelInfo, rankedPublic } from "@heist/profile";
 import { PlayerCard } from "../account/Profile";
-import { Lounge } from "../account/Lounge";
-import { InviteFriends, InviteToast, useFriendsSlot } from "../account/Friends";
+import { InviteFriends, InviteToast } from "../account/Friends";
 import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
@@ -60,7 +59,6 @@ export function OnlineLobby({
   onEnd?: () => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
-  const friendsSlot = useFriendsSlot(useAccount().me?.id);
   const room = sess.room;
   const [sol, setSol] = useState(false);
   const joined = useRef(false);
@@ -113,10 +111,10 @@ export function OnlineLobby({
     return <Solitaire onExit={() => setSol(false)} banner={sess.queue ? <QueueStrip sess={sess} /> : <div className="queue-strip">Not in the queue any more</div>} />;
 
   return (
-    <div className="lobby with-lounge">
+    <div className="lobby">
       {!room && (
-        // the way out sits top-left, where every other screen keeps it (you stay in line: a bar on every
-        // other screen says so and brings you back)
+        // the way out sits top-left, where every other screen keeps it (you stay in line: a bar on the
+        // main lobby says so and brings you back)
         <button className="acct-back online-back" onClick={onExit}>
           <span aria-hidden>←</span> Lobby
         </button>
@@ -129,9 +127,6 @@ export function OnlineLobby({
           </div>
         )}
       </motion.div>
-      {/* chat with everyone while you pick a table, wait in the queue or wait for friends to sit down */}
-      {/* just the chat button here: floating lines would cover the queue and the table buttons */}
-      <Lounge friends={friendsSlot} float={false} />
       <InviteToast here={room?.code} />
     </div>
   );
