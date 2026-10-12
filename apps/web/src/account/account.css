@@ -1742,25 +1742,108 @@
 }
 
 /* ---------------------------------------------------------------- the Lounge (app-wide chat, 2026-10-12) */
-.lounge-btn {
+.lounge-dock {
   position: fixed;
-  right: calc(14px + env(safe-area-inset-right));
-  bottom: calc(14px + env(safe-area-inset-bottom));
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
   z-index: 19;
+  width: min(420px, calc(100vw - 32px));
+  translate: -50% 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 10px;
-  max-width: 260px;
-  padding: 9px 14px 9px 11px;
+  pointer-events: none;
+}
+/* wide screens and sideways phones: the lobby fills the middle, so the Lounge keeps to the corner */
+@media (min-width: 900px), (max-height: 520px) {
+  .lounge-dock {
+    left: auto;
+    right: calc(16px + env(safe-area-inset-right));
+    translate: none;
+    width: min(360px, 42vw);
+    align-items: flex-end;
+  }
+  .lounge-dock .lounge-floats {
+    align-items: flex-end;
+  }
+}
+/* sideways phones are short: one line floats at a time, without the name row */
+@media (max-height: 520px) {
+  .lounge-float:not(:last-child),
+  .lounge-float-name {
+    display: none;
+  }
+  .lounge-dock .lounge-float .acct-avatar {
+    margin-top: 2px;
+  }
+}
+.lounge-floats {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  width: 100%;
+}
+.lounge-float {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  pointer-events: auto;
+  filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.55));
+}
+.lounge-float .acct-avatar {
+  flex: none;
+  margin-top: 16px;
+}
+.lounge-float-say {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+.lounge-float-name {
+  margin: 0 0 2px 4px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--paper);
+  text-shadow: 0 1px 3px #000;
+}
+.lounge-float .lounge-bubble {
+  display: block;
+  border-top-left-radius: 4px;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.lounge-float .lounge-drink {
+  margin: 0 auto;
+  background: rgba(30, 24, 10, 0.92);
+}
+.lounge-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px 9px 12px;
   background: rgba(14, 16, 20, 0.92);
   border: 1px solid var(--line);
-  border-radius: 16px;
+  border-radius: 999px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   color: var(--paper);
   cursor: pointer;
-  text-align: left;
+  pointer-events: auto;
 }
-.lounge-btn.fresh {
+.lounge-pill.fresh {
   border-color: var(--gold);
   box-shadow: 0 0 0 1px var(--gold), 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 22px rgba(231, 181, 60, 0.35);
 }
@@ -1770,23 +1853,20 @@
   height: 26px;
   color: var(--gold);
 }
-.lounge-btn-text {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
+.lounge-pill .lounge-icon {
+  width: 22px;
+  height: 22px;
 }
-.lounge-btn-name {
+.lounge-pill-name {
   font-family: var(--cond);
   font-weight: 700;
   font-size: 17px;
-  line-height: 1.1;
+  letter-spacing: 0.3px;
 }
-.lounge-btn-peek {
-  font-size: 12px;
+.lounge-pill-here {
+  font-size: 13px;
   color: var(--muted);
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 .lounge-btn-count {
   position: absolute;

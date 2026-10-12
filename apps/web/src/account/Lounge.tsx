@@ -18,7 +18,10 @@ const SEEN_KEY = "heist.lounge.seen";
 const MUTED_KEY = "heist.lounge.muted";
 /** how often to look for new lines: while it's open, and while it's closed (for the unread count) */
 const OPEN_MS = 4_000;
-const CLOSED_MS = 30_000;
+const CLOSED_MS = 8_000;
+/** how long a new line floats over the lobby before it fades, and how many float at once */
+const FLOAT_MS = 7_000;
+const FLOATS = 2;
 const KEEP = 100;
 
 const load = (k: string) => {
@@ -96,7 +99,6 @@ function LoungeRoom({ backend, me }: { backend: Backend; me: string }) {
     }
   }, [open, newest, seen]);
   const unread = shown.filter((m) => m.id > seen && m.userId !== me).length;
-  const peek = shown.at(-1);
 
   const mute = (userId: string, on: boolean) => {
     const next = on ? [...new Set([...muted, userId])] : muted.filter((x) => x !== userId);
@@ -106,14 +108,7 @@ function LoungeRoom({ backend, me }: { backend: Backend; me: string }) {
 
   return (
     <>
-      <button className={"lounge-btn" + (unread ? " fresh" : "")} onClick={() => setOpen(true)} aria-label={unread ? `Open the Lounge: ${unread} new` : "Open the Lounge, the chat for everyone"}>
-        <BubbleIcon />
-        <span className="lounge-btn-text">
-          <span className="lounge-btn-name">Lounge</span>
-          <span className="lounge-btn-peek">{peek ? `${peek.name}: ${peek.text}` : info.here > 1 ? `${info.here} here` : "Chat with everyone"}</span>
-        </span>
-        {unread > 0 && <span className="lounge-btn-count">{unread > 9 ? "9+" : unread}</span>}
-      </button>
+      {!open && <LoungeDock msgs={shown} me={me} here={info.here} unread={unread} onOpen={() => setOpen(true)} />}
       <AnimatePresence>
         {open && (
           <LoungePanel
@@ -138,6 +133,72 @@ function LoungeRoom({ backend, me }: { backend: Backend; me: string }) {
         )}
       </AnimatePresence>
     </>
+  );
+}
+
+/**
+ * The Lounge over the lobby: new lines float up from the bottom in their senders' bubbles and fade
+ * after a few seconds, above a small "The Lounge" pill. Tapping any of it opens the Lounge.
+ */
+function LoungeDock({ msgs, me, here, unread, onOpen }: { msgs: LoungeMsg[]; me: string; here: number; unread: number; onOpen: () => void }) {
+  const [floats, setFloats] = useState<LoungeMsg[]>([]);
+  const floated = useRef<number | null>(null);
+  useEffect(() => {
+    const newest = msgs.at(-1)?.id ?? 0;
+    // the first look floats the last two lines, so the lobby shows the room is alive; after that, new ones
+    const fresh = floated.current === null ? msgs.slice(-2) : msgs.filter((m) => m.id > floated.current! && m.userId !== me);
+    floated.current = Math.max(floated.current ?? 0, newest);
+    if (!fresh.length) return;
+    setFloats((fs) => [...fs, ...fresh].slice(-FLOATS));
+    const ids = new Set(fresh.map((m) => m.id));
+    window.setTimeout(() => setFloats((fs) => fs.filter((f) => !ids.has(f.id))), FLOAT_MS);
+  }, [msgs, me]);
+  return (
+    <div className="lounge-dock">
+      <div className="lounge-floats" aria-live="polite">
+        <AnimatePresence initial={false}>
+          {floats.map((m) => (
+            <motion.button
+              key={m.id}
+              layout
+              className="lounge-float"
+              onClick={onOpen}
+              initial={{ opacity: 0, y: 18, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, transition: { duration: 0.5 } }}
+              transition={{ type: "spring", stiffness: 380, damping: 28 }}
+            >
+              {m.drink ? (
+                <span className="lounge-drink">
+                  {isVault(m.drink.emoji) ? <VaultGlass size={22} /> : <span className="lounge-drink-emoji">{m.drink.emoji}</span>}
+                  <span>
+                    <b>{m.userId === me ? "You" : m.name}</b> sent <b>{m.drink.toId === me ? "you" : m.drink.to}</b> a {m.text}
+                  </span>
+                </span>
+              ) : (
+                <>
+                  <Avatar name={m.name} frame={m.badge?.frame ?? "frame.none"} size={28} />
+                  <span className="lounge-float-say">
+                    <span className="lounge-float-name">{m.userId === me ? "You" : m.name}</span>
+                    <span className="lounge-bubble" style={chatStyle(cosmetic(m.badge?.chat ?? "chat.house") ?? cosmetic("chat.house"))}>
+                      {m.text}
+                    </span>
+                  </span>
+                </>
+              )}
+            </motion.button>
+          ))}
+        </AnimatePresence>
+      </div>
+      <button className={"lounge-pill" + (unread ? " fresh" : "")} onClick={onOpen} aria-label={unread ? `Open the Lounge: ${unread} new` : "Open the Lounge, the chat for everyone"}>
+        <BubbleIcon />
+        <span className="lounge-pill-name">The Lounge</span>
+        <span className="lounge-pill-here">
+          <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here` : "Chat"}
+        </span>
+        {unread > 0 && <span className="lounge-btn-count">{unread > 9 ? "9+" : unread}</span>}
+      </button>
+    </div>
   );
 }
 
