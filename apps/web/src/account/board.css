@@ -503,3 +503,6 @@
 .board-submit {
   margin-top: 4px;
 }
+.board-kinds + .board-lede {
+  margin-top: 12px;
+}
