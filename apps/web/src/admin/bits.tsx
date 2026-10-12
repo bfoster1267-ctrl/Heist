@@ -172,6 +172,7 @@ const LABELS: Record<string, string> = {
   "table.chat": "Chat",
   "lounge.say": "Lounge chat",
   "lounge.report": "Reported a Lounge line",
+  "lounge.drink": "Sent a drink in the Lounge",
   "table.drink": "Sent a drink",
   "ui.screen": "Screen",
   "ui.tap": "Tapped",
@@ -226,6 +227,8 @@ export function detailOf(e: ActivityEvent): string {
     case "table.chat":
     case "lounge.say":
       return `“${d.text ?? ""}”`;
+    case "lounge.drink":
+      return String(d.id ?? "");
     case "lounge.report":
       return d.reported ? `${d.reported.name}: “${d.reported.text}”${d.hidden ? " · taken down" : ""}` : "";
     case "table.create":

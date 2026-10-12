@@ -1,16 +1,18 @@
 // The Lounge: one chat room for everyone in the app. A button in the corner of the lobby (and the online
 // lobby) opens it; every line shows in the chat bubble its sender wears from the Wardrobe, next to their
-// framed avatar, level and title. Tap a line to see the player, mute them (just for you) or report it.
+// framed avatar, level and title. Tap a line to see the player, send them a drink (coins), mute them (just
+// for you) or report it. A drink shows in the Lounge for everyone.
 // The server stars out swears and refuses slurs and links; see packages/server/src/lounge.ts.
 
-import { cosmetic } from "@heist/profile";
+import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Backend, LoungeMsg } from "./backend";
 import { Avatar } from "./bits";
 import { chatStyle } from "./items";
 import { PlayerCard } from "./Profile";
-import { useAccount } from "./useAccount";
+import { useAccount, useLook } from "./useAccount";
+import { VaultGlass, isVault } from "../vault";
 
 const SEEN_KEY = "heist.lounge.seen";
 const MUTED_KEY = "heist.lounge.muted";
@@ -162,6 +164,11 @@ function LoungePanel({
   const [picked, setPicked] = useState<number | null>(null);
   const [card, setCard] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
+  const [pour, setPour] = useState<number | null>(null);
+  const { act } = useAccount();
+  const { owned } = useLook();
+  // one drink at a time here: rounds are for tables
+  const drinks = [...DRINKS, ...ALL_DRINKS.filter((d) => owned.includes(d.id))].filter((d) => !d.round);
   const list = useRef<HTMLDivElement>(null);
   // stick to the bottom while the reader is at the bottom; leave them be if they scrolled up to read
   const atBottom = useRef(true);
@@ -190,6 +197,21 @@ function LoungePanel({
       setErr(x instanceof Error ? x.message : "That didn't send");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const sendDrink = async (m: LoungeMsg, id: string) => {
+    setPour(null);
+    setPicked(null);
+    setErr(null);
+    try {
+      const r = await act((b) => b.loungeDrink!(m.id, id), { inline: true });
+      if (r) {
+        atBottom.current = true;
+        onSaid(r.msg);
+      }
+    } catch (x) {
+      setErr(x instanceof Error ? x.message : "That drink didn't go through");
     }
   };
 
@@ -226,9 +248,20 @@ function LoungePanel({
         >
           {!msgs.length && <p className="lounge-empty">It's quiet in here. Say hi, or ask who's up for a game.</p>}
           {msgs.map((m, i) => {
+            if (m.drink) {
+              const glass = isVault(m.drink.emoji) ? <VaultGlass size={26} /> : <span className="lounge-drink-emoji">{m.drink.emoji}</span>;
+              return (
+                <div key={m.id} className={"lounge-drink" + (m.drink.toId === me ? " for-me" : "")}>
+                  {glass}
+                  <span>
+                    <b>{m.userId === me ? "You" : m.name}</b> sent <b>{m.drink.toId === me ? "you" : m.drink.to}</b> a {m.text}
+                  </span>
+                </div>
+              );
+            }
             const mine = m.userId === me;
             // a run of lines from one player shows their name and avatar once
-            const first = msgs[i - 1]?.userId !== m.userId;
+            const first = msgs[i - 1]?.userId !== m.userId || !!msgs[i - 1]?.drink;
             const title = m.badge?.title;
             return (
               <div key={m.id} className={"lounge-row" + (mine ? " mine" : "") + (first ? " first" : "")}>
@@ -252,14 +285,36 @@ function LoungePanel({
                   <button
                     className={"lounge-bubble" + ([...m.text].length <= 2 ? " emoji" : "")}
                     style={chatStyle(cosmetic(m.badge?.chat ?? "chat.house") ?? cosmetic("chat.house"))}
-                    onClick={() => setPicked(picked === m.id ? null : m.id)}
+                    onClick={() => {
+                      setPour(null);
+                      setPicked(picked === m.id ? null : m.id);
+                    }}
                     aria-expanded={picked === m.id}
                     title={new Date(m.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                   >
                     {m.text}
                   </button>
+                  {pour === m.id && (
+                    <div className="lounge-pour" role="group" aria-label={`Send ${m.name} a drink`}>
+                      {drinks.map((d) => (
+                        <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => void sendDrink(m, d.id)} aria-label={`Send ${m.name} a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
+                          {isVault(d.emoji) ? <VaultGlass size={24} /> : d.emoji}
+                          <span className="chat-price">{d.price || "free"}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {picked === m.id && !mine && (
                     <div className="lounge-acts">
+                      <button
+                        className="btn small gold"
+                        onClick={() => {
+                          setPicked(null);
+                          setPour(m.id);
+                        }}
+                      >
+                        Send a drink
+                      </button>
                       <button className="btn small ghost" onClick={() => {
                           setPicked(null);
                           setCard(m.userId);

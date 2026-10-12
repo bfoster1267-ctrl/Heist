@@ -2,7 +2,7 @@
 // `Authorization: Bearer` header. Every route is listed in packages/server/README.md.
 
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { badgeOf, upgrade, type Progress } from "@heist/profile";
+import { badgeOf, drink as drinkInfo, upgrade, type Progress } from "@heist/profile";
 import { LoungeError, type Lounge } from "../lounge";
 import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
@@ -271,6 +271,15 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       const p = a.progress;
       return p.xp || p.coachGames || p.prestige ? null : "Finish your first game to chat in the Lounge";
     };
+    /** a refusal the player can read becomes a 400 */
+    const refuse = <T,>(f: () => T): T => {
+      try {
+        return f();
+      } catch (e) {
+        if (e instanceof LoungeError) throw new ApiError(400, e.message);
+        throw e;
+      }
+    };
     return {
       "GET /api/lounge": async (_, t, q) => {
         const a = await svc.fromToken(t).catch(() => null);
@@ -282,12 +291,22 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         const a = await me(t);
         const no = why(a);
         if (no) throw new ApiError(403, no);
-        try {
-          return { msg: lounge.say({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, b.text) };
-        } catch (e) {
-          if (e instanceof LoungeError) throw new ApiError(400, e.message);
-          throw e;
-        }
+        return { msg: refuse(() => lounge.say({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, b.text)) };
+      },
+      /** send a drink (coins) to whoever said a line: it shows in the Lounge for everyone */
+      "POST /api/lounge/drink": async (b, t) => {
+        const a = await me(t);
+        const no = why(a);
+        if (no) throw new ApiError(403, no);
+        const d = drinkInfo(String(b.id));
+        if (!d) throw new ApiError(400, "No such drink");
+        if (d.round) throw new ApiError(400, "Rounds are for the table. Pick one drink.");
+        const to = refuse(() => lounge.drinkFor(a.id, b.to));
+        refuse(() => lounge.pace(a.id, true));
+        const paid = await svc.payForDrink(a.id, d.id, 1);
+        const msg = refuse(() => lounge.sendDrink({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, to, d));
+        await svc.drinkReceived(to.userId).catch(() => {});
+        return { msg, me: paid };
       },
       "POST /api/lounge/report": async (b, t) => {
         const a = await me(t);
