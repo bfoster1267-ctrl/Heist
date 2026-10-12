@@ -464,6 +464,74 @@
   cursor: pointer;
 }
 
+/* away from the queue screen, the strip is a button back to it */
+.queue-strip-go {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.queue-strip-go .queue-strip-words {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.queue-strip-back {
+  flex: none;
+  color: var(--cash);
+  font-weight: 700;
+}
+/* the queue over the lobby: under the player card on phones, out of the chat's way */
+.queue-float {
+  position: fixed;
+  top: calc(96px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 24px, 440px);
+  z-index: 19;
+  animation: queue-float-in 0.35s ease-out;
+}
+.queue-float .queue-strip {
+  height: 38px;
+  border-radius: 19px;
+  padding: 0 7px 0 14px;
+  font-size: 15px;
+  background: rgba(8, 24, 14, 0.94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(89, 179, 106, 0.15);
+}
+.queue-float .queue-strip-x {
+  width: 28px;
+  height: 28px;
+}
+@keyframes queue-float-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+/* a sideways phone has no room up top: bottom left, across from the chat button */
+@media (max-height: 520px) {
+  .queue-float {
+    top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: calc(12px + env(safe-area-inset-left));
+    transform: none;
+    width: min(46vw, 380px);
+    animation: none;
+  }
+}
+
 /* XP rising off the card that earned it */
 .sol-float {
   position: absolute;

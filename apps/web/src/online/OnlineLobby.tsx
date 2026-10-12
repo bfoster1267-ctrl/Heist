@@ -63,10 +63,6 @@ export function OnlineLobby({
   const friendsSlot = useFriendsSlot(useAccount().me?.id);
   const room = sess.room;
   const [sol, setSol] = useState(false);
-  // when this player got in line, for the wait clock
-  const queuedAt = useRef(0);
-  if (sess.queue && !queuedAt.current) queuedAt.current = Date.now();
-  else if (!sess.queue) queuedAt.current = 0;
   const joined = useRef(false);
   useEffect(() => {
     if (join && !joined.current && sess.status === "online") {
@@ -114,19 +110,14 @@ export function OnlineLobby({
   // Solitaire while waiting in the queue: the queue timer rides along on top, and the table takes over
   // the moment it's dealt (the return above)
   if (sol && !room)
-    return <Solitaire onExit={() => setSol(false)} banner={sess.queue ? <QueueStrip sess={sess} since={queuedAt.current} /> : <div className="queue-strip">Not in the queue any more</div>} />;
+    return <Solitaire onExit={() => setSol(false)} banner={sess.queue ? <QueueStrip sess={sess} /> : <div className="queue-strip">Not in the queue any more</div>} />;
 
   return (
-    <div className="lobby">
+    <div className="lobby with-lounge">
       {!room && (
-        // the way out sits top-left, where every other screen keeps it
-        <button
-          className="acct-back online-back"
-          onClick={() => {
-            if (sess.queue) sess.client.unqueue();
-            onExit();
-          }}
-        >
+        // the way out sits top-left, where every other screen keeps it (you stay in line: a bar on every
+        // other screen says so and brings you back)
+        <button className="acct-back online-back" onClick={onExit}>
           <span aria-hidden>←</span> Lobby
         </button>
       )}
@@ -139,7 +130,8 @@ export function OnlineLobby({
         )}
       </motion.div>
       {/* chat with everyone while you pick a table, wait in the queue or wait for friends to sit down */}
-      <Lounge friends={friendsSlot} />
+      {/* just the chat button here: floating lines would cover the queue and the table buttons */}
+      <Lounge friends={friendsSlot} float={false} />
       <InviteToast here={room?.code} />
     </div>
   );
@@ -389,24 +381,64 @@ function useSeconds() {
 }
 const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
-/** The queue, squeezed into one line above Solitaire: who's in, the timer, and a way out of line. */
-function QueueStrip({ sess, since }: { sess: OnlineSession; since: number }) {
+/** The queue, squeezed into one line: who's in, the timer, and a way out of line. With `onOpen` the line
+ *  itself is a button back to the queue (on screens away from it). */
+function QueueStrip({ sess, onOpen }: { sess: OnlineSession; onOpen?: () => void }) {
   const q = sess.queue!;
   const now = useSeconds();
   const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
-  const waited = Math.max(0, now - Math.floor(since / 1000));
+  const waited = Math.max(0, now - Math.floor(sess.queuedSince / 1000));
+  const words = (
+    <span className="queue-strip-words">
+      {q.ranked ? "Ranked" : "Finding players"} · {q.waiting}/{q.players} · <b>{mmss(waited)}</b>
+      {!q.ranked && (left > 0 ? ` · bots in ${mmss(left)}` : " · dealing...")}
+    </span>
+  );
   return (
     <div className="queue-strip" role="status">
       <span className="queue-strip-dot" aria-hidden />
-      <span>
-        {q.ranked ? "Ranked" : "Finding players"} · {q.waiting}/{q.players} · <b>{mmss(waited)}</b>
-        {!q.ranked && (left > 0 ? ` · bots in ${mmss(left)}` : " · dealing...")}
-      </span>
+      {onOpen ? (
+        <button className="queue-strip-go" onClick={onOpen} aria-label="You're in line for a table. Back to the queue">
+          {words}
+          <span className="queue-strip-back">
+            In line <span aria-hidden>›</span>
+          </span>
+        </button>
+      ) : (
+        words
+      )}
       <button className="queue-strip-x" onClick={() => sess.client.unqueue()} aria-label="Leave the queue">
         ✕
       </button>
     </div>
   );
+}
+
+/**
+ * In line for a table but somewhere else in the app (the lobby, Solitaire): a bar that says so and
+ * takes you back to the queue, and takes you to the table the moment it's dealt.
+ */
+export function QueueBar({ name, onBack, onDone, inline }: {
+  name: string;
+  /** back to the online lobby (it shows the queue, or the table once dealt) */
+  onBack: () => void;
+  /** out of line without a table (left the queue, or the server turned it down) */
+  onDone: () => void;
+  /** as a strip inside a screen's own layout (Solitaire's banner) instead of floating over it */
+  inline?: boolean;
+}) {
+  const sess = useSession(useMemo(() => session(name), [name]));
+  const dealt = !!sess.room;
+  const inLine = !!sess.queue;
+  const go = useRef({ onBack, onDone });
+  go.current = { onBack, onDone };
+  useEffect(() => {
+    if (dealt) go.current.onBack();
+    else if (!inLine) go.current.onDone();
+  }, [dealt, inLine]);
+  if (!sess.queue) return null;
+  const strip = <QueueStrip sess={sess} onOpen={onBack} />;
+  return inline ? strip : <div className="queue-float">{strip}</div>;
 }
 
 /** Waiting in the quick queue: who's in line, and when bots fill the rest. */

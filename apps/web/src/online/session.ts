@@ -54,6 +54,8 @@ export class OnlineSession {
   gameOver: Extract<ServerMsg, { t: "gameOver" }> | null = null;
   /** waiting in the quick queue */
   queue: Extract<ServerMsg, { t: "queue" }> | null = null;
+  /** when this player got in line, for the wait clock (kept while they wander off the queue screen) */
+  queuedSince = 0;
   private listeners = new Set<Listener>();
   private frameListeners = new Set<(m: ServerMsg) => void>();
 
@@ -183,6 +185,8 @@ export class OnlineSession {
         if (!this.client.queued) this.queue = null;
         break;
     }
+    if (this.queue && !this.queuedSince) this.queuedSince = Date.now();
+    else if (!this.queue) this.queuedSince = 0;
     for (const f of this.frameListeners) f(m);
     this.emit();
   }

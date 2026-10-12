@@ -12,7 +12,7 @@ import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
 import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
-import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
+import { OnlineLobby, QueueBar, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
 import { Solitaire } from "./solitaire/Solitaire";
 import { Table } from "./table/Table";
@@ -93,6 +93,21 @@ function Game() {
   const [online, setOnline] = useState<string | null>(() =>
     inviteCode() ? savedName() : null,
   );
+  // still in line for an online table after stepping out of the online lobby (its name, for the socket):
+  // a bar on the other screens says so, and the table pulls the player back in when it's dealt
+  const [away, setAwayState] = useState<string | null>(null);
+  const awayRef = useRef<string | null>(null);
+  const setAway = useCallback((n: string | null) => {
+    awayRef.current = n;
+    setAwayState(n);
+  }, []);
+  const backToLine = useCallback(() => {
+    const n = awayRef.current;
+    if (n === null) return;
+    setAway(null);
+    setSol(false);
+    setOnline(n);
+  }, [setAway, setSol]);
   // After an online game the server sends what it earned. It usually lands while the table is still
   // playing the last moves, so it's held until the table shows the end, then shown like a game vs bots.
   const onlineEnd = useRef<{ reward: Reward | null; ended: boolean }>({
@@ -156,6 +171,11 @@ function Game() {
   // finished game can be checked and counted toward the career.
   const sit = useCallback(
     async (c: LobbyChoice) => {
+      // a game vs bots takes the player out of the online queue (no table pulling them away mid-hand)
+      if (awayRef.current !== null) {
+        session(awayRef.current).client.unqueue();
+        setAway(null);
+      }
       if (me && c.name && c.name !== me.name)
         await act((b) => b.rename(c.name));
       const t = await act((b) => b.soloStart(c.players, c.stakes, c.name, c.campaign, c.coached));
@@ -180,7 +200,7 @@ function Game() {
       });
       setRound((r) => r + 1);
     },
-    [me, backend, act, showReward],
+    [me, backend, act, showReward, setAway],
   );
 
   const gameOver = useCallback(
@@ -256,6 +276,7 @@ function Game() {
           chips={chips}
           join={inviteCode()}
           onExit={() => {
+            if (session(online).queue) setAway(online);
             setOnline(null);
             void act((b) => b.me());
           }}
@@ -275,6 +296,7 @@ function Game() {
       <>
         <Solitaire
           onExit={() => setSol(false)}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
           // only a guest who never played Heist gets the Heist button (their coached first hand); everyone else has Play now in the lobby
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
@@ -316,6 +338,7 @@ function Game() {
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
           {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge friends={friendsSlot} /> : null}
+          {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} />}
         </>
       ) : (
         <Table
