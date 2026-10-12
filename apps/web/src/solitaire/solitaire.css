@@ -499,3 +499,38 @@
   font-size: 11px;
   color: var(--gold);
 }
+
+/* the player's Wardrobe carries over: their felt, and their card back (the house back stays Solitaire's oxblood) */
+[data-felt="custom"] .sol {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--cfelt) 85%, #ffffff 8%) 0%, var(--cfelt2) 65%, color-mix(in srgb, var(--cfelt2) 70%, #000000) 100%);
+}
+[data-back="red"] .sol-card.back {
+  background: repeating-linear-gradient(45deg, var(--back) 0 6px, color-mix(in srgb, var(--back) 82%, #ffffff) 6px 12px);
+}
+[data-back="stripes"] .sol-card.back {
+  background: repeating-linear-gradient(90deg, var(--back) 0 5px, color-mix(in srgb, var(--back) 70%, var(--back2)) 5px 7px);
+}
+[data-back="diamonds"] .sol-card.back {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    repeating-linear-gradient(-45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    var(--back);
+}
+[data-back="noir"] .sol-card.back {
+  background: radial-gradient(circle at 50% 50%, #262626, var(--back) 70%);
+}
+[data-back="gold"] .sol-card.back {
+  background: linear-gradient(135deg, var(--back), var(--back2) 45%, var(--back) 55%, var(--back2));
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .sol-back-frame {
+  border-color: color-mix(in srgb, var(--back2) 75%, transparent);
+  background: none;
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .sol-back-mark {
+  border-color: var(--back2);
+  background: radial-gradient(circle, color-mix(in srgb, var(--back) 80%, #000000), color-mix(in srgb, var(--back) 55%, #000000));
+  color: var(--back2);
+}
