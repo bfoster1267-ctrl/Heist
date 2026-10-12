@@ -204,3 +204,8 @@ button.room-seat:hover .tag.dim {
   gap: 6px;
   flex-shrink: 0;
 }
+
+/* room under the last buttons for the chat button at the bottom */
+.lobby.with-lounge {
+  padding-bottom: calc(84px + env(safe-area-inset-bottom));
+}

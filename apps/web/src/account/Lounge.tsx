@@ -100,10 +100,10 @@ export interface FriendsSlot {
 type Tab = "lounge" | "friends";
 
 /** The chat button for the lobby, and the chat itself when it's open. Nothing without the game server. */
-export function Lounge({ friends }: { friends?: FriendsSlot } = {}) {
+export function Lounge({ friends, float = true }: { friends?: FriendsSlot; /** new lines float up over the screen (the main lobby only: elsewhere they'd cover buttons) */ float?: boolean } = {}) {
   const { backend, me } = useAccount();
   if (!backend?.lounge || !me) return null;
-  return <LoungeRoom backend={backend} me={me.id} friends={friends} />;
+  return <LoungeRoom backend={backend} me={me.id} friends={friends} float={float} />;
 }
 
 const bubbleOf = (badge: Badge | undefined) => chatStyle(cosmetic(badge?.chat ?? "chat.house") ?? cosmetic("chat.house"));
@@ -162,7 +162,7 @@ export function MessageRow({
 
 const lineOf = (m: LoungeMsg): ChatLine & { drink?: LoungeMsg["drink"] } => ({ ...m, key: `lounge-${m.id}` });
 
-function LoungeRoom({ backend, me, friends }: { backend: Backend; me: string; friends?: FriendsSlot }) {
+function LoungeRoom({ backend, me, friends, float }: { backend: Backend; me: string; friends?: FriendsSlot; float: boolean }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>("lounge");
   const { msgs, setMsgs, info, pull } = useFeed(backend, open);
@@ -196,8 +196,8 @@ function LoungeRoom({ backend, me, friends }: { backend: Backend; me: string; fr
     <>
       {!open && (
         <LoungeDock
-          lines={floats}
-          firstLook={shown.slice(-2).map(lineOf)}
+          lines={float ? floats : []}
+          firstLook={float ? shown.slice(-2).map(lineOf) : []}
           me={me}
           here={info.here}
           unread={unread + fromFriends}
