@@ -239,8 +239,8 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/solo/start": async (b, t) => svc.soloStart(await me(t), b.players, b.stakes, b.scaled, b.campaign, b.coached, b.gentle, b.lessons),
     "POST /api/solo/finish": async (b, t) => svc.soloFinish(await me(t), b.gameId, b.answers),
     "POST /api/solitaire/start": async (_b, t) => svc.solitaireStart(await me(t)),
-    "POST /api/solitaire/finish": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves, true),
-    "POST /api/solitaire/bank": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves),
+    "POST /api/solitaire/finish": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/solitaire/bank": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;

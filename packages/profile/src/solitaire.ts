@@ -209,3 +209,17 @@ export function solGain(paid: SolTally | undefined, t: SolTally) {
     any: tallyXp(gained) > 0,
   };
 }
+
+/** Seconds without a move before a deal's XP starts draining, 1 a second; a hint costs 1 too. */
+export const SOL_IDLE_S = 5;
+
+/**
+ * What to pay now for a deal: its XP so far (the high-water tally) less what stalling and hints
+ * drained off it (never below zero), beyond what was already paid. Paid XP is never taken back.
+ */
+export function solPay(paid: SolTally | undefined, paidXp: number | undefined, t: SolTally, drain: number) {
+  const g = solGain(paid, t);
+  const before = paidXp ?? tallyXp(paid ?? { moves: 0, aces: 0, stacks: 0, won: false });
+  const pot = Math.max(0, tallyXp(g.paid) - Math.max(0, drain));
+  return { gained: g.gained, paid: g.paid, paidXp: Math.max(before, pot), xp: Math.max(0, pot - before) };
+}
