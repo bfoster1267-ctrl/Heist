@@ -48,7 +48,7 @@ export interface ApiOptions {
 const UNLOGGED = new Set(["GET /api/config", "POST /api/track", "GET /api/friends", "GET /api/dm", "GET /api/friends/search", "GET /api/lounge", "GET /api/board", "GET /api/board/post"]);
 
 /** where a request came from: its address, the app install's id when it sent one, and whether Claude's testing sent it */
-type Where = { ip: string; device?: string; tester?: "claude" };
+type Where = { ip: string; device?: string; tester?: "claude"; ua?: string };
 const deviceOf = (req: IncomingMessage) => {
   const d = req.headers["x-heist-device"];
   return typeof d === "string" && /^[\w-]{8,40}$/.test(d) ? d : undefined;
@@ -125,7 +125,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       const data: Record<string, unknown> = { name };
       if (e.data && typeof e.data === "object") Object.assign(data, scrub(e.data) as object);
       if (typeof e.at === "number") data.clientAt = e.at;
-      svc.track({ kind: `ui.${kind}`, userId: a.id, name: a.name, ...w, source: "app", data });
+      svc.track({ kind: `ui.${kind}`, userId: a.id, name: a.name, ...w, ua: undefined, source: "app", data });
     }
     return { ok: true };
   }
@@ -146,13 +146,18 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       svc.track({ kind: "app.open", userId: who.id, name: who.name, ...w });
       return;
     }
+    // the user agent is kept where it tells a person from a bot: a new guest, and calls from no account
+    const keepUa = key === "POST /api/auth/guest" || !who;
+    // where a new guest came from (the app sends the page that linked to the site)
+    const ref = key === "POST /api/auth/guest" && typeof body.ref === "string" && body.ref ? body.ref.slice(0, 300) : undefined;
     // a finished game's moves are kept with the game itself (the admin panel replays them)
     const sent =
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
       : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
+      : key === "POST /api/auth/guest" ? { ...body, ref: undefined }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
-    svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ok: !error, error, data: Object.keys(data).length ? data : undefined });
+    svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ua: keepUa ? w.ua : undefined, ...(ref ? { ref } : {}), ok: !error, error, data: Object.keys(data).length ? data : undefined });
   }
 
   /** /api/admin/*: the owner's panel. Its own sign-in; never a player's token. */
@@ -220,6 +225,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (path === "/accounts") return send(res, 200, await admin.svc.list(q));
       if (path === "/activity") return send(res, 200, await admin.svc.activity(q));
       if (path === "/funnel") return send(res, 200, await admin.svc.funnel(q));
+      if (path === "/bots") return send(res, 200, await admin.svc.bots(q));
       if (path === "/live") return send(res, 200, (await admin.svc.overview()).live);
       if (path === "/server") {
         if (!admin.hosting) throw new ApiError(404, "Not found");
@@ -525,8 +531,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       return true;
     }
     const ip = ipOf(req);
-    const w: Where = { ip, device: deviceOf(req) };
-    if (String(req.headers["user-agent"] ?? "").includes(CLAUDE_UA)) w.tester = "claude";
+    const ua = String(req.headers["user-agent"] ?? "").slice(0, 300);
+    const w: Where = { ip, device: deviceOf(req), ua: ua || undefined };
+    if (ua.includes(CLAUDE_UA)) w.tester = "claude";
     if (url.pathname.startsWith("/api/admin/")) {
       await adminRoute(req, res, url, ip);
       return true;

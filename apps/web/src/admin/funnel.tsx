@@ -67,7 +67,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
             </button>
           </form>
         </div>
-        <p className="dim small">Counts people whose first visit falls in this range. Your own play and Claude's testing are left out.</p>
+        <p className="dim small">Counts people whose first visit falls in this range. Your own play, Claude's testing and <Link to="/bots">bot visits</Link> are left out.</p>
       </div>
       <Problem error={r.error} />
       {!f ? null : f.people === 0 ? (

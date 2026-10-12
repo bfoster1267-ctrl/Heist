@@ -3,6 +3,7 @@
 // most one room at a time.
 
 import { randomBytes } from "node:crypto";
+import { reverse as dnsReverse } from "node:dns/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
@@ -108,6 +109,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           svc: new AdminService(accounts, accounts.activity, {
             now: () => clock.now(),
             game: (id) => store.game?.(id),
+            reverse: (ip) => dnsReverse(ip),
             live: () => ({
               sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), uptimeS: Math.round((clock.now() - started) / 1000),
               rooms: rooms.all().map((r) => r.info()),

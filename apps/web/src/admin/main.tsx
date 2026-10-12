@@ -11,6 +11,7 @@ import { ServerPage } from "./server";
 import { EconomyPage } from "./economy";
 import { TeamPage } from "./team";
 import { FunnelPage } from "./funnel";
+import { BotsPage } from "./bots";
 import { FeedbackPage } from "./feedback";
 import { BoardPage } from "./board";
 import { LoungeWatch } from "./conduct";
@@ -38,6 +39,7 @@ const NAV: [string, string][] = [
   ["players", "Players"],
   ["activity", "Activity"],
   ["dropoff", "Drop-off"],
+  ["bots", "Bots"],
   ["live", "Live tables"],
   ["economy", "Economy"],
   ["board", "Player board"],
@@ -68,7 +70,7 @@ function Admin() {
   if (!s) return <SignIn onIn={setS} />;
   const props: PageProps = { s, onAuth, query, param: parts[1] };
   const page = parts[0] ?? "";
-  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", dropoff: "Where new players drop off", live: "Live tables", server: "Server & bill", economy: "Economy", feedback: "What lost them", board: "Player board", team: "Admins", games: "Game replay" };
+  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", dropoff: "Where new players drop off", bots: "Bot visits", live: "Live tables", server: "Server & bill", economy: "Economy", feedback: "What lost them", board: "Player board", team: "Admins", games: "Game replay" };
   return (
     <div className="shell">
       <header className="top">
@@ -98,6 +100,7 @@ function Admin() {
         {page === "players" && (parts[1] ? <Player key={parts[1]} {...props} /> : <Players key={query.toString()} {...props} />)}
         {page === "activity" && <Activity key={query.toString()} {...props} />}
         {page === "dropoff" && <FunnelPage key={query.toString()} {...props} />}
+        {page === "bots" && <BotsPage key={query.toString()} {...props} />}
         {page === "live" && <LivePage {...props} />}
         {page === "server" && <ServerPage {...props} />}
         {page === "economy" && <EconomyPage {...props} />}

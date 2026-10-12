@@ -962,6 +962,15 @@ h4 {
   background: rgba(217, 119, 87, 0.2);
   color: #f0a68a;
 }
+.badge.bot {
+  background: rgba(140, 150, 170, 0.2);
+  color: #b9c2d3;
+}
+.bot-ua {
+  font-size: 11px;
+  word-break: break-all;
+  max-width: 340px;
+}
 .badge.banned {
   background: rgba(224, 102, 76, 0.22);
   color: #ffb4a3;

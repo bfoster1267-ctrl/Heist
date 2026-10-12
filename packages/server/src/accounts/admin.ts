@@ -7,6 +7,7 @@ import type { RoomInfo } from "../protocol";
 import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
 import { byClaude, byOwner, type ActivityEvent, type ActivityLog } from "./activity";
+import { CRAWLER_UA, judge, sourceOf, type BotVisit } from "./bots";
 import { buildFunnel, type Funnel } from "./funnel";
 import { GUEST_KEEP_DAYS, type AccountService } from "./service";
 import { FEEDBACK_REASONS, type Account, type FeedbackReason } from "./store";
@@ -52,6 +53,8 @@ export interface AccountRow {
   you: boolean;
   /** accounts Claude made while testing the app */
   claude: boolean;
+  /** why this visit looks like a bot (left out of the stats), or null */
+  bot: string | null;
 }
 
 /** Accounts grouped into people. */
@@ -69,6 +72,28 @@ export interface People {
   ownerDevices: Set<string>;
   /** accounts with no device or address on record (made before the activity log, or never did anything) */
   untracked: Set<string>;
+  /** "people" who were plainly robots (link previews, crawlers): person id -> why */
+  bots: Map<string, BotVisit>;
+}
+
+/** one bot visit on the admin panel's Bots page */
+export interface BotRow {
+  person: string;
+  /** the account to open for the whole log */
+  id: string;
+  accounts: number;
+  firstSeen: number;
+  lastSeen: number;
+  kind: BotVisit["kind"];
+  reason: string;
+  /** where it came from: the referring site or the app it opened in */
+  source: string | null;
+  ref: string | null;
+  ua: string | null;
+  ips: { ip: string; host: string | null }[];
+  events: number;
+  /** the last thing it did */
+  last: string;
 }
 
 export type Moment =
@@ -96,8 +121,42 @@ export class AdminService {
   constructor(
     private accounts: AccountService,
     private log: ActivityLog,
-    private o: { now?: () => number; live?: () => LiveInfo; game?: (id: string) => GameRecord | undefined } = {},
+    private o: {
+      now?: () => number;
+      live?: () => LiveInfo;
+      game?: (id: string) => GameRecord | undefined;
+      /** reverse DNS (an address's host name), for spotting crawlers by where they run */
+      reverse?: (ip: string) => Promise<string[]>;
+    } = {},
   ) {}
+
+  /** host names of addresses looked up so far (null: none) */
+  private hosts = new Map<string, string | null>();
+  private looking = new Map<string, Promise<void>>();
+
+  /** look up the host names of these addresses (at most a few new ones at a time) */
+  private lookup(ips: Iterable<string>, max = 25): Promise<void> {
+    const reverse = this.o.reverse;
+    if (!reverse) return Promise.resolve();
+    const waits: Promise<void>[] = [];
+    for (const ip of ips) {
+      if (this.hosts.has(ip)) continue;
+      let w = this.looking.get(ip);
+      if (!w) {
+        if (this.looking.size >= max) continue;
+        w = reverse(ip)
+          .then((names) => void this.hosts.set(ip, names[0]?.toLowerCase() ?? null))
+          .catch(() => void this.hosts.set(ip, null))
+          .finally(() => {
+            this.looking.delete(ip);
+            this.cache = null; // a new name can turn a visit into a known crawler
+          });
+        this.looking.set(ip, w);
+      }
+      waits.push(w);
+    }
+    return Promise.all(waits).then(() => {});
+  }
 
   private get now() {
     return (this.o.now ?? Date.now)();
@@ -169,7 +228,26 @@ export class AdminService {
     for (const ip of ownerIps) for (const id of ipUsers.get(ip) ?? []) owner.add(find(id));
     const claude = new Set([...claudeUsers].filter((id) => of.has(id)).map((id) => find(id)));
     const untracked = new Set(all.filter((a) => !tracked.has(a.id)).map((a) => a.id));
-    const people = { of, members, owner, claude, ownerIps, ownerDevices, untracked };
+    // robots: guest-only people who never did anything a person does (see bots.ts)
+    const byPerson = new Map<string, ActivityEvent[]>();
+    for (const e of this.log.window()) {
+      if (!e.userId || byOwner(e) || !of.has(e.userId)) continue;
+      const p = of.get(e.userId)!;
+      let list = byPerson.get(p);
+      if (!list) byPerson.set(p, (list = []));
+      list.push(e);
+    }
+    const bots = new Map<string, BotVisit>();
+    const unsure = new Set<string>();
+    for (const [p, evs] of byPerson) {
+      if (owner.has(p) || claude.has(p)) continue;
+      const signedUp = (members.get(p) ?? []).some((id) => !guest.get(id));
+      const v = judge(evs, signedUp, this.now, (ip) => this.hosts.get(ip) ?? undefined);
+      if (v) bots.set(p, v);
+      else if (!signedUp) for (const e of evs) if (e.ip && !this.hosts.has(e.ip)) unsure.add(e.ip);
+    }
+    void this.lookup(unsure);
+    const people = { of, members, owner, claude, ownerIps, ownerDevices, untracked, bots };
     this.cache = { at: this.now, people };
     return people;
   }
@@ -189,6 +267,7 @@ export class AdminService {
       tags: a.crm?.tags ?? [], flagged: !!a.crm?.flag, banned: !!this.accounts.banOf(a), notes: a.crm?.notes.length ?? 0,
       person, personAccounts: ppl?.members.get(person)?.length ?? 1, you: !!ppl?.owner.has(person),
       claude: !!ppl?.claude.has(person) && !ppl?.owner.has(person),
+      bot: ppl?.bots.get(person)?.reason ?? null,
     };
   }
 
@@ -211,7 +290,7 @@ export class AdminService {
     // a person counts from their first account; people we can't tell apart (no record) and you are left out
     let people = 0;
     for (const [p, ids] of ppl.members) {
-      if (ppl.owner.has(p) || ppl.claude.has(p) || ids.every((id) => ppl.untracked.has(id) || idle.has(id))) continue;
+      if (ppl.owner.has(p) || ppl.claude.has(p) || ppl.bots.has(p) || ids.every((id) => ppl.untracked.has(id) || idle.has(id))) continue;
       people++;
       const first = Math.min(...ids.map((id) => all.find((a) => a.id === id)?.createdAt ?? now));
       if (dayKey(first) in newPeople) newPeople[dayKey(first)]++;
@@ -247,7 +326,9 @@ export class AdminService {
         untouched: guests.filter((a) => idle.has(a.id) && !notPlayer(ppl, a.id)).length,
         untouchedRemovedAfter: GUEST_KEEP_DAYS,
         yours: all.filter((a) => ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
-        claude: all.filter((a) => mine(a.id) && !ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
+        claude: all.filter((a) => ppl.claude.has(ppl.of.get(a.id) ?? a.id) && !ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
+        /** visits that were robots (link previews, crawlers): left out of everything */
+        bots: ppl.bots.size,
       },
       active: { day: seenBy(now - DAY), week: seenBy(now - 7 * DAY), month: seenBy(now - 30 * DAY) },
       economy: {
@@ -406,7 +487,8 @@ export class AdminService {
     const all = await this.accounts.store.all();
     const ppl = this.people(all);
     let rows = all.map((a) => this.row(a, ppl));
-    if (q.get("mine") !== "1") rows = rows.filter((r) => !r.you && !r.claude);
+    if (show === "bots") rows = rows.filter((r) => r.bot);
+    else if (q.get("mine") !== "1") rows = rows.filter((r) => !r.you && !r.claude && !r.bot);
     if (show === "people") {
       // one row per person: their signed-up account with the most games, else their newest
       const best = new Map<string, AccountRow>();
@@ -472,7 +554,7 @@ export class AdminService {
    * The log, newest first: only players unless ?mine=1 or ?user= picks one account. Then the owner's own events (their accounts, the
    * admin panel) carry you: true and Claude's testing carries claude: true.
    */
-  async activity(q: URLSearchParams): Promise<{ events: (ActivityEvent & { you?: boolean; claude?: boolean })[] }> {
+  async activity(q: URLSearchParams): Promise<{ events: (ActivityEvent & { you?: boolean; claude?: boolean; bot?: boolean })[] }> {
     const num = (k: string) => (q.get(k) ? Number(q.get(k)) : undefined);
     const kinds = (q.get("kinds") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
     const ppl = this.people(await this.accounts.store.all());
@@ -480,14 +562,67 @@ export class AdminService {
     const claude = (e: ActivityEvent) => byClaude(e) || ppl.claude.has(personOf(e) ?? "");
     const you = (e: ActivityEvent) =>
       byOwner(e) || (e.kind === "admin.login" && e.ok) || ppl.owner.has(personOf(e) ?? "") || (!e.userId && ((!!e.ip && ppl.ownerIps.has(e.ip)) || (!!e.device && ppl.ownerDevices.has(e.device))));
+    const bot = (e: ActivityEvent) => (e.userId ? ppl.bots.has(personOf(e)!) : !!e.ua && CRAWLER_UA.test(e.ua));
     // one player's own activity is shown whole
     const all = q.get("mine") === "1" || !!q.get("user");
     const events = this.log.query({
       userId: q.get("user") || undefined, kinds, text: q.get("text") ?? undefined, from: num("from"), to: num("to"), before: num("before"), limit: num("limit") ?? 150,
-      skip: all ? undefined : (e) => you(e) || claude(e),
+      skip: all ? undefined : (e) => you(e) || claude(e) || bot(e),
     });
     if (!all) return { events };
-    return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : e)) };
+    return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : bot(e) ? { ...e, bot: true } : e)) };
+  }
+
+  /**
+   * Visits that were robots, newest first, each with why and where it came from. Only the in-memory log
+   * window counts (the newest 50k events), like the drop-off page.
+   */
+  async bots(q: URLSearchParams): Promise<{ at: number; rows: BotRow[]; total: number; kinds: Record<BotVisit["kind"], number>; sources: { source: string; count: number }[] }> {
+    const num = (k: string) => (q.get(k) && Number.isFinite(Number(q.get(k))) ? Number(q.get(k)) : undefined);
+    const from = num("from") ?? 0;
+    const to = num("to") ?? Infinity;
+    // host names can turn a visit into a known crawler: give the lookups people() started a moment
+    this.people(await this.accounts.store.all());
+    await Promise.race([Promise.all(this.looking.values()), new Promise((r) => setTimeout(r, 2500))]);
+    let ppl = this.people(await this.accounts.store.all());
+    const evs = new Map<string, ActivityEvent[]>();
+    for (const e of this.log.window()) {
+      const p = e.userId ? ppl.of.get(e.userId) : undefined;
+      if (!p || !ppl.bots.has(p) || byOwner(e)) continue;
+      let list = evs.get(p);
+      if (!list) evs.set(p, (list = []));
+      list.push(e);
+    }
+    // and the bots' own addresses make the page readable (msnbot-…search.msn.com)
+    const ips = new Set<string>();
+    for (const list of evs.values()) for (const e of list) if (e.ip) ips.add(e.ip);
+    await Promise.race([this.lookup(ips, 200), new Promise((r) => setTimeout(r, 2500))]);
+    if (!this.cache) ppl = this.people(await this.accounts.store.all());
+    const rows: BotRow[] = [];
+    for (const [p, list] of evs) {
+      const v = ppl.bots.get(p);
+      if (!v) continue;
+      const first = list[0].at;
+      if (first < from || first > to) continue;
+      const ua = list.find((e) => e.ua)?.ua ?? null;
+      const ref = list.find((e) => e.ref)?.ref ?? null;
+      const seen = [...new Set(list.map((e) => e.ip).filter((x): x is string => !!x))].slice(0, 5);
+      const last = list[list.length - 1];
+      rows.push({
+        person: p, id: list[0].userId!, accounts: ppl.members.get(p)?.length ?? 1, firstSeen: first, lastSeen: last.at, kind: v.kind, reason: v.reason,
+        source: sourceOf(ref ?? undefined, ua ?? undefined), ref, ua, ips: seen.map((ip) => ({ ip, host: this.hosts.get(ip) ?? null })), events: list.length,
+        last: last.kind === "ui.screen" || last.kind === "ui.turn" ? `${last.kind} ${String(last.data?.name ?? "")}`.trim() : last.kind,
+      });
+    }
+    rows.sort((x, y) => y.firstSeen - x.firstSeen);
+    const kinds = { crawler: 0, untouched: 0 };
+    const sources = new Map<string, number>();
+    for (const r of rows) {
+      kinds[r.kind]++;
+      const s = r.source ?? "Unknown (no referrer)";
+      sources.set(s, (sources.get(s) ?? 0) + 1);
+    }
+    return { at: this.now, rows: rows.slice(0, 300), total: rows.length, kinds, sources: [...sources].sort((x, y) => y[1] - x[1]).map(([source, count]) => ({ source, count })) };
   }
 
   /**
@@ -565,8 +700,8 @@ function replaySoloGame(r: import("./activity").SoloRecord): GameView {
   };
 }
 
-/** the owner and Claude's testing aren't players: the stats leave them out */
+/** the owner, Claude's testing and robots aren't players: the stats leave them out */
 function notPlayer(ppl: People, id: string) {
   const p = ppl.of.get(id) ?? id;
-  return ppl.owner.has(p) || ppl.claude.has(p);
+  return ppl.owner.has(p) || ppl.claude.has(p) || ppl.bots.has(p);
 }

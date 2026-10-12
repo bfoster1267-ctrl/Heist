@@ -551,7 +551,9 @@ export class ServerBackend implements Backend {
         }
       }
     }
-    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "" }));
+    // the page that linked here (a Reddit post, a search) tells the owner where new players come from
+    const ref = typeof document === "undefined" ? "" : document.referrer.slice(0, 300);
+    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "", ref }));
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
