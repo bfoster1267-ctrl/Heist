@@ -9,6 +9,19 @@ import type { GameState } from "@heist/engine";
 // the same session token the account uses, so online games count toward the player's career
 const TOKEN_KEY = "heist.session";
 
+function storedToken(): string | undefined {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? undefined;
+  } catch {
+    return undefined; /* private mode */
+  }
+}
+
+/** The account a session token belongs to ("a.<account>.<sessions>.<expiry>.<signature>"). */
+function accountOf(token: string | undefined): string | null {
+  return token?.split(".")[1] ?? null;
+}
+
 /** Where the game server is: VITE_SERVER_URL, the dev server on localhost, or the page's own host. */
 export function serverUrl(): string {
   const env = import.meta.env.VITE_SERVER_URL as string | undefined;
@@ -44,17 +57,20 @@ export class OnlineSession {
   private listeners = new Set<Listener>();
   private frameListeners = new Set<(m: ServerMsg) => void>();
 
+  /** the token this socket says hello with */
+  private token: string | undefined;
+
   constructor(name: string) {
-    let token: string | undefined;
-    try {
-      token = localStorage.getItem(TOKEN_KEY) ?? undefined;
-    } catch {
-      /* private mode */
-    }
+    this.token = storedToken();
     this.client = new HeistClient(serverUrl(), {
       name,
-      token,
+      token: this.token,
       onToken: (t) => {
+        this.token = t;
+        // A refreshed token for the account the app is signed in to. Never write over the app's
+        // sign-in with a different account's token (a socket opened before the player signed in).
+        const stored = storedToken();
+        if (stored && accountOf(stored) !== accountOf(t)) return;
         try {
           localStorage.setItem(TOKEN_KEY, t);
         } catch {
@@ -85,7 +101,19 @@ export class OnlineSession {
     return this.client.seat;
   }
 
+  /**
+   * Follow the app's account: after signing in (or out) since the socket opened, play as that account.
+   * Without this the socket stays the guest it said hello as, and the server turns down Ranked.
+   */
+  syncAccount() {
+    const stored = storedToken();
+    if (!stored || accountOf(stored) === accountOf(this.token)) return;
+    this.token = stored;
+    this.client.setToken(stored);
+  }
+
   async connect() {
+    this.syncAccount();
     if (this.status === "online" || this.status === "connecting") return;
     this.status = "connecting";
     this.emit();

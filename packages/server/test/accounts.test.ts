@@ -415,6 +415,34 @@ describe("accounts over HTTP and the game socket", () => {
     for (const p of ps) p.c.close();
   }, 40_000);
 
+  it("a socket opened as a guest plays as the account after the player signs in to an existing one", async () => {
+    const accounts = new AccountService({ secret: "s", devLogins: true });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const signIn = async (name: string) =>
+      (await (await fetch(`${base}/api/auth/dev`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name }) })).json()) as { token: string; me: { id: string } };
+    const brock = await signIn("Brock");
+    const a = (await accounts.store.get(brock.me.id))!;
+    await accounts.store.put({ ...a, progress: { ...a.progress, xp: 1_000_000 } });
+    // the socket said hello before the player signed in on this page, so it's a guest
+    const c = new HeistClient(`ws://127.0.0.1:${srv.port()}/ws`, { name: "Guest" });
+    const seen: ServerMsg[] = [];
+    c.onAny((m) => seen.push(m));
+    await c.connect();
+    expect(c.userId).not.toBe(brock.me.id);
+    c.queue(6, 0, true);
+    await until(() => seen.some((m) => m.t === "error" && m.code === "ranked_locked" && /Sign in/.test(m.msg)));
+    // the app signs in: the socket follows the account and Ranked opens
+    seen.length = 0;
+    c.setToken(brock.token);
+    await until(() => c.userId === brock.me.id);
+    c.queue(6, 0, true);
+    await until(() => seen.some((m) => m.t === "queue"));
+    expect(seen.some((m) => m.t === "error")).toBe(false);
+    c.close();
+  });
+
   it("lets an invited guest pick their name at the table: saved to the account, shown on the seat for everyone", async () => {
     const accounts = new AccountService({ secret: "s" });
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });

@@ -167,6 +167,8 @@ const MODE_KEY = "heist.mode";
 
 function Pick({ sess, chips, onSolitaire }: { sess: OnlineSession; chips: number; onSolitaire: () => void }) {
   const { me } = useAccount();
+  // signed in or out since the socket opened: play as the account the app shows
+  useEffect(() => sess.syncAccount(), [sess, me?.id]);
   const [mode, setModeState] = useState<Mode>(() => {
     try {
       return localStorage.getItem(MODE_KEY) === "ranked" ? "ranked" : "casual";
