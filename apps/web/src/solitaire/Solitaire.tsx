@@ -4,7 +4,7 @@
 // player leaves, deals again or wins; the server replays the moves first, so nothing is paid twice.
 
 import {
-  applySol, autoMove, cardRank, cardRed, cardSuit, dealKlondike, solGain, solitaireRoom, solSolved, SOLITAIRE_DAY_XP, solWon, tallySol, tallyXp, tapMove,
+  applySol, autoMove, cardRank, cardRed, cardSuit, dealKlondike, fitsColumn, fitsFoundation, solGain, solitaireRoom, solSolved, SOLITAIRE_DAY_XP, solWon, tallySol, tallyXp, tapMove,
   type Klondike, type PlayingCard, type SolMove, type SolTally,
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
@@ -13,7 +13,6 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
-import { Confetti } from "../table/Table";
 import "./solitaire.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -69,6 +68,20 @@ function findHint(k: Klondike): Hint {
   return k.stock.length || k.waste.length ? { pile: "s", depth: 0 } : null;
 }
 
+/** Nothing left but flipping through the deck: no useful move on the table, and no deck card fits anywhere. */
+function stuck(k: Klondike) {
+  if (solWon(k)) return false;
+  const h = findHint(k);
+  if (h && h.pile !== "s") return false;
+  return ![...k.stock, ...k.waste].some((c) => fitsFoundation(k, c) || k.cols.some((col) => fitsColumn(col, c)));
+}
+
+/** The deal: the cards gather on the deck, then fly out row by row, the top ones turning over as they land. */
+const DEAL = { gather: 320, step: 45, flip: 140 };
+const DEAL_MS = DEAL.gather + 28 * DEAL.step + 600;
+/** When the card at row `j` of column `i` lands, dealt the classic way: across the columns, row by row. */
+const landsAt = (i: number, j: number) => DEAL.gather + (7 * j - (j * (j - 1)) / 2 + i - j) * DEAL.step;
+
 export function Solitaire({ onExit, onHeist, banner }: {
   onExit: () => void;
   /** the win card's "Heist" button (left out while waiting in the online queue) */
@@ -95,6 +108,18 @@ export function Solitaire({ onExit, onHeist, banner }: {
   useEffect(() => setTop(board.current?.getBoundingClientRect().top ?? 0), [b.height, b.width, ready]);
   const k = hist[hist.length - 1];
   const reduce = reducedMotion();
+  const [dealAt, setDealAt] = useState(0);
+  const [dealT, setDealT] = useState(0);
+  useEffect(() => {
+    if (!dealAt) return;
+    const t = window.setInterval(() => {
+      const e = Date.now() - dealAt;
+      setDealT(e);
+      if (e > DEAL_MS) setDealAt(0);
+    }, 30);
+    return () => clearInterval(t);
+  }, [dealAt]);
+  const [stuckSeen, setStuckSeen] = useState(-1);
 
   // what this deal has earned so far (the most it has ever reached: undoing doesn't take XP back, and
   // redoing doesn't pay twice), and what the server has paid for
@@ -152,8 +177,10 @@ export function Solitaire({ onExit, onHeist, banner }: {
     setHint(null);
     setArmed(false);
     setStarted(Date.now());
+    setDealT(0);
+    setDealAt(reduce ? 0 : Date.now());
     cardSound(4);
-  }, [backend, bank]);
+  }, [backend, bank, reduce]);
   useEffect(() => {
     void deal();
   }, [deal]);
@@ -299,7 +326,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
 
   if (!k) return <div className="sol" />;
 
-  type Placed = { c: PlayingCard; x: number; y: number; z: number; up: boolean; pile: Pile | "s"; depth: number };
+  type Placed = { c: PlayingCard; x: number; y: number; z: number; up: boolean; pile: Pile | "s"; depth: number; land?: number };
   const placed: Placed[] = [];
   k.stock.forEach((c, i) => placed.push({ c, x: colX(0) - Math.min(i, 4) * 0.6, y: rowY - Math.min(i, 4) * 0.6, z: i, up: false, pile: "s", depth: k.stock.length - i }));
   k.waste.forEach((c, i) => {
@@ -318,12 +345,22 @@ export function Solitaire({ onExit, onHeist, banner }: {
       y += offsets[i].up;
     });
   });
+  // dealing: a card waits on the deck until its turn, and lands face down before the top ones turn over
+  if (dealAt) {
+    for (const p of placed) {
+      if (p.pile[0] !== "t") continue;
+      const at = landsAt(Number(p.pile[1]), p.z);
+      p.land = at;
+      if (dealT < at) Object.assign(p, { x: colX(0), y: rowY, z: 60 - at / DEAL.step });
+      if (dealT < at + DEAL.flip) p.up = false;
+    }
+  }
 
   const dragging = (p: Placed) => !!drag && drag.moved && p.pile === drag.from && p.depth <= drag.depth && p.depth > 0;
   const hinted = (p: Placed) => !!hint && (hint.pile === "s" ? p.pile === "s" && p.depth === 1 : p.pile === hint.pile && p.depth > 0 && p.depth <= hint.depth);
 
   const down = (p: Placed, e: React.PointerEvent) => {
-    if (done || p.pile === "s" || !p.up || p.depth < 1) return;
+    if (dealAt || done || p.pile === "s" || !p.up || p.depth < 1) return;
     // only the top card of the waste and the foundations moves
     if ((p.pile === "w" || p.pile[0] === "f") && p.depth !== 1) return;
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
@@ -353,13 +390,14 @@ export function Solitaire({ onExit, onHeist, banner }: {
     if (!play(`${d.from}>${to}${to === "f" ? "" : many}`)) buzz("tap");
   };
   const draw = () => {
-    if (done) return;
+    if (dealAt || done) return;
     if (!play("d")) nope("s");
   };
 
   const secs = Math.floor((now - started) / 1000);
   const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
   const won = solWon(k);
+  const isStuck = !done && !dealAt && stuckSeen !== hist.length && stuck(k);
   const shownXp = Math.min(tallyXp(best.current), dayLeft.current);
   const small = b.cw < 64;
   return (
@@ -414,7 +452,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
       {placed.map((p) => {
         const lift = dragging(p);
         const key = `${p.pile}:${p.depth}`;
-        const flipping = !reduce && fresh.flipped.has(p.c);
+        const flipping = !reduce && (dealAt ? p.up && p.land !== undefined && dealT < p.land + DEAL.flip + 320 : fresh.flipped.has(p.c));
         return (
           <motion.div
             key={p.c}
@@ -463,13 +501,31 @@ export function Solitaire({ onExit, onHeist, banner }: {
         ))}
       </AnimatePresence>
 
+      {/* the classic win: the cards leap off the foundations and bounce away, leaving trails */}
+      {won && !reduce && <WinCascade from={(s) => ({ x: colX(3 + s), y: rowY })} cw={b.cw} ch={b.ch} />}
+
+      <AnimatePresence>
+        {isStuck && (
+          <motion.div key="stuck" className="sol-stuck" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
+            <span className="sol-stuck-title">No moves left</span>
+            <button className="btn" onClick={undo}>
+              Undo
+            </button>
+            <button className="btn primary" onClick={() => void deal()}>
+              New deal
+            </button>
+            <button className="sol-stuck-x" onClick={() => setStuckSeen(hist.length)} aria-label="Keep playing">
+              ✕
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
       </div>
 
       <AnimatePresence>
         {won && (
-          <motion.div className="sol-win" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: 0.6 }}>
-            {!reduce && <Confetti />}
-            <motion.div className="sol-win-card" initial={{ scale: 0.7, y: 30 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18, delay: 0.8 }}>
+          <motion.div className="sol-win" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: reduce ? 0.6 : 2.6 }}>
+            <motion.div className="sol-win-card" initial={{ scale: 0.7, y: 30 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18, delay: reduce ? 0.8 : 2.8 }}>
               <div className="sol-win-kicker">CLEAN JOB</div>
               <div className="sol-win-title">SOLVED</div>
               <div className="sol-win-stats">
@@ -536,4 +592,86 @@ function Icon({ d }: { d: string }) {
       <path d={d} />
     </svg>
   );
+}
+
+/**
+ * The classic Solitaire win: one card at a time leaps off the foundations (kings first), falls, bounces
+ * along the bottom and runs off the side, drawn without clearing so each leaves a trail of copies.
+ */
+function WinCascade({ from, cw, ch }: { from: (suit: number) => { x: number; y: number }; cw: number; ch: number }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const start = useRef(from);
+  useEffect(() => {
+    const cv = ref.current;
+    const g = cv?.getContext("2d");
+    if (!cv || !g) return;
+    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const W = cv.clientWidth;
+    const H = cv.clientHeight;
+    cv.width = W * dpr;
+    cv.height = H * dpr;
+    g.scale(dpr, dpr);
+    const queue: PlayingCard[] = [];
+    for (let r = 12; r >= 0; r--) for (let s = 0; s < 4; s++) queue.push(s * 13 + r);
+    const live: { img: HTMLCanvasElement; x: number; y: number; vx: number; vy: number }[] = [];
+    let last = 0;
+    let raf = 0;
+    const step = (t: number) => {
+      if (queue.length && t - last > 220) {
+        last = t;
+        const c = queue.shift()!;
+        const o = start.current(cardSuit(c));
+        live.push({ img: cardSprite(c, cw, ch, dpr), x: o.x, y: o.y, vx: (Math.random() < 0.5 ? -1 : 1) * (2.5 + Math.random() * 4.5), vy: -2 - Math.random() * 5 });
+      }
+      for (const p of live) {
+        p.vy += 0.5;
+        p.x += p.vx;
+        p.y += p.vy;
+        if (p.y + ch > H) {
+          p.y = H - ch;
+          p.vy = -p.vy * 0.74;
+        }
+        g.drawImage(p.img, p.x, p.y, cw, ch);
+      }
+      for (let i = live.length - 1; i >= 0; i--) if (live[i].x < -cw || live[i].x > W) live.splice(i, 1);
+      if (queue.length || live.length) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [cw, ch]);
+  return <canvas ref={ref} className="sol-cascade" />;
+}
+
+/** A card face drawn once into a small canvas, for the win cascade to stamp. */
+function cardSprite(c: PlayingCard, cw: number, ch: number, dpr: number) {
+  const cv = document.createElement("canvas");
+  cv.width = cw * dpr;
+  cv.height = ch * dpr;
+  const g = cv.getContext("2d")!;
+  g.scale(dpr, dpr);
+  const r = Math.max(4, cw * 0.08);
+  g.beginPath();
+  g.roundRect(0.5, 0.5, cw - 1, ch - 1, r);
+  const bg = g.createLinearGradient(0, 0, cw * 0.4, ch);
+  bg.addColorStop(0, "#fffdf6");
+  bg.addColorStop(0.55, "#f6eedb");
+  bg.addColorStop(1, "#eadfc4");
+  g.fillStyle = bg;
+  g.fill();
+  g.strokeStyle = "rgba(0, 0, 0, 0.35)";
+  g.lineWidth = 1;
+  g.stroke();
+  g.fillStyle = cardRed(c) ? "#c0301b" : "#17191d";
+  g.textBaseline = "top";
+  const fs = Math.round(cw * 0.3);
+  g.font = `${fs}px "Bebas Neue", Impact, sans-serif`;
+  g.fillText(RANKS[cardRank(c)], cw * 0.08, ch * 0.05);
+  g.font = `${Math.round(fs * 0.8)}px sans-serif`;
+  g.textAlign = "right";
+  g.fillText(SUITS[cardSuit(c)], cw * 0.92, ch * 0.06);
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.font = `${Math.round(cw * 0.5)}px sans-serif`;
+  g.fillText(SUITS[cardSuit(c)], cw / 2, ch * 0.6);
+  return cv;
 }

@@ -499,3 +499,84 @@
   font-size: 11px;
   color: var(--gold);
 }
+
+/* the player's Wardrobe carries over: their felt, and their card back (the house back stays Solitaire's oxblood) */
+[data-felt="custom"] .sol {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--cfelt) 85%, #ffffff 8%) 0%, var(--cfelt2) 65%, color-mix(in srgb, var(--cfelt2) 70%, #000000) 100%);
+}
+[data-back="red"] .sol-card.back {
+  background: repeating-linear-gradient(45deg, var(--back) 0 6px, color-mix(in srgb, var(--back) 82%, #ffffff) 6px 12px);
+}
+[data-back="stripes"] .sol-card.back {
+  background: repeating-linear-gradient(90deg, var(--back) 0 5px, color-mix(in srgb, var(--back) 70%, var(--back2)) 5px 7px);
+}
+[data-back="diamonds"] .sol-card.back {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    repeating-linear-gradient(-45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    var(--back);
+}
+[data-back="noir"] .sol-card.back {
+  background: radial-gradient(circle at 50% 50%, #262626, var(--back) 70%);
+}
+[data-back="gold"] .sol-card.back {
+  background: linear-gradient(135deg, var(--back), var(--back2) 45%, var(--back) 55%, var(--back2));
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .sol-back-frame {
+  border-color: color-mix(in srgb, var(--back2) 75%, transparent);
+  background: none;
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .sol-back-mark {
+  border-color: var(--back2);
+  background: radial-gradient(circle, color-mix(in srgb, var(--back) 80%, #000000), color-mix(in srgb, var(--back) 55%, #000000));
+  color: var(--back2);
+}
+
+/* the win cascade's canvas, over the cards and under the win card */
+.sol-cascade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 650;
+  pointer-events: none;
+}
+
+/* nothing left to play */
+.sol-stuck {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  translate: -50% 0;
+  z-index: 680;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(28, 31, 38, 0.96), rgba(12, 14, 18, 0.96));
+  box-shadow: 0 0 0 1px rgba(231, 181, 60, 0.35), 0 12px 32px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+.sol-stuck-title {
+  font-family: var(--title);
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  margin-right: 4px;
+}
+.sol-stuck .btn {
+  padding: 8px 14px;
+  min-height: 0;
+}
+.sol-stuck-x {
+  border: 0;
+  background: none;
+  color: rgba(242, 232, 211, 0.6);
+  font-size: 16px;
+  padding: 6px;
+  cursor: pointer;
+}
