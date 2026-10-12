@@ -8,7 +8,7 @@ import { Rewards } from "./account/Rewards";
 import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
-import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
+import { Lobby, quickPlay, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
 import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
 import { Solitaire } from "./solitaire/Solitaire";
@@ -246,7 +246,10 @@ function Game() {
           onExit={() => setSol(false)}
           onHeist={() => {
             setSol(false);
-            void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+            // a guest who never played Heist (Solitaire XP doesn't count): the coached first hand; otherwise Quick Play
+            if (me.guest && !me.progress.coachGames && !me.progress.stats.games) return void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+            const play = quickPlay(chips, me.name);
+            if (play) void sit(play);
           }}
         />
         <Rewards />

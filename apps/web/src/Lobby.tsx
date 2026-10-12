@@ -473,6 +473,15 @@ function setFlag(key: string) {
   }
 }
 
+/** Quick Play at the table the lobby would pick (last players and stake, else the best one you can afford); null when broke. */
+export function quickPlay(chips: number, name: string): LobbyChoice | null {
+  const players = remembered("heist.players", [3, 4, 5, 6], 4);
+  const stake = remembered("heist.stake", [0, 1, 2, 3], 1);
+  if (chips < STAKES[0].buyIn) return null;
+  const table = chips >= STAKES[stake].buyIn ? stake : Math.max(0, STAKES.filter((st) => chips >= st.buyIn).length - 1);
+  return { players, name, stakes: STAKES[table].buyIn };
+}
+
 function remembered(key: string, allowed: number[], fallback: number) {
   try {
     const v = Number(localStorage.getItem(key));

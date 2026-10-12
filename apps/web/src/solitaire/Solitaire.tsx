@@ -71,7 +71,7 @@ function findHint(k: Klondike): Hint {
 
 export function Solitaire({ onExit, onHeist, banner }: {
   onExit: () => void;
-  /** the win card's "Try a hand of Heist" (left out while waiting in the online queue) */
+  /** the win card's "Heist" button (left out while waiting in the online queue) */
   onHeist?: () => void;
   /** a strip under the top bar (the online queue and its timer) */
   banner?: ReactNode;
@@ -485,8 +485,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
               </button>
               {onHeist && (
                 <button className="btn big sol-heist" onClick={onHeist}>
-                  Try a hand of Heist
-                  <span className="lobby-sub">The betrayal card game this site is built around</span>
+                  Heist
                 </button>
               )}
               <button className="btn ghost" onClick={onExit}>
