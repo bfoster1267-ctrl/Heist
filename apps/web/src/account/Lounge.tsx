@@ -3,11 +3,16 @@
 // framed avatar, level and title. Tap a line to see the player, send them a drink (coins), mute them (just
 // for you) or report it. A drink shows in the Lounge for everyone.
 // The server stars out swears and refuses slurs and links; see packages/server/src/lounge.ts.
+//
+// The Lounge is the app's one way into chat: given a `friends` slot it gains a Friends tab (direct
+// messages and groups, built in Friends.tsx), one unread count covers both, and friends' new messages
+// float up over the lobby with the Lounge's. MessageRow draws a line the same way everywhere.
 
 import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import type { Backend, LoungeMsg } from "./backend";
+import type { Badge } from "@heist/profile";
 import { Avatar } from "./bits";
 import { chatStyle } from "./items";
 import { PlayerCard } from "./Profile";
@@ -72,15 +77,94 @@ function useFeed(backend: Backend, open: boolean) {
   return { msgs, setMsgs, info, pull };
 }
 
-/** The Lounge button for a lobby corner, and the Lounge itself when it's open. Nothing without the game server. */
-export function Lounge() {
-  const { backend, me } = useAccount();
-  if (!backend?.lounge || !me) return null;
-  return <LoungeRoom backend={backend} me={me.id} />;
+/** A line of chat from anywhere (the Lounge, a friend, a group), as MessageRow and the floats draw it. */
+export interface ChatLine {
+  /** unique across sources, e.g. "lounge-12" or "dm-u_abc-40" */
+  key: string;
+  userId: string;
+  name: string;
+  text: string;
+  at: number;
+  /** level, frame, title, rank and the chat bubble the sender wears */
+  badge?: Badge;
 }
 
-function LoungeRoom({ backend, me }: { backend: Backend; me: string }) {
+/** The Friends tab inside the Lounge: what it shows, its unread count, and its new lines for the lobby floats. */
+export interface FriendsSlot {
+  unread: number;
+  /** recent incoming friend messages, newest last; new keys float up over the lobby */
+  floats?: ChatLine[];
+  render: (o: { onClose: () => void }) => ReactNode;
+}
+
+type Tab = "lounge" | "friends";
+
+/** The chat button for the lobby, and the chat itself when it's open. Nothing without the game server. */
+export function Lounge({ friends }: { friends?: FriendsSlot } = {}) {
+  const { backend, me } = useAccount();
+  if (!backend?.lounge || !me) return null;
+  return <LoungeRoom backend={backend} me={me.id} friends={friends} />;
+}
+
+const bubbleOf = (badge: Badge | undefined) => chatStyle(cosmetic(badge?.chat ?? "chat.house") ?? cosmetic("chat.house"));
+
+/**
+ * One line of chat: the sender's framed avatar and name (on the first of a run), then the text in the
+ * chat bubble they wear. Your own lines sit on the right without the avatar. `children` go under the bubble.
+ */
+export function MessageRow({
+  line, mine, first, onPlayer, onTap, expanded, children,
+}: {
+  line: ChatLine;
+  mine: boolean;
+  first: boolean;
+  onPlayer?: (userId: string) => void;
+  onTap?: () => void;
+  expanded?: boolean;
+  children?: ReactNode;
+}) {
+  const b = line.badge;
+  const emoji = [...line.text].length <= 2;
+  const time = new Date(line.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return (
+    <div className={"lounge-row" + (mine ? " mine" : "") + (first ? " first" : "")}>
+      {!mine && (
+        <span className="lounge-who">
+          {first && (
+            <button className="lounge-avatar" onClick={() => onPlayer?.(line.userId)} aria-label={`See ${line.name}'s player card`}>
+              <Avatar name={line.name} frame={b?.frame ?? "frame.none"} level={b?.level} size={34} />
+            </button>
+          )}
+        </span>
+      )}
+      <div className="lounge-say">
+        {first && !mine && (
+          <div className="lounge-name">
+            {line.name}
+            {b?.title && <span className="lounge-tag">{b.title}</span>}
+            {b?.rank && <span className="lounge-tag rank">{b.rank}</span>}
+          </div>
+        )}
+        {onTap ? (
+          <button className={"lounge-bubble" + (emoji ? " emoji" : "")} style={bubbleOf(b)} onClick={onTap} aria-expanded={expanded} title={time}>
+            {line.text}
+          </button>
+        ) : (
+          <span className={"lounge-bubble" + (emoji ? " emoji" : "")} style={bubbleOf(b)} title={time}>
+            {line.text}
+          </span>
+        )}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+const lineOf = (m: LoungeMsg): ChatLine & { drink?: LoungeMsg["drink"] } => ({ ...m, key: `lounge-${m.id}` });
+
+function LoungeRoom({ backend, me, friends }: { backend: Backend; me: string; friends?: FriendsSlot }) {
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>("lounge");
   const { msgs, setMsgs, info, pull } = useFeed(backend, open);
   const [seen, setSeen] = useState(() => Number(load(SEEN_KEY)) || 0);
   const [muted, setMuted] = useState<string[]>(() => {
@@ -106,13 +190,32 @@ function LoungeRoom({ backend, me }: { backend: Backend; me: string }) {
     save(MUTED_KEY, JSON.stringify(next));
   };
 
+  const fromFriends = friends?.unread ?? 0;
+  const floats = [...shown.map(lineOf), ...(friends?.floats ?? [])].sort((a, b) => a.at - b.at);
   return (
     <>
-      {!open && <LoungeDock msgs={shown} me={me} here={info.here} unread={unread} onOpen={() => setOpen(true)} />}
+      {!open && (
+        <LoungeDock
+          lines={floats}
+          firstLook={shown.slice(-2).map(lineOf)}
+          me={me}
+          here={info.here}
+          unread={unread + fromFriends}
+          onOpen={(key) => {
+            // a friend's message (or only friends' news waiting) opens the Friends tab
+            setTab(friends && (key ? !key.startsWith("lounge-") : fromFriends > 0 && !unread) ? "friends" : "lounge");
+            setOpen(true);
+          }}
+        />
+      )}
       <AnimatePresence>
         {open && (
           <LoungePanel
             key="lounge"
+            tab={friends ? tab : "lounge"}
+            onTab={setTab}
+            friends={friends}
+            loungeUnread={unread}
             backend={backend}
             me={me}
             msgs={shown}
@@ -137,32 +240,48 @@ function LoungeRoom({ backend, me }: { backend: Backend; me: string }) {
 }
 
 /**
- * The Lounge over the lobby: new lines float up from the bottom in their senders' bubbles and fade
- * after a few seconds, above a small "The Lounge" pill. Tapping any of it opens the Lounge.
+ * The Lounge over the lobby: new lines (the Lounge's and friends') float up from the bottom in their
+ * senders' bubbles and fade after a few seconds, above a small "The Lounge" pill. Tapping any of it opens it.
  */
-function LoungeDock({ msgs, me, here, unread, onOpen }: { msgs: LoungeMsg[]; me: string; here: number; unread: number; onOpen: () => void }) {
-  const [floats, setFloats] = useState<LoungeMsg[]>([]);
-  const floated = useRef<number | null>(null);
+function LoungeDock({
+  lines, firstLook, me, here, unread, onOpen,
+}: {
+  lines: (ChatLine & { drink?: LoungeMsg["drink"] })[];
+  /** what floats on the first look, so the lobby shows the room is alive */
+  firstLook: (ChatLine & { drink?: LoungeMsg["drink"] })[];
+  me: string;
+  here: number;
+  unread: number;
+  onOpen: (key?: string) => void;
+}) {
+  const [floats, setFloats] = useState<(ChatLine & { drink?: LoungeMsg["drink"] })[]>([]);
+  const floated = useRef<Set<string> | null>(null);
   useEffect(() => {
-    const newest = msgs.at(-1)?.id ?? 0;
-    // the first look floats the last two lines, so the lobby shows the room is alive; after that, new ones
-    const fresh = floated.current === null ? msgs.slice(-2) : msgs.filter((m) => m.id > floated.current! && m.userId !== me);
-    floated.current = Math.max(floated.current ?? 0, newest);
+    let fresh: typeof lines;
+    if (floated.current === null) {
+      // nothing to show yet: wait for the first feed
+      if (!lines.length) return;
+      floated.current = new Set(lines.map((l) => l.key));
+      fresh = firstLook;
+    } else {
+      fresh = lines.filter((l) => !floated.current!.has(l.key) && l.userId !== me);
+      for (const l of lines) floated.current.add(l.key);
+    }
     if (!fresh.length) return;
     setFloats((fs) => [...fs, ...fresh].slice(-FLOATS));
-    const ids = new Set(fresh.map((m) => m.id));
-    window.setTimeout(() => setFloats((fs) => fs.filter((f) => !ids.has(f.id))), FLOAT_MS);
-  }, [msgs, me]);
+    const keys = new Set(fresh.map((l) => l.key));
+    window.setTimeout(() => setFloats((fs) => fs.filter((f) => !keys.has(f.key))), FLOAT_MS);
+  }, [lines, firstLook, me]);
   return (
     <div className="lounge-dock">
       <div className="lounge-floats" aria-live="polite">
         <AnimatePresence initial={false}>
           {floats.map((m) => (
             <motion.button
-              key={m.id}
+              key={m.key}
               layout
               className="lounge-float"
-              onClick={onOpen}
+              onClick={() => onOpen(m.key)}
               initial={{ opacity: 0, y: 18, scale: 0.92 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, transition: { duration: 0.5 } }}
@@ -179,8 +298,11 @@ function LoungeDock({ msgs, me, here, unread, onOpen }: { msgs: LoungeMsg[]; me:
                 <>
                   <Avatar name={m.name} frame={m.badge?.frame ?? "frame.none"} size={28} />
                   <span className="lounge-float-say">
-                    <span className="lounge-float-name">{m.userId === me ? "You" : m.name}</span>
-                    <span className="lounge-bubble" style={chatStyle(cosmetic(m.badge?.chat ?? "chat.house") ?? cosmetic("chat.house"))}>
+                    <span className="lounge-float-name">
+                      {m.userId === me ? "You" : m.name}
+                      {!m.key.startsWith("lounge-") && <span className="lounge-float-dm"> · to you</span>}
+                    </span>
+                    <span className="lounge-bubble" style={bubbleOf(m.badge)}>
                       {m.text}
                     </span>
                   </span>
@@ -190,7 +312,7 @@ function LoungeDock({ msgs, me, here, unread, onOpen }: { msgs: LoungeMsg[]; me:
           ))}
         </AnimatePresence>
       </div>
-      <button className={"lounge-pill" + (unread ? " fresh" : "")} onClick={onOpen} aria-label={unread ? `Open the Lounge: ${unread} new` : "Open the Lounge, the chat for everyone"}>
+      <button className={"lounge-pill" + (unread ? " fresh" : "")} onClick={() => onOpen()} aria-label={unread ? `Open the Lounge: ${unread} new` : "Open the Lounge, the chat for everyone"}>
         <BubbleIcon />
         <span className="lounge-pill-name">The Lounge</span>
         <span className="lounge-pill-here">
@@ -203,8 +325,12 @@ function LoungeDock({ msgs, me, here, unread, onOpen }: { msgs: LoungeMsg[]; me:
 }
 
 function LoungePanel({
-  backend, me, msgs, here, canPost, why, mutedCount, onMute, onUnmuteAll, onSaid, onGone, onPull, onClose,
+  tab, onTab, friends, loungeUnread, backend, me, msgs, here, canPost, why, mutedCount, onMute, onUnmuteAll, onSaid, onGone, onPull, onClose,
 }: {
+  tab: Tab;
+  onTab: (t: Tab) => void;
+  friends?: FriendsSlot;
+  loungeUnread: number;
   backend: Backend;
   me: string;
   msgs: LoungeMsg[];
@@ -236,7 +362,7 @@ function LoungePanel({
   useEffect(() => {
     const el = list.current;
     if (el && atBottom.current) el.scrollTop = el.scrollHeight;
-  }, [msgs.length]);
+  }, [msgs.length, tab]);
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && !card && onClose();
     window.addEventListener("keydown", k);
@@ -289,16 +415,38 @@ function LoungePanel({
     <motion.div className="lounge-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div className="lounge" role="dialog" aria-label="The Lounge" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
         <div className="lounge-head">
-          <div>
-            <div className="lounge-title">The Lounge</div>
-            <div className="lounge-sub">
-              <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here now` : "Chat with everyone playing Heist"}
+          {friends ? (
+            <div className="lounge-tabs" role="tablist" aria-label="Chat">
+              <button role="tab" aria-selected={tab === "lounge"} className={tab === "lounge" ? "on" : ""} onClick={() => onTab("lounge")}>
+                The Lounge
+                {tab !== "lounge" && loungeUnread > 0 && <span className="lounge-tab-count">{loungeUnread > 9 ? "9+" : loungeUnread}</span>}
+              </button>
+              <button role="tab" aria-selected={tab === "friends"} className={tab === "friends" ? "on" : ""} onClick={() => onTab("friends")}>
+                Friends
+                {friends.unread > 0 && <span className="lounge-tab-count">{friends.unread > 9 ? "9+" : friends.unread}</span>}
+              </button>
             </div>
-          </div>
+          ) : (
+            <div>
+              <div className="lounge-title">The Lounge</div>
+              <div className="lounge-sub">
+                <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here now` : "Chat with everyone playing Heist"}
+              </div>
+            </div>
+          )}
           <button className="acct-x" onClick={onClose} aria-label="Close the Lounge">
             ×
           </button>
         </div>
+        {tab === "friends" && friends ? (
+          <div className="lounge-friends">{friends.render({ onClose })}</div>
+        ) : (
+        <>
+        {friends && (
+          <div className="lounge-sub lounge-sub-tabbed">
+            <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here now` : "Chat with everyone playing Heist"}
+          </div>
+        )}
         <div
           className="lounge-list"
           ref={list}
@@ -323,82 +471,65 @@ function LoungePanel({
             const mine = m.userId === me;
             // a run of lines from one player shows their name and avatar once
             const first = msgs[i - 1]?.userId !== m.userId || !!msgs[i - 1]?.drink;
-            const title = m.badge?.title;
             return (
-              <div key={m.id} className={"lounge-row" + (mine ? " mine" : "") + (first ? " first" : "")}>
-                {!mine && (
-                  <span className="lounge-who">
-                    {first && (
-                      <button className="lounge-avatar" onClick={() => setCard(m.userId)} aria-label={`See ${m.name}'s player card`}>
-                        <Avatar name={m.name} frame={m.badge?.frame ?? "frame.none"} level={m.badge?.level} size={34} />
+              <MessageRow
+                key={m.id}
+                line={lineOf(m)}
+                mine={mine}
+                first={first}
+                onPlayer={setCard}
+                expanded={picked === m.id}
+                onTap={() => {
+                  setPour(null);
+                  setPicked(picked === m.id ? null : m.id);
+                }}
+              >
+                {pour === m.id && (
+                  <div className="lounge-pour" role="group" aria-label={`Send ${m.name} a drink`}>
+                    {drinks.map((d) => (
+                      <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => void sendDrink(m, d.id)} aria-label={`Send ${m.name} a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
+                        {isVault(d.emoji) ? <VaultGlass size={24} /> : d.emoji}
+                        <span className="chat-price">{d.price || "free"}</span>
                       </button>
-                    )}
-                  </span>
+                    ))}
+                  </div>
                 )}
-                <div className="lounge-say">
-                  {first && !mine && (
-                    <div className="lounge-name">
-                      {m.name}
-                      {title && <span className="lounge-tag">{title}</span>}
-                      {m.badge?.rank && <span className="lounge-tag rank">{m.badge.rank}</span>}
-                    </div>
-                  )}
-                  <button
-                    className={"lounge-bubble" + ([...m.text].length <= 2 ? " emoji" : "")}
-                    style={chatStyle(cosmetic(m.badge?.chat ?? "chat.house") ?? cosmetic("chat.house"))}
-                    onClick={() => {
-                      setPour(null);
-                      setPicked(picked === m.id ? null : m.id);
-                    }}
-                    aria-expanded={picked === m.id}
-                    title={new Date(m.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
-                  >
-                    {m.text}
-                  </button>
-                  {pour === m.id && (
-                    <div className="lounge-pour" role="group" aria-label={`Send ${m.name} a drink`}>
-                      {drinks.map((d) => (
-                        <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => void sendDrink(m, d.id)} aria-label={`Send ${m.name} a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
-                          {isVault(d.emoji) ? <VaultGlass size={24} /> : d.emoji}
-                          <span className="chat-price">{d.price || "free"}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                  {picked === m.id && !mine && (
-                    <div className="lounge-acts">
-                      <button
-                        className="btn small gold"
-                        onClick={() => {
-                          setPicked(null);
-                          setPour(m.id);
-                        }}
-                      >
-                        Send a drink
-                      </button>
-                      <button className="btn small ghost" onClick={() => {
-                          setPicked(null);
-                          setCard(m.userId);
-                        }}>
-                        Player card
-                      </button>
-                      <button
-                        className="btn small ghost"
-                        onClick={() => {
-                          setPicked(null);
-                          onMute(m.userId);
-                          setNote(`${m.name} is muted. You won't see them here.`);
-                        }}
-                      >
-                        Mute
-                      </button>
-                      <button className="btn small ghost danger" onClick={() => void report(m)}>
-                        Report
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
+                {picked === m.id && !mine && (
+                  <div className="lounge-acts">
+                    <button
+                      className="btn small gold"
+                      onClick={() => {
+                        setPicked(null);
+                        setPour(m.id);
+                      }}
+                    >
+                      Send a drink
+                    </button>
+                    <button
+                      className="btn small ghost"
+                      onClick={() => {
+                        setPicked(null);
+                        setCard(m.userId);
+                      }}
+                    >
+                      Player card
+                    </button>
+                    <button
+                      className="btn small ghost"
+                      onClick={() => {
+                        setPicked(null);
+                        onMute(m.userId);
+                        setNote(`${m.name} is muted. You won't see them here.`);
+                      }}
+                    >
+                      Mute
+                    </button>
+                    <button className="btn small ghost danger" onClick={() => void report(m)}>
+                      Report
+                    </button>
+                  </div>
+                )}
+              </MessageRow>
             );
           })}
         </div>
@@ -436,6 +567,8 @@ function LoungePanel({
             </button>
           )}
         </div>
+        </>
+        )}
       </motion.div>
       <AnimatePresence>{card && <PlayerCard key={card} id={card} onClose={() => setCard(null)} />}</AnimatePresence>
     </motion.div>

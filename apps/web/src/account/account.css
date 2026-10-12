@@ -2193,3 +2193,61 @@
 .lounge-drink-emoji {
   font-size: 22px;
 }
+
+/* the Lounge with a Friends tab (direct messages and groups, from Friends.tsx) */
+.lounge-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.lounge-tabs button {
+  position: relative;
+  min-height: 40px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--title);
+  font-size: 22px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.lounge-tabs button.on {
+  background: rgba(231, 181, 60, 0.16);
+  color: var(--gold2);
+}
+.lounge-tab-count {
+  display: inline-block;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 6px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--red);
+  color: #fff;
+  font-family: var(--cond);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 20px;
+  letter-spacing: 0;
+  vertical-align: 3px;
+}
+.lounge-sub-tabbed {
+  margin: 8px 2px 0;
+}
+.lounge-friends {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-top: 8px;
+}
+.lounge-float-dm {
+  color: var(--gold2);
+  font-weight: 600;
+}
