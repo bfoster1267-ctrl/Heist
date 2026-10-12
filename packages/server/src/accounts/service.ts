@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solGain, settleSolitaire, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -551,7 +551,7 @@ export class AccountService {
    * win). Banked as the player goes, and when they leave (the online table can be dealt mid-game);
    * `finish` is the win, which closes the deal.
    */
-  solitaireBank(a: Account, gameId: unknown, moves: unknown, finish = false) {
+  solitaireBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
     return this.update(a.id, (x) => {
       const g = x.solitaire;
       if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
@@ -563,11 +563,14 @@ export class AccountService {
         throw new ApiError(400, "That game doesn't check out");
       }
       if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
-      const { gained, paid, any } = solGain(g.paid, t);
-      g.paid = paid;
+      // the drain only ever lowers the pay, and never shrinks once reported
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = solPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
       if (t.won) x.solitaire = null;
-      if (!any) return { me: this.me(x), reward: null };
-      const r = settleSolitaire(x.progress, this.now(), gained);
+      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      const r = settleSolitaire(x.progress, this.now(), pay.gained, pay.xp);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });

@@ -158,6 +158,11 @@ describe("accounts", () => {
     expect((await svc.solitaireBank(await acct(), g.gameId, [])).reward).toBeNull(); // undone: nothing taken back, nothing new
     await expect(svc.solitaireBank(await acct(), g.gameId, ["t0>t0"])).rejects.toThrow(/check out/);
     expect((await acct()).progress.xp).toBe(SOL_XP.move + SOL_XP.ace);
+    // stalling drains a deal's XP: only what's left is paid, and a smaller drain later doesn't undo it
+    const h = await svc.solitaireStart(await acct());
+    expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d"], false, 2)).reward?.xp).toBe(1);
+    expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d", "d"], false, 0)).reward?.xp).toBe(1);
+    expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d", "d"], false, "lots")).reward).toBeNull();
   });
 
   it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {

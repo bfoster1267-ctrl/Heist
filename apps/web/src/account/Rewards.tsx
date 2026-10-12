@@ -157,7 +157,7 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
           <motion.li key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.12 }}>
             <span>{l.label}</span>
             <span className="acct-reward-amt">
-              {l.xp ? `+${l.xp} XP` : ""} {l.coins ? `+${l.coins}c` : ""}
+              {l.xp ? `${l.xp > 0 ? "+" : ""}${l.xp} XP` : ""} {l.coins ? `+${l.coins}c` : ""}
             </span>
           </motion.li>
         ))}

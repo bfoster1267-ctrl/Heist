@@ -580,3 +580,9 @@
   padding: 6px;
   cursor: pointer;
 }
+
+/* stalling: the deal's XP drains, so the number turns red and ticks down */
+.sol-hud-stats b.sol-xp.drain {
+  color: #ff6b5e;
+  text-shadow: 0 0 8px rgba(255, 80, 60, 0.6);
+}

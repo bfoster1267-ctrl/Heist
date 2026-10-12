@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solitaireRoom, solGain, solSolved, solWon, tallySol, tallyXp, tapMove, upgrade, SOL_XP, SOLITAIRE_DAY_XP, SEASONS, type Klondike, type SolMove } from "../src";
+import { applySol, autoMove, dealKlondike, newProgress, replaySol, settleSolitaire, solitaireRoom, solGain, solPay, solSolved, solWon, tallySol, tallyXp, tapMove, upgrade, SOL_XP, SOLITAIRE_DAY_XP, SEASONS, type Klondike, type SolMove } from "../src";
 
 /** A greedy player: foundations first, then any column move that turns a card over, else draw. */
 function greedy(seed: number, limit = 3000): { k: Klondike; moves: SolMove[] } {
@@ -80,6 +80,23 @@ describe("solitaire", () => {
     expect(first.gained.moves).toBe(2);
     expect(solGain(first.paid, tallySol(seed, ["d"])).any).toBe(false);
     expect(solGain(first.paid, tallySol(seed, ["d", "d", "d"])).gained.moves).toBe(1);
+  });
+
+  it("stalling and hints drain a deal's XP, never below zero, and never take back what's paid", () => {
+    const seed = 7;
+    const five = tallySol(seed, ["d", "d", "d", "d", "d"]);
+    const a = solPay(undefined, undefined, five, 2);
+    expect([a.xp, a.paidXp]).toEqual([3, 3]);
+    // more drain after paying: nothing new, nothing taken back
+    expect(solPay(a.paid, a.paidXp, five, 5).xp).toBe(0);
+    expect(solPay(undefined, undefined, five, 99).xp).toBe(0);
+    // more moves earn again once they climb past what was paid
+    const eight = tallySol(seed, ["d", "d", "d", "d", "d", "d", "d", "d"]);
+    expect(solPay(a.paid, a.paidXp, eight, 2).xp).toBe(3);
+    // the reward shows what the drain cost, and adds up
+    const r = settleSolitaire(newProgress(), Date.now(), solGain(undefined, five).gained, 3).reward;
+    expect(r.xp).toBe(3);
+    expect(r.lines.map((l) => [l.label, l.xp])).toEqual([["5 new moves", 5], ["Slow play and hints", -2]]);
   });
 
   it("pays each part in XP and season XP alike, up to a small daily allowance", () => {

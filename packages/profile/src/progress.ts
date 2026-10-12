@@ -7,7 +7,7 @@ import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForL
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
 import { TIER_XP, addPassXp, passLines, type PassResult, type PassState } from "./season";
 import { addCounts, type MistakeCounts } from "./coach";
-import { SOL_XP, type SolTally } from "./solitaire";
+import { SOL_XP, tallyXp, type SolTally } from "./solitaire";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -222,9 +222,10 @@ export const solitaireRoom = (p: Progress, at: number) => Math.max(0, SOLITAIRE_
 
 /**
  * Pay for Solitaire play the server has checked by replaying the moves. `gained` is what the deal
- * earned beyond what was already paid for it (see tallySol).
+ * earned beyond what was already paid for it (see tallySol); `pay` is what it comes to after stalling
+ * and hints drained some off (see solPay).
  */
-export function settleSolitaire(prev: Progress, at: number, gained: SolTally): { progress: Progress; reward: Reward } {
+export function settleSolitaire(prev: Progress, at: number, gained: SolTally, pay = tallyXp(gained)): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
   // (saves from before the XP ceiling have no xp yet)
@@ -238,8 +239,10 @@ export function settleSolitaire(prev: Progress, at: number, gained: SolTally): {
     { label: plural(gained.stacks, "suit finished", "suits finished"), xp: gained.stacks * SOL_XP.stack, coins: 0 },
     { label: "Solitaire solved", xp: gained.won ? SOL_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, pay));
+  if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
   const room = Math.max(0, SOLITAIRE_DAY_XP - s.xp);
-  const total = lines.reduce((t, l) => t + l.xp, 0);
   if (total > room) lines = [{ label: "Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
   s.xp += Math.min(total, room);
   const season = Math.min(total, room);

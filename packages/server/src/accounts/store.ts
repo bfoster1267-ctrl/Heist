@@ -49,7 +49,7 @@ export interface Account {
   /** the vs-bots game in progress (its buy-in is already paid) */
   solo: SoloGame | null;
   /** the Solitaire deal in progress (the server keeps the seed, to replay the moves of a win) */
-  solitaire?: { gameId: string; seed: number; startedAt: number; /** what the deal's moves have been paid for so far */ paid?: SolTally } | null;
+  solitaire?: { gameId: string; seed: number; startedAt: number; /** what the deal's moves have been paid for so far */ paid?: SolTally; /** XP paid so far, and what stalling and hints drained off it (see solPay) */ paidXp?: number; drain?: number } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */
