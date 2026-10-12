@@ -1524,6 +1524,52 @@ button:disabled {
   font-size: 12px;
   padding: 3px 8px;
 }
+/* "Your move": short buttons (the rival's crew shape and the hideout number) in labelled rows, and a
+   panel only as wide as they are, so it keeps clear of the seats */
+.canvas .action-panel.compact {
+  width: fit-content;
+  min-width: 200px;
+  max-width: 360px;
+}
+.move-grid {
+  display: grid;
+  gap: 6px;
+}
+.move-grid .lbl {
+  min-width: 4.4em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.canvas .action-panel .btn.target {
+  padding: 4px 9px;
+}
+.big-text .canvas .action-panel .btn.target {
+  padding: calc(4px * var(--ts)) calc(8px * var(--ts));
+}
+.move-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ho-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35em;
+  height: 1.35em;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 0.9em;
+  line-height: 1;
+}
+.ho-in {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.hint .crew {
+  vertical-align: -2px;
+}
 .lbl {
   font-family: var(--cond);
   font-weight: 700;
