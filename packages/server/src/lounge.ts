@@ -1,12 +1,18 @@
 // The Lounge: one chat room for everyone in the app, read and written over the accounts API
-// (GET /api/lounge, POST /api/lounge/say, POST /api/lounge/report). Messages live in memory only: the
-// last 100 are kept, and a restart starts the room empty. Each message carries the sender's badge, so
-// every reader sees it in the chat bubble the sender wears.
+// (GET /api/lounge, POST /api/lounge/say, POST /api/lounge/report). The last 100 messages are kept, in
+// DATA_DIR/lounge.json when there is one, so a deploy doesn't empty the room. Each message carries the
+// sender's badge, so every reader sees it in the chat bubble the sender wears.
 //
 // Moderation: swear words are starred out, slurs and links are refused, each player gets a slow
 // trickle of lines, and three reports from different players take a message down. A suspended
 // account's messages are removed at once.
+//
+// Conduct: each player's record (their recent lines, lines the filter refused or starred, reports
+// against them, lines taken down, and how many players muted them) is kept with the room, for the
+// owner's admin panel. A few hundred short lines per player: a few KB each.
 
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import type { Badge } from "@heist/profile";
 
 export interface LoungeMsg {
@@ -41,6 +47,39 @@ const PER_MIN = 6;
 const REPORTS_TO_HIDE = 3;
 const HERE_MS = 60_000;
 
+/** per player, the newest this many of each */
+const KEEP_LINES = 200;
+const KEEP_MARKS = 50;
+
+/** A player's behaviour in the Lounge, for the admin panel. */
+export interface Conduct {
+  name: string;
+  /** lines and drinks posted, all time */
+  said: number;
+  lines: { id: number; at: number; text: string; gone?: boolean }[];
+  /** lines the filter refused (slurs, links) */
+  refused: { at: number; text: string; why: string }[];
+  /** lines sent with swears starred out */
+  starred: number;
+  /** one per player per line */
+  reports: { at: number; by: string; msgId: number; text: string }[];
+  /** lines taken down by reports */
+  takenDown: number;
+  /** players who muted them (and haven't unmuted) */
+  mutedBy: string[];
+}
+
+/** One number to sort by: a refused slur or a line the room took down weighs most, a swear least. */
+export const toxicity = (c: Conduct) => c.refused.length * 3 + c.takenDown * 5 + c.reports.length + c.mutedBy.length * 2 + c.starred;
+
+interface Saved {
+  next: number;
+  msgs: LoungeMsg[];
+  gone: number[];
+  people: Record<string, Conduct>;
+  reports?: [number, string[]][];
+}
+
 export class LoungeError extends Error {}
 
 export class Lounge {
@@ -50,8 +89,62 @@ export class Lounge {
   private said = new Map<string, number[]>();
   private reports = new Map<number, Set<string>>();
   private seen = new Map<string, number>();
+  private people = new Map<string, Conduct>();
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private now: () => number;
+  private o: { now?: () => number; dataDir?: string; delayMs?: number };
 
-  constructor(private now: () => number = Date.now) {}
+  constructor(o: (() => number) | { now?: () => number; dataDir?: string; delayMs?: number } = {}) {
+    this.o = typeof o === "function" ? { now: o } : o;
+    this.now = this.o.now ?? Date.now;
+    if (!this.o.dataDir) return;
+    mkdirSync(this.o.dataDir, { recursive: true });
+    try {
+      const raw = JSON.parse(readFileSync(this.file()!, "utf8")) as Saved;
+      this.msgs = raw.msgs ?? [];
+      this.gone = raw.gone ?? [];
+      this.next = raw.next ?? this.msgs.reduce((n, m) => Math.max(n, m.id), 0) + 1;
+      this.people = new Map(Object.entries(raw.people ?? {}));
+      this.reports = new Map((raw.reports ?? []).map(([id, by]) => [id, new Set(by)]));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+  }
+  private file() {
+    return this.o.dataDir ? join(this.o.dataDir, "lounge.json") : null;
+  }
+  private changed() {
+    if (!this.file() || this.timer) return;
+    this.timer = setTimeout(() => this.write(), this.o.delayMs ?? 1_000);
+  }
+  private write() {
+    this.timer = null;
+    const f = this.file();
+    if (!f) return;
+    const saved: Saved = { next: this.next, msgs: this.msgs, gone: this.gone, people: Object.fromEntries(this.people), reports: [...this.reports].map(([id, by]) => [id, [...by]]) };
+    writeFileSync(`${f}.tmp`, JSON.stringify(saved));
+    renameSync(`${f}.tmp`, f);
+  }
+  async flush() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.write();
+    }
+  }
+
+  /** this player's record, made on first use (the name kept current) */
+  private person(userId: string, name?: string): Conduct {
+    let c = this.people.get(userId);
+    if (!c) {
+      c = { name: name ?? userId, said: 0, lines: [], refused: [], starred: 0, reports: [], takenDown: 0, mutedBy: [] };
+      this.people.set(userId, c);
+    } else if (name) c.name = name;
+    return c;
+  }
+  private static push<T>(xs: T[], x: T, keep: number) {
+    xs.push(x);
+    if (xs.length > keep) xs.splice(0, xs.length - keep);
+  }
 
   /** What's new since `after` (0: the latest few). `who` counts toward "here". */
   feed(after: number, who?: string): LoungeFeed {
@@ -68,10 +161,21 @@ export class Lounge {
 
   /** Post a line. Throws a LoungeError the player can read when it's refused. */
   say(user: { id: string; name: string; badge?: Badge }, raw: unknown): LoungeMsg {
-    const text = cleanLine(raw);
+    let text: string;
+    try {
+      text = cleanLine(raw);
+    } catch (e) {
+      // a refused slur or link goes on their record (an empty line doesn't)
+      if (e instanceof LoungeError && typeof raw === "string" && raw.trim()) {
+        Lounge.push(this.person(user.id, user.name).refused, { at: this.now(), text: raw.slice(0, MAX_CHARS), why: e.message }, KEEP_MARKS);
+        this.changed();
+      }
+      throw e;
+    }
     const mine = this.msgs.filter((m) => m.userId === user.id).at(-1);
     if (mine && !mine.drink && mine.text === text && this.now() - mine.at < 60_000) throw new LoungeError("You just said that");
     this.pace(user.id);
+    if (text.includes("*") && text !== String(raw).replace(/\s+/g, " ").trim().slice(0, MAX_CHARS)) this.person(user.id, user.name).starred++;
     return this.post({ userId: user.id, name: user.name, text, ...(user.badge ? { badge: user.badge } : {}) });
   }
 
@@ -107,6 +211,10 @@ export class Lounge {
     if (this.msgs.length > KEEP) {
       for (const old of this.msgs.splice(0, this.msgs.length - KEEP)) this.reports.delete(old.id);
     }
+    const c = this.person(m.userId, m.name);
+    c.said++;
+    Lounge.push(c.lines, { id: m.id, at: m.at, text: m.drink ? `${m.drink.emoji} sent ${m.drink.to} a ${m.text}` : m.text }, KEEP_LINES);
+    this.changed();
     return m;
   }
 
@@ -115,11 +223,45 @@ export class Lounge {
     const m = typeof id === "number" ? this.msgs.find((x) => x.id === id) : undefined;
     if (!m || m.userId === reporter) return null;
     const by = this.reports.get(m.id) ?? new Set<string>();
+    if (!by.has(reporter)) Lounge.push(this.person(m.userId, m.name).reports, { at: this.now(), by: reporter, msgId: m.id, text: m.text }, KEEP_MARKS);
     by.add(reporter);
     this.reports.set(m.id, by);
     const hidden = by.size >= REPORTS_TO_HIDE;
-    if (hidden) this.take((x) => x.id === m.id);
+    if (hidden) {
+      this.person(m.userId).takenDown++;
+      this.take((x) => x.id === m.id);
+    }
+    this.changed();
     return { msg: m, hidden };
+  }
+
+  /** A player muted (or unmuted) someone. Muting only hides lines on their own screen; this just counts it. */
+  mute(by: string, userId: unknown, on: boolean): boolean {
+    if (typeof userId !== "string" || userId === by) return false;
+    const c = this.people.get(userId);
+    if (!c) return false;
+    const has = c.mutedBy.includes(by);
+    if (on && !has) c.mutedBy.push(by);
+    else if (!on && has) c.mutedBy = c.mutedBy.filter((x) => x !== by);
+    else return true;
+    if (c.mutedBy.length > 1_000) c.mutedBy = c.mutedBy.slice(-1_000);
+    this.changed();
+    return true;
+  }
+
+  /** One player's Lounge record (null: they've never talked or been filtered). */
+  conductOf(userId: string): (Conduct & { score: number }) | null {
+    const c = this.people.get(userId);
+    return c ? { ...c, score: toxicity(c) } : null;
+  }
+
+  /** Players with anything on their record, worst first, for the admin panel's watch list. */
+  watchList(limit = 100) {
+    return [...this.people]
+      .map(([userId, c]) => ({ userId, name: c.name, said: c.said, refused: c.refused.length, starred: c.starred, reports: c.reports.length, takenDown: c.takenDown, muted: c.mutedBy.length, score: toxicity(c), last: c.lines.at(-1)?.at ?? c.refused.at(-1)?.at ?? 0 }))
+      .filter((r) => r.score > 0)
+      .sort((a, b) => b.score - a.score || b.last - a.last)
+      .slice(0, limit);
   }
 
   /** Take down everything one player said (they were suspended). */
@@ -128,9 +270,15 @@ export class Lounge {
   }
 
   private take(f: (m: LoungeMsg) => boolean) {
-    for (const m of this.msgs) if (f(m)) this.gone.push(m.id);
+    for (const m of this.msgs) {
+      if (!f(m)) continue;
+      this.gone.push(m.id);
+      const line = this.people.get(m.userId)?.lines.find((l) => l.id === m.id);
+      if (line) line.gone = true;
+    }
     this.msgs = this.msgs.filter((m) => !f(m));
     if (this.gone.length > KEEP * 2) this.gone = this.gone.slice(-KEEP);
+    this.changed();
   }
 }
 

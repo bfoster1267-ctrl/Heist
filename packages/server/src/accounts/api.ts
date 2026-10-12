@@ -230,6 +230,15 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         if (!o.board) throw new ApiError(404, "Not found");
         return send(res, 200, { posts: o.board.all(), reward: BOARD_REWARD, voterReward: BOARD_VOTER_REWARD });
       }
+      if (path === "/lounge") {
+        if (!o.lounge) throw new ApiError(404, "Not found");
+        return send(res, 200, { players: o.lounge.watchList() });
+      }
+      const conduct = path.match(/^\/accounts\/([\w-]{1,60})\/lounge$/);
+      if (conduct) {
+        if (!o.lounge) throw new ApiError(404, "Not found");
+        return send(res, 200, { conduct: o.lounge.conductOf(conduct[1]) });
+      }
       const chats = path.match(/^\/accounts\/([\w-]{1,60})\/chats$/);
       if (chats) {
         if (!o.social) throw new ApiError(404, "Not found");
@@ -447,6 +456,11 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         const msg = refuse(() => lounge.sendDrink({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, to, d));
         await svc.drinkReceived(to.userId).catch(() => {});
         return { msg, me: paid };
+      },
+      /** muting hides a player on your own screen; the server only counts it, for the owner */
+      "POST /api/lounge/mute": async (b, t) => {
+        const a = await me(t);
+        return { ok: lounge.mute(a.id, b.userId, b.on !== false) };
       },
       "POST /api/lounge/report": async (b, t) => {
         const a = await me(t);

@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { AccountService } from "../src/accounts/service";
 import { Lounge, cleanLine } from "../src/lounge";
@@ -59,6 +62,39 @@ describe("the Lounge", () => {
     }
     now += 3_000;
     expect(() => l.say({ id: "z", name: "Z" }, "one more")).toThrow(/minute/);
+  });
+
+  it("keeps the room and each player's record on disk: refused and starred lines, reports, take-downs, mutes", async () => {
+    let now = 1_000;
+    const dir = mkdtempSync(join(tmpdir(), "lounge-"));
+    const l = new Lounge({ now: () => now, dataDir: dir, delayMs: 1 });
+    const zed = { id: "zed", name: "Zed" };
+    l.say(zed, "hello all");
+    now += 5_000;
+    expect(() => l.say(zed, "you retard")).toThrow(/friendly/);
+    l.say(zed, "what the fuck");
+    now += 5_000;
+    const bad = l.say(zed, "you all suck");
+    for (const r of ["a", "b", "c", "c"]) l.report(r, bad.id);
+    expect(l.mute("a", "zed", true)).toBe(true);
+    l.mute("a", "zed", true); // once each
+    l.mute("b", "zed", true);
+    l.mute("b", "zed", false);
+    expect(l.mute("a", "nobody", true)).toBe(false);
+    const c = l.conductOf("zed")!;
+    expect(c).toMatchObject({ said: 3, starred: 1, takenDown: 1, mutedBy: ["a"] });
+    expect(c.refused.map((x) => x.text)).toEqual(["you retard"]);
+    expect(c.reports.length).toBe(3);
+    expect(c.lines.at(-1)).toMatchObject({ text: "you all suck", gone: true });
+    expect(c.score).toBe(3 + 5 + 3 + 2 + 1);
+    expect(l.watchList()[0]).toMatchObject({ userId: "zed", score: 14 });
+    expect(l.conductOf("a")).toBeNull();
+
+    await l.flush();
+    const again = new Lounge({ dataDir: dir, now: () => now });
+    expect(again.feed(0).msgs.map((m) => m.text)).toEqual(["hello all", "what the f***"]);
+    expect(again.conductOf("zed")!.score).toBe(14);
+    expect(again.say({ id: "new", name: "New" }, "hi").id).toBe(bad.id + 1);
   });
 
   it("serves the Lounge over the API: anyone reads, players who've finished a game talk in their bubble", async () => {

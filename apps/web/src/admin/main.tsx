@@ -13,6 +13,7 @@ import { TeamPage } from "./team";
 import { FunnelPage } from "./funnel";
 import { FeedbackPage } from "./feedback";
 import { BoardPage } from "./board";
+import { LoungeWatch } from "./conduct";
 
 function useRoute() {
   const read = () => {
@@ -40,6 +41,7 @@ const NAV: [string, string][] = [
   ["live", "Live tables"],
   ["economy", "Economy"],
   ["board", "Player board"],
+  ["lounge", "Lounge watch"],
   ["feedback", "Feedback"],
   ["server", "Server"],
 ];
@@ -101,6 +103,7 @@ function Admin() {
         {page === "economy" && <EconomyPage {...props} />}
         {page === "feedback" && <FeedbackPage {...props} />}
         {page === "board" && <BoardPage {...props} />}
+        {page === "lounge" && <LoungeWatch {...props} />}
         {page === "team" && <TeamPage {...props} />}
         {page === "games" && <Game key={parts[1]} {...props} />}
       </main>

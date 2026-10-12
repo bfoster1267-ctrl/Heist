@@ -57,7 +57,7 @@ export interface ServerOptions {
   push?: Pusher;
   /** where direct messages between friends are kept (default: memory) */
   dms?: DmStore;
-  /** where the feedback board is kept (board.json; default: memory) */
+  /** where the feedback board and the Lounge are kept (board.json, lounge.json; default: memory) */
   boardDir?: string;
 }
 
@@ -117,7 +117,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         }
       : undefined;
   /** the Lounge, the app-wide chat room (it needs accounts: only players who've finished a game talk) */
-  const lounge = accounts ? new Lounge(() => clock.now()) : undefined;
+  const lounge = accounts ? new Lounge({ now: () => clock.now(), dataDir: o.boardDir }) : undefined;
   const board = accounts ? new Board({ dataDir: o.boardDir, now: () => clock.now() }) : undefined;
   /** open sockets per signed-in player, for friends' "online" dots */
   const connected = new Map<string, number>();
@@ -477,6 +477,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       await accounts?.store.flush();
       await social?.dms.flush();
       await board?.flush();
+      await lounge?.flush();
       await accounts?.activity.flush();
     },
   };

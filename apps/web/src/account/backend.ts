@@ -189,6 +189,8 @@ export interface Backend {
   lounge?(after: number): Promise<LoungeFeed>;
   loungeSay?(text: string): Promise<{ msg: LoungeMsg }>;
   loungeReport?(id: number): Promise<{ ok: boolean; hidden?: boolean }>;
+  /** tell the server a player was muted or unmuted (it only counts mutes, for the owner) */
+  loungeMute?(userId: string, on: boolean): Promise<{ ok: boolean }>;
   /** send a drink (coins) to whoever said line `to` */
   loungeDrink?(to: number, id: string): Promise<{ msg: LoungeMsg; me: Me }>;
   /** the feedback board (server only) */
@@ -512,6 +514,9 @@ export class ServerBackend implements Backend {
   }
   loungeReport(id: number) {
     return this.call<{ ok: boolean; hidden?: boolean }>("/api/lounge/report", { id });
+  }
+  loungeMute(userId: string, on: boolean) {
+    return this.call<{ ok: boolean }>("/api/lounge/mute", { userId, on });
   }
 
   private async call<T>(path: string, body?: object): Promise<T> {

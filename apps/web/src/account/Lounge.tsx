@@ -189,6 +189,7 @@ function LoungeRoom({ backend, me, friends, float }: { backend: Backend; me: str
     const next = on ? [...new Set([...muted, userId])] : muted.filter((x) => x !== userId);
     setMuted(next);
     save(MUTED_KEY, JSON.stringify(next));
+    void backend.loungeMute?.(userId, on).catch(() => {});
   };
 
   const fromFriends = friends?.unread ?? 0;
@@ -226,6 +227,7 @@ function LoungeRoom({ backend, me, friends, float }: { backend: Backend; me: str
             mutedCount={muted.length}
             onMute={(id) => mute(id, true)}
             onUnmuteAll={() => {
+              for (const id of muted) void backend.loungeMute?.(id, false).catch(() => {});
               setMuted([]);
               save(MUTED_KEY, "[]");
             }}
