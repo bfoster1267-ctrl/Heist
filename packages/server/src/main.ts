@@ -67,6 +67,7 @@ const server = await startServer({
   hosting: new Hosting({ dataDir, renderKey: env.RENDER_API_KEY || undefined, serviceId: env.RENDER_SERVICE_ID || undefined, plan: "starter", diskGb: 1 }),
   push,
   dms: new FileDmStore(dataDir),
+  boardDir: dataDir,
   queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),

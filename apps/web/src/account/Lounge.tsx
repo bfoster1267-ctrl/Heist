@@ -18,6 +18,7 @@ import { chatStyle } from "./items";
 import { PlayerCard } from "./Profile";
 import { useAccount, useLook } from "./useAccount";
 import { VaultGlass, isVault } from "../vault";
+import { FeedbackBoard } from "./Board";
 
 const SEEN_KEY = "heist.lounge.seen";
 const MUTED_KEY = "heist.lounge.muted";
@@ -97,7 +98,7 @@ export interface FriendsSlot {
   render: (o: { onClose: () => void }) => ReactNode;
 }
 
-type Tab = "lounge" | "friends";
+type Tab = "lounge" | "friends" | "board";
 
 /** The chat button for the lobby, and the chat itself when it's open. Nothing without the game server. */
 export function Lounge({ friends, float = true }: { friends?: FriendsSlot; /** new lines float up over the screen (the main lobby only: elsewhere they'd cover buttons) */ float?: boolean } = {}) {
@@ -212,7 +213,7 @@ function LoungeRoom({ backend, me, friends, float }: { backend: Backend; me: str
         {open && (
           <LoungePanel
             key="lounge"
-            tab={friends ? tab : "lounge"}
+            tab={friends || tab !== "friends" ? tab : "lounge"}
             onTab={setTab}
             friends={friends}
             loungeUnread={unread}
@@ -415,16 +416,23 @@ function LoungePanel({
     <motion.div className="lounge-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
       <motion.div className="lounge" role="dialog" aria-label="The Lounge" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
         <div className="lounge-head">
-          {friends ? (
+          {friends || backend.board ? (
             <div className="lounge-tabs" role="tablist" aria-label="Chat">
               <button role="tab" aria-selected={tab === "lounge"} className={tab === "lounge" ? "on" : ""} onClick={() => onTab("lounge")}>
-                The Lounge
+                Lounge
                 {tab !== "lounge" && loungeUnread > 0 && <span className="lounge-tab-count">{loungeUnread > 9 ? "9+" : loungeUnread}</span>}
               </button>
-              <button role="tab" aria-selected={tab === "friends"} className={tab === "friends" ? "on" : ""} onClick={() => onTab("friends")}>
-                Friends
-                {friends.unread > 0 && <span className="lounge-tab-count">{friends.unread > 9 ? "9+" : friends.unread}</span>}
-              </button>
+              {friends && (
+                <button role="tab" aria-selected={tab === "friends"} className={tab === "friends" ? "on" : ""} onClick={() => onTab("friends")}>
+                  Friends
+                  {friends.unread > 0 && <span className="lounge-tab-count">{friends.unread > 9 ? "9+" : friends.unread}</span>}
+                </button>
+              )}
+              {backend.board && (
+                <button role="tab" aria-selected={tab === "board"} className={tab === "board" ? "on" : ""} onClick={() => onTab("board")}>
+                  Feedback
+                </button>
+              )}
             </div>
           ) : (
             <div>
@@ -440,9 +448,11 @@ function LoungePanel({
         </div>
         {tab === "friends" && friends ? (
           <div className="lounge-friends">{friends.render({ onClose })}</div>
+        ) : tab === "board" && backend.board ? (
+          <FeedbackBoard backend={backend} me={me} onPlayer={setCard} />
         ) : (
         <>
-        {friends && (
+        {(friends || backend.board) && (
           <div className="lounge-sub lounge-sub-tabbed">
             <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here now` : "Chat with everyone playing Heist"}
           </div>

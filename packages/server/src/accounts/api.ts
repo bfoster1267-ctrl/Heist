@@ -4,6 +4,8 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { badgeOf, drink as drinkInfo, upgrade, type Progress } from "@heist/profile";
 import { LoungeError, type Lounge } from "../lounge";
+import { BOARD_REWARD, type Board, type BoardPost } from "../board";
+import type { PushMessage } from "../push";
 import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
 import type { Hosting } from "./hosting";
@@ -36,10 +38,14 @@ export interface ApiOptions {
   social?: Social;
   /** the Lounge, the app-wide chat room (off without one) */
   lounge?: Lounge;
+  /** the feedback board, the Lounge's Feedback tab (off without one) */
+  board?: Board;
+  /** a phone alert to a player (the board tells authors and voters what became of a post) */
+  notify?: (userId: string, m: PushMessage) => Promise<number>;
 }
 
 /** calls the app makes every few seconds while it's open: not worth a line each in the activity log */
-const UNLOGGED = new Set(["GET /api/config", "POST /api/track", "GET /api/friends", "GET /api/dm", "GET /api/friends/search", "GET /api/lounge"]);
+const UNLOGGED = new Set(["GET /api/config", "POST /api/track", "GET /api/friends", "GET /api/dm", "GET /api/friends/search", "GET /api/lounge", "GET /api/board", "GET /api/board/post"]);
 
 /** where a request came from: its address, the app install's id when it sent one, and whether Claude's testing sent it */
 type Where = { ip: string; device?: string; tester?: "claude" };
@@ -67,6 +73,7 @@ function outcome(key: string, out: unknown): Record<string, unknown> {
   if (key === "POST /api/prestige") Object.assign(x, { coins: o.coins, unlocked: o.unlocked });
   if (key === "POST /api/solo/start") Object.assign(x, { gameId: o.gameId, players: o.players, stage: o.stage });
   if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") x.reward = o.reward && { xp: o.reward.xp };
+  if (key === "POST /api/board/new" && o.post) Object.assign(x, { post: o.post.id, kind: o.post.kind, title: o.post.title });
   if (key === "POST /api/lounge/report" && o.reported) Object.assign(x, { reported: o.reported, hidden: o.hidden });
   if (key === "POST /api/solo/finish" || key === "POST /api/solo/quit") x.reward = o.reward && { xp: o.reward.xp, coins: o.reward.coins, payout: o.reward.payout };
   return x;
@@ -192,6 +199,13 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         svc.track({ kind: `admin.${what}`, userId: uid, name: target.name, ip, data: { ...(scrub(b) as Record<string, unknown>), by: who.user } });
         return send(res, 200, { crm });
       }
+      const boardAct = path.match(/^\/board\/(\d{1,9})$/);
+      if (req.method === "POST" && boardAct && o.board) {
+        const b = await readBody(req, BODY_LIMIT);
+        const out = await manageBoard(o.board, Number(boardAct[1]), b);
+        svc.track({ kind: "admin.board", ip, data: { ...(scrub(b) as Record<string, unknown>), post: Number(boardAct[1]), by: who.user } });
+        return send(res, 200, out);
+      }
       if (req.method !== "GET") throw new ApiError(404, "Not found");
       const q = url.searchParams;
       const id = path.match(/^\/(accounts|games)\/([\w-]{1,60})$/);
@@ -212,6 +226,10 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
         return send(res, 200, { ...(await admin.hosting.report()), live: (await admin.svc.overview()).live });
       }
       if (path === "/tags") return send(res, 200, { tags: await admin.svc.tags() });
+      if (path === "/board") {
+        if (!o.board) throw new ApiError(404, "Not found");
+        return send(res, 200, { posts: o.board.all(), reward: BOARD_REWARD });
+      }
       const chats = path.match(/^\/accounts\/([\w-]{1,60})\/chats$/);
       if (chats) {
         if (!o.social) throw new ApiError(404, "Not found");
@@ -290,7 +308,92 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "GET /api/leaderboard": async (_, __, q) => ({ rows: await svc.leaderboard(q.get("by")) }),
     "GET /api/players/:id": async (_, __, ___, id) => svc.publicProfile(id),
     ...(o.lounge ? loungeRoutes(o.lounge) : {}),
+    ...(o.board ? boardRoutes(o.board) : {}),
   };
+
+  /** The owner's changes to a board post: status, hide, merge, a comment as the Heist team, a comment taken down. */
+  async function manageBoard(board: Board, id: number, b: Record<string, unknown>) {
+    const refuse = <T,>(f: () => T): T => {
+      try {
+        return f();
+      } catch (e) {
+        if (e instanceof LoungeError) throw new ApiError(400, e.message.replace(/ in the Lounge/, ""));
+        throw e;
+      }
+    };
+    if (typeof b.commentId === "number") return { comment: refuse(() => board.manageComment(id, b.commentId, b.hideComment !== false)) };
+    if (typeof b.reply === "string") return { comment: refuse(() => board.comment({ id: "heist-team", name: "Heist team" }, id, b.reply, true)), post: board.all().find((p) => p.id === id) };
+    const { post, pay, statusChanged } = refuse(() => board.manage(id, b));
+    if (pay) await svc.giveCoins(post.userId, BOARD_REWARD, `board #${post.id}`).catch(() => {});
+    if (statusChanged) void tellBoard(post, pay);
+    return { post: { ...post, voteCount: post.votes.length }, paid: pay ? BOARD_REWARD : 0 };
+  }
+
+  /** A post's new status reaches its author (with the coins, when paid) and, when it ships, everyone who voted. */
+  async function tellBoard(p: BoardPost, paid: boolean) {
+    if (!o.notify) return;
+    const word: Record<string, string> = { review: "is being looked at", planned: "is planned", doing: "is being worked on", shipped: "shipped", wont: "won't be done for now" };
+    const what = word[p.status];
+    if (!what) return;
+    const title = p.title.length > 60 ? `${p.title.slice(0, 57)}...` : p.title;
+    const tag = `board-${p.id}`;
+    await o.notify(p.userId, { title: `Your post ${what}`, body: paid ? `"${title}". Thanks! +${BOARD_REWARD} coins.` : `"${title}"`, tag }).catch(() => 0);
+    if (p.status !== "shipped") return;
+    for (const v of p.votes) if (v !== p.userId) await o.notify(v, { title: "Something you voted for shipped", body: `"${title}"`, tag }).catch(() => 0);
+  }
+
+  /** The feedback board: anyone reads it; players who've finished a game post, vote and comment. */
+  function boardRoutes(board: Board): Record<string, Handler> {
+    const why = (a: { progress: Progress } | null) => {
+      if (!a) return "Open the app to join in";
+      const p = a.progress;
+      return p.xp || p.coachGames || p.prestige ? null : "Finish your first game to post and vote";
+    };
+    const refuse = <T,>(f: () => T): T => {
+      try {
+        return f();
+      } catch (e) {
+        if (e instanceof LoungeError) throw new ApiError(400, e.message.replace(/ in the Lounge/, ""));
+        throw e;
+      }
+    };
+    const player = async (t: string | undefined) => {
+      const a = await me(t);
+      const no = svc.banOf(a) ? "This account is suspended" : why(a);
+      if (no) throw new ApiError(403, no);
+      return a;
+    };
+    return {
+      "GET /api/board": async (_, t, q) => {
+        const a = await svc.fromToken(t).catch(() => null);
+        const no = a && svc.banOf(a) ? "This account is suspended" : why(a);
+        return { posts: board.list(a?.id, q.get("sort")), canPost: !no, reward: BOARD_REWARD, ...(no ? { why: no } : {}) };
+      },
+      "GET /api/board/post": async (_, t, q) => {
+        const a = await svc.fromToken(t).catch(() => null);
+        const p = board.post(Number(q.get("id")), a?.id);
+        if (!p) throw new ApiError(404, "That post is gone");
+        return { post: p };
+      },
+      "POST /api/board/new": async (b, t) => {
+        const a = await player(t);
+        return { post: refuse(() => board.add({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, b)) };
+      },
+      "POST /api/board/vote": async (b, t) => {
+        const a = await player(t);
+        return refuse(() => board.vote(a.id, b.id, b.on));
+      },
+      "POST /api/board/comment": async (b, t) => {
+        const a = await player(t);
+        return { comment: refuse(() => board.comment({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, b.id, b.text)) };
+      },
+      "POST /api/board/report": async (b, t) => {
+        const a = await me(t);
+        const r = board.report(a.id, b.id, b.comment);
+        return r ? { ok: true, hidden: r.hidden } : { ok: false };
+      },
+    };
+  }
 
   /** The Lounge: anyone can read it; players who've finished a game (lesson, solo or online) can talk. */
   function loungeRoutes(lounge: Lounge): Record<string, Handler> {

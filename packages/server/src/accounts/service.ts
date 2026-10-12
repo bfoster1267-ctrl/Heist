@@ -434,6 +434,15 @@ export class AccountService {
     return this.update(userId, (x) => (this.apply(x, payForDrink(x.progress, String(id), count)), this.me(x)));
   }
 
+  /** Coins from the house: the feedback board's thanks when a player's bug is confirmed or idea ships. */
+  giveCoins(userId: string, coins: number, why: string) {
+    return this.update(userId, (x) => {
+      x.progress.coins += coins;
+      this.track({ kind: "coins.gift", userId, name: x.name, data: { coins, why } });
+      return x.progress.coins;
+    });
+  }
+
   async drinkReceived(userId: string) {
     if (await this.store.get(userId)) await this.update(userId, (x) => void x.progress.drinksReceived++);
   }

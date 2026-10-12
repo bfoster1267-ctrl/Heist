@@ -173,6 +173,12 @@ const LABELS: Record<string, string> = {
   "lounge.say": "Lounge chat",
   "lounge.report": "Reported a Lounge line",
   "lounge.drink": "Sent a drink in the Lounge",
+  "board.new": "Posted on the feedback board",
+  "board.vote": "Voted on the feedback board",
+  "board.comment": "Commented on the feedback board",
+  "board.report": "Reported a feedback post",
+  "admin.board": "You changed a feedback post",
+  "coins.gift": "Got coins from the house",
   "table.drink": "Sent a drink",
   "ui.screen": "Screen",
   "ui.tap": "Tapped",
@@ -238,6 +244,12 @@ export function detailOf(e: ActivityEvent): string {
     case "dm.send":
     case "lounge.say":
       return `“${d.text ?? ""}”`;
+    case "board.comment":
+      return `“${d.text ?? ""}”`;
+    case "board.new":
+      return `${d.kind ?? ""}: “${d.title ?? ""}”`;
+    case "coins.gift":
+      return `+${num(d.coins ?? 0)} coins`;
     case "lounge.drink":
       return String(d.id ?? "");
     case "lounge.report":

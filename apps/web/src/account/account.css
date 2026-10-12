@@ -2251,3 +2251,15 @@
   color: var(--gold2);
   font-weight: 600;
 }
+
+/* three tabs (Lounge, Friends, Feedback) share the header on a phone */
+.lounge-tabs {
+  flex: 1;
+  min-width: 0;
+}
+.lounge-tabs button {
+  flex: 1 1 auto;
+  padding: 0 10px;
+  font-size: clamp(17px, 4.8vw, 22px);
+  white-space: nowrap;
+}

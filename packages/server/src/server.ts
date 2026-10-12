@@ -16,6 +16,7 @@ import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
 import { realClock, type Clock, type Conn, type GameOverReport, type Room, type RoomDeps } from "./room";
 import { Rooms, roomOptions, type Limits } from "./rooms";
 import { Lounge } from "./lounge";
+import { Board } from "./board";
 import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
 import type { Hosting } from "./accounts/hosting";
@@ -56,6 +57,8 @@ export interface ServerOptions {
   push?: Pusher;
   /** where direct messages between friends are kept (default: memory) */
   dms?: DmStore;
+  /** where the feedback board is kept (board.json; default: memory) */
+  boardDir?: string;
 }
 
 export interface HeistServer {
@@ -115,6 +118,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       : undefined;
   /** the Lounge, the app-wide chat room (it needs accounts: only players who've finished a game talk) */
   const lounge = accounts ? new Lounge(() => clock.now()) : undefined;
+  const board = accounts ? new Board({ dataDir: o.boardDir, now: () => clock.now() }) : undefined;
   /** open sockets per signed-in player, for friends' "online" dots */
   const connected = new Map<string, number>();
   const pushTo = async (userId: string, m: PushMessage) => {
@@ -139,7 +143,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         },
       })
     : undefined;
-  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey, social, lounge }) : null;
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey, social, lounge, board, notify: pushTo }) : null;
   /** table activity, for the admin panel's log (moves themselves are in each game's record) */
   const track = (c: Client, kind: string, data?: Record<string, unknown>, error?: string) =>
     accounts && c.id && accounts.track({ kind, userId: c.id.userId, name: c.id.name, ip: c.ip, ok: !error, error, data: { ...data, ...(c.room ? { table: c.room.code } : {}) } });
@@ -207,6 +211,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   if (accounts)
     accounts.onBan = (userId) => {
       lounge?.removeUser(userId);
+      board?.removeUser(userId);
       for (const ws of wss.clients) {
         const c = (ws as WebSocket & { heist?: Client }).heist;
         if (c?.id?.userId !== userId) continue;
@@ -471,6 +476,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       await store.flush();
       await accounts?.store.flush();
       await social?.dms.flush();
+      await board?.flush();
       await accounts?.activity.flush();
     },
   };

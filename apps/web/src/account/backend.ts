@@ -78,6 +78,44 @@ export interface LeaderRow {
   mmr?: number;
 }
 
+export type BoardKind = "bug" | "idea" | "balance" | "other";
+export type BoardStatus = "new" | "review" | "planned" | "doing" | "shipped" | "wont";
+/** A post on the feedback board (the Lounge's Feedback tab) */
+export interface BoardRow {
+  id: number;
+  at: number;
+  kind: BoardKind;
+  title: string;
+  body: string;
+  userId: string;
+  name: string;
+  badge?: Badge;
+  votes: number;
+  voted: boolean;
+  comments: number;
+  status: BoardStatus;
+  statusAt?: number;
+  /** the Heist team has answered */
+  answered: boolean;
+}
+export interface BoardComment {
+  id: number;
+  at: number;
+  userId: string;
+  name: string;
+  text: string;
+  badge?: Badge;
+  /** from the Heist team */
+  team?: boolean;
+}
+export interface BoardView {
+  posts: BoardRow[];
+  canPost: boolean;
+  why?: string;
+  /** coins for a confirmed bug or a shipped idea */
+  reward: number;
+}
+
 /** A line in the Lounge, the app-wide chat (server only) */
 export interface LoungeMsg {
   id: number;
@@ -146,6 +184,13 @@ export interface Backend {
   loungeReport?(id: number): Promise<{ ok: boolean; hidden?: boolean }>;
   /** send a drink (coins) to whoever said line `to` */
   loungeDrink?(to: number, id: string): Promise<{ msg: LoungeMsg; me: Me }>;
+  /** the feedback board (server only) */
+  board?(sort: "top" | "new"): Promise<BoardView>;
+  boardPost?(id: number): Promise<{ post: BoardRow & { thread: BoardComment[] } }>;
+  boardNew?(p: { kind: BoardKind; title: string; body: string; device?: string }): Promise<{ post: BoardRow }>;
+  boardVote?(id: number, on: boolean): Promise<{ votes: number; voted: boolean }>;
+  boardComment?(id: number, text: string): Promise<{ comment: BoardComment }>;
+  boardReport?(id: number, comment?: number): Promise<{ ok: boolean; hidden?: boolean }>;
 }
 
 const store = {
@@ -439,6 +484,24 @@ export class ServerBackend implements Backend {
   }
   loungeDrink(to: number, id: string) {
     return this.call<{ msg: LoungeMsg; me: Me }>("/api/lounge/drink", { to, id });
+  }
+  board(sort: "top" | "new") {
+    return this.call<BoardView>(`/api/board?sort=${sort}`);
+  }
+  boardPost(id: number) {
+    return this.call<{ post: BoardRow & { thread: BoardComment[] } }>(`/api/board/post?id=${id}`);
+  }
+  boardNew(p: { kind: BoardKind; title: string; body: string; device?: string }) {
+    return this.call<{ post: BoardRow }>("/api/board/new", p);
+  }
+  boardVote(id: number, on: boolean) {
+    return this.call<{ votes: number; voted: boolean }>("/api/board/vote", { id, on });
+  }
+  boardComment(id: number, text: string) {
+    return this.call<{ comment: BoardComment }>("/api/board/comment", { id, text });
+  }
+  boardReport(id: number, comment?: number) {
+    return this.call<{ ok: boolean; hidden?: boolean }>("/api/board/report", comment === undefined ? { id } : { id, comment });
   }
   loungeReport(id: number) {
     return this.call<{ ok: boolean; hidden?: boolean }>("/api/lounge/report", { id });
