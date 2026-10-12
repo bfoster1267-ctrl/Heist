@@ -225,44 +225,6 @@ button.fr-friend > .fr-person {
   overflow-y: auto;
 }
 
-/* the lobby button, under the player card (beside it on a phone held sideways) */
-.acct-corner:has(.fr-open) {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8px;
-}
-@media (max-height: 520px) {
-  .acct-corner:has(.fr-open) {
-    flex-direction: row-reverse;
-    align-items: center;
-  }
-}
-.fr-open {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  background: rgba(14, 16, 20, 0.92);
-  color: inherit;
-  font-family: var(--cond);
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.5px;
-  cursor: pointer;
-}
-.fr-open:hover {
-  border-color: var(--gold);
-}
-.fr-open .fr-badge {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-}
-
 /* a friend's invite while the app is open */
 .fr-toast {
   position: fixed;
@@ -358,4 +320,15 @@ button.fr-friend > .fr-person {
   font-size: 11px;
   color: var(--muted);
   text-align: center;
+}
+
+/* inside the Lounge's Friends tab */
+.lounge-friends > .fr {
+  padding: 0 12px 14px;
+}
+.lounge-friends .fr-msgs {
+  height: min(55vh, 520px);
+}
+.fr-msgs .lounge-row.mine .fr-seen {
+  align-self: flex-end;
 }

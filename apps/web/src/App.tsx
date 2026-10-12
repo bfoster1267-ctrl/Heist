@@ -4,7 +4,7 @@ import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { Lounge } from "./account/Lounge";
-import { FriendsButton, InviteToast, joinTable } from "./account/Friends";
+import { InviteToast, joinTable, useFriendsSlot } from "./account/Friends";
 import { useFriendsSync } from "./account/social";
 import { Profile } from "./account/Profile";
 import { Rewards } from "./account/Rewards";
@@ -36,6 +36,8 @@ function Game() {
   const { me, backend, failed, suspended, act, showReward, error, clearError } = useAccount();
   // friends, requests, invites and messages stay fresh while the app is open
   useFriendsSync(backend, !!me);
+  // friends live in the Lounge's Friends tab (the lobby's one chat button)
+  const friendsSlot = useFriendsSlot(me?.id);
   // can't reach the server: check back every few seconds and reload once it answers
   useEffect(() => {
     if (!failed) return;
@@ -311,10 +313,9 @@ function Game() {
           />
           <div className="acct-corner">
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
-            {!tour && <FriendsButton onOpen={() => setProfile("friends")} />}
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
-          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge /> : null}
+          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge friends={friendsSlot} /> : null}
         </>
       ) : (
         <Table

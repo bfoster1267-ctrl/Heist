@@ -3,10 +3,10 @@
 // alerts on, so tapping it opens Heist from the Home Screen, full screen, straight into the table. A text
 // with the table link stays as the fallback for friends without the app.
 
-import { cosmetic } from "@heist/profile";
+import type { Badge } from "@heist/profile";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Stars } from "./bits";
-import { chatStyle } from "./items";
+import { MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
 import { SYSTEM, badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
 import "./friends.css";
@@ -313,9 +313,11 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
   const groupRow = v?.groups?.find((g) => g.id === id);
   const name = group ? group.name || groupTitle(group.members.filter((m) => m !== meId).map((m) => people.get(m)?.name ?? "").filter(Boolean)) : (t?.friend?.name ?? friend?.name ?? groupRow?.name ?? "");
   const lastMine = t ? [...t.messages].reverse().find((m) => m.from === meId) : undefined;
-  // everyone's lines show in the chat bubble they wear from the Wardrobe
-  const bubble = (chat: string | undefined) => chatStyle(cosmetic(chat ?? "chat.house") ?? cosmetic("chat.house"));
-  const lookOf = (from: string) => bubble(from === meId ? t?.chat : group ? people.get(from)?.chat : t?.friend?.chat);
+  // everyone's lines look like the Lounge's: framed avatar, name, and the chat bubble they wear
+  const lineOf = (m: Dm): ChatLine => {
+    const p = m.from === meId ? null : group ? people.get(m.from) : t?.friend;
+    return { key: `${m.from}-${m.at}`, userId: m.from, name: p?.name ?? "Someone", text: m.text, at: m.at, badge: p ? badgeOf(p) : { level: 0, prestige: 0, frame: "frame.none", title: null, chat: t?.chat } };
+  };
   const act = async (f: () => Promise<unknown>) => {
     try {
       await f();
@@ -405,16 +407,11 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
                 </div>
               );
             const mine = m.from === meId;
-            // in a group, a run of lines from one person shows their name once
-            const first = group && !mine && t.messages[i - 1]?.from !== m.from;
+            // a run of lines from one person shows their avatar and name once
             return (
-              <div key={m.at + m.from} className={"fr-msg" + (mine ? " mine" : "")}>
-                {first && <span className="fr-from">{people.get(m.from)?.name ?? "Someone"}</span>}
-                <span className="fr-bubble" style={lookOf(m.from)}>
-                  {m.text}
-                </span>
+              <MessageRow key={m.at + m.from} line={lineOf(m)} mine={mine} first={t.messages[i - 1]?.from !== m.from} onPlayer={onPlayer}>
                 {!group && m === lastMine && t.theirRead >= m.at && <span className="fr-seen">Seen</span>}
-              </div>
+              </MessageRow>
             );
           })
         )}
@@ -563,19 +560,6 @@ export function InviteFriends({ code, seated, onText }: { code: string; /** user
   );
 }
 
-/** The lobby's way into friends: a button with a count of what's waiting. */
-export function FriendsButton({ onOpen }: { onOpen: () => void }) {
-  const v = useFriends();
-  const n = badgeCount(v);
-  // friends need the game server: nothing to show until the list has loaded from it
-  if (!v) return null;
-  return (
-    <button className="fr-open" onClick={onOpen} aria-label={n ? `Friends: ${n} waiting` : "Friends"}>
-      <span aria-hidden>👥</span> Friends
-      {n > 0 && <span className="fr-badge">{n}</span>}
-    </button>
-  );
-}
 
 /** A friend's invite while the app is open (their phone also buzzed, if alerts are on). */
 export function InviteToast({ busy, here }: { /** in a game: hold invites until it's over */ busy?: boolean; /** the table you're at already */ here?: string | null }) {
@@ -595,4 +579,26 @@ export function InviteToast({ busy, here }: { /** in a game: hold invites until 
       </button>
     </div>
   );
+}
+
+const badgeOf = (p: Person): Badge => ({ level: p.level, prestige: p.prestige, frame: p.frame, title: null, chat: p.chat });
+
+/**
+ * Friends inside the Lounge, the app's one chat button: its Friends tab, the count of what's waiting
+ * (requests, invites, unread messages), and new messages from friends to float over the lobby.
+ */
+export function useFriendsSlot(meId: string | undefined, onPlayer?: (id: string) => void): FriendsSlot | undefined {
+  const v = useFriends();
+  if (!v || !meId) return undefined;
+  const floats: ChatLine[] = [];
+  for (const f of v.friends)
+    if (f.unread > 0 && f.last && !f.last.mine) floats.push({ key: `dm-${f.id}-${f.last.at}`, userId: f.id, name: f.name, text: f.last.text, at: f.last.at, badge: badgeOf(f) });
+  for (const g of v.groups ?? [])
+    if (g.unread > 0 && g.last && g.last.who && g.last.who !== "You")
+      floats.push({ key: `group-${g.id}-${g.last.at}`, userId: g.id, name: `${g.last.who} · ${g.name || "group"}`, text: g.last.text, at: g.last.at });
+  return {
+    unread: badgeCount(v),
+    floats: floats.sort((a, b) => a.at - b.at),
+    render: () => <Friends meId={meId} onPlayer={onPlayer} />,
+  };
 }

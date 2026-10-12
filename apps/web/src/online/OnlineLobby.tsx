@@ -7,7 +7,7 @@ import { Chips, CrewBadge } from "../table/pieces";
 import { ALL_DRINKS, RANKED_LEVEL, RANKED_PLAYERS, levelInfo, rankedPublic } from "@heist/profile";
 import { PlayerCard } from "../account/Profile";
 import { Lounge } from "../account/Lounge";
-import { InviteFriends, InviteToast } from "../account/Friends";
+import { InviteFriends, InviteToast, useFriendsSlot } from "../account/Friends";
 import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
 import { session, type OnlineSession } from "./session";
@@ -60,6 +60,7 @@ export function OnlineLobby({
   onEnd?: () => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
+  const friendsSlot = useFriendsSlot(useAccount().me?.id);
   const room = sess.room;
   const [sol, setSol] = useState(false);
   // when this player got in line, for the wait clock
@@ -138,7 +139,7 @@ export function OnlineLobby({
         )}
       </motion.div>
       {/* chat with everyone while you pick a table, wait in the queue or wait for friends to sit down */}
-      <Lounge />
+      <Lounge friends={friendsSlot} />
       <InviteToast here={room?.code} />
     </div>
   );
