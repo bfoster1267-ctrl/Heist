@@ -246,8 +246,8 @@ function Game() {
           onExit={() => setSol(false)}
           onHeist={() => {
             setSol(false);
-            // never played Heist (Solitaire XP doesn't count): the coached first hand; otherwise Quick Play
-            if (!me.progress.coachGames && !me.progress.stats.games) return void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+            // a guest who never played Heist (Solitaire XP doesn't count): the coached first hand; otherwise Quick Play
+            if (me.guest && !me.progress.coachGames && !me.progress.stats.games) return void sit({ players: 3, name: me.name, stakes: 0, coached: true });
             const play = quickPlay(chips, me.name);
             if (play) void sit(play);
           }}
