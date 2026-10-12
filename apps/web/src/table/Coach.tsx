@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
 import { boxIn } from "../turn";
+import { Crew } from "./pieces";
 
 interface Step {
   anchor?: string;
@@ -98,7 +99,10 @@ const COACH: Partial<Record<Ask["kind"], { title: string; text: string }>> = {
   keepRole: { title: "Roles", text: "Each Role breaks one rule in your favor. Everyone can see everyone's Role, so pick one that fits how you want to play." },
   bank: { title: "Banking", text: "Banked cards are your cash. You spend it to hire crew and bet. Keep at least one Score or Fixer in hand to fight with." },
   hire: { title: "Hiring", text: "New crew come out of your reserve into a home hideout. More crew at home means stronger defense and bigger hits." },
-  action: { title: "Hit, bust or lay low", text: "A Hit flips the top Job card: its color picks the Mark. You attack one of their hideouts. Bust clears a rival's Foothold out of your own hideout." },
+  action: {
+    title: "Hit, bust or lay low",
+    text: "A Hit flips the top Job card: its color picks the Mark. You attack one of their hideouts. Bust clears a rival's Foothold out of your own hideout: each Bust button shows that rival's crew shape and the number of your hideout they're in. Wanted buttons show whose hideout you'd hit and its number.",
+  },
   pickHideout: { title: "Pick the target", text: "Fewer guards is an easier fight. Their crew at home get a home-turf bonus." },
   send: { title: "Send your crew", text: "Each crew is +1 to your side. Win and they each try to leave 1 behind as a Foothold. Lose and they all go to the Pen." },
   join: { title: "Pick a side", text: "Other players can join. Back the Boss to grab a Foothold, or defend the Mark to bank a Cut. Or stay out of it." },
@@ -216,6 +220,13 @@ export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState;
       {hint && said ? (
         <div className="coach-pick">
           <b>Hint:</b> {said}
+          {pick?.kind === "action" && (pick.choice === "bust" || pick.choice === "wanted") && (
+            // the same shape and number the button shows, so the pick is easy to find
+            <span className="move-target" aria-hidden>
+              <Crew color={s.players[pick.choice === "bust" ? pick.rival : pick.mark].color} size={18} />
+              <span className="ho-num">{pick.hideout + 1}</span>
+            </span>
+          )}
         </div>
       ) : null}
       {(idea || (said && !hint)) && (

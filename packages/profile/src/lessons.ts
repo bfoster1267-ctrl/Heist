@@ -46,7 +46,7 @@ const SEND: Idea = { hand: 1, kinds: ["send"], title: "Send your crew", text: "E
 const TARGET: Idea = { hand: 2, kinds: ["pickHideout", "pickMark"], title: "Pick the target", text: "Hit the hideout with the fewest guards that has none of your crew yet. A new hideout means a new Foothold." };
 const JOIN: Idea = { hand: 0, kinds: ["join"], title: "Pick a side", text: "When two rivals fight, you can join. Back the Boss to grab a Foothold, or defend the Mark to bank a Cut. Staying out is fine too." };
 const CASH: Idea = { hand: 1, kinds: ["bank", "hire"], at: ["bank"], title: "Cash and crew", text: "Cards you bank turn into cash. Spend $3 to hire another crew. Keep your best Score in hand to fight with." };
-const ACTION: Idea = { hand: 2, kinds: ["action", "again"], at: ["action"], title: "Hit, bust or lay low", text: "Now you choose your move. Hit a rival, bust a rival's Foothold out of your own hideout, or lay low when your hand is weak." };
+const ACTION: Idea = { hand: 2, kinds: ["action", "again"], at: ["action"], title: "Hit, bust or lay low", text: "Now you choose your move. Hit a rival, bust a rival's Foothold out of your own hideout, or lay low when your hand is weak. A Bust button shows the rival's crew shape and which of your hideouts they're in." };
 /** what an earlier lesson taught: yours from the start, not explained again */
 const known = (...ideas: Idea[]): Idea => ({ hand: 0, kinds: ideas.flatMap((i) => i.kinds), title: "", text: "" });
 
