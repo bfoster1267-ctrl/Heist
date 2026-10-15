@@ -1,9 +1,12 @@
-// First-game help: a short walkthrough of the table, then one coach tip the first time each kind of
+// First-game help: a three-step walkthrough of the table, then one coach tip the first time each kind of
 // decision comes up. Both remember what you've seen; the settings menu can replay or turn them off.
-import type { Ask, GameState } from "@heist/engine";
+import type { Answer, Ask, GameState } from "@heist/engine";
+import { MISTAKES, coachTip, describePick, type Idea, type MistakeId } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
+import { boxIn } from "../turn";
+import { Crew } from "./pieces";
 
 interface Step {
   anchor?: string;
@@ -11,15 +14,10 @@ interface Step {
   text: string;
 }
 
-const steps = (s: GameState): Step[] => [
+const steps = (s: GameState, lessonOn: boolean): Step[] => [
   {
     title: "Welcome to the table",
     text: `Heist is a game of crews, jobs and betrayal. Plant ${s.target} Footholds in rival hideouts and the pot is yours.`,
-  },
-  {
-    anchor: "my-seat",
-    title: "This is you",
-    text: "Your crew live in your three hideouts. Rivals will try to move in. Hover or long-press anything on the table to see what it is.",
   },
   {
     anchor: "my-fh",
@@ -28,30 +26,18 @@ const steps = (s: GameState): Step[] => [
   },
   {
     anchor: "my-hand",
-    title: "Your Job cards",
-    text: "Scores and Fixers fight at the showdown. Backup and Double-Cross swing a fight. The green coin is the card's cash if you bank it.",
-  },
-  {
-    anchor: "deck",
-    title: "The Job deck",
-    text: "Each time it runs out a dot lights up. On the third, it's Last Call: the game ends after that turn.",
-  },
-  {
-    anchor: "pen",
-    title: "The Pen",
-    text: "Lose a fight and your crew land here. One comes home at the start of each of your turns.",
-  },
-  {
     title: "Your turn, in short",
-    text: "Draw, bank cards for cash, hire crew, then hit a rival: the Job deck flips to pick the Mark. Tips pop up the first time each choice comes up.",
+    text: lessonOn
+      ? "Hit rivals with your crew and a card from this hand. This first game, the coach plays most of your turn; each hand you take over one more move. Long-press anything to see what it is."
+      : "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is.",
   },
 ];
 
 /** The walkthrough. Shows on the first game, or when replayed from settings. */
-export function Walkthrough({ s, canvas, scale, open, onClose }: { s: GameState; canvas: React.RefObject<HTMLDivElement | null>; scale: number; open: boolean; onClose: () => void }) {
+export function Walkthrough({ s, lessonOn = false, canvas, scale, open, onClose }: { s: GameState; lessonOn?: boolean; canvas: React.RefObject<HTMLDivElement | null>; scale: number; open: boolean; onClose: () => void }) {
   const [i, setI] = useState(0);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
-  const list = steps(s);
+  const list = steps(s, lessonOn);
   const st = list[i];
 
   useLayoutEffect(() => {
@@ -59,8 +45,8 @@ export function Walkthrough({ s, canvas, scale, open, onClose }: { s: GameState;
     const root = canvas.current;
     const el = st.anchor ? root?.querySelector(`[data-anchor="${st.anchor}"]`) : null;
     if (!root || !el) return setBox(null);
-    const r = el.getBoundingClientRect(), c = root.getBoundingClientRect();
-    setBox({ x: (r.left - c.left) / scale - 8, y: (r.top - c.top) / scale - 8, w: r.width / scale + 16, h: r.height / scale + 16 });
+    const r = boxIn(el, root);
+    setBox({ x: r.left / scale - 8, y: r.top / scale - 8, w: r.width / scale + 16, h: r.height / scale + 16 });
   }, [open, i, st.anchor, canvas, scale]);
 
   if (!open) return null;
@@ -113,7 +99,10 @@ const COACH: Partial<Record<Ask["kind"], { title: string; text: string }>> = {
   keepRole: { title: "Roles", text: "Each Role breaks one rule in your favor. Everyone can see everyone's Role, so pick one that fits how you want to play." },
   bank: { title: "Banking", text: "Banked cards are your cash. You spend it to hire crew and bet. Keep at least one Score or Fixer in hand to fight with." },
   hire: { title: "Hiring", text: "New crew come out of your reserve into a home hideout. More crew at home means stronger defense and bigger hits." },
-  action: { title: "Hit, bust or lay low", text: "A Hit flips the top Job card: its color picks the Mark. You attack one of their hideouts. Bust clears a rival's Foothold out of your own hideout." },
+  action: {
+    title: "Hit, bust or lay low",
+    text: "A Hit flips the top Job card: its color picks the Mark. You attack one of their hideouts. Bust clears a rival's Foothold out of your own hideout: each Bust button shows that rival's crew shape and the number of your hideout they're in. Wanted buttons show whose hideout you'd hit and its number.",
+  },
   pickHideout: { title: "Pick the target", text: "Fewer guards is an easier fight. Their crew at home get a home-turf bonus." },
   send: { title: "Send your crew", text: "Each crew is +1 to your side. Win and they each try to leave 1 behind as a Foothold. Lose and they all go to the Pen." },
   join: { title: "Pick a side", text: "Other players can join. Back the Boss to grab a Foothold, or defend the Mark to bank a Cut. Or stay out of it." },
@@ -127,58 +116,160 @@ const COACH: Partial<Record<Ask["kind"], { title: string; text: string }>> = {
   discard: { title: "Hand limit", text: "You can hold 7 cards at the end of your turn. Pick the extras to throw away." },
 };
 
+/**
+ * A coach card that covers the whole table on purpose: it can't get cut off or sit on a button, and Next
+ * puts it away so the decision is yours. It lives inside the table canvas, so it turns and scales with it
+ * (phone upright, on its side, notch and all).
+ */
+function CoachCard({ tone, title, tag, label, children, actions, delay = 0 }: { tone: string; title: string; tag?: string; label: string; children: React.ReactNode; actions: React.ReactNode; delay?: number }) {
+  return (
+    <motion.div className={"coach-sheet " + tone} role="dialog" aria-modal="true" aria-label={label} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay }}>
+      <motion.div className="coach-card" initial={{ y: 24, scale: 0.96 }} animate={{ y: 0, scale: 1 }} transition={{ delay, type: "spring", stiffness: 260, damping: 24 }}>
+        <div className="coach-card-title">
+          {tag && <span className="coach-new-tag">{tag}</span>}
+          {title}
+        </div>
+        <div className="coach-card-text">{children}</div>
+        <div className="coach-card-btns">{actions}</div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 /** One coach tip, the first time each kind of decision comes up. */
 export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
   const prefs = usePrefs();
   const tip = ask && !blocked && prefs.tips && !prefs.seen.includes(ask.kind) ? COACH[ask.kind] : undefined;
-  const above = useAbovePanel(!!tip && ask?.kind !== "keepRole");
   return (
     <AnimatePresence>
       {tip && ask && (
-        <motion.div
+        <CoachCard
           key={ask.kind}
-          ref={above}
-          className={"coach" + (ask.kind === "keepRole" ? " top" : "")}
-          role="note"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          transition={{ delay: 0.25 }}
+          tone="tip"
+          title={tip.title}
+          label={tip.title}
+          delay={0.25}
+          actions={
+            <>
+              <button className="btn ghost" onClick={() => setPrefs({ tips: false })}>
+                No more tips
+              </button>
+              <span style={{ flex: 1 }} />
+              <button className="btn primary" autoFocus onClick={() => markSeen(ask.kind)}>
+                Next
+              </button>
+            </>
+          }
         >
-          <div className="coach-title">{tip.title}</div>
-          <div className="coach-text">{tip.text}</div>
-          <div className="btns">
-            <button className="btn small primary" onClick={() => markSeen(ask.kind)}>
-              Got it
-            </button>
-            <button className="btn small ghost" onClick={() => setPrefs({ tips: false })}>
-              No more tips
-            </button>
-          </div>
-        </motion.div>
+          {tip.text}
+        </CoachCard>
       )}
     </AnimatePresence>
   );
 }
 
-/** The action panel changes height with each decision (and with the text size), so sit the tip just
- *  above it rather than at a fixed height that can cover the panel's title. */
-function useAbovePanel(on: boolean) {
-  const [el, setEl] = useState<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const parent = el?.offsetParent as HTMLElement | null;
-    const panel = parent?.querySelector<HTMLElement>(".action-panel");
-    if (!on || !el || !parent || !panel) return;
-    const place = () => {
-      const H = parent.clientHeight;
-      const bottom = Math.min(H - panel.offsetTop + 8, H - el.offsetHeight - 8);
-      el.style.bottom = `${Math.max(8, bottom)}px`;
-    };
-    place();
-    const ro = new ResizeObserver(place);
-    ro.observe(panel);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [on, el]);
-  return setEl;
+/** Coached play: a new idea gets the whole screen once. Next hands the decision back to you. */
+export function CoachIdea({ idea, onNext, onOff }: { idea: Idea | undefined; onNext: () => void; onOff: () => void }) {
+  return (
+    <AnimatePresence>
+      {idea && (
+        <CoachCard
+          key={idea.title}
+          tone="live"
+          tag="New"
+          title={idea.title}
+          label={`New idea: ${idea.title}`}
+          delay={0.35}
+          actions={
+            <>
+              <button className="btn ghost" onClick={onOff}>
+                Skip coaching
+              </button>
+              <span style={{ flex: 1 }} />
+              <button className="btn primary" autoFocus onClick={onNext}>
+                Next
+              </button>
+            </>
+          }
+        >
+          {idea.text}
+        </CoachCard>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/**
+ * Coached play: the coach's short read of the decision, sitting just above your decision buttons as part
+ * of the panel, so it moves with it and never covers a choice. The coach's own pick stays hidden until you
+ * ask for a hint, and a good move gets a cheer.
+ */
+export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState; ask: Ask; idea?: Idea; pick: Answer | null; cheer: string | null; onIdea: () => void }) {
+  const tip = coachTip(s, ask);
+  const said = pick ? describePick(s, ask, pick) : "";
+  const [hint, setHint] = useState(false);
+  if (!tip && !cheer && !idea) return null;
+  return (
+    <div className="coach-line" role="note" aria-label="Coach">
+      {cheer && <div className="coach-cheer">{cheer}</div>}
+      {tip && (
+        <div className="coach-line-text">
+          <b>Coach:</b> {tip}
+        </div>
+      )}
+      {hint && said ? (
+        <div className="coach-pick">
+          <b>Hint:</b> {said}
+          {pick?.kind === "action" && (pick.choice === "bust" || pick.choice === "wanted") && (
+            // the same shape and number the button shows, so the pick is easy to find
+            <span className="move-target" aria-hidden>
+              <Crew color={s.players[pick.choice === "bust" ? pick.rival : pick.mark].color} size={18} />
+              <span className="ho-num">{pick.hideout + 1}</span>
+            </span>
+          )}
+        </div>
+      ) : null}
+      {(idea || (said && !hint)) && (
+        <div className="coach-line-btns">
+          {idea && (
+            <button className="coach-hint" onClick={onIdea}>
+              <span className="coach-new-tag">New</span>
+              {idea.title}
+            </button>
+          )}
+          {said && !hint && (
+            <button className="coach-hint" onClick={() => setHint(true)}>
+              Get a hint
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Coached play: a rookie mistake is caught before it's played. You can still play it. */
+export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId; before: number; onAnyway: () => void; onChange: () => void }) {
+  const m = MISTAKES[id];
+  return (
+    <CoachCard
+      tone="mistake"
+      title={`Hold on: ${m.title.toLowerCase()}`}
+      label={m.title}
+      actions={
+        <>
+          <button className="btn ghost" onClick={onAnyway}>
+            Do it anyway
+          </button>
+          <span style={{ flex: 1 }} />
+          <button className="btn primary" autoFocus onClick={onChange}>
+            Change my move
+          </button>
+        </>
+      }
+    >
+      {m.why}
+      {before > 0 && <> You've made this one {before} time{before === 1 ? "" : "s"} before.</>}
+    </CoachCard>
+  );
 }

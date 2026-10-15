@@ -6,12 +6,27 @@ import { HeistClient } from "@heist/server/client";
 import type { RoomInfo, SeenFrame, ServerMsg } from "@heist/server/protocol";
 import type { GameState } from "@heist/engine";
 
-const TOKEN_KEY = "heist.serverToken";
+// the same session token the account uses, so online games count toward the player's career
+const TOKEN_KEY = "heist.session";
+
+function storedToken(): string | undefined {
+  try {
+    return localStorage.getItem(TOKEN_KEY) ?? undefined;
+  } catch {
+    return undefined; /* private mode */
+  }
+}
+
+/** The account a session token belongs to ("a.<account>.<sessions>.<expiry>.<signature>"). */
+function accountOf(token: string | undefined): string | null {
+  return token?.split(".")[1] ?? null;
+}
 
 /** Where the game server is: VITE_SERVER_URL, the dev server on localhost, or the page's own host. */
 export function serverUrl(): string {
   const env = import.meta.env.VITE_SERVER_URL as string | undefined;
-  if (env) return env;
+  // an http(s) address is the server itself (as the accounts code uses it); a ws(s) one is the socket
+  if (env && env !== "same-origin") return /^http/.test(env) ? env.replace(/^http/, "ws").replace(/\/?$/, "/ws") : env;
   const { protocol, hostname, host } = location;
   if (hostname === "localhost" || hostname === "127.0.0.1") return `ws://${hostname}:8787/ws`;
   // the GitHub Pages build talks to the hosted server; the server also serves the app at its own address
@@ -37,20 +52,27 @@ export class OnlineSession {
   error: string | null = null;
   status: "idle" | "connecting" | "online" | "offline" = "idle";
   gameOver: Extract<ServerMsg, { t: "gameOver" }> | null = null;
+  /** waiting in the quick queue */
+  queue: Extract<ServerMsg, { t: "queue" }> | null = null;
+  /** when this player got in line, for the wait clock (kept while they wander off the queue screen) */
+  queuedSince = 0;
   private listeners = new Set<Listener>();
   private frameListeners = new Set<(m: ServerMsg) => void>();
 
+  /** the token this socket says hello with */
+  private token: string | undefined;
+
   constructor(name: string) {
-    let token: string | undefined;
-    try {
-      token = localStorage.getItem(TOKEN_KEY) ?? undefined;
-    } catch {
-      /* private mode */
-    }
+    this.token = storedToken();
     this.client = new HeistClient(serverUrl(), {
       name,
-      token,
+      token: this.token,
       onToken: (t) => {
+        this.token = t;
+        // A refreshed token for the account the app is signed in to. Never write over the app's
+        // sign-in with a different account's token (a socket opened before the player signed in).
+        const stored = storedToken();
+        if (stored && accountOf(stored) !== accountOf(t)) return;
         try {
           localStorage.setItem(TOKEN_KEY, t);
         } catch {
@@ -59,6 +81,13 @@ export class OnlineSession {
       },
     });
     this.client.onAny((m) => this.receive(m));
+    // in the background the server sends a phone alert when it's your turn (see push.ts)
+    if (typeof document !== "undefined") {
+      const seen = () => this.client.setAway(document.visibilityState === "hidden");
+      document.addEventListener("visibilitychange", seen);
+      window.addEventListener("pagehide", () => this.client.setAway(true));
+      window.addEventListener("pageshow", seen);
+    }
     // a dropped socket reconnects by itself; show that while it does
     this.client.onConnection((up) => {
       this.status = up ? "online" : "connecting";
@@ -74,7 +103,19 @@ export class OnlineSession {
     return this.client.seat;
   }
 
+  /**
+   * Follow the app's account: after signing in (or out) since the socket opened, play as that account.
+   * Without this the socket stays the guest it said hello as, and the server turns down Ranked.
+   */
+  syncAccount() {
+    const stored = storedToken();
+    if (!stored || accountOf(stored) === accountOf(this.token)) return;
+    this.token = stored;
+    this.client.setToken(stored);
+  }
+
   async connect() {
+    this.syncAccount();
     if (this.status === "online" || this.status === "connecting") return;
     this.status = "connecting";
     this.emit();
@@ -95,6 +136,15 @@ export class OnlineSession {
         break;
       case "rooms":
         this.rooms = m.rooms;
+        break;
+      case "queue":
+        this.queue = m;
+        break;
+      case "unqueued":
+        this.queue = null;
+        break;
+      case "room":
+        this.queue = null;
         break;
       case "sync":
         this.feed = { game: m.game, base: { state: m.state, log: m.log }, frames: [] };
@@ -131,8 +181,12 @@ export class OnlineSession {
       case "error":
         // a stale or late answer after a timeout isn't worth a message
         if (m.code !== "stale_ask" && m.code !== "not_your_turn") this.error = m.msg;
+        // a turned-down queue request (or a table that couldn't be dealt) means we're not in line any more
+        if (!this.client.queued) this.queue = null;
         break;
     }
+    if (this.queue && !this.queuedSince) this.queuedSince = Date.now();
+    else if (!this.queue) this.queuedSince = 0;
     for (const f of this.frameListeners) f(m);
     this.emit();
   }

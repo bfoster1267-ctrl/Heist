@@ -1,13 +1,17 @@
-// The table's settings popover: sound, motion, tips, and the walkthrough.
+// The table's settings popover: sound, motion, tips, and the walkthrough. The table's look is worn from
+// the Wardrobe.
 import { motion } from "motion/react";
 import { useState } from "react";
-import { THEMES, setPrefs, usePrefs, type MotionPref } from "../prefs";
-import { chip, getVolume, isMuted, setMuted, setVolume } from "../sound";
+import { setPrefs, usePrefs, type MotionPref } from "../prefs";
+import { chip, getMusicVolume, getVolume, isMuted, setMusicVolume, setMuted, setVolume } from "../sound";
+import { turnOffAlerts, turnOnAlerts, useAlertState } from "../alerts";
 
 export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () => void }) {
   const prefs = usePrefs();
   const [muted, setMute] = useState(isMuted());
   const [vol, setVol] = useState(getVolume());
+  const [music, setMusic] = useState(getMusicVolume());
+  const alerts = useAlertState();
   return (
     <motion.div className="settings" role="dialog" aria-label="Settings" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
       <div className="settings-head">
@@ -15,15 +19,6 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         <button className="icon-btn" onClick={onClose} aria-label="Close settings">
           ✕
         </button>
-      </div>
-
-      <div className="theme-pick" role="radiogroup" aria-label="Table">
-        {THEMES.map((t) => (
-          <button key={t.id} role="radio" aria-checked={prefs.theme === t.id} className={"theme-swatch" + (prefs.theme === t.id ? " on" : "")} onClick={() => setPrefs({ theme: t.id })}>
-            <i style={{ background: t.felt, borderColor: t.rail }} />
-            {t.name}
-          </button>
-        ))}
       </div>
 
       <label className="set-row">
@@ -38,7 +33,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         />
       </label>
       <label className="set-row">
-        <span>Volume</span>
+        <span>Effects</span>
         <input
           type="range"
           min={0}
@@ -53,6 +48,35 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
           onPointerUp={() => chip()}
         />
       </label>
+
+      <label className="set-row">
+        <span>Music</span>
+        <input
+          type="range"
+          min={0}
+          max={1}
+          step={0.05}
+          value={prefs.tableMusic ? music : 0}
+          disabled={muted}
+          aria-valuetext={prefs.tableMusic && music > 0 ? `${Math.round(music * 100)}%` : "Off"}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            setMusicVolume(v);
+            setMusic(v);
+            if ((v > 0) !== prefs.tableMusic) setPrefs({ tableMusic: v > 0 });
+          }}
+        />
+      </label>
+      {alerts !== "unsupported" && (
+        <label className="set-row">
+          <span>Turn alerts and invites</span>
+          {alerts === "on" || alerts === "off" ? (
+            <input type="checkbox" checked={alerts === "on"} onChange={(e) => void (e.target.checked ? turnOnAlerts() : turnOffAlerts())} />
+          ) : (
+            <span className="set-note">{alerts === "needs-install" ? "Add Heist to your Home Screen first" : "Allow notifications for Heist in your phone's settings"}</span>
+          )}
+        </label>
+      )}
 
       <div className="set-row">
         <span>Motion</span>

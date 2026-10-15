@@ -1,8 +1,9 @@
 import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
-import { motion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { motion, useIsPresent } from "motion/react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { buzz } from "../haptics";
 import { click } from "../sound";
+import { panelRoom } from "./layout";
 import { pressable } from "./Seat";
 import { CardFace, Crew, RoleCard } from "./pieces";
 
@@ -30,12 +31,14 @@ function Stepper({ value, min, max, onChange }: { value: number; min: number; ma
   );
 }
 
-function Btn({ children, onClick, kind = "", disabled }: { children: React.ReactNode; onClick: () => void; kind?: string; disabled?: boolean }) {
+function Btn({ children, onClick, kind = "", disabled, label }: { children: React.ReactNode; onClick: () => void; kind?: string; disabled?: boolean; label?: string }) {
   return (
     <motion.button
       whileTap={{ scale: 0.94 }}
       className={"btn " + kind}
       disabled={disabled}
+      aria-label={label}
+      title={label}
       onClick={() => {
         click();
         buzz("tap");
@@ -55,6 +58,7 @@ export function ActionPanel({
   setSel,
   answer,
   clock,
+  coach,
 }: {
   ask: Ask;
   s: GameState;
@@ -64,10 +68,14 @@ export function ActionPanel({
   answer: (a: Answer) => void;
   /** shown in the title row (online: the turn clock) */
   clock?: ReactNode;
+  /** Coached play: the coach's short read, sitting just above the decision buttons */
+  coach?: ReactNode;
 }) {
   const [n, setN] = useState(1);
   const [n2, setN2] = useState(0);
   const panel = useRef<HTMLDivElement>(null);
+  // Each move swaps in a new panel while the old one fades; mark the old one so it can be told apart
+  const present = useIsPresent();
   // Move keyboard focus to the first choice so the game plays from the keyboard.
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -76,8 +84,25 @@ export function ActionPanel({
     }, 60);
     return () => clearTimeout(t);
   }, [ask]);
+  // On a phone held sideways the panel grows up from the bottom corner; stop it under the seat above
+  const [room, setRoom] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const fit = () => {
+      const el = panel.current, canvas = el?.closest<HTMLElement>(".canvas");
+      if (el && canvas) setRoom(panelRoom(el, canvas));
+    };
+    fit();
+    // seats grow a moment later when it's their turn, and the window can turn
+    const t = window.setTimeout(fit, 450);
+    window.addEventListener("resize", fit);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", fit);
+    };
+  }, [ask]);
   const P = s.players[seat];
   const name = (p: number) => s.players[p].name;
+  const color = (p: number) => s.players[p].color;
   const me = seat;
   useEffect(() => {
     setSel([]);
@@ -89,6 +114,8 @@ export function ActionPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ask]);
   const j = s.job;
+  // Already have crew in the job's hideout? Winning leaves no new Foothold there, so all of yours come home.
+  const alreadyIn = !!j && j.kind === "hit" && s.players[j.mark].hideouts[j.hideout][seat] > 0;
   const odds = j && j.kind === "hit" ? jobBases(s, j) : null;
   const oddsLine = odds && j ? (
     <div className="odds">
@@ -187,34 +214,60 @@ export function ActionPanel({
         </div>
       );
       break;
-    case "action":
+    case "action": {
       title = "Your move";
+      // Short buttons: the rival's crew shape and the hideout's number, so the panel stays clear of the seats
+      const where = (p: number, h: number, inThere = false) => (
+        <span className="move-target">
+          <Crew color={color(p)} size={22} />
+          <span className="ho-num">{h + 1}</span>
+          {inThere && <span className="ho-in">in</span>}
+        </span>
+      );
       body = (
-        <>
-          <div className="btns wrap">
+        <div className="move-grid">
+          <div className="btns">
             {ask.canHit && (
-              <Btn kind="primary big" onClick={() => answer({ kind: "action", choice: "hit" })}>
-                {P.role === "mastermind" ? "Hit (pick the Mark)" : "Hit (flip for the Mark)"}
+              <Btn kind="primary big" label={P.role === "mastermind" ? "Hit (pick the Mark)" : "Hit (flip for the Mark)"} onClick={() => answer({ kind: "action", choice: "hit" })}>
+                Hit
               </Btn>
             )}
-            {ask.busts.map((b) => (
-              <Btn key={`b${b.hideout}-${b.rival}`} kind="danger" onClick={() => answer({ kind: "action", choice: "bust", hideout: b.hideout, rival: b.rival })}>
-                Bust {name(b.rival)} out of hideout {b.hideout + 1}
-              </Btn>
-            ))}
-            {ask.wanted.map((w) => (
-              <Btn key={`w${w.mark}-${w.hideout}`} kind="warn" onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
-                Wanted: hit {name(w.mark)}'s hideout {w.hideout + 1}
-              </Btn>
-            ))}
             <Btn kind="ghost" onClick={() => answer({ kind: "action", choice: "pass" })}>
               Lay low
             </Btn>
           </div>
-          {ask.wanted.length > 0 && <div className="hint">Wanted: {name(ask.wanted[0].leader)} leads. Hit a hideout holding their crew.</div>}
-        </>
+          {ask.busts.length > 0 && (
+            <div className="btns wrap">
+              <span className="lbl">Bust</span>
+              {ask.busts.map((b) => (
+                <Btn key={`b${b.hideout}-${b.rival}`} kind="danger target" label={`Bust ${name(b.rival)} out of hideout ${b.hideout + 1}`} onClick={() => answer({ kind: "action", choice: "bust", hideout: b.hideout, rival: b.rival })}>
+                  {where(b.rival, b.hideout)}
+                </Btn>
+              ))}
+            </div>
+          )}
+          {ask.wanted.length > 0 && (
+            <div className="btns wrap">
+              <span className="lbl">Wanted</span>
+              {ask.wanted.map((w) => {
+                const inThere = s.players[w.mark].hideouts[w.hideout][seat] > 0;
+                return (
+                  <Btn key={`w${w.mark}-${w.hideout}`} kind="warn target" label={`Wanted: hit ${name(w.mark)}'s hideout ${w.hideout + 1}${inThere ? " (you're already in)" : ""}`} onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
+                    {where(w.mark, w.hideout, inThere)}
+                  </Btn>
+                );
+              })}
+            </div>
+          )}
+          {ask.wanted.length > 0 && (
+            <div className="hint">
+              <Crew color={color(ask.wanted[0].leader)} size={14} /> {name(ask.wanted[0].leader)} leads. Hit their crew.
+            </div>
+          )}
+        </div>
       );
       break;
+    }
     case "pickMark":
       title = ask.why === "mastermind" ? "Mastermind: pick the Mark" : "Nobody's color. Pick the Mark";
       body = (
@@ -273,7 +326,11 @@ export function ActionPanel({
               Send {n}
             </Btn>
           </div>
-          <div className="hint">Win and each crew on your side leaves 1 behind as a Foothold. Lose and they all go to the Pen.</div>
+          <div className="hint">
+            {alreadyIn
+              ? "You already have a Foothold in this hideout, so a win adds none: all your crew come home. Lose and they all go to the Pen."
+              : "Win: 1 of your crew stays in this hideout as a Foothold and the rest come home. Lose: they all go to the Pen."}
+          </div>
         </>
       );
       break;
@@ -282,9 +339,10 @@ export function ActionPanel({
       body = (
         <>
           {oddsLine}
+          {alreadyIn && <div className="already-in">You already have crew in this hideout. Backing the Boss can't win you a new Foothold here.</div>}
           {ask.split ? (
             <div className="btns wrap">
-              <span className="lbl">Boss</span>
+              <span className="lbl">Boss{alreadyIn ? " (you're already in)" : ""}</span>
               <Stepper value={n} min={0} max={ask.max - n2} onChange={setN} />
               <span className="lbl">Mark</span>
               <Stepper value={n2} min={0} max={ask.max - n} onChange={setN2} />
@@ -299,7 +357,7 @@ export function ActionPanel({
             <div className="btns wrap">
               <Stepper value={n} min={1} max={ask.max} onChange={setN} />
               <Btn kind="gold" onClick={() => answer({ kind: "join", B: n, M: 0 })}>
-                Back the Boss
+                Back the Boss{alreadyIn ? " (you're already in)" : ""}
               </Btn>
               <Btn kind="danger" onClick={() => answer({ kind: "join", B: 0, M: n })}>
                 Defend the Mark
@@ -309,7 +367,11 @@ export function ActionPanel({
               </Btn>
             </div>
           )}
-          <div className="hint">Boss side wins: you leave 1 crew as a Foothold. Mark holds: defenders bank a Cut.</div>
+          <div className="hint">
+            {alreadyIn
+              ? "Boss side wins: you already have a Foothold here, so your crew all come home. Mark holds: defenders bank a Cut."
+              : "Boss side wins: you leave 1 crew as a Foothold. Mark holds: defenders bank a Cut."}
+          </div>
         </>
       );
       break;
@@ -483,7 +545,9 @@ export function ActionPanel({
   return (
     <motion.div
       ref={panel}
-      className={"action-panel" + (ask.kind === "keepRole" ? " wide" : "")}
+      className={"action-panel" + (ask.kind === "keepRole" ? " wide" : ask.kind === "action" ? " compact" : "")}
+      data-leaving={present ? undefined : ""}
+      style={room ? { maxHeight: room, overflowY: "auto" } : undefined}
       key={ask.kind}
       role="group"
       aria-labelledby="action-title"
@@ -497,6 +561,7 @@ export function ActionPanel({
         {clock}
       </div>
       {body}
+      {coach}
     </motion.div>
   );
 }

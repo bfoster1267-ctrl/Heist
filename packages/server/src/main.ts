@@ -5,25 +5,82 @@
 //   ALLOWED_ORIGINS comma-separated browser origins allowed to connect (default: any)
 //   COMPRESSION     set to 0 to turn off WebSocket compression
 //   TURN_GRACE_MS   how long a dropped player's decision waits before a bot answers (default 20000)
+//   QUEUE_WAIT_MS   quick queue: how long the first in line waits before bots fill the table (default 120000)
+//   GOOGLE_CLIENT_IDS    Google OAuth client id(s), comma-separated: turns on Sign in with Google
+//   APPLE_CLIENT_IDS     Apple Services ID (web) and app bundle id, comma-separated: turns on Sign in with Apple
+//   FACEBOOK_APP_ID, FACEBOOK_APP_SECRET   turn on Continue with Facebook
+//   WEB_DIR         a built web app to serve at / (the Docker image sets this)
+//   ADMIN_PASSWORD  turns on the admin panel at /admin (sign in with ADMIN_USER, default "admin")
+//   ADMIN_USER      the admin panel's username
+//   RENDER_API_KEY  a Render API key: the admin panel's Server page shows Render's CPU, memory, traffic and deploys
+//   VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY   turn on phone turn alerts (web push); make a pair with `npm run vapid -w packages/server`
+//   DEV_LOGINS=1    sign in by name with no password (local testing only)
 
-import { GuestIdentity } from "./identity";
+import { AccountService } from "./accounts/service";
+import { FileActivityLog } from "./accounts/activity";
+import { AdminTeam } from "./accounts/admins";
+import { Hosting } from "./accounts/hosting";
+import { FileAccountStore } from "./accounts/store";
 import { startServer } from "./server";
 import { FileStore } from "./store";
+import { Pusher } from "./push";
+import { FileDmStore } from "./accounts/social";
 
 const env = process.env;
 const log = (msg: string, extra?: object) => console.log(JSON.stringify({ at: new Date().toISOString(), msg, ...extra }));
-if (!env.TOKEN_SECRET) log("TOKEN_SECRET not set: guest tokens won't survive a restart");
+if (!env.TOKEN_SECRET) log("TOKEN_SECRET not set: sign-ins won't survive a restart");
+const list = (v: string | undefined) => (v ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const dataDir = env.DATA_DIR ?? "./data";
+
+const accounts = new AccountService({
+  store: new FileAccountStore(dataDir),
+  secret: env.TOKEN_SECRET,
+  devLogins: env.DEV_LOGINS === "1",
+  activity: new FileActivityLog(dataDir),
+  oauth: {
+    google: { clientIds: list(env.GOOGLE_CLIENT_IDS) },
+    apple: { clientIds: list(env.APPLE_CLIENT_IDS) },
+    facebook: env.FACEBOOK_APP_ID && env.FACEBOOK_APP_SECRET ? { appId: env.FACEBOOK_APP_ID, appSecret: env.FACEBOOK_APP_SECRET } : undefined,
+  },
+});
+let push: Pusher | undefined;
+if (env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY) {
+  try {
+    push = new Pusher({ publicKey: env.VAPID_PUBLIC_KEY.trim(), privateKey: env.VAPID_PRIVATE_KEY.trim() }, { log });
+  } catch (e) {
+    log("VAPID keys unusable: turn alerts are off", { err: String(e) });
+  }
+} else log("VAPID keys not set: turn alerts are off");
+const adminPassword = env.ADMIN_PASSWORD ?? "";
+if (adminPassword.length < 12) log("ADMIN_PASSWORD missing or under 12 characters: the admin panel is off");
+log("sign-in providers", { providers: [...accounts.oauth.providers(), "email", ...(accounts.devLogins ? ["dev"] : [])] });
 
 const server = await startServer({
   port: Number(env.PORT ?? 8787),
-  store: new FileStore(env.DATA_DIR ?? "./data"),
-  identity: new GuestIdentity(env.TOKEN_SECRET),
+  store: new FileStore(dataDir),
+  accounts,
   allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(",").map((s) => s.trim()) : [],
   compression: env.COMPRESSION !== "0",
+  webDir: env.WEB_DIR || undefined,
   graceMs: env.TURN_GRACE_MS ? Number(env.TURN_GRACE_MS) : undefined,
+  admin: adminPassword.length >= 12 ? { user: env.ADMIN_USER || "admin", password: adminPassword, secret: env.TOKEN_SECRET, team: AdminTeam.inDir(dataDir) } : undefined,
+  hosting: new Hosting({ dataDir, renderKey: env.RENDER_API_KEY || undefined, serviceId: env.RENDER_SERVICE_ID || undefined, plan: "starter", diskGb: 1 }),
+  push,
+  dms: new FileDmStore(dataDir),
+  boardDir: dataDir,
+  queueWaitMs: env.QUEUE_WAIT_MS ? Number(env.QUEUE_WAIT_MS) : undefined,
   log,
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
 });
+
+// guests who opened the site, never played a game and haven't been back in 30 days are removed
+const prune = () =>
+  accounts.pruneGuests().then(
+    (removed) => removed && log("removed untouched guests", { removed }),
+    (e) => log("guest cleanup failed", { err: String(e) }),
+  );
+setTimeout(prune, 10 * 60_000).unref();
+setInterval(prune, 6 * 60 * 60_000).unref();
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {

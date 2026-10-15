@@ -60,6 +60,15 @@ export class Rooms {
     return room;
   }
 
+  all(): Room[] {
+    return [...this.byCode.values()];
+  }
+
+  byId(id: string): Room | undefined {
+    for (const r of this.byCode.values()) if (r.id === id) return r;
+    return undefined;
+  }
+
   get(code: unknown): Room | undefined {
     return typeof code === "string" ? this.byCode.get(code.trim().toUpperCase()) : undefined;
   }

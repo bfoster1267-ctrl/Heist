@@ -1,18 +1,24 @@
-import { CREWS, type GameState } from "@heist/engine";
+import { stage, type Reward } from "@heist/profile";
+import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
+import { useIsland } from "../island";
 import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
 import { chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN as LOCAL_SEAT, useTable, type HistoryEntry, type TableSettings, type TableSource } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
+import { useLook } from "../account/useAccount";
+import { FirstWin } from "../account/FirstWin";
 import { Bubbles, ChatTray, useBubbles } from "./Chat";
 import { botRound, DrinkLayer, DRINKS, useDrinks } from "./Drinks";
-import { Coach, Walkthrough } from "./Coach";
+import { isVault } from "../vault";
+import { Coach, CoachIdea, CoachLine, MistakeCheck, Walkthrough } from "./Coach";
+import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
-import { seatGrow, seatPos, useLayout } from "./layout";
+import { clearSpot, seatGrow, seatPos, useLayout, type Spot } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
@@ -47,6 +53,23 @@ function TurnSteps({ who, step }: { who: string; step: number }) {
 }
 
 /** Events that shake the table a little. */
+/** what the coach says after a move that isn't a mistake */
+const CHEERS = ["Good move.", "Nice, that works.", "Solid choice.", "You're getting the hang of it.", "Smart play."];
+/** what the waiting line says while the coach plays a decision the lesson hasn't handed you yet */
+const COACH_DOES: Partial<Record<string, string>> = {
+  bank: "banking for you",
+  hire: "hiring for you",
+  action: "picking this turn's move",
+  pickMark: "picking the Mark",
+  pickHideout: "picking the hideout",
+  send: "sending your crew",
+  join: "picking your side",
+  discard: "tidying your hand",
+  again: "deciding whether to go again",
+  bet: "handling the side bet",
+  doubleCross: "handling Double-Cross",
+  backup: "handling Backup",
+};
 const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
 
 export function Table({
@@ -54,35 +77,62 @@ export function Table({
   onExit,
   onGameOver,
   onAgain,
+  buyDrink,
   againLabel,
   forfeit,
   seat = LOCAL_SEAT,
   useSource = useTable,
   talk,
+  bubbleLooks,
   watching = false,
   away,
   clock,
+  mistakes,
+  clean = false,
+  tags,
+  onName,
+  place = "At the table",
+  turnRef,
+  firstReward,
 }: {
+  /** the new player's first hand: what it earned, shown on its game-over card */
+  firstReward?: Reward | null;
+  /** the small line under the title in the Dynamic Island / lock screen ("Table K7QX") */
+  place?: string;
+  /** kept up to date with the job the table is on (so a player walking out can say where) */
+  turnRef?: { current: number };
   settings: TableSettings;
+  /** Ranked: a clean HUD, no coach tips or explainer lines, just the table and your choices */
+  clean?: boolean;
+  /** online: a short tag by each seat's name (their ranked rank) */
+  tags?: Record<number, string>;
+  /** online: tap a player's name to see their profile */
+  onName?: (seat: number) => void;
+  /** Coached play: the rookie mistakes this player has made before */
+  mistakes?: MistakeCounts;
   onExit: () => void;
-  onGameOver: (won: number) => void;
+  onGameOver: (won: number, answers: Answer[]) => void;
   /** deal the next game; left out online when only the host can deal */
   onAgain?: () => void;
   /** the label on that button (default "Deal again") */
   againLabel?: string;
+  /** pay for a drink (coins) before it's sent; false = couldn't pay */
+  buyDrink?: (emoji: string, count: number) => Promise<boolean>;
   /** online: you weren't at the table when the game ended, so it counts as abandoned */
   forfeit?: boolean;
   /** The seat this player sits in. */
   seat?: number;
   /** Where the game comes from: the local game vs bots by default, or an online table. Keep it fixed for the Table's lifetime. */
   useSource?: (settings: TableSettings) => TableSource;
-  /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
+  /** online: the chat bubble each seat wears (from its badge), so everyone's lines show in their own style */
+  bubbleLooks?: Record<number, string | undefined>;
   /** Watching, not playing (online): the table is drawn from `seat`, but it isn't yours. */
   watching?: boolean;
   /** online: seats whose player has dropped or is on autopilot */
   away?: Record<number, "away" | "bot">;
   /** online: the turn clock, shown on your action panel */
   clock?: ReactNode;
+  /** Table talk shared with other players (online): what you say goes out, and everyone's lines come back as bubbles. */
   talk?: {
     send: (text: string) => void;
     listen: (heard: (seat: number, text: string) => void) => () => void;
@@ -103,11 +153,29 @@ export function Table({
   const [showSettings, setShowSettings] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showRules, setShowRules] = useState(false);
+  // Coached play: an answer held back because the coach spotted a rookie mistake in it
+  const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
+  // while a table is open, an upright phone draws the page sideways (see turn.ts)
+  useEffect(() => {
+    document.documentElement.classList.add("in-game");
+    return () => document.documentElement.classList.remove("in-game");
+  }, []);
+  /** Coached play: a word of praise for the move just made, shown for a few seconds */
+  const [cheer, setCheer] = useState<string | null>(null);
+  useEffect(() => {
+    if (!cheer) return;
+    const id = setTimeout(() => setCheer(null), 6000);
+    return () => clearTimeout(id);
+  }, [cheer]);
+  useEffect(() => setHeld(null), [t.ask]);
+  // Coached play: the learner can wave the coach off and finish the game on their own
+  const [coachOff, setCoachOff] = useState(false);
   // Which part of the Boss's turn we're in, from the latest event (kept when an event doesn't say).
   const stepRef = useRef(0);
   const evNow = t.shown?.ev;
   if (evNow && STEP_OF[evNow.t] !== undefined) stepRef.current = STEP_OF[evNow.t]!;
   const chat = useBubbles(HUMAN);
+  const look = useLook();
   useEffect(() => talk?.listen((seat, text) => chat.say(seat, text)), [talk, chat.say]);
   const nRef = useRef(settings.players);
   // Drinks sit on the rail just above the player's avatar.
@@ -122,7 +190,7 @@ export function Table({
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
     // A bot raises the glass, and sometimes sends one back to you (not online, where others wouldn't see it).
-    window.setTimeout(() => chat.say(d.seat, Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), 300);
+    window.setTimeout(() => chat.say(d.seat, isVault(d.emoji) ? "Now THAT'S a drink. 🏦" : Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), isVault(d.emoji) ? 1800 : 300);
     if (!talk && d.from === HUMAN && Math.random() < 0.35) {
       const back = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
       window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);
@@ -136,11 +204,30 @@ export function Table({
   const paid = useRef(false);
   const shake = useAnimationControls();
   useWakeLock(!t.shown?.state.winners);
+  useIsland(t.shown?.state.winners ? "Game over" : t.ask && !watching ? "Your turn" : watching ? "Watching" : "Heist", place);
 
   const s = t.shown?.state;
+  if (turnRef && s) turnRef.current = s.turn;
   const pot = settings.stakes * settings.players;
   const ev = t.shown?.ev ?? null;
   const wide = L.name === "wide";
+
+  // Coached play lessons: a decision the lesson hasn't handed you yet, the coach plays for you
+  const lessonOn = !!settings.coached && !!settings.lesson && !watching && !coachOff;
+  const autoAsk = lessonOn && s && t.ask && !walk && !s.winners && !lessonOpen(settings.lesson, s, t.ask) ? t.ask : null;
+  useEffect(() => {
+    if (!autoAsk) return;
+    const id = window.setTimeout(() => {
+      const g = t.game;
+      if (g?.pending) t.answer(autoPick(g, g.pending));
+    }, 900);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk]);
+  // the lesson ideas already explained this game
+  const [taught, setTaught] = useState<string[]>([]);
+  // the new ideas whose full-screen card was put away with Next (the panel's New tag brings it back)
+  const [read, setRead] = useState<string[]>([]);
 
   // Buy-ins: everyone's chips slide into the pot as the cards come out.
   const boughtIn = useRef(false);
@@ -169,7 +256,7 @@ export function Table({
       for (const w of s.winners) ms = Math.max(ms, fly("pot", `seat-${w}`, { kind: "chip", color: "#e7b53c" }, 10, 45));
       window.setTimeout(() => setPotShown(0), ms * 0.6);
       window.setTimeout(() => setPaidOut(true), ms + 250);
-      onGameOver(s.winners.includes(HUMAN) ? Math.floor(pot / s.winners.length) : 0);
+      onGameOver(s.winners.includes(HUMAN) ? Math.floor(pot / s.winners.length) : 0, t.answers());
     }
     if (!s?.winners) {
       paid.current = false;
@@ -221,8 +308,37 @@ export function Table({
     return () => window.removeEventListener("keydown", k);
   }, [t]);
 
+  // The flipped Job card finds a spot on the felt that leaves every seat readable (you pick the Mark
+  // off those seats). Measured again a moment later, once the decision panel has come in.
+  const flipSpot = useRef<HTMLDivElement>(null);
+  const [spot, setSpot] = useState<Spot | null>(null);
+  useLayoutEffect(() => {
+    const place = () => {
+      const el = flipSpot.current, c = canvas.current;
+      if (el && c && el.offsetWidth) setSpot(clearSpot(el, c, L));
+    };
+    place();
+    const id = window.setTimeout(place, 450);
+    return () => window.clearTimeout(id);
+  }, [t.shown?.key, L, scale, prefs.textSize, s?.n]);
+
   if (!s) return <div className="loading">Shuffling…</div>;
   const ask = walk ? null : t.ask;
+  const coached = !!settings.coached && !watching && !coachOff;
+  const idea = coached && ask && !autoAsk ? ideaFor(settings.lesson, s, ask, taught) : undefined;
+  /** Every answer from this seat goes through here, so Coached play can catch a mistake first. */
+  const play = (a: Answer) => {
+    if (idea) setTaught((x) => [...x, idea.title]);
+    if (coached && ask) {
+      const id = checkMove(s, ask, a);
+      if (id) return setHeld({ a, id });
+      const best = t.game ? coachPick(t.game, ask) : null;
+      setCheer(best && JSON.stringify(best) === JSON.stringify(a) ? "Nice! That's exactly what I'd play." : CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+    }
+    setHeld(null);
+    setSel([]);
+    t.answer(a);
+  };
   const me = s.players[HUMAN];
   const hs = handSelect(ask, s, HUMAN);
   const toggle = (id: number) => {
@@ -232,7 +348,7 @@ export function Table({
     else if (sel.length < hs.max) setSel([...sel, id]);
   };
   const banner = ev && BANNER[ev.t] ? t.shown : null;
-  // the flipped Job card sits over the top seat, so it steps aside while you pick a hideout
+  // the flipped Job card steps aside while you pick a hideout, since that's all about the seats
   const flipShow = ev && (ev.t === "flip" || ev.t === "mark") && s.flip && t.ask?.kind !== "pickHideout" ? s.flip : null;
   const penCrew = s.players.filter((p) => p.pen > 0);
   const discardTop = s.discard[s.discard.length - 1];
@@ -242,7 +358,7 @@ export function Table({
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
       <div
-        className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.textSize > 1 ? " big-text" : "")}
+        className={`stage theme-${prefs.theme}` + (reduce ? " reduce-motion" : "") + (prefs.textSize > 1 ? " big-text" : "") + (clean ? " clean-hud" : "")}
         style={{ "--ts": prefs.textSize } as React.CSSProperties}
       >
         <motion.div className="shaker" animate={shake}>
@@ -271,7 +387,7 @@ export function Table({
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  Stakes {settings.stakes.toLocaleString()} · First to {s.target}
+                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : settings.coached ? (lesson(settings.lesson) ? `Lesson ${lessonNo(settings.lesson)}: ${lesson(settings.lesson)!.name}` : "Coached play") : `Stakes ${settings.stakes.toLocaleString()}`} · {s.rules.rounds === 1 ? "One hand" : `First to ${s.target}`}
                 </span>
                 {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
               </div>
@@ -351,13 +467,16 @@ export function Table({
                   pos={pos}
                   grow={seatGrow(L, pos, s.n)}
                   me={!watching && p.seat === HUMAN}
+                  cigar={!watching && p.seat === HUMAN ? look.equipped?.cigar : undefined}
                   glow={pickMark || s.boss === p.seat}
-                  onClick={pickMark ? () => t.answer({ kind: "pickMark", mark: p.seat }) : undefined}
+                  onClick={pickMark ? () => play({ kind: "pickMark", mark: p.seat }) : undefined}
                   hideoutGlow={pickHide}
-                  onHideout={pickHide ? (h) => t.answer({ kind: "pickHideout", hideout: h }) : undefined}
+                  onHideout={pickHide ? (h) => play({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
                   showBank={wide}
                   away={away?.[p.seat]}
+                  tag={tags?.[p.seat]}
+                  onName={onName ? () => onName(p.seat) : undefined}
                 />
               );
             })}
@@ -406,7 +525,7 @@ export function Table({
             </div>
 
             <AnimatePresence>
-              {ask && (
+              {ask && !autoAsk && (
                 <ActionPanel
                   key={JSON.stringify(ask)}
                   ask={ask}
@@ -415,26 +534,42 @@ export function Table({
                   clock={clock}
                   sel={sel}
                   setSel={setSel}
-                  answer={(a) => {
-                    setSel([]);
-                    t.answer(a);
-                  }}
+                  answer={play}
+                  coach={
+                    coached && !s.winners ? (
+                      <CoachLine s={s} ask={ask} idea={idea} pick={t.game ? coachPick(t.game, ask) : null} cheer={cheer} onIdea={() => idea && setRead((x) => x.filter((r) => r !== idea.title))} />
+                    ) : undefined
+                  }
                 />
               )}
             </AnimatePresence>
-            <Coach ask={ask} blocked={walk || !!s.winners} />
-            {!t.ask && !s.winners && (
-              <div className="waiting">
+            {coached ? (
+              held ? (
+                <MistakeCheck id={held.id} before={mistakes?.[held.id] ?? 0} onChange={() => setHeld(null)} onAnyway={() => {
+                  const a = held.a;
+                  setHeld(null);
+                  setSel([]);
+                  t.answer(a);
+                }} />
+              ) : (
+                <CoachIdea idea={!s.winners && !autoAsk && idea && !read.includes(idea.title) ? idea : undefined} onNext={() => idea && setRead((x) => [...x, idea.title])} onOff={() => setCoachOff(true)} />
+              )
+            ) : (
+              !clean && !coachOff && <Coach ask={ask} blocked={walk || !!s.winners} />
+            )}
+            {(!t.ask || autoAsk) && !s.winners && (
+              <div className={"waiting" + (autoAsk ? " coach-plays" : "")}>
                 <span className="dots">
                   <span />
                   <span />
                   <span />
                 </span>
-                {s.players[actor].name}'s move
+                {autoAsk ? `Coach: ${COACH_DOES[autoAsk.kind] ?? "playing this one for you"}` : `${s.players[actor].name}'s move`}
               </div>
             )}
           </LayoutGroup>
 
+          <div className="flip-spot" ref={flipSpot} style={spot ? { left: spot.left, top: spot.top, transform: `scale(${spot.scale})` } : { visibility: "hidden" }}>
           <AnimatePresence>
             {flipShow && (
               <motion.div
@@ -453,6 +588,7 @@ export function Table({
               </motion.div>
             )}
           </AnimatePresence>
+          </div>
           <AnimatePresence>
             {banner && (
               <motion.div key={banner.key} className={"banner b-" + ev!.t} initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.35 }}>
@@ -464,14 +600,17 @@ export function Table({
           </AnimatePresence>
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
-          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} />
+          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} mine={watching ? undefined : HUMAN} looks={bubbleLooks} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
             {showChat && !watching && (
               <ChatTray
                 onSay={(text) => (talk ? talk.send(text) : chat.say(HUMAN, text))}
                 rivals={s.players.filter((p) => p.seat !== HUMAN).map((p) => ({ seat: p.seat, name: p.name }))}
-                onDrink={(to, emoji) => (talk ? talk.drink(to, emoji) : drinks.send(HUMAN, to, emoji))}
+                onDrink={async (to, emoji) => {
+                  if (talk) talk.drink(to, emoji);
+                  else if (!buyDrink || (await buyDrink(emoji, 1))) drinks.send(HUMAN, to, emoji);
+                }}
                 onClose={() => setShowChat(false)}
               />
             )}
@@ -505,10 +644,10 @@ export function Table({
             )}
           </AnimatePresence>
 
-          <Walkthrough s={s} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
+          <Walkthrough s={s} lessonOn={lessonOn} canvas={canvas} scale={scale} open={walk && !s.winners} onClose={() => setWalk(false)} />
           <TooltipLayer canvas={canvas} scale={scale} H={L.H} />
 
-          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} onExit={onExit} />}</AnimatePresence>
+          <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} firstHand={settings.coached && settings.lesson === FIRST_HAND && !forfeit} firstReward={firstReward} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
         <RotateHint />
@@ -532,7 +671,7 @@ function RotateHint() {
   );
 }
 
-function Confetti() {
+export function Confetti() {
   const bits = Array.from({ length: 46 }, (_, i) => i);
   return (
     <div className="confetti" aria-hidden>
@@ -562,8 +701,12 @@ function GameOver({
   onAgain,
   againLabel = "Deal again",
   forfeit,
+  oneGame,
+  firstHand,
+  firstReward,
   onExit,
 }: {
+  firstReward?: Reward | null;
   s: GameState;
   me: number;
   pot: number;
@@ -571,9 +714,42 @@ function GameOver({
   onAgain?: () => void;
   againLabel?: string;
   forfeit?: boolean;
+  /** a ranked table: no rematch, queue again from the lobby */
+  oneGame?: boolean;
+  /** a new player's one-hand first lesson: no rematch, it heads on to the lobby tour by itself */
+  firstHand?: boolean;
   onExit: () => void;
 }) {
   const won = s.winners!.includes(me);
+  useEffect(() => {
+    if (!firstHand) return;
+    // long enough to watch the XP and the season pass land
+    const t = window.setTimeout(onExit, firstReward ? 12000 : 6000);
+    return () => clearTimeout(t);
+  }, [firstHand, firstReward, onExit]);
+  if (firstHand)
+    return (
+      <motion.div className="modal-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        {won && !reducedMotion() && <Confetti />}
+        <motion.div className="modal first-hand-done" role="dialog" aria-modal="true" aria-labelledby="go-title" initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
+          {firstReward ? (
+            <FirstWin r={firstReward} won={won} name={s.players[me]?.name ?? ""} onNext={onExit} />
+          ) : (
+            <>
+              <div id="go-title" className="modal-title gold">
+                {won ? "NICE HAND" : "THAT'S A HAND"}
+              </div>
+              <div className="modal-sub">That's how every turn goes: pick a target, send crew, fight. Next, a quick look around.</div>
+              <div className="btns center">
+                <button className="btn primary big" onClick={onExit} autoFocus>
+                  Show me around
+                </button>
+              </div>
+            </>
+          )}
+        </motion.div>
+      </motion.div>
+    );
   const share = Math.floor(pot / s.winners!.length);
   const rows = [...s.players].sort((a, b) => footholdsOf(s, b.seat) - footholdsOf(s, a.seat));
   return (
@@ -599,13 +775,13 @@ function GameOver({
               <button className="btn primary big" onClick={onAgain} autoFocus>
                 {againLabel}
               </button>
-            ) : (
+            ) : oneGame ? null : (
               <button className="btn big" disabled>
                 Waiting for the host to deal
               </button>
             )}
-            <button className="btn ghost" onClick={onExit}>
-              Lobby
+            <button className={oneGame ? "btn primary big" : "btn ghost"} onClick={onExit} autoFocus={oneGame}>
+              {oneGame ? "Back to the lobby" : "Lobby"}
             </button>
           </div>
         </div>

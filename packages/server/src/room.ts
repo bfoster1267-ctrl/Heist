@@ -4,8 +4,9 @@
 
 import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, type Frame, type GameEvent, type GameState } from "@heist/engine";
 import { randomInt } from "node:crypto";
-import { DRINK_IDS, type DrinkId, type ErrorCode, type RoomInfo, type SeatInfo, type SeenFrame, type ServerMsg } from "./protocol";
+import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
+import type { Badge } from "@heist/profile";
 import { deadWeight } from "./deadweight";
 import type { GameRecord, GameStore, StoredAnswer } from "./store";
 
@@ -44,6 +45,16 @@ export interface GameOverReport {
   /** players who weren't there at the end (left, dropped, or on autopilot): they lose their buy-in */
   abandoned: number[];
   reason: "footholds" | "last_call";
+  /** which game of this room (matches the `game` on gameOver) */
+  game: number;
+  players: number;
+  /** every event of the game, for career stats */
+  events: GameEvent[];
+  /** how the bot seats played (for the skill rating) */
+  botLevel: BotLevel;
+  ranked: boolean;
+  /** each seat's finish, higher is better: the table's winners, then Footholds, then banked cash */
+  scores: number[];
 }
 
 export interface RoomDeps {
@@ -54,6 +65,13 @@ export interface RoomDeps {
   /** called whenever the room's public summary changes (lobby lists, matchmaking) */
   onChange?: (room: Room) => void;
   log?: (msg: string, extra?: object) => void;
+  /** level, prestige and look of a signed-in player, shown on their seat */
+  badge?: (userId: string) => Badge | undefined;
+  /**
+   * something a player may want a phone alert for: their decision is up, or someone sat down at their
+   * table. The server decides whether they're away enough to need one.
+   */
+  alert?: (userId: string, a: { kind: "turn" | "joined"; room: Room; name?: string }) => void;
   /** a disconnected player's decisions wait this long before a bot answers (ms) */
   graceMs?: number;
   /** a disconnected player's lobby seat is held this long (ms) */
@@ -69,6 +87,8 @@ export interface RoomConfig {
   turnSeconds: number;
   rules: RuleOptions;
   botLevel: BotLevel;
+  /** a ranked table: people only, one game, rank points by finishing place */
+  ranked?: boolean;
 }
 
 interface Seat {
@@ -94,6 +114,8 @@ const PLAYBACK_MS: Partial<Record<GameEvent["t"], number>> = {
   stuck: 1300, flip: 1300, wildcard: 1300, forged: 1300, deal: 1300,
 };
 const PLAYBACK_DEFAULT_MS = 700;
+/** one drink per player every few seconds */
+const DRINK_GAP_MS = 3_000;
 const PLAYBACK_CAP_MS = 30_000;
 
 export class Room {
@@ -104,6 +126,7 @@ export class Room {
   readonly isPrivate: boolean;
   readonly rules: RuleOptions;
   readonly botLevel: BotLevel;
+  readonly ranked: boolean;
   readonly turnMs: number;
   hostId: string | null = null;
   status: "lobby" | "playing" | "over" = "lobby";
@@ -126,6 +149,9 @@ export class Room {
   /** the current decision was given the short clock because its player wasn't connected */
   private askShort = false;
   private chatTimes = new Map<string, number[]>();
+  private drinkTimes = new Map<string, number>();
+  /** this game's events, for career stats when it ends */
+  private events: GameEvent[] = [];
 
   constructor(cfg: RoomConfig, deps: RoomDeps) {
     this.id = cfg.id;
@@ -135,6 +161,7 @@ export class Room {
     this.isPrivate = cfg.isPrivate;
     this.rules = cfg.rules;
     this.botLevel = cfg.botLevel;
+    this.ranked = !!cfg.ranked;
     this.turnMs = cfg.turnSeconds * 1000;
     this.deps = { ...deps, graceMs: deps.graceMs ?? 20_000, lobbyHoldMs: deps.lobbyHoldMs ?? 60_000 };
     this.seats = Array.from({ length: cfg.players }, () => blankSeat());
@@ -159,11 +186,13 @@ export class Room {
         userId: s.userId,
         connected: s.userId !== null && this.isConnected(s.userId),
         autopilot: s.autopilot,
+        badge: s.kind === "human" && s.userId ? (this.deps.badge?.(s.userId) ?? null) : null,
       })),
       spectators: [...this.conns.values()].filter((c) => c.spectator).length,
       turnSeconds: this.turnMs / 1000,
       rules: this.rules,
       botLevel: this.botLevel,
+      ranked: this.ranked,
       games: this.games,
     };
   }
@@ -188,6 +217,14 @@ export class Room {
 
   // ------------------------------------------------------------------ membership
 
+  /** A player changed their name: their seat shows it, unless a game is being played with the old one. */
+  renamed(userId: string, name: string) {
+    const seat = this.seatOf(userId);
+    if (seat === null || this.status === "playing") return;
+    this.seats[seat].name = name;
+    this.changed();
+  }
+
   /** Add a connection. Seats the user if they had a seat, or takes an open one in the lobby; otherwise spectates. */
   join(conn: Conn, opts: { spectate?: boolean; since?: number } = {}): ErrorCode | null {
     let seat = this.seatOf(conn.userId);
@@ -195,6 +232,7 @@ export class Room {
       seat = this.seats.findIndex((s) => s.kind === "open");
       if (seat < 0) return "room_full";
       Object.assign(this.seats[seat], { kind: "human", userId: conn.userId, name: conn.name, autopilot: false, timeouts: 0 });
+      for (const o of this.seats) if (o.kind === "human" && o.userId && o.userId !== conn.userId) this.deps.alert?.(o.userId, { kind: "joined", room: this, name: conn.name });
     }
     if (seat !== null) {
       const s = this.seats[seat];
@@ -292,6 +330,8 @@ export class Room {
   start(userId: string | null, seed = randomInt(2 ** 31)): ErrorCode | null {
     if (userId !== null && userId !== this.hostId) return "not_host";
     if (this.status === "playing") return "bad_state";
+    // a ranked table plays one game: rematches between the same six would let friends trade rank
+    if (this.ranked && this.games > 0) return "bad_state";
     const taken = new Set<string>();
     for (const s of this.seats) {
       if (s.kind === "human" && (s.left || (this.status === "over" && s.userId && !this.isConnected(s.userId)))) {
@@ -318,6 +358,7 @@ export class Room {
       turnSeconds: this.turnMs / 1000,
       rules: this.rules,
       botLevel: this.botLevel,
+      ...(this.ranked ? { ranked: true } : {}),
       at: this.deps.clock.now(),
     });
     this.begin(seed);
@@ -335,6 +376,7 @@ export class Room {
     }
     for (const r of replay) this.game.answer(r.seat, r.a);
     this.recent = [];
+    this.events = [];
     this.frameCount = 0;
     this.log = [];
     this.status = "playing";
@@ -345,7 +387,7 @@ export class Room {
   /** Rebuild a table the server was running when it stopped. Players reconnect with their tokens. */
   static restore(rec: GameRecord, deps: RoomDeps): Room {
     const st = rec.start;
-    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds, rules: st.rules ?? { bribes: false, placeCrew: false, openDeals: false }, botLevel: st.botLevel ?? "normal" }, deps);
+    const room = new Room({ id: st.roomId, code: st.code, players: st.seats.length, stakes: st.stakes, isPrivate: st.isPrivate, turnSeconds: st.turnSeconds, rules: st.rules ?? { bribes: false, placeCrew: false, openDeals: false }, botLevel: st.botLevel ?? "normal", ranked: st.ranked }, deps);
     room.seats = st.seats.map((s) => ({ ...blankSeat(), kind: s.bot ? "bot" : "human", name: s.name, userId: s.userId }));
     room.hostId = st.hostId;
     room.games = st.game;
@@ -363,6 +405,7 @@ export class Room {
     this.recent.push(...frames);
     if (this.recent.length > FRAME_BUFFER) this.recent.splice(0, this.recent.length - FRAME_BUFFER);
     for (const f of frames) {
+      this.events.push(f.ev);
       this.log.push(f.msg);
       this.playbackMs += PLAYBACK_MS[f.ev.t] ?? PLAYBACK_DEFAULT_MS;
     }
@@ -434,6 +477,7 @@ export class Room {
     const id = this.askId;
     this.timer = this.deps.clock.set(() => this.timedOut(id), wait);
     this.sendAsk(p);
+    if (s.userId) this.deps.alert?.(s.userId, { kind: "turn", room: this });
   }
 
   private sendAsk(p: Ask) {
@@ -477,6 +521,12 @@ export class Room {
       tableWinners: winners,
       abandoned,
       reason,
+      game: this.games,
+      players: this.players,
+      events: this.events,
+      botLevel: this.botLevel,
+      ranked: this.ranked,
+      scores: this.seats.map((_, seat) => (winners.includes(seat) ? 1e9 : 0) + g.footholds(seat) * 1000 + g.cash(seat)),
     });
     for (const s of this.seats) s.autopilot = false;
     this.changed();
@@ -539,16 +589,48 @@ export class Room {
     return null;
   }
 
-  /** Send a drink to another seat. Shares the chat limit, so drinks can't flood the table either. */
-  drink(connId: string, to: unknown, drink: unknown): ErrorCode | null {
+  /**
+   * Who a drink from this connection goes to: one seat, or every other seat for a round (`to` null).
+   * Seated players only, one drink every few seconds. The caller charges for it, then calls sendDrink.
+   */
+  drinkTargets(connId: string, to: unknown): { from: number; to: number[] } | ErrorCode {
     const c = this.conns.get(connId);
-    if (!c || typeof to !== "number" || !Number.isInteger(to) || to < 0 || to >= this.players) return "bad_message";
-    if (!DRINK_IDS.includes(drink as DrinkId)) return "bad_message";
-    const from = c.spectator ? null : this.seatOf(c.conn.userId);
-    if (from === null || from === to) return "bad_message";
-    if (!this.spend(c.conn.userId)) return "rate_limited";
-    this.broadcast({ t: "drink", from, to, drink: drink as DrinkId });
-    return null;
+    const from = c && !c.spectator ? this.seatOf(c.conn.userId) : null;
+    if (from === null || this.status === "lobby") return "bad_state";
+    const now = this.deps.clock.now();
+    if (now - (this.drinkTimes.get(c!.conn.userId) ?? -Infinity) < DRINK_GAP_MS) return "rate_limited";
+    let targets: number[];
+    if (to === null) targets = this.seats.map((_, i) => i).filter((i) => i !== from);
+    else if (typeof to === "number" && Number.isInteger(to) && to >= 0 && to < this.seats.length && to !== from && this.seats[to].kind !== "open") targets = [to];
+    else return "bad_message";
+    return { from, to: targets };
+  }
+
+  sendDrink(connId: string, from: number, to: number[], id: string) {
+    const c = this.conns.get(connId);
+    if (!c) return;
+    const at = this.deps.clock.now();
+    this.drinkTimes.set(c.conn.userId, at);
+    this.broadcast({ t: "drink", from, to, id, name: c.conn.name, at });
+  }
+
+  /** The person whose decision the table is waiting on right now (null when it's a bot's, or no game is on). */
+  waitingOn(): string | null {
+    const p = this.game?.pending;
+    if (!p || this.status !== "playing" || this.timer === null) return null;
+    const s = this.seats[p.seat];
+    return s.kind === "human" && !s.autopilot ? s.userId : null;
+  }
+
+  /** The user id sitting at a seat (humans only). */
+  userAt(seat: number): string | null {
+    const s = this.seats[seat];
+    return s?.kind === "human" ? s.userId : null;
+  }
+
+  /** Send everyone fresh room info (badges changed after a game settled). */
+  touch() {
+    this.changed();
   }
 
   /** Room-wide talk limit per user: 5 lines or drinks in 10 seconds. */

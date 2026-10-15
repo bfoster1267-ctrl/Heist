@@ -3,7 +3,7 @@
 // so after a dropped connection it reconnects on its own and resumes the table where it left off.
 
 import type { Answer, Ask } from "@heist/engine";
-import { PROTOCOL_VERSION, type ClientMsg, type CreateRoomOptions, type DrinkId, type RoomInfo, type ServerMsg } from "./protocol";
+import { PROTOCOL_VERSION, type ClientMsg, type CreateRoomOptions, type RoomInfo, type ServerMsg } from "./protocol";
 
 type Handler<T extends ServerMsg["t"]> = (m: Extract<ServerMsg, { t: T }>) => void;
 
@@ -33,8 +33,14 @@ export class HeistClient {
   private any = new Set<(m: ServerMsg) => void>();
   private token: string | undefined;
   private closed = false;
+  /** the current socket has been welcomed (a drop now reconnects by itself) */
+  private live = false;
   private retry = 0;
   private spectating = false;
+  /** the app is in the background (told to the server again after a reconnect) */
+  private away = false;
+  /** the quick-queue line we're waiting in (sent again after a reconnect, since the server drops it with the socket) */
+  queued: { players: number; stakes: number; ranked: boolean } | null = null;
 
   constructor(
     private url: string,
@@ -76,11 +82,19 @@ export class HeistClient {
         const m = JSON.parse(String(e.data)) as ServerMsg;
         if (m.t === "welcome" && !welcomed) {
           welcomed = true;
+          this.live = true;
           this.retry = 0;
           resolve();
           for (const h of this.connHandlers) h(true);
           // back after a drop: rejoin the table and pick up after the last frame we played
           if (this.room) this.send({ t: "join", code: this.room.code, spectate: this.spectating, since: this.game ? this.nextFrame : undefined });
+          else if (this.queued) this.queue(this.queued.players, this.queued.stakes, this.queued.ranked);
+          if (this.away) this.send({ t: "away", on: true });
+        }
+        // a suspended account is turned away for good: stop trying to reconnect
+        if (m.t === "error" && m.code === "suspended") {
+          this.closed = true;
+          if (!welcomed) reject(new Error(m.msg));
         }
         this.receive(m);
       };
@@ -89,6 +103,7 @@ export class HeistClient {
       };
       ws.onclose = () => {
         this.ws = null;
+        this.live = false;
         this.ask = null;
         if (welcomed && !this.closed) for (const h of this.connHandlers) h(false);
         if (!this.closed && welcomed && this.opts.reconnect !== false) this.reconnectLater();
@@ -113,7 +128,18 @@ export class HeistClient {
           this.opts.onToken?.(m.token);
         }
         break;
+      case "renamed":
+        this.name = m.name;
+        break;
+      case "unqueued":
+        this.queued = null;
+        break;
+      case "error":
+        // the server turned the queue request down: we're not in line
+        if (this.queued && (m.code === "no_chips" || m.code === "ranked_locked" || m.code === "bad_message" || m.code === "bad_state")) this.queued = null;
+        break;
       case "room":
+        this.queued = null;
         this.room = m.room;
         this.seat = m.you.seat;
         break;
@@ -157,10 +183,12 @@ export class HeistClient {
     this.send({ t: "list" });
   }
   create(options: CreateRoomOptions) {
+    this.queued = null;
     this.spectating = false;
     this.send({ t: "create", options });
   }
   join(code: string, spectate = false) {
+    this.queued = null;
     this.spectating = spectate;
     this.game = 0;
     this.nextFrame = 0;
@@ -174,20 +202,69 @@ export class HeistClient {
     if (!this.ask) return;
     this.send({ t: "answer", askId: this.ask.askId, answer });
   }
+  /** Quick queue: get dealt into the next table of this size and stakes. */
+  queue(players: number, stakes: number, ranked = false) {
+    this.queued = { players, stakes, ranked };
+    this.send({ t: "queue", players, stakes, ...(ranked ? { ranked: true } : {}) });
+  }
+  unqueue() {
+    this.queued = null;
+    this.send({ t: "unqueue" });
+  }
   sit() {
     this.send({ t: "sit" });
   }
   autopilot(on: boolean) {
     this.send({ t: "autopilot", on });
   }
+  /** The app went to the background or came back: while away, the server alerts the phone on your turn. */
+  setAway(on: boolean) {
+    if (on === this.away) return;
+    this.away = on;
+    this.send({ t: "away", on });
+  }
   chat(text: string) {
     this.send({ t: "chat", text });
   }
-  drink(to: number, drink: DrinkId) {
-    this.send({ t: "drink", to, drink });
+  /** change your name (saved to your account; your seat shows it while the table waits to deal) */
+  rename(name: string) {
+    this.send({ t: "rename", name });
   }
+  /** buy a drink for one seat, or a round for the table (`to` null) */
+  drink(id: string, to: number | null) {
+    this.send({ t: "drink", id, to });
+  }
+
   leave() {
     this.send({ t: "leave" });
+  }
+  ersCreate(isPrivate = false) {
+    this.send({ t: "ers_create", isPrivate });
+  }
+  ersJoin(code: string) {
+    this.send({ t: "ers_join", code });
+  }
+  ersPlay() {
+    this.send({ t: "ers_play" });
+  }
+  ersSlap(time?: number) {
+    this.send({ t: "ers_slap", time });
+  }
+  ersRematch() {
+    this.send({ t: "ers_rematch" });
+  }
+  ersLeave() {
+    this.send({ t: "ers_leave" });
+  }
+  /**
+   * Play as another account (the player signed in or out in the app since this socket said hello).
+   * Away from a table the socket reconnects at once as the new account; at a table (or before the
+   * server has welcomed us) it switches on the next hello, so a game in progress isn't dropped.
+   */
+  setToken(token: string | undefined) {
+    if (token === this.token) return;
+    this.token = token;
+    if (this.live && !this.room) this.drop();
   }
   close() {
     this.closed = true;

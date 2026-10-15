@@ -15,8 +15,6 @@ services:
         value: /data
       - key: TOKEN_SECRET
         generateValue: true
-      - key: ALLOWED_ORIGINS
-        sync: false
     disk:
       name: heist-data
       mountPath: /data

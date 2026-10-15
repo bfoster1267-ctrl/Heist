@@ -71,6 +71,26 @@
 .room-seat.me {
   border-color: var(--gold);
 }
+button.room-seat {
+  width: 100%;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+button.room-seat:hover .tag.dim {
+  color: var(--gold2);
+}
+.room-seat .tag.near {
+  margin-left: 8px;
+}
+.seat-name-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px !important;
+  font-weight: 600;
+}
 .room-seat .tag {
   margin-left: auto;
   font-family: var(--cond);
@@ -141,3 +161,47 @@
 .my-hand.watching {
   visibility: hidden;
 }
+
+.start-row {
+  display: flex;
+  gap: 10px;
+}
+.start-row .btn {
+  flex: 1;
+}
+.queue-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid var(--gold);
+  border-radius: 14px;
+  text-align: center;
+}
+.queue-title {
+  font-family: var(--title);
+  font-size: 22px;
+  color: var(--gold);
+  letter-spacing: 1px;
+}
+
+/* the once-only offer of turn alerts while waiting for a table */
+.alerts-ask {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  text-align: left;
+}
+.alerts-ask-btns {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+

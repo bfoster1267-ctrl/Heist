@@ -65,6 +65,19 @@ button:disabled {
   letter-spacing: 4px;
   color: var(--gold);
 }
+.loading-failed {
+  place-content: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: center;
+}
+.loading-failed p {
+  margin: 0;
+  font-family: var(--body, inherit);
+  font-size: 16px;
+  letter-spacing: 0;
+  color: var(--muted);
+}
 
 /* ---------------------------------------------------------------- stage + felt */
 .stage {
@@ -1376,6 +1389,72 @@ button:disabled {
   margin-top: 6px;
   line-height: 1.35;
 }
+.coach-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 13px;
+}
+.coach-hint {
+  margin-top: 6px;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: none;
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 3px 12px;
+}
+.coach-cheer {
+  margin-bottom: 4px;
+  font-weight: 700;
+  color: #7be0a0;
+}
+.coach-new {
+  margin: 2px 0 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(231, 181, 60, 0.14);
+  border: 1px solid rgba(231, 181, 60, 0.45);
+  font-size: 14px;
+  line-height: 1.35;
+}
+.coach-new-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #e7b53c;
+  color: #1d1f24;
+  font-family: var(--cond);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.big-text .coach-new {
+  font-size: calc(14px * var(--ts));
+}
+.waiting.coach-plays {
+  color: #e7b53c;
+}
+.big-text .coach-hint,
+.big-text .coach-cheer,
+.big-text .coach-pick {
+  font-size: calc(13px * var(--ts));
+}
+.already-in {
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffb36b;
+  background: rgba(255, 140, 40, 0.12);
+  border: 1px solid rgba(255, 150, 60, 0.5);
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
+}
 .odds {
   font-family: var(--cond);
   font-size: 14px;
@@ -1444,6 +1523,52 @@ button:disabled {
 .btn.small {
   font-size: 12px;
   padding: 3px 8px;
+}
+/* "Your move": short buttons (the rival's crew shape and the hideout number) in labelled rows, and a
+   panel only as wide as they are, so it keeps clear of the seats */
+.canvas .action-panel.compact {
+  width: fit-content;
+  min-width: 200px;
+  max-width: 360px;
+}
+.move-grid {
+  display: grid;
+  gap: 6px;
+}
+.move-grid .lbl {
+  min-width: 4.4em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.canvas .action-panel .btn.target {
+  padding: 4px 9px;
+}
+.big-text .canvas .action-panel .btn.target {
+  padding: calc(4px * var(--ts)) calc(8px * var(--ts));
+}
+.move-target {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ho-num {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.35em;
+  height: 1.35em;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 0.9em;
+  line-height: 1;
+}
+.ho-in {
+  font-size: 0.7em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.hint .crew {
+  vertical-align: -2px;
 }
 .lbl {
   font-family: var(--cond);
@@ -1522,13 +1647,21 @@ button:disabled {
   top: 0;
   margin: -10px 0 0 -10px;
 }
-.flip-show {
+/* placed by clearSpot() in layout.ts so it never covers a seat */
+.flip-spot {
   position: absolute;
-  left: 640px;
-  top: 290px;
-  margin: -100px 0 0 -65px;
+  left: 0;
+  top: 0;
   z-index: 35;
+  pointer-events: none;
+  transition: left 0.25s, top 0.25s, transform 0.25s;
+}
+.flip-show {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
+  white-space: nowrap;
   filter: drop-shadow(0 20px 30px rgba(0, 0, 0, 0.8));
 }
 .flip-caption {
@@ -2028,8 +2161,7 @@ button:disabled {
   box-shadow: 0 0 0 3000px rgba(0, 0, 0, 0.72), 0 0 0 3px var(--gold2), 0 0 30px rgba(246, 215, 122, 0.5);
   pointer-events: none;
 }
-.walk-card,
-.coach {
+.walk-card {
   position: absolute;
   width: 380px;
   padding: 14px 16px;
@@ -2044,41 +2176,17 @@ button:disabled {
   color: var(--muted);
   letter-spacing: 1px;
 }
-.walk-title,
-.coach-title {
+.walk-title {
   font-family: var(--title);
   font-size: 26px;
   letter-spacing: 1.5px;
   color: var(--gold2);
 }
-.walk-text,
-.coach-text {
+.walk-text {
   font-size: 14.5px;
   line-height: 1.4;
   margin: 4px 0 12px;
   color: #e3e6ec;
-}
-.coach {
-  right: 14px;
-  bottom: 202px;
-  width: 340px;
-  z-index: 31;
-  padding: 10px 12px;
-  border-color: #7ec8ff;
-}
-.coach-title {
-  font-size: 20px;
-  color: #a8d8ff;
-}
-.coach-text {
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-.coach.top {
-  bottom: auto;
-  top: 70px;
-  left: 450px;
-  right: auto;
 }
 
 /* settings */
@@ -2118,6 +2226,12 @@ button:disabled {
   width: 20px;
   height: 20px;
   accent-color: var(--gold);
+}
+.set-row .set-note {
+  max-width: 170px;
+  text-align: right;
+  font-size: 12px;
+  opacity: 0.7;
 }
 .set-row input[type="range"] {
   width: 150px;
@@ -2209,9 +2323,6 @@ button:disabled {
   top: 252px;
   scale: 0.84;
 }
-.l-wide .flip-show {
-  top: 220px;
-}
 .l-wide .banner {
   top: 125px;
 }
@@ -2242,15 +2353,6 @@ button:disabled {
   top: auto;
   bottom: 30px;
   right: 30px;
-}
-.l-wide .coach {
-  bottom: 196px;
-  right: 8px;
-}
-.l-wide .coach.top {
-  top: 12px;
-  bottom: auto;
-  left: 450px;
 }
 .l-wide .log {
   bottom: 10px;
@@ -2727,6 +2829,48 @@ button:disabled {
   font-size: 30px;
   z-index: 1;
 }
+/* The Vault, the season pass's legendary drink (vault.tsx) */
+.vault-glass {
+  display: block;
+  overflow: visible;
+}
+.drink.vault {
+  z-index: 2;
+  filter: drop-shadow(0 0 10px rgba(255, 210, 90, 0.75)) drop-shadow(0 4px 4px rgba(0, 0, 0, 0.55));
+}
+.vault-burst {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.vault-ring {
+  position: absolute;
+  left: -60px;
+  top: -60px;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 214, 102, 0.75) 0%, rgba(231, 181, 60, 0.35) 45%, transparent 70%);
+}
+.vault-coin {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff1c2, #e7b53c 55%, #8a5d0c);
+  box-shadow: 0 0 6px rgba(255, 214, 102, 0.8);
+}
+.chat-drinks .chat-vault {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: radial-gradient(circle, rgba(231, 181, 60, 0.28), transparent 70%);
+}
 /* recap */
 .modal {
   max-height: calc(100% - 30px);
@@ -2891,7 +3035,6 @@ button:disabled {
   font-size: calc(13px * var(--ts));
   max-width: calc(260px * var(--ts));
 }
-.big-text .coach-text,
 .big-text .walk-text {
   font-size: calc(14px * var(--ts));
 }
@@ -2974,6 +3117,91 @@ button:disabled {
 .ts-big {
   font-size: 19px;
   color: var(--muted);
+}
+/* campaign ladder */
+.camp-sub {
+  color: var(--muted);
+  font-size: 15px;
+  margin: -4px 0 10px;
+  text-align: left;
+}
+.camp-list h3 {
+  font-family: var(--cond);
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin: 12px 0 6px;
+}
+.camp-list section:first-child h3 {
+  margin-top: 0;
+}
+.camp-stage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  margin-bottom: 6px;
+}
+.camp-stage.next {
+  border-color: var(--gold);
+  background: rgba(231, 181, 60, 0.1);
+  box-shadow: 0 0 18px rgba(231, 181, 60, 0.18);
+}
+.camp-stage.locked {
+  opacity: 0.45;
+}
+.camp-n {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-family: var(--title);
+  font-size: 20px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--gold2);
+}
+.camp-stage.done .camp-n {
+  background: rgba(89, 179, 106, 0.2);
+  color: var(--cash);
+}
+.camp-info {
+  flex: 1;
+  min-width: 0;
+}
+.camp-name {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 18px;
+}
+.camp-meta {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  margin-left: 4px;
+}
+.camp-blurb {
+  font-size: 14px;
+  color: #c9c2b2;
+}
+.camp-prize {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+.camp-item {
+  color: var(--gold2);
+}
+@media (max-width: 520px) {
+  .camp-meta {
+    display: block;
+    margin-left: 0;
+  }
 }
 /* the table's settings, opened from the lobby */
 .lobby-settings-back {
@@ -3068,4 +3296,701 @@ button:disabled {
 }
 .big-text .l-wide.crowd .action-panel .hint {
   font-size: calc(13.5px * min(var(--ts), 1.3));
+}
+.lobby-privacy {
+  color: var(--muted);
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ Ranked at the table */
+.rank-tag {
+  margin-right: 5px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: rgba(231, 181, 60, 0.2);
+  color: var(--gold2);
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+.seat-name-btn {
+  all: unset;
+  cursor: pointer;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.35);
+  text-underline-offset: 3px;
+}
+.seat-name-btn:focus-visible {
+  outline: 2px solid var(--gold);
+}
+/* Ranked: a clean HUD. No explainer lines under the choices; the numbers stay. */
+.clean-hud .hint,
+.clean-hud .odds .dim {
+  display: none;
+}
+
+/* the Casual / Ranked switch in Play online */
+.mode-seg button {
+  font-size: 16px;
+  font-weight: 800;
+}
+.ranked-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgba(231, 181, 60, 0.1);
+  font-family: var(--cond);
+}
+.ranked-head b {
+  font-family: var(--title);
+  font-size: 26px;
+  letter-spacing: 1px;
+  color: var(--gold2);
+}
+
+/* ------------------------------------------------------------------ lobby, one clear path */
+.lobby-main {
+  position: relative;
+  width: min(440px, 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+}
+.lobby-main .logo {
+  margin-bottom: 6px;
+}
+.lobby-big {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 14px 16px 12px;
+  border-radius: 16px;
+  font-family: var(--title);
+  font-size: 40px;
+  letter-spacing: 3px;
+  line-height: 1;
+}
+.lobby-big:not(.primary) {
+  background: #1e2128;
+  border-color: rgba(231, 181, 60, 0.55);
+  font-size: 30px;
+}
+.lobby-sub {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16px;
+  letter-spacing: 0.3px;
+  opacity: 0.85;
+}
+.lobby-change {
+  align-self: center;
+  margin-top: -4px;
+  border: 0;
+  background: none;
+  color: var(--gold2);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 4px 10px;
+}
+.lobby-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.lobby-modes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+/* three modes (a new player's Learn to play is the big button): the last one takes the whole row */
+.lobby-modes > :last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+}
+.lobby-mode {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: rgba(30, 33, 40, 0.92);
+  border-color: rgba(255, 255, 255, 0.18);
+  text-align: left;
+}
+.lobby-mode .lobby-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  color: var(--gold2);
+}
+.lobby-mode-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.lobby-mode-name {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 19px;
+  line-height: 1.1;
+}
+.lobby-mode-sub {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lobby-locked {
+  margin: 0;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--muted);
+}
+.lobby-mode:disabled {
+  opacity: 0.5;
+}
+/* a new visitor's first screen */
+.welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(16px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+  background: radial-gradient(ellipse at 50% 30%, #1a3a2c 0%, #0b0d10 70%);
+  text-align: center;
+}
+.welcome-q {
+  margin: 0;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--paper);
+}
+.welcome-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(440px, 100%);
+}
+@media (max-height: 520px) {
+  .welcome .logo {
+    font-size: 48px;
+  }
+  .welcome-choices {
+    flex-direction: row;
+    width: min(720px, 100%);
+  }
+  .welcome-choices .lobby-big {
+    flex: 1;
+    font-size: 28px;
+  }
+}
+/* the name in the top bar, between the gear and your card: only when the big logo doesn't fit */
+.lobby-topname {
+  display: none;
+  position: fixed;
+  z-index: 20;
+  top: calc(16px + env(safe-area-inset-top));
+  left: calc(70px + env(safe-area-inset-left));
+  margin: 0;
+  font-size: 34px;
+  letter-spacing: 5px;
+}
+.lobby-gear {
+  position: fixed;
+  z-index: 20;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(14, 16, 20, 0.92);
+  color: var(--paper);
+  font-size: 28px;
+  line-height: 1;
+}
+.lobby-sheet-back {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow-y: auto;
+}
+.lobby-sheet {
+  width: min(460px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 20px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: #111318;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7);
+}
+.lobby-sheet-head {
+  display: flex;
+  align-items: center;
+  font-family: var(--title);
+  font-size: 28px;
+  letter-spacing: 1.5px;
+  color: var(--gold2);
+}
+.lobby-sheet-head .x {
+  margin-left: auto;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 22px;
+  padding: 4px 8px;
+}
+.lobby.big-text .lobby-mode-name {
+  font-size: calc(20px * min(var(--ts), 1.3));
+}
+.lobby.big-text .lobby-sub,
+.lobby.big-text .lobby-change {
+  font-size: calc(16px * min(var(--ts), 1.3));
+}
+/* A phone held upright (menus only; tables ask for it sideways): clear the top bar, smaller logo, no
+   floating badges behind the buttons, and text that grows only as far as the tiles allow. */
+@media (max-width: 500px) and (min-height: 521px) {
+  .lobby {
+    padding-top: calc(92px + env(safe-area-inset-top));
+    place-items: start center;
+  }
+  .lobby-bg {
+    display: none;
+  }
+  .lobby-main .logo {
+    font-size: 60px;
+    letter-spacing: 10px;
+  }
+  .lobby.big-text .lobby-mode-name {
+    font-size: calc(18px * min(var(--ts), 1.1));
+  }
+  .lobby.big-text .lobby-sub,
+  .lobby.big-text .lobby-change,
+  .lobby.big-text .lobby-locked {
+    font-size: calc(15px * min(var(--ts), 1.15));
+  }
+}
+/* A phone on its side (short screen). Like the big mobile card games: a top bar (settings, name, your
+   card), the main play button on the left with the other modes beside it, and your stuff along the bottom.
+   Everything fits on one screen, nothing scrolls. */
+@media (max-height: 520px) {
+  .lobby {
+    padding: calc(76px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(66px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+    place-items: center;
+  }
+  .lobby-main {
+    width: min(760px, 100%);
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    align-items: stretch;
+    gap: 10px 12px;
+  }
+  .lobby-main .logo {
+    display: none;
+  }
+  .lobby-topname {
+    display: block;
+  }
+  .lobby-hero {
+    gap: 8px;
+    justify-content: center;
+  }
+  .lobby-big {
+    font-size: 30px;
+    padding: 9px 12px 8px;
+  }
+  .lobby-big:not(.primary) {
+    font-size: 24px;
+  }
+  .lobby-sub {
+    font-size: 14px;
+  }
+  .lobby-change {
+    margin-top: -2px;
+    font-size: 15px;
+    padding: 2px 10px;
+  }
+  .lobby-modes {
+    gap: 8px;
+    grid-auto-rows: 1fr;
+  }
+  .lobby-mode {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .lobby-mode .lobby-icon {
+    width: 24px;
+    height: 24px;
+  }
+  .lobby-mode-name {
+    font-size: 17px;
+  }
+  .lobby-mode-sub {
+    font-size: 12px;
+  }
+  /* no room sideways for the install nudge and the small print (both still show on bigger screens) */
+  .lobby-main .install,
+  .lobby-main .fine {
+    display: none;
+  }
+  .lobby-gear {
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+  }
+  .lobby-sheet {
+    gap: 10px;
+    padding: 12px 16px 14px;
+  }
+  /* bigger text (phones start at 130%) grows the lobby only a little: it has to fit sideways */
+  .lobby.big-text .lobby-sub,
+  .lobby.big-text .lobby-change,
+  .lobby.big-text .lobby-locked {
+    font-size: calc(14px * min(var(--ts), 1.15));
+  }
+  .lobby.big-text .lobby-mode-name {
+    font-size: calc(17px * min(var(--ts), 1.15));
+  }
+}
+
+/* The coach's full-screen card (a new idea, a first-time tip, a rookie mistake): it covers the table on
+   purpose so it can't be cut off or sit on a button, and Next puts it away. It's inside the canvas, so
+   it turns and scales with the table on phones. */
+.coach-sheet {
+  position: absolute;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(6, 8, 12, 0.8);
+}
+.coach-card {
+  width: min(660px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+  padding: 26px 30px 22px;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #232733, #15171d);
+  border: 2px solid #7ec8ff;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.8);
+}
+.coach-sheet.live .coach-card {
+  border-color: #6fd39a;
+}
+.coach-sheet.mistake .coach-card {
+  border-color: #ff9a5c;
+}
+.coach-card-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--title);
+  font-size: 42px;
+  line-height: 1.05;
+  letter-spacing: 1.5px;
+  color: #a8d8ff;
+}
+.coach-card-title .coach-new-tag {
+  font-size: 18px;
+  padding: 3px 12px;
+  margin: 0;
+}
+.coach-sheet.live .coach-card-title {
+  color: #9be8bb;
+}
+.coach-sheet.mistake .coach-card-title {
+  color: #ffb37f;
+}
+.coach-card-text {
+  margin: 12px 0 24px;
+  font-size: 25px;
+  line-height: 1.4;
+  color: #e3e6ec;
+}
+.big-text .coach-card-text {
+  font-size: calc(22px * min(var(--ts), 1.3));
+}
+.coach-card-btns {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.coach-card-btns .btn {
+  font-size: 22px;
+  padding: 16px 26px;
+}
+.coach-card-btns .btn.primary {
+  min-width: 190px;
+}
+
+/* Coached play: the coach's short read, just above the decision buttons. It rides on the panel, grows
+   upward, and is only as wide as the panel, so it never covers a choice or your hand. */
+.coach-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: calc(100% + 8px);
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid #6fd39a;
+  background: linear-gradient(180deg, #1d2621, #13171a);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  font-size: 13px;
+  line-height: 1.35;
+  color: #e3e6ec;
+}
+/* the Role pick fills the middle of the table, so there it sits under the cards instead */
+.action-panel.wide .coach-line {
+  position: static;
+  margin-top: 12px;
+  box-shadow: none;
+}
+.coach-line-text b {
+  color: #9be8bb;
+}
+.coach-line-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 6px;
+}
+.coach-line-btns .coach-hint {
+  margin-top: 4px;
+  padding: 2px 10px;
+}
+.coach-line-btns .coach-new-tag {
+  font-size: 11px;
+}
+.big-text .coach-line {
+  font-size: calc(13px * var(--ts));
+}
+
+/* ------------------------------------------------------------------ phones: sideways */
+.rotate-phone {
+  width: 70px;
+  height: 120px;
+  border: 5px solid var(--gold);
+  border-radius: 14px;
+  animation: rotate-phone 2.4s ease-in-out infinite;
+}
+@keyframes rotate-phone {
+  0%,
+  25% {
+    transform: rotate(0deg);
+  }
+  60%,
+  100% {
+    transform: rotate(-90deg);
+  }
+}
+.gate-title {
+  font-family: var(--title);
+  font-size: 40px;
+  letter-spacing: 2px;
+  color: var(--gold2);
+  line-height: 1;
+}
+.gate-text {
+  font-size: 18px;
+  line-height: 1.4;
+  max-width: 340px;
+}
+
+/* ------------------------------------------------------------------ opened inside Reddit, Instagram, ... */
+.inapp {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom));
+  text-align: center;
+  background: radial-gradient(ellipse at 50% 30%, #1a3a2c 0%, #0b0d10 70%);
+  color: var(--paper);
+}
+.inapp .logo {
+  font-size: 72px;
+}
+.inapp-steps {
+  max-width: 360px;
+  text-align: left;
+  font-size: 18px;
+  line-height: 1.45;
+  padding-left: 22px;
+  margin: 0;
+}
+.inapp-steps b {
+  color: var(--gold2);
+}
+.inapp .btn {
+  width: min(340px, 100%);
+  font-size: 20px;
+  padding: 12px;
+}
+.inapp-anyway {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ upright phone at a table: the page turns itself */
+/* (turn.ts sets html.turned and the sizes; Reddit's browser never rotates, so this is how it plays there) */
+html.turned body {
+  inset: auto;
+  top: 0;
+  left: 0;
+  width: var(--turn-w);
+  height: var(--turn-h);
+  transform-origin: 0 0;
+  transform: translateX(var(--turn-h)) rotate(90deg);
+}
+html.turned .rules-back.fixed .rules {
+  width: min(640px, calc(var(--turn-w) - 24px));
+  max-height: calc(var(--turn-h) - 24px);
+}
+html.turned .lobby-settings-back .settings {
+  max-height: calc(var(--turn-h) - 24px);
+}
+
+/* ------------------------------------------------------------------ polish pass (2026-10-10) */
+/* the lobby's settings open beside the gear that opened them, not across the screen */
+.lobby-settings-back .settings {
+  right: auto;
+  left: calc(12px + env(safe-area-inset-left));
+}
+/* keyboard shortcuts mean nothing on a touch screen */
+@media (pointer: coarse) {
+  .settings .keys {
+    display: none;
+  }
+}
+/* online lobby: the way back sits top-left like the profile's, out of the middle of the form */
+.online-back {
+  position: fixed;
+  z-index: 20;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(12px + env(safe-area-inset-left));
+  background: rgba(14, 16, 20, 0.92);
+}
+.lobby:has(> .online-back) {
+  padding-top: calc(68px + env(safe-area-inset-top));
+}
+/* online lobby on a computer: the two columns side by side, as on a phone held sideways */
+@media (min-width: 900px) and (min-height: 521px) {
+  .online-card {
+    width: min(900px, 100%);
+    display: grid;
+    grid-template-columns: 1fr 1.25fr;
+    column-gap: 28px;
+    align-items: start;
+    padding: 24px 26px 20px;
+  }
+  .online-card .lobby-col {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .online-card > .online-error {
+    grid-column: 1 / -1;
+  }
+}
+/* a phone held upright: the menu sits in the middle of the space under the top bar,
+   not stuck to the top with a gap underneath */
+@media (max-width: 500px) and (min-height: 521px) {
+  .lobby {
+    place-items: safe center;
+  }
+}
+
+/* ---------------------------------------------------------------- lobby tour after the first hand */
+.tour {
+  position: fixed;
+  inset: 0;
+  z-index: 75; /* under the profile screen (80) the spotlit button opens, and under reward cards */
+}
+.tour-hole {
+  position: fixed;
+  border: 2px solid var(--gold, #e7b53c);
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.74);
+  cursor: pointer;
+  animation: tour-pulse 1.4s ease-in-out infinite;
+}
+@keyframes tour-pulse {
+  50% {
+    border-color: rgba(231, 181, 60, 0.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tour-hole {
+    animation: none;
+  }
+}
+.tour-card {
+  position: fixed;
+  left: 50%;
+  translate: -50% 0;
+  width: min(340px, calc(100vw - 32px));
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(14, 16, 20, 0.97);
+  color: var(--paper);
+  font-size: 15px;
+  line-height: 1.35;
+  pointer-events: none;
+}
+.tour-card b {
+  font-family: var(--cond);
+  font-size: 18px;
+  color: var(--gold, #e7b53c);
+}
+.tour-pill {
+  position: fixed;
+  z-index: 86; /* over the profile screen */
+  right: calc(14px + env(safe-area-inset-right));
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+.welcome.tour-next {
+  z-index: 74; /* the profile screen (80) opens over it while the player looks around */
+}
+.welcome.tour-next .lobby-change {
+  font-size: 17px;
 }

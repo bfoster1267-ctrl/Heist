@@ -1,19 +1,15 @@
 // Send a drink: pick one, pick a player, and it slides across the felt to their seat and stays by
 // their name for a while. Bots raise a glass back, and now and then buy a round themselves.
-// Online, the server will relay drinks (and charge for premium ones once the coin economy exists).
+// Drinks cost coins (coffee is free); the app charges before the drink is sent.
 import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useRef, useState } from "react";
 import { reducedMotion } from "../prefs";
-import { clink } from "../sound";
+import { chipRun, clink } from "../sound";
+import { VaultBurst, VaultGlass, isVault } from "../vault";
 
-export const DRINKS = [
-  { id: "martini", emoji: "🍸", name: "Martini" },
-  { id: "whiskey", emoji: "🥃", name: "Whiskey" },
-  { id: "champagne", emoji: "🍾", name: "Champagne" },
-  { id: "beer", emoji: "🍺", name: "Beer" },
-  { id: "coffee", emoji: "☕", name: "Coffee" },
-];
+// the menu, with prices in coins, is shared with the shop rules in @heist/profile
+export { DRINKS } from "@heist/profile";
 
 export interface Drink {
   seat: number;
@@ -47,6 +43,7 @@ export function useDrinks(pos: (seat: number) => [number, number], onLanded: (d:
     const land = () => {
       setSlides((ss) => ss.filter((x) => x.key !== key));
       clink();
+      if (isVault(emoji)) chipRun(10, 1.05);
       // Keep the last three in front of each seat.
       setDrinks((ds) => [...ds.filter((x) => x.seat !== to), ...ds.filter((x) => x.seat === to).slice(-2), d]);
       window.setTimeout(() => setDrinks((ds) => ds.filter((x) => x.key !== key)), STAY_MS);
@@ -82,12 +79,12 @@ export function DrinkLayer({ drinks, slides, pos }: { drinks: Drink[]; slides: S
         return (
           <motion.span
             key={sl.key}
-            className="drink sliding"
+            className={"drink sliding" + (isVault(sl.emoji) ? " vault" : "")}
             initial={{ x: fx, y: fy, scale: 0.4, rotate: -20, opacity: 0 }}
             animate={{ x: [fx, (fx + tx) / 2, tx], y: [fy, (fy + ty) / 2 + 30, ty], scale: [0.4, 1.5, 1], rotate: [-20, 8, 0], opacity: 1 }}
             transition={{ duration: SLIDE_MS / 1000, ease: [0.2, 0.7, 0.3, 1], times: [0, 0.6, 1] }}
           >
-            {sl.emoji}
+            {isVault(sl.emoji) ? <VaultGlass size={46} /> : sl.emoji}
           </motion.span>
         );
       })}
@@ -98,14 +95,21 @@ export function DrinkLayer({ drinks, slides, pos }: { drinks: Drink[]; slides: S
           return (
             <motion.span
               key={d.key}
-              className="drink"
+              className={"drink" + (isVault(d.emoji) ? " vault" : "")}
               style={{ left: x + i * 24, top: y }}
               initial={{ scale: 1.6, y: -10 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.5 }}
               transition={{ type: "spring", stiffness: 400, damping: 14 }}
             >
-              {d.emoji}
+              {isVault(d.emoji) ? (
+                <>
+                  {!reducedMotion() && <VaultBurst />}
+                  <VaultGlass size={38} open={!reducedMotion()} />
+                </>
+              ) : (
+                d.emoji
+              )}
             </motion.span>
           );
         })}

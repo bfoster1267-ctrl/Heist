@@ -30,6 +30,9 @@ export interface BotOptions {
   /** Secret partner: back each other (join their side, never pick them) until they're 1 Foothold from
    * winning, then turn on them. Set it on both bots. Hard bots notice pairs after 3 assists. */
   partner?: number | null;
+  /** Coached play: the learner's seat. Rarely pick them as Mark; never bust or Wanted them, join a fight
+   * they're in, or Double-Cross them, so a learner who follows the coach usually wins. */
+  soft?: number | null;
 }
 
 interface Tuning {
@@ -58,6 +61,7 @@ export class Bot {
   patient: boolean;
   vendetta: boolean;
   partner: number | null;
+  soft: number | null;
   private t: Tuning;
   private waited = 0;
   private grudge: number | null = null;
@@ -72,6 +76,7 @@ export class Bot {
     this.patient = opts.patient ?? false;
     this.vendetta = opts.vendetta ?? this.level === "hard";
     this.partner = opts.partner ?? null;
+    this.soft = opts.soft ?? null;
   }
 
   answer(g: HeistGame, a: Ask): Answer {
@@ -124,6 +129,7 @@ export class Bot {
         let best: { score: number; hideout: number; rival: number } | null = null;
         const big = Math.max(0, ...me.hand.filter(isFighter).map((c) => c.score));
         for (const o of a.busts) {
+          if (o.rival === this.soft) continue;
           const H = me.hideouts[o.hideout];
           let score = H[a.seat] + big - (H[o.rival] + 9) + (threat(o.rival) ? 6 : 0);
           if (g.homeCrew(a.seat) === 0) score += 6;
@@ -155,8 +161,11 @@ export class Bot {
 
       case "pickMark": {
         const fh = (q: number) => g.footholds(q);
-        let cands = a.rivals.filter((q) => !this.loyalTo(g, a.seat, q));
-        if (!cands.length) cands = a.rivals;
+        // the learner is a Mark only now and then, so they still learn to defend
+        const spare = this.soft !== null && r.next() < 0.75 ? a.rivals.filter((q) => q !== this.soft) : a.rivals;
+        const rivals = spare.length ? spare : a.rivals;
+        let cands = rivals.filter((q) => !this.loyalTo(g, a.seat, q));
+        if (!cands.length) cands = rivals;
         if (t.pileOn) {
           const th = cands.filter(threat);
           if (th.length) return { kind: "pickMark", mark: th[0] };
@@ -224,7 +233,7 @@ export class Bot {
         const mine: Side | null = a.seat === j.boss ? "B" : a.seat === j.mark ? "M" : j.side.B[a.seat] ? "B" : j.side.M[a.seat] ? "M" : null;
         if (!mine) return { kind: "doubleCross", target: null };
         const other: Side = mine === "B" ? "M" : "B";
-        const enemies = a.targets.filter((q) => j.side[other][q] > 0 && q !== a.seat && !this.loyalTo(g, a.seat, q));
+        const enemies = a.targets.filter((q) => j.side[other][q] > 0 && q !== a.seat && q !== this.soft && !this.loyalTo(g, a.seat, q));
         if (!enemies.length) return { kind: "doubleCross", target: null };
         if (t.pileOn || this.vendetta) {
           const hot = enemies.filter((q) => (t.pileOn && threat(q)) || (this.vendetta && q === this.grudge));
@@ -353,7 +362,7 @@ export class Bot {
     if (!opts.length) return null;
     const s = g.s;
     const leader = opts[0].leader;
-    if (this.loyalTo(g, me, leader)) return null;
+    if (this.loyalTo(g, me, leader) || leader === this.soft) return null;
     if (!this.t.wantedAlways && g.footholds(leader) < s.target - 1) return null;
     const def = (x: WantedOption) => {
       const H = s.players[x.mark].hideouts[x.hideout];
@@ -371,6 +380,8 @@ export class Bot {
     const fh = (q: number) => g.footholds(q);
     const paid = j.bribes.filter((b) => b.to === me);
     const bribedSide = paid.length ? paid.reduce((x, b) => (b.amount >= x.amount ? b : x)).side : null;
+    // never fight the learner
+    if (this.soft === j.boss || this.soft === j.mark) return null;
     if (this.level !== "hard") {
       // the sim bot: a bribe wins (1 in 5 take the money and stay out), then defend our own crew
       if (bribedSide) return r.next() < 0.8 ? bribedSide : null;

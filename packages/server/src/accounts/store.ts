@@ -1,0 +1,212 @@
+// Where accounts live. Every account is one record: who they are, how they sign in, and their whole
+// progression (chips, coins, XP, prestige, stats, cosmetics). FileAccountStore keeps them all in memory
+// and writes one JSON file (atomically, a moment after each change), which is plenty for one server at
+// launch. A Postgres/Supabase store later only needs to implement AccountStore.
+
+import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import type { BotLevel } from "@heist/engine";
+import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally } from "@heist/profile";
+import type { PushSub } from "../push";
+
+export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
+
+export interface Login {
+  provider: Provider;
+  /** the provider's stable user id (for email: the lowercased address) */
+  subject: string;
+}
+
+export interface SoloGame {
+  gameId: string;
+  seed: number;
+  players: number;
+  stakes: number;
+  startedAt: number;
+  /** Coached play: free, small XP, kept out of the career */
+  coached?: boolean;
+  /** Coached play bots that go easy on the player (clients that build them say so) */
+  gentle?: boolean;
+  /** each bot's level, picked from the player's rating at the start (missing on older games: all normal) */
+  levels?: BotLevel[];
+  /** a campaign stage */
+  stage?: number;
+  /** Coached play lesson (lessons.ts), for a player's first coached games */
+  lesson?: number;
+}
+
+export interface Account {
+  id: string;
+  name: string;
+  createdAt: number;
+  /** no sign-in method yet: progress lives on this device's token until they create an account */
+  guest: boolean;
+  logins: Login[];
+  email?: string;
+  /** scrypt hash, for email sign-in */
+  password?: string;
+  progress: Progress;
+  /** the vs-bots game in progress (its buy-in is already paid) */
+  solo: SoloGame | null;
+  /** the Solitaire deal in progress (the server keeps the seed, to replay the moves of a win) */
+  solitaire?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; /** what the deal's moves have been paid for so far */ paid?: SolTally; /** XP paid so far, and what stalling and hints drained off it (see solPay) */ paidXp?: number; drain?: number } | null;
+  /** the FreeCell deal in progress */
+  freecell?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number } | null;
+  /** the TriPeaks deal in progress */
+  tripeaks?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number } | null;
+  /** the Egyptian Rat Screw game in progress */
+  ers?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number } | null;
+  /** the Spider Solitaire deal in progress */
+  spider?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number } | null;
+  /** the Pyramid Solitaire deal in progress */
+  pyramid?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number } | null;
+  /** the Yukon Solitaire deal in progress */
+  yukon?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number } | null;
+  /** the Scoundrel game in progress */
+  scoundrel?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null;
+  /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
+  played?: number;
+  /** bumping this signs the account out everywhere */
+  sessions: number;
+  /** phones and browsers that asked for turn alerts (web push), newest last */
+  push?: PushSub[];
+  /** the owner's notes, tags, flag and ban (admin panel only; never sent to the player) */
+  crm?: Crm;
+  /** their answer to "What lost you?" after their first game (asked once; "skip" when they closed it) */
+  feedback?: Feedback;
+  /** friends, and friend requests either way (see social.ts) */
+  friends?: FriendLinks;
+}
+
+export interface FriendLinks {
+  ids: string[];
+  /** requests waiting on this player's answer */
+  incoming: { id: string; at: number }[];
+  /** requests this player sent that haven't been answered */
+  outgoing: { id: string; at: number }[];
+}
+
+export const FEEDBACK_REASONS = ["roles", "buttons", "lost", "notForMe", "liked", "skip"] as const;
+export type FeedbackReason = (typeof FEEDBACK_REASONS)[number];
+
+export interface Feedback {
+  at: number;
+  reason: FeedbackReason;
+  comment: string | null;
+  /** they walked out of their first game, or saw it to the end */
+  when: "left" | "finished";
+  /** the round they were on and whether it was Coached play */
+  round: number | null;
+  coached: boolean;
+  /** sent while Claude was testing the app */
+  claude?: boolean;
+}
+
+export interface CrmNote {
+  id: string;
+  at: number;
+  text: string;
+}
+
+export interface Crm {
+  notes: CrmNote[];
+  tags: string[];
+  /** marked for a closer look, with why */
+  flag: { reason: string; at: number } | null;
+  /** suspended: can't sign in or play until `until` (null: for good) */
+  ban: { reason: string; at: number; until: number | null } | null;
+}
+
+export interface AccountStore {
+  get(id: string): Promise<Account | undefined>;
+  byLogin(l: Login): Promise<Account | undefined>;
+  put(a: Account): Promise<void>;
+  /** every account (leaderboards; a database store would query instead) */
+  all(): Promise<Account[]>;
+  /** remove an account for good (only guests who never played are removed) */
+  delete(id: string): Promise<void>;
+  flush(): Promise<void>;
+}
+
+const loginKey = (l: Login) => `${l.provider}:${l.subject}`;
+
+export class MemoryAccountStore implements AccountStore {
+  protected byId = new Map<string, Account>();
+  protected logins = new Map<string, string>();
+
+  protected index(a: Account) {
+    for (const l of a.logins) this.logins.set(loginKey(l), a.id);
+  }
+  async get(id: string) {
+    const a = this.byId.get(id);
+    return a && structuredClone(a);
+  }
+  async byLogin(l: Login) {
+    const id = this.logins.get(loginKey(l));
+    return id ? this.get(id) : undefined;
+  }
+  async put(a: Account) {
+    const old = this.byId.get(a.id);
+    if (old) for (const l of old.logins) this.logins.delete(loginKey(l));
+    this.byId.set(a.id, structuredClone(a));
+    this.index(a);
+  }
+  async all() {
+    return [...this.byId.values()].map((a) => structuredClone(a));
+  }
+  async delete(id: string) {
+    const old = this.byId.get(id);
+    if (old) for (const l of old.logins) this.logins.delete(loginKey(l));
+    this.byId.delete(id);
+  }
+  async flush() {}
+}
+
+export class FileAccountStore extends MemoryAccountStore {
+  private file: string;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  constructor(dataDir: string, private delayMs = 300) {
+    super();
+    mkdirSync(dataDir, { recursive: true });
+    this.file = join(dataDir, "accounts.json");
+    let raw: Account[] = [];
+    try {
+      raw = JSON.parse(readFileSync(this.file, "utf8"));
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+    }
+    for (const a of raw) {
+      this.byId.set(a.id, a);
+      this.index(a);
+    }
+  }
+
+  async put(a: Account) {
+    await super.put(a);
+    this.later();
+  }
+
+  async delete(id: string) {
+    await super.delete(id);
+    this.later();
+  }
+
+  private later() {
+    if (!this.timer) this.timer = setTimeout(() => this.write(), this.delayMs);
+  }
+
+  private write() {
+    this.timer = null;
+    const tmp = `${this.file}.tmp`;
+    writeFileSync(tmp, JSON.stringify([...this.byId.values()]));
+    renameSync(tmp, this.file);
+  }
+
+  async flush() {
+    if (this.timer) {
+      clearTimeout(this.timer);
+      this.write();
+    }
+  }
+}

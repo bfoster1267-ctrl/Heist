@@ -6,6 +6,9 @@
 // for the seat that receives it, so other hands, face-down showdown cards and the deck are never sent.
 
 import type { Answer, Ask, BotLevel, Frame, GameState, RuleOptions } from "@heist/engine";
+import type { Badge, Progress, Reward, PlayingCard, SlapReason } from "@heist/profile";
+
+export type { PlayingCard, SlapReason };
 
 export const PROTOCOL_VERSION = 1;
 
@@ -21,6 +24,8 @@ export interface SeatInfo {
   connected: boolean;
   /** a bot is playing this human's seat (they timed out twice, left, or asked for it) */
   autopilot: boolean;
+  /** level, prestige, frame and title of a signed-in player */
+  badge?: Badge | null;
 }
 
 export interface RoomInfo {
@@ -42,6 +47,8 @@ export interface RoomInfo {
   botLevel: BotLevel;
   /** how many games this room has played (a rematch starts the next one) */
   games: number;
+  /** a ranked table: one game, people only, no coaching on the table */
+  ranked?: boolean;
 }
 
 export interface RoomSummary {
@@ -77,19 +84,31 @@ export type ClientMsg =
   | { t: "join"; code: string; spectate?: boolean; /** last frame index this client has, to resume without a full sync */ since?: number }
   | { t: "leave" }
   | { t: "list" }
+  /** quick queue: get dealt into the next table of this size and stakes (bots fill seats after a wait) */
+  | { t: "queue"; players: number; stakes: number; ranked?: boolean }
+  | { t: "unqueue" }
   | { t: "start" }
   /** a spectator takes a free seat (or a bot's chair) before the next game */
   | { t: "sit" }
   | { t: "answer"; askId: number; answer: Answer }
   | { t: "autopilot"; on: boolean }
   | { t: "chat"; text: string }
-  /** buy a drink for another seat at the table (play-money cosmetic; seated players only) */
-  | { t: "drink"; to: number; drink: DrinkId }
-  | { t: "ping"; n?: number };
-
-/** The drinks a player can send across the table. */
-export const DRINK_IDS = ["martini", "whiskey", "champagne", "beer", "coffee"] as const;
-export type DrinkId = (typeof DRINK_IDS)[number];
+  /** change your name (saved to your account); your seat shows it at once while the table hasn't dealt */
+  | { t: "rename"; name: string }
+  /** buy a drink (coins) for one seat, or for everyone with a round (`to: null`) */
+  | { t: "drink"; id: string; to: number | null }
+  | { t: "ping"; n?: number }
+  /** the app went to the background (or came back): while away, your turn sends a phone alert */
+  | { t: "away"; on: boolean }
+  // ERS Multiplayer messages
+  | { t: "ers_create"; isPrivate?: boolean }
+  | { t: "ers_join"; code: string }
+  | { t: "ers_play" }
+  | { t: "ers_slap"; time?: number }
+  | { t: "ers_rematch" }
+  | { t: "ers_leave" }
+  | { t: "play" }
+  | { t: "slap"; time?: number };
 
 // ------------------------------------------------------------------ server -> client
 
@@ -104,6 +123,10 @@ export type ErrorCode =
   | "stale_ask"
   | "illegal"
   | "bad_state"
+  | "no_chips"
+  | "no_coins"
+  | "suspended"
+  | "ranked_locked"
   | "version";
 
 export type ServerMsg =
@@ -123,7 +146,79 @@ export type ServerMsg =
    * abandoned: players who weren't there at the end, who lose their buy-in */
   | { t: "gameOver"; game: number; winners: number[]; paid: number[]; abandoned: number[]; reason: "footholds" | "last_call"; stakes: number }
   | { t: "chat"; seat: number | null; name: string; text: string; at: number }
-  | { t: "drink"; from: number; to: number; drink: DrinkId }
+  /** someone bought a drink: `to` lists every seat it goes to */
+  | { t: "drink"; from: number; to: number[]; id: string; name: string; at: number }
+  /** your XP, coins and level after a game (signed-in players only), and your updated progress */
+  | { t: "reward"; game: number; reward: Reward; progress: Progress }
   | { t: "left" }
+  /** your new name, after a rename */
+  | { t: "renamed"; name: string }
+  /** you're in the quick queue: how many are waiting, and when the table starts regardless (epoch ms) */
+  | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number; ranked?: boolean }
+  | { t: "unqueued" }
   | { t: "error"; code: ErrorCode; msg: string }
-  | { t: "pong"; n?: number; at: number };
+  | { t: "pong"; n?: number; at: number }
+  // ERS Multiplayer broadcasts
+  | { t: "ers_welcome"; seat: 0 | 1 | null; code: string }
+  | { t: "ers_rooms"; rooms: ErsRoomSummary[] }
+  | { t: "ers_sync"; room: ErsRoomView }
+  | { t: "ers_flip"; seat: 0 | 1; card: PlayingCard; potCount: number; topCards: PlayingCard[]; turn: 0 | 1; challenge: { by: 0 | 1; chances: number } | null }
+  | { t: "ers_slap"; seat: 0 | 1; valid: boolean; reason: SlapReason; winnerSeat: 0 | 1 | null; cardsWon: number; burnedCard?: PlayingCard; potCount: number; p0Count: number; p1Count: number; slower?: boolean }
+  | { t: "ers_challenge"; by: 0 | 1; chances: number; status: "started" | "step" | "won"; cardsAwarded?: number }
+  | { t: "ers_over"; winner: 0 | 1; reason: string; stats: ErsStats }
+  | { t: "ers_error"; code: string; msg: string }
+  | { t: "ers_left"; seat: 0 | 1 };
+
+// ------------------------------------------------------------------ ERS types
+
+export interface ErsRoomSummary {
+  code: string;
+  players: number;
+  status: "waiting" | "playing" | "over";
+}
+
+export interface ErsMoveLog {
+  id: number;
+  time: number;
+  seat: 0 | 1;
+  action: "play" | "slap" | "burn" | "challenge_win" | "slap_win" | "game_over";
+  card?: PlayingCard;
+  reason?: string;
+  detail: string;
+}
+
+export interface ErsStats {
+  cardsWon: [number, number];
+  slaps: [number, number];
+  falseSlaps: [number, number];
+  faceChallengesWon: [number, number];
+}
+
+export interface ErsRoomView {
+  id: string;
+  code: string;
+  status: "waiting" | "playing" | "over";
+  you: {
+    seat: 0 | 1 | null;
+    cardCount: number;
+    cards?: PlayingCard[];
+  };
+  opponent: {
+    seat: 0 | 1 | null;
+    name: string;
+    connected: boolean;
+    cardCount: number;
+  } | null;
+  turn: 0 | 1;
+  challenge: { by: 0 | 1; chances: number } | null;
+  potCount: number;
+  topCards: PlayingCard[];
+  slapWindow: boolean;
+  validSlapReason: SlapReason;
+  winner: 0 | 1 | null;
+  winReason?: string;
+  stats: ErsStats;
+  lastEvent?: string;
+  moveLogs: ErsMoveLog[];
+}
+

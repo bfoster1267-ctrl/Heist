@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { useCallback, useState } from "react";
 import { reducedMotion } from "../prefs";
 import { CardBack, Crew } from "./pieces";
+import { boxIn } from "../turn";
 
 export type Token = { kind: "crew"; color: number } | { kind: "coin" } | { kind: "card" } | { kind: "chip"; color: string };
 interface Flight {
@@ -26,9 +27,8 @@ export function useFlights(canvas: React.RefObject<HTMLDivElement | null>, scale
       const root = canvas.current;
       const el = root?.querySelector(`[data-anchor="${anchor}"]`);
       if (!root || !el) return null;
-      const r = el.getBoundingClientRect();
-      const c = root.getBoundingClientRect();
-      return { x: (r.left + r.width / 2 - c.left) / scale, y: (r.top + r.height / 2 - c.top) / scale };
+      const r = boxIn(el, root);
+      return { x: (r.left + r.width / 2) / scale, y: (r.top + r.height / 2) / scale };
     },
     [canvas, scale],
   );

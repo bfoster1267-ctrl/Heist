@@ -120,7 +120,7 @@ export class HeistGame {
       rules,
       history: [],
       players,
-      deck: this.rng.shuffle(makeJobDeck()),
+      deck: this.rng.shuffle(makeJobDeck().filter((c) => !rules.scoresOnly || c.kind === "S")),
       deckCount: 64,
       discard: [],
       boss: 0,
@@ -137,7 +137,7 @@ export class HeistGame {
       endReason: null,
     };
     this.s.boss = this.s.firstBoss = this.rng.int(n);
-    const pool = this.rng.shuffle(ROLES.map((r) => r.id));
+    const pool = this.rng.shuffle(rules.rolePool && rules.rolePool.length >= 2 * n ? [...rules.rolePool] : ROLES.map((r) => r.id));
     this.roleOffers = players.map((_, i) => [pool[2 * i], pool[2 * i + 1]]);
     for (const p of players) for (let i = 0; i < 5; i++) p.hand.push(this.draw()!);
     this.gen = this.main();
@@ -349,7 +349,7 @@ export class HeistGame {
   private *main(): Flow {
     const s = this.s;
     this.emit({ t: "setup" }, `${s.n} players. First to ${s.target} Footholds wins.`);
-    for (const p of s.players) {
+    for (const p of s.rules.noRoles ? [] : s.players) {
       const a = yield* this.ask({ kind: "keepRole", seat: p.seat, options: this.roleOffers[p.seat] });
       p.role = a.role;
       this.emit({ t: "role", seat: p.seat, role: a.role }, `${p.name} is ${roleName(a.role)}.`);
@@ -361,19 +361,24 @@ export class HeistGame {
         this.endLastCall();
         break;
       }
+      if (s.rules.rounds && s.turn + 1 >= s.rules.rounds * s.n) {
+        this.endLastCall(true);
+        break;
+      }
       s.boss = (s.boss + 1) % s.n;
       s.turn++;
     }
     s.phase = "over";
   }
 
-  private endLastCall() {
+  /** Last Call (or a learner table's last round): most Footholds wins, then the most cash. */
+  private endLastCall(roundsUp = false) {
     const s = this.s;
     const key = s.players.map((p) => this.footholds(p.seat) * 1000 + this.cash(p.seat));
     const best = Math.max(...key);
     s.winners = s.players.filter((p) => key[p.seat] === best).map((p) => p.seat);
     s.endReason = "last_call";
-    this.emit({ t: "gameOver", winners: s.winners, reason: "last_call" }, `Last Call. ${s.winners.map((w) => this.name(w)).join(" and ")} win${s.winners.length > 1 ? "" : "s"} on Footholds.`);
+    this.emit({ t: "gameOver", winners: s.winners, reason: "last_call" }, `${roundsUp ? "That's the last hand" : "Last Call"}. ${s.winners.map((w) => this.name(w)).join(" and ")} win${s.winners.length > 1 ? "" : "s"} on Footholds.`);
   }
 
   private checkWin(): boolean {
@@ -651,7 +656,7 @@ export class HeistGame {
     const inJob = (q: number) => q === b || q === mark || j.side.B[q] + j.side.M[q] > 0;
     for (let i = 1; i < s.n; i++) {
       const p = (b + i) % s.n;
-      if (inJob(p) || !s.players[p].bank.length) continue;
+      if (s.rules.noBets || inJob(p) || !s.players[p].bank.length) continue;
       const a = yield* this.ask({ kind: "bet", seat: p });
       if (!a.side) continue;
       const P = s.players[p];
@@ -768,6 +773,8 @@ export class HeistGame {
       }
     }
     if (win === "B") {
+      // Boss-side players already holding a Foothold here get no new one; the log says so, or the win looks lost.
+      const already = s.players.filter((p) => j.side.B[p.seat] > 0 && H[p.seat] > 0).map((p) => p.name);
       for (const p of s.players) {
         const k = j.side.B[p.seat];
         if (!k) continue;
@@ -795,7 +802,8 @@ export class HeistGame {
       }
       const safe = this.role(boss) === "safecracker";
       const paid = this.pay(mark, safe ? 2 * LOOT : LOOT, boss);
-      this.emit({ t: "loot", from: mark, to: boss, amount: paid }, paid ? `${this.name(mark)} pays $${paid} loot.` : `${this.name(mark)} has no cash to pay loot.`);
+      const note = already.length ? ` ${already.join(" and ")} already had a Foothold there, so no new one: their crew all went home.` : "";
+      this.emit({ t: "loot", from: mark, to: boss, amount: paid }, (paid ? `${this.name(mark)} pays $${paid} loot.` : `${this.name(mark)} has no cash to pay loot.`) + note);
       if (paid) for (const p of s.players) if (p.role === "pickpocket") this.bankTop(p.seat, "the Pickpocket skims the loot");
       if (safe) {
         const others = s.players[mark].hideouts.filter((h, i) => i !== j.hideout && h[mark] > 0);

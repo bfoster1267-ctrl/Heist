@@ -1,0 +1,238 @@
+// Daily Challenge Hub Modal
+// Displays today's worldwide daily challenges across all 8 solo games, active streak counter,
+// streak multipliers, milestone progress, countdown timers, and Wordle-style sharing.
+
+import {
+  DAILY_BASE_BONUS_COINS,
+  DAILY_BASE_BONUS_XP,
+  DAILY_GAMES,
+  formatCountdown,
+  formatDailyChallengeNumber,
+  getDailyChallenge,
+  getDailyStreak,
+  getFeaturedDailyGame,
+  getMilestoneBonus,
+  getRemainingMsUntilNextUtcDay,
+  getStreakMultiplier,
+  isChallengeCompleted,
+  STREAK_MILESTONES,
+  todayUtc,
+  type DailyGame,
+  type Progress,
+} from "@heist/profile";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { buzz } from "../haptics";
+import { card as cardSound, click } from "../sound";
+import "./daily.css";
+import { shareDailyResult } from "./shareHelpers";
+
+export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
+  solitaire: { title: "Klondike Solitaire", icon: "♠" },
+  freecell: { title: "FreeCell", icon: "♦" },
+  spider: { title: "Spider Solitaire", icon: "🕷️" },
+  tripeaks: { title: "TriPeaks", icon: "⛰️" },
+  pyramid: { title: "Pyramid", icon: "🔺" },
+  yukon: { title: "Yukon", icon: "🐺" },
+  ers: { title: "Egyptian Rat Screw", icon: "⚡" },
+  scoundrel: { title: "Scoundrel", icon: "🗡️" },
+};
+
+export interface DailyHubProps {
+  progress?: Progress;
+  onClose: () => void;
+  onPlayChallenge: (game: DailyGame, seed: number) => void;
+}
+
+export function DailyHub({ progress, onClose, onPlayChallenge }: DailyHubProps) {
+  const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
+  const [copiedShare, setCopiedShare] = useState(false);
+
+  // Countdown timer ticker
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMsLeft(getRemainingMsUntilNextUtcDay());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Escape key listener
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose]);
+
+  const today = todayUtc();
+  const challengeNo = formatDailyChallengeNumber(today);
+  const streak = progress ? getDailyStreak(progress, Date.now()) : 0;
+  const multiplier = getStreakMultiplier(streak);
+
+  // Featured rotating game for today
+  const featuredGame = getFeaturedDailyGame();
+  const featuredChallenge = getDailyChallenge(featuredGame, today);
+  const featuredCompleted = Boolean(progress?.daily?.completed?.[`${today}:${featuredGame}`]);
+
+  // Next milestone calculation
+  const nextMilestoneDays = [3, 7, 14, 30].find((m) => m > streak) ?? 30;
+  const nextMilestoneBonus = STREAK_MILESTONES[nextMilestoneDays];
+  const progressPercent = Math.min(100, Math.round((streak / nextMilestoneDays) * 100));
+
+  // Count how many of today's 8 challenges are completed
+  const completedCount = useMemo(() => {
+    if (!progress?.daily?.completed) return 0;
+    return DAILY_GAMES.filter((g) => Boolean(progress.daily?.completed?.[`${today}:${g}`])).length;
+  }, [progress, today]);
+
+  const handleShare = async () => {
+    click();
+    buzz("tap");
+    const success = await shareDailyResult({
+      game: featuredGame,
+      gameTitle: GAME_LABELS[featuredGame].title,
+      won: featuredCompleted,
+      streak,
+      multiplier,
+      challengeNumber: challengeNo,
+    });
+    if (success) {
+      setCopiedShare(true);
+      setTimeout(() => setCopiedShare(false), 2400);
+    }
+  };
+
+  return createPortal(
+    <div className="daily-hub-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Daily Challenges">
+      <div className="daily-hub-box" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="daily-hub-header">
+          <div className="daily-title-group">
+            <span className="daily-super">
+              <span>✦</span> Daily Challenge #{challengeNo}
+            </span>
+            <h2 className="daily-title">
+              WORLDWIDE <span>DAILY DEALS</span>
+            </h2>
+          </div>
+          <button className="daily-close-btn" onClick={onClose} aria-label="Close Daily Challenges">
+            ✕
+          </button>
+        </div>
+
+        {/* Streak & Timer Card */}
+        <div className="daily-streak-card">
+          <div className="daily-streak-left">
+            <span className="daily-flame" aria-hidden="true">🔥</span>
+            <div className="daily-streak-stats">
+              <span className="daily-streak-count">{streak} DAY STREAK</span>
+              <span className="daily-multiplier-pill">{multiplier}x BONUS MULTIPLIER</span>
+            </div>
+          </div>
+          <div className="daily-countdown-wrap">
+            <span className="daily-countdown-label">Resets In</span>
+            <span className="daily-countdown-val">{formatCountdown(msLeft)}</span>
+          </div>
+        </div>
+
+        {/* Milestone Progress Bar */}
+        {nextMilestoneBonus && (
+          <div className="daily-milestone-wrap">
+            <div className="daily-milestone-head">
+              <span>Next Milestone: {nextMilestoneDays}-Day Streak</span>
+              <span className="daily-milestone-reward">+{nextMilestoneBonus.xp} XP & +{nextMilestoneBonus.coins} Coins</span>
+            </div>
+            <div className="daily-progress-track">
+              <div className="daily-progress-fill" style={{ width: `${progressPercent}%` }} />
+            </div>
+          </div>
+        )}
+
+        {/* Featured Challenge Card */}
+        <div className="daily-featured-card">
+          <span className="daily-featured-badge">⭐ TODAY'S FEATURED CHALLENGE</span>
+          <div className="daily-featured-body">
+            <div className="daily-featured-info">
+              <h3 className="daily-featured-name">{GAME_LABELS[featuredGame].title}</h3>
+              <p className="daily-featured-desc">{featuredChallenge.description}</p>
+            </div>
+            <button
+              type="button"
+              className={`daily-play-btn ${featuredCompleted ? "completed" : ""}`}
+              onClick={() => {
+                if (featuredCompleted) return;
+                cardSound();
+                buzz("tap");
+                onPlayChallenge(featuredGame, featuredChallenge.seed);
+              }}
+              aria-label={featuredCompleted ? "Completed" : `Play ${GAME_LABELS[featuredGame].title} Daily Challenge`}
+            >
+              {featuredCompleted ? "COMPLETED ✅" : "PLAY DEAL"}
+            </button>
+          </div>
+        </div>
+
+        {/* 8-Game Grid */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h4 className="daily-grid-title">All 8 Daily Challenges ({completedCount}/8 Done)</h4>
+          <span style={{ fontSize: 11, color: "var(--gold)", fontFamily: "var(--cond)" }}>
+            +50 XP · +15 Coins each
+          </span>
+        </div>
+
+        <div className="daily-games-grid">
+          {DAILY_GAMES.map((gameId) => {
+            const ch = getDailyChallenge(gameId, today);
+            const isDone = Boolean(progress?.daily?.completed?.[`${today}:${gameId}`]);
+            const info = GAME_LABELS[gameId];
+
+            return (
+              <div key={gameId} className="daily-game-row">
+                <div className="daily-game-left">
+                  <span className="daily-game-icon">{info.icon}</span>
+                  <div>
+                    <div className="daily-game-name">{info.title}</div>
+                    <div className="daily-game-payout">
+                      {isDone ? "Completed Today ✅" : `Deal #${ch.seed % 1000}`}
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  className={`daily-mini-play-btn ${isDone ? "done" : ""}`}
+                  onClick={() => {
+                    cardSound();
+                    buzz("tap");
+                    onPlayChallenge(gameId, ch.seed);
+                  }}
+                  aria-label={`${isDone ? "Replay" : "Play"} ${info.title} challenge`}
+                >
+                  {isDone ? "REPLAY" : "PLAY"}
+                </button>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Share Wordle-style Card Button */}
+        <div style={{ marginTop: 4, display: "flex", flexDirection: "column", gap: 8 }}>
+          <button
+            type="button"
+            className="btn gold big"
+            style={{ width: "100%", height: 48, fontSize: 16 }}
+            onClick={handleShare}
+            aria-label="Share Daily Challenge Scorecard"
+          >
+            {copiedShare ? "Result Copied to Clipboard! 📋" : "Share Daily Challenge Result 📲"}
+          </button>
+          <div style={{ fontSize: 12, color: "#8a909b", textAlign: "center", fontStyle: "italic" }}>
+            Share your daily streak with friends on iMessage, WhatsApp, or Twitter.
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}

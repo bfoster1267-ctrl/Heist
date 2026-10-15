@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react";
+import { resolve } from "node:path";
 import { defineConfig, type Plugin } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
@@ -11,7 +12,7 @@ function serviceWorker(): Plugin {
     name: "heist-sw",
     apply: "build",
     generateBundle(_, bundle) {
-      const files = ["./", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", ...Object.keys(bundle).map((f) => "./" + f)];
+      const files = ["./", "./manifest.webmanifest", "./icons/apple-touch-icon.png", "./icons/icon-192.png", "./icons/icon-512.png", "./table-music.m4a", ...Object.keys(bundle).filter((f) => !/admin/.test(f)).map((f) => "./" + f)];
       const version = Date.now().toString(36);
       this.emitFile({
         type: "asset",
@@ -25,13 +26,52 @@ self.addEventListener("install", (e) => {
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
+// turn alerts (see src/alerts.ts): the server pushes { title, body, tag, url }
+self.addEventListener("push", (e) => {
+  let m = {};
+  try {
+    m = e.data ? e.data.json() : {};
+  } catch {}
+  // always show it: iPhones stop delivering to apps that receive pushes without showing one
+  // (the server already skips players who have the table open in front of them)
+  e.waitUntil(
+    self.registration.showNotification(m.title || "Heist", {
+      body: m.body || "",
+      tag: m.tag || "heist",
+      renotify: true,
+      icon: "./icons/icon-192.png",
+      badge: "./icons/icon-192.png",
+      data: { url: m.url || "./" },
+    }),
+  );
+});
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const url = new URL((e.notification.data && e.notification.data.url) || "./", self.registration.scope).href;
+  e.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((wins) => {
+      const w = wins[0];
+      // Heist is already open: bring it up and tell it where the notification points (a friend's table,
+      // a chat); it decides whether to go there now. Otherwise open the app at that address.
+      if (w) {
+        w.postMessage({ t: "heist-open", url });
+        return w.focus();
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
+});
 self.addEventListener("fetch", (e) => {
   const req = e.request;
-  if (req.method !== "GET" || new URL(req.url).origin !== location.origin) return;
+  const url = new URL(req.url);
+  // never cache the account API (it must always be live) or the owner's back office
+  if (req.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/") || /\/admin/.test(url.pathname)) return;
   if (req.mode === "navigate") {
     e.respondWith(
       fetch(req)
         .then((res) => {
+          // a 502 while the server restarts must not replace the saved app, and the saved app beats it
+          if (!res.ok) return caches.match("./").then((hit) => hit || res);
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put("./", copy));
           return res;
@@ -73,5 +113,23 @@ function stripAppTags(): Plugin {
 export default defineConfig(({ mode }) => ({
   base: "./",
   plugins: [react(), ...(mode === "single" ? [viteSingleFile(), stripAppTags()] : [serviceWorker()])],
-  build: { outDir: mode === "single" ? "dist-single" : "dist", copyPublicDir: mode !== "single" },
+  server: {
+    host: true,
+    port: 5173,
+    proxy: {
+      "/ws": {
+        target: "ws://localhost:8787",
+        ws: true,
+      },
+      "/api": {
+        target: "http://localhost:8787",
+      },
+    },
+  },
+  build: {
+    outDir: mode === "single" ? "dist-single" : "dist",
+    copyPublicDir: mode !== "single",
+    // the normal build also makes the owner's back office (admin.html, served at /admin)
+    rollupOptions: mode === "single" ? undefined : { input: { main: resolve(__dirname, "index.html"), admin: resolve(__dirname, "admin.html") } },
+  },
 }));

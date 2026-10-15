@@ -1,54 +1,938 @@
-import { useCallback, useState } from "react";
-import { Lobby, type LobbyChoice } from "./Lobby";
-import { OnlineLobby, inviteCode } from "./online/OnlineLobby";
+import type { Answer } from "@heist/engine";
+import { ALL_DRINKS, FIRST_HAND, currentPass, lessonFor, type Reward } from "@heist/profile";
+import { AnimatePresence } from "motion/react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ProfileChip } from "./account/bits";
+import { Lounge } from "./account/Lounge";
+import { InviteToast, joinTable, useFriendsSlot } from "./account/Friends";
+import { useFriendsSync } from "./account/social";
+import { Profile } from "./account/Profile";
+import { Rewards } from "./account/Rewards";
+import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
+import { AccountProvider, useAccount } from "./account/useAccount";
+import "./account/account.css";
+import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
+import { OnlineLobby, QueueBar, inviteCode } from "./online/OnlineLobby";
+import { session } from "./online/session";
+import { Solitaire } from "./solitaire/Solitaire";
+import { FreeCell } from "./freecell/FreeCell";
+import { TriPeaks } from "./tripeaks/TriPeaks";
+import { Ers } from "./ers/Ers";
+import { Spider } from "./spider/Spider";
+import { Pyramid } from "./pyramid/Pyramid";
+import { Yukon } from "./yukon/Yukon";
+import { Scoundrel } from "./scoundrel/Scoundrel";
+import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
+import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
+import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
-import { REFILL_TO, loadChips, saveChips } from "./wallet";
 
 export function App() {
-  const [chips, setChipsState] = useState(loadChips);
-  const [table, setTable] = useState<TableSettings | null>(null);
+  return (
+    <AccountProvider>
+      <Game />
+    </AccountProvider>
+  );
+}
+
+interface Seated extends TableSettings {
+  seed: number;
+  gameId: string;
+}
+
+function Game() {
+  const { me, backend, failed, suspended, act, showReward, error, clearError } = useAccount();
+  // friends, requests, invites and messages stay fresh while the app is open
+  useFriendsSync(backend, !!me);
+  // friends live in the Lounge's Friends tab (the lobby's one chat button)
+  const friendsSlot = useFriendsSlot(me?.id);
+  // can't reach the server: check back every few seconds and reload once it answers
+  useEffect(() => {
+    if (!failed) return;
+    const base = import.meta.env.VITE_SERVER_URL === "same-origin" ? "" : ((import.meta.env.VITE_SERVER_URL as string | undefined) ?? "").replace(/\/$/, "");
+    const t = window.setInterval(() => {
+      fetch(`${base}/api/config`, { cache: "no-store" }).then((r) => r.ok && location.reload(), () => {});
+    }, 5000);
+    return () => clearInterval(t);
+  }, [failed]);
+  const [table, setTable] = useState<Seated | null>(null);
   const [round, setRound] = useState(0);
-  // online: the player's name, set while the friends lobby or an online table is open
-  const [online, setOnline] = useState<string | null>(() => (inviteCode() ? savedName() : null));
-  const setChips = useCallback((f: (c: number) => number) => {
-    setChipsState((c) => {
-      const v = f(c);
-      saveChips(v);
-      return v;
-    });
+  // the profile sheet and which tab it opens on (false = closed)
+  const [profile, setProfile] = useState<false | LobbyPage | "account" | "friends">(() => (opened().friends ? "friends" : false));
+  // a friend's chat to open (from a message notification)
+  const [chatWith, setChatWith] = useState<string | null>(() => opened().chat);
+  const finished = useRef(false);
+  // "What lost you?": a brand-new player's first visit to the tables, asked once when they walk out of a
+  // game or head back to the lobby (after finishing one, if they did)
+  const firstGame = useRef(false);
+  const finishedOne = useRef(false);
+  const turnRef = useRef(0);
+  const [ask, setAsk] = useState<LostAsk | null>(null);
+  const [firstReward, setFirstReward] = useState<Reward | null>(null);
+  // Solitaire: from the lobby, or straight in at playheist.net/solitaire (its own link to share)
+  const [sol, setSolState] = useState(() => {
+    const on = location.pathname === "/solitaire";
+    try {
+      // someone who came for Solitaire isn't dropped into the Heist lesson when they head to the lobby
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setSol = useCallback((on: boolean) => {
+    setSolState(on);
+    try {
+      history.replaceState(null, "", on ? "/solitaire" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
   }, []);
+  // FreeCell: from the lobby, or straight in at playheist.net/freecell (its own link to share)
+  const [fc, setFcState] = useState(() => {
+    const on = location.pathname === "/freecell";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setFc = useCallback((on: boolean) => {
+    setFcState(on);
+    try {
+      history.replaceState(null, "", on ? "/freecell" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // TriPeaks: from the lobby, or straight in at playheist.net/tripeaks (its own link to share)
+  const [tp, setTpState] = useState(() => {
+    const on = location.pathname === "/tripeaks";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setTp = useCallback((on: boolean) => {
+    setTpState(on);
+    try {
+      history.replaceState(null, "", on ? "/tripeaks" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Egyptian Rat Screw: from the lobby, or straight in at playheist.net/ers (or via PvP duel invite ?join=)
+  const [ersPvp, setErsPvp] = useState(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.has("join") || p.has("joinErs") || p.has("pvp") || location.pathname === "/ers/pvp";
+    } catch {
+      return false;
+    }
+  });
+  const [ers, setErsState] = useState(() => {
+    let hasErsJoin = false;
+    try {
+      const p = new URLSearchParams(location.search);
+      hasErsJoin = p.has("joinErs") || (p.has("join") && !p.has("table"));
+    } catch {
+      /* fine without */
+    }
+    const on = location.pathname === "/ers" || location.pathname.startsWith("/ers") || hasErsJoin;
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setErs = useCallback((on: boolean) => {
+    setErsState(on);
+    if (!on) setErsPvp(false);
+    try {
+      history.replaceState(null, "", on ? "/ers" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Spider Solitaire: from the lobby, or straight in at playheist.net/spider
+  const [spider, setSpiderState] = useState(() => {
+    const on = location.pathname === "/spider";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setSpider = useCallback((on: boolean) => {
+    setSpiderState(on);
+    try {
+      history.replaceState(null, "", on ? "/spider" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Pyramid Solitaire: from the lobby, or straight in at playheist.net/pyramid
+  const [pyramid, setPyramidState] = useState(() => {
+    const on = location.pathname === "/pyramid";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setPyramid = useCallback((on: boolean) => {
+    setPyramidState(on);
+    try {
+      history.replaceState(null, "", on ? "/pyramid" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Yukon Solitaire: from the lobby, or straight in at playheist.net/yukon
+  const [yukon, setYukonState] = useState(() => {
+    const on = location.pathname === "/yukon";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setYukon = useCallback((on: boolean) => {
+    setYukonState(on);
+    try {
+      history.replaceState(null, "", on ? "/yukon" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Scoundrel: from the lobby, or straight in at playheist.net/scoundrel
+  const [scoundrel, setScoundrelState] = useState(() => {
+    const on = location.pathname === "/scoundrel";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setScoundrel = useCallback((on: boolean) => {
+    setScoundrelState(on);
+    try {
+      history.replaceState(null, "", on ? "/scoundrel" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
+  const [tour, setTourState] = useState<TourStep | null>(savedTour);
+  const setTour = useCallback((t: TourStep | null) => {
+    setTourState(t);
+    saveTour(t ?? "done");
+  }, []);
+  // an upright phone needs no asking: the table draws itself sideways (turn.ts)
+  const enter = (go: () => void) => go();
+  // online: the player's name, set while the friends lobby or an online table is open
+  const [online, setOnline] = useState<string | null>(() =>
+    inviteCode() ? savedName() : null,
+  );
+  // still in line for an online table after stepping out of the online lobby (its name, for the socket):
+  // a bar on the other screens says so, and the table pulls the player back in when it's dealt
+  const [away, setAwayState] = useState<string | null>(null);
+  const awayRef = useRef<string | null>(null);
+  const setAway = useCallback((n: string | null) => {
+    awayRef.current = n;
+    setAwayState(n);
+  }, []);
+  const openSoloGame = useCallback(
+    (id: ArcadeGameId | null, pvp = false) => {
+      setSol(id === "solitaire");
+      setFc(id === "freecell");
+      setTp(id === "tripeaks");
+      setErs(id === "ers");
+      if (id === "ers") setErsPvp(pvp);
+      setSpider(id === "spider");
+      setPyramid(id === "pyramid");
+      setYukon(id === "yukon");
+      setScoundrel(id === "scoundrel");
+    },
+    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel],
+  );
+  const activeSoloGame: ArcadeGameId | null =
+    sol ? "solitaire"
+    : fc ? "freecell"
+    : tp ? "tripeaks"
+    : ers ? "ers"
+    : spider ? "spider"
+    : pyramid ? "pyramid"
+    : yukon ? "yukon"
+    : scoundrel ? "scoundrel"
+    : null;
+  const [arcadeHubOpen, setArcadeHubOpen] = useState(false);
+  const [dailyHubOpen, setDailyHubOpen] = useState(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.has("daily");
+    } catch {
+      return false;
+    }
+  });
 
-  const sit = (c: LobbyChoice) => {
-    setChips((x) => x - c.stakes);
-    setTable({ ...c, seed: undefined });
-    setRound((r) => r + 1);
-  };
+  const [gameConfig, setGameConfig] = useState<{
+    seed?: number;
+    isDaily?: boolean;
+    challengerTime?: string | null;
+    challengerMoves?: number | null;
+    challengerScore?: number | null;
+  }>(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      const seedStr = p.get("challenge") ?? p.get("seed");
+      const seed = seedStr ? parseInt(seedStr, 10) : undefined;
+      const isDaily = p.has("dailyGame") || p.has("daily");
+      const challengerTime = p.get("ctime");
+      const challengerMoves = p.has("cmoves") ? parseInt(p.get("cmoves")!, 10) : null;
+      const challengerScore = p.has("cscore") ? parseInt(p.get("cscore")!, 10) : null;
+      return {
+        seed: Number.isNaN(seed) ? undefined : seed,
+        isDaily,
+        challengerTime,
+        challengerMoves: Number.isNaN(challengerMoves) ? null : challengerMoves,
+        challengerScore: Number.isNaN(challengerScore) ? null : challengerScore,
+      };
+    } catch {
+      return {};
+    }
+  });
 
+  const launchDailyGame = useCallback(
+    (gameId: ArcadeGameId, seed: number) => {
+      setDailyHubOpen(false);
+      setGameConfig({
+        seed,
+        isDaily: true,
+        challengerTime: null,
+        challengerMoves: null,
+        challengerScore: null,
+      });
+      openSoloGame(gameId);
+    },
+    [openSoloGame],
+  );
+  const backToLine = useCallback(() => {
+    const n = awayRef.current;
+    if (n === null) return;
+    setAway(null);
+    openSoloGame(null);
+    setOnline(n);
+  }, [setAway, openSoloGame]);
+  // After an online game the server sends what it earned. It usually lands while the table is still
+  // playing the last moves, so it's held until the table shows the end, then shown like a game vs bots.
+  const onlineEnd = useRef<{ reward: Reward | null; ended: boolean }>({
+    reward: null,
+    ended: false,
+  });
+  useEffect(() => {
+    if (online === null) return;
+    return session(online).onMessage((m) => {
+      if (m.t === "frames" && m.frames[0]?.i === 0)
+        onlineEnd.current = { reward: null, ended: false };
+      if (m.t === "renamed") {
+        // the server saved it to the account; keep the copy guests use for their next invite too
+        try {
+          localStorage.setItem("heist.name", m.name);
+        } catch {
+          /* storage blocked */
+        }
+        void act((b) => b.me());
+        return;
+      }
+      if (m.t !== "reward") return;
+      void act((b) => b.me());
+      if (onlineEnd.current.ended) showReward(m.reward);
+      else onlineEnd.current.reward = m.reward;
+    });
+  }, [online, showReward, act]);
+  // Tapping a notification while Heist is already open: the service worker hands over where it points.
+  // An invite goes straight to the table, unless you're in a game (then its invite card waits for you).
+  const busy = useRef(false);
+  busy.current = !!table || (online !== null && session(online).room?.status === "playing" && session(online).seat !== null);
+  useEffect(() => {
+    if (!("serviceWorker" in navigator)) return;
+    const got = (e: MessageEvent) => {
+      if (e.data?.t !== "heist-open" || typeof e.data.url !== "string") return;
+      const q = new URL(e.data.url, location.href).searchParams;
+      const code = q.get("table");
+      if (code && /^[A-Za-z2-9]{5}$/.test(code)) {
+        if (!busy.current) joinTable(code.toUpperCase());
+        return;
+      }
+      if (q.get("chat") || q.get("friends")) {
+        setChatWith(q.get("chat"));
+        if (!busy.current) setProfile("friends");
+      }
+    };
+    navigator.serviceWorker.addEventListener("message", got);
+    return () => navigator.serviceWorker.removeEventListener("message", got);
+  }, []);
+  // the owner's activity log: which screen the player is on
+  useEffect(() => {
+    trackScreen(profile ? `Profile: ${profile}` : table ? (table.stage ? `Campaign table ${table.stage}` : "Table vs bots") : online !== null ? "Online" : sol ? "Solitaire" : "Lobby");
+  }, [profile, table, online, sol]);
+  const onlineTableEnded = useCallback(() => {
+    const e = onlineEnd.current;
+    if (e.reward) showReward(e.reward);
+    onlineEnd.current = { reward: null, ended: !e.reward };
+  }, [showReward]);
+
+  // The buy-in is paid and the seed comes from the account (the server, when there is one), so the
+  // finished game can be checked and counted toward the career.
+  const sit = useCallback(
+    async (c: LobbyChoice) => {
+      // a game vs bots takes the player out of the online queue (no table pulling them away mid-hand)
+      if (awayRef.current !== null) {
+        session(awayRef.current).client.unqueue();
+        setAway(null);
+      }
+      if (me && c.name && c.name !== me.name)
+        await act((b) => b.rename(c.name));
+      const t = await act((b) => b.soloStart(c.players, c.stakes, c.name, c.campaign, c.coached));
+      if (!t) return;
+      if (t.quit) showReward(t.quit);
+      finished.current = false;
+      turnRef.current = 0;
+      setFirstReward(null);
+      if (me && !firstGame.current)
+        firstGame.current = backend?.kind === "server" && !me.asked && !lostAsked() && !me.progress.coachGames && !me.progress.stats.games && !me.progress.xp;
+      setTable({
+        players: t.players ?? c.players,
+        name: c.name,
+        stakes: t.stage || c.coached ? 0 : c.stakes,
+        coached: c.coached,
+        gentle: t.gentle,
+        lesson: t.lesson,
+        seed: t.seed,
+        levels: t.levels,
+        stage: t.stage,
+        gameId: t.gameId,
+      });
+      setRound((r) => r + 1);
+    },
+    [me, backend, act, showReward, setAway],
+  );
+
+  const gameOver = useCallback(
+    async (_won: number, answers: Answer[]) => {
+      if (!table || finished.current) return;
+      finished.current = true;
+      if (firstGame.current) finishedOne.current = true;
+      const r = await act((b) => b.soloFinish(table.gameId, answers));
+      // the first hand shows its reward (and season pass tier 1) on its own game-over card
+      if (r && table.lesson === FIRST_HAND) setFirstReward(r.reward);
+      else if (r) showReward(r.reward);
+    },
+    [table, act, showReward],
+  );
+
+  // Walking out mid-game counts as a loss: the buy-in is already in the pot.
+  const exit = useCallback(() => {
+    if (!finished.current) void act((b) => b.soloQuit());
+    // finished the first hand: the lobby tour comes next, not "What lost you?"
+    const firstHandDone = finished.current && table?.lesson === FIRST_HAND;
+    if (firstHandDone) {
+      firstGame.current = false;
+      if (!tourStarted()) setTour("profile");
+    }
+    if (firstGame.current && table && !me?.asked) {
+      firstGame.current = false;
+      markLostAsked();
+      setAsk({ when: finishedOne.current || finished.current ? "finished" : "left", round: finishedOne.current || finished.current ? null : turnRef.current, coached: !!table.coached });
+    }
+    finished.current = true;
+    setTable(null);
+  }, [act, table, me, setTour]);
+
+  const buyDrink = useCallback(
+    async (emoji: string, count: number) => {
+      const d = ALL_DRINKS.find((x) => x.emoji === emoji);
+      return !!d && !!(await act((b) => b.drink(d.id, count)));
+    },
+    [act],
+  );
+
+  if (suspended)
+    return (
+      <div className="loading loading-failed">
+        <div>Account suspended</div>
+        <p>{suspended}</p>
+        <p>If you think this is a mistake, email support@playheist.net.</p>
+      </div>
+    );
+  if (!me)
+    return failed ? (
+      <div className="loading loading-failed">
+        <div>Can't reach the vault</div>
+        <p>The game server didn't answer, maybe it's restarting. Your account and chips are safe, and this page reconnects by itself when it's back.</p>
+        <button className="btn primary big" onClick={() => location.reload()}>
+          Try again
+        </button>
+      </div>
+    ) : (
+      <div className="loading">Opening the vault…</div>
+    );
+  const chips = me.progress.chips;
+  // free packs from the season pass waiting to be opened: a dot on the player card leads to them
+  const packs = currentPass(me.progress, Date.now())?.packs ?? 0;
+
+  // Online games settle chips, XP and stats on the server (the socket signs in as this account), so the
+  // lobby only needs to re-read the account when money moves.
   if (online !== null)
     return (
-      <OnlineLobby
-        name={online}
-        chips={chips}
-        join={inviteCode()}
-        onExit={() => setOnline(null)}
-        onBuyIn={(stakes) => setChips((c) => Math.max(0, c - stakes))}
-        onWin={(won) => setChips((c) => c + won)}
-      />
+      <>
+        <OnlineLobby
+          name={online}
+          chips={chips}
+          join={inviteCode()}
+          onExit={() => {
+            if (session(online).queue) setAway(online);
+            setOnline(null);
+            void act((b) => b.me());
+          }}
+          onArcade={(g) => {
+            if (session(online).queue) setAway(online);
+            setOnline(null);
+            openSoloGame(g ?? "solitaire");
+            void act((b) => b.me());
+          }}
+          onOpenArcade={() => {
+            if (session(online).queue) setAway(online);
+            setOnline(null);
+            setArcadeHubOpen(true);
+            void act((b) => b.me());
+          }}
+          onBuyIn={() => void act((b) => b.me())}
+          onWin={() => {}}
+          onEnd={() => {
+            onlineTableEnded();
+            void act((b) => b.me());
+          }}
+        />
+        <Rewards />
+      </>
     );
-  if (!table) return <Lobby chips={chips} onPlay={sit} onRefill={() => setChips((c) => Math.max(c, REFILL_TO))} onOnline={setOnline} />;
+
+  if (sol && !table)
+    return (
+      <>
+        <Solitaire
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setSol(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="solitaire" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          // only a guest who never played Heist gets the Heist button (their coached first hand); everyone else has Play now in the lobby
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setSol(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (fc && !table)
+    return (
+      <>
+        <FreeCell
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setFc(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="freecell" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setFc(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (tp && !table)
+    return (
+      <>
+        <TriPeaks
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setTp(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="tripeaks" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setTp(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (ers && !table)
+    return (
+      <>
+        <Ers
+          initialPvp={ersPvp}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setErs(false);
+            setErsPvp(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="ers" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setErs(false);
+                  setErsPvp(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (spider && !table)
+    return (
+      <>
+        <Spider
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setSpider(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="spider" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setSpider(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (pyramid && !table)
+    return (
+      <>
+        <Pyramid
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setPyramid(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="pyramid" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setPyramid(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (yukon && !table)
+    return (
+      <>
+        <Yukon
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setYukon(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="yukon" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setYukon(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (scoundrel && !table)
+    return (
+      <>
+        <Scoundrel
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setScoundrel(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="scoundrel" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setScoundrel(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
-    <Table
-      key={round}
-      settings={table}
-      onExit={() => setTable(null)}
-      onGameOver={(won) => won && setChips((c) => c + won)}
-      onAgain={() => {
-        if (chips < table.stakes) return setTable(null);
-        sit(table);
-      }}
-    />
+    <>
+      {!table ? (
+        <>
+          <Lobby
+            chips={chips}
+            defaultName={
+              me.guest && me.name.startsWith("Guest") ? undefined : me.name
+            }
+            onPlay={(c) => enter(() => void sit(c))}
+            onRefill={() => act((b) => b.refill())}
+            onOnline={(n) => enter(() => setOnline(n))}
+            onOpen={setProfile}
+            onSignIn={() => setProfile("account")}
+            onSave={me.guest ? () => setProfile("account") : undefined}
+            onSolitaire={() => setSol(true)}
+            onFreeCell={() => setFc(true)}
+            onTriPeaks={() => setTp(true)}
+            onErs={() => setErs(true)}
+            onSpider={() => setSpider(true)}
+            onPyramid={() => setPyramid(true)}
+            onYukon={() => setYukon(true)}
+            onScoundrel={() => setScoundrel(true)}
+            cleared={me.progress.campaign ?? 0}
+            newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
+            nextLesson={lessonFor(me.progress.coachGames ?? 0)}
+            tour={me.progress.coachGames ? tour : null}
+            onTour={setTour}
+            progress={me.progress}
+            onOpenDaily={() => setDailyHubOpen(true)}
+          />
+          <div className="acct-corner">
+            <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
+          </div>
+          {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
+          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge friends={friendsSlot} /> : null}
+          {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
+        </>
+      ) : (
+        <Table
+          key={round}
+          settings={table}
+          onExit={exit}
+          onGameOver={gameOver}
+          buyDrink={buyDrink}
+          mistakes={me.progress.mistakes}
+          place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
+          turnRef={turnRef}
+          firstReward={table.lesson === FIRST_HAND ? firstReward : null}
+          onAgain={() => {
+            if (chips < table.stakes) return exit();
+            void sit({ ...table, campaign: table.stage });
+          }}
+        />
+      )}
+      <AnimatePresence>
+        {profile && (
+          <Profile
+            key={profile}
+            tab={profile}
+            chat={profile === "friends" ? chatWith : null}
+            onClose={() => {
+              setProfile(false);
+              setChatWith(null);
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {arcadeHubOpen && (
+          <ArcadeHub
+            progress={me.progress}
+            onOpenDaily={() => setDailyHubOpen(true)}
+            onClose={() => setArcadeHubOpen(false)}
+            onSelectGame={(id, pvp) => {
+              setArcadeHubOpen(false);
+              openSoloGame(id, pvp);
+            }}
+            activeGame={activeSoloGame}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {dailyHubOpen && (
+          <DailyHub
+            progress={me.progress}
+            onClose={() => setDailyHubOpen(false)}
+            onPlayChallenge={launchDailyGame}
+          />
+        )}
+      </AnimatePresence>
+      {profile && !table && tour === "next" && (
+        <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
+          Keep going →
+        </button>
+      )}
+      <Rewards onSave={() => setProfile("account")} />
+      <InviteToast busy={!!table} />
+      <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
+      {error && (
+        <div className="acct-toast" role="alert" onClick={clearError}>
+          {error}
+        </div>
+      )}
+    </>
   );
+}
+
+/** Opened from a friend request or message notification: ?friends=1 or ?chat=<friend> (read once, then cleared). */
+let openedWith: { friends: boolean; chat: string | null } | null = null;
+function opened() {
+  if (openedWith) return openedWith;
+  let q: URLSearchParams;
+  try {
+    q = new URLSearchParams(location.search);
+  } catch {
+    return (openedWith = { friends: false, chat: null });
+  }
+  const chat = q.get("chat");
+  openedWith = { friends: q.has("friends") || !!chat, chat: chat && /^[\w-]{1,60}$/.test(chat) ? chat : null };
+  if (openedWith.friends)
+    try {
+      history.replaceState(null, "", location.pathname);
+    } catch {
+      /* fine without */
+    }
+  return openedWith;
+}
+
+const TOUR_KEY = "heist.tour";
+/** the lobby tour step a new player is on (null: never started; "done" counts as over) */
+function savedTour(): TourStep | null {
+  try {
+    const v = localStorage.getItem(TOUR_KEY);
+    // "wardrobe" and "season" were the old tour's steps (it spotlit the lobby's bottom bar, now gone)
+    return v === "next" ? v : v === "profile" || v === "wardrobe" || v === "season" ? "profile" : null;
+  } catch {
+    return null;
+  }
+}
+function tourStarted() {
+  try {
+    return localStorage.getItem(TOUR_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+function saveTour(v: TourStep | "done") {
+  try {
+    localStorage.setItem(TOUR_KEY, v);
+  } catch {
+    // storage blocked: the tour just doesn't come back after a reload
+  }
+}
+
+const LOST_KEY = "heist.lostAsked";
+function lostAsked() {
+  try {
+    return !!localStorage.getItem(LOST_KEY);
+  } catch {
+    return false;
+  }
+}
+function markLostAsked() {
+  try {
+    localStorage.setItem(LOST_KEY, "1");
+  } catch {
+    // storage blocked: the server still remembers
+  }
 }
 
 function savedName() {

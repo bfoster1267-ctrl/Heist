@@ -1,0 +1,656 @@
+/* Solitaire: the Heist felt, ivory cards with a printed edge, oxblood backs with the house mark, gold trim */
+.sol {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt2) 65%, #041d13 100%);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  perspective: 1200px;
+}
+/* a soft vignette and a thin gold rail, like the table's */
+.sol-felt-rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(231, 181, 60, 0.18);
+}
+/* everything on the felt, below the notch */
+.sol-board {
+  position: absolute;
+  inset: env(safe-area-inset-top) 0 0 0;
+}
+.sol-bar {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 12px, 748px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 600;
+}
+.sol-icon-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.35);
+  background: linear-gradient(180deg, rgba(28, 31, 38, 0.92), rgba(12, 14, 18, 0.92));
+  color: var(--gold2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.2s;
+}
+.sol-icon-btn:active {
+  transform: scale(0.92);
+}
+.sol-icon-btn:disabled {
+  opacity: 0.35;
+}
+.sol-icon-btn.armed {
+  width: 56px;
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+}
+.sol-sure {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 14px;
+}
+.sol-hud {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.25);
+  background: rgba(8, 10, 13, 0.55);
+  line-height: 1.05;
+}
+.sol-hud-name {
+  font-family: var(--title);
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--gold);
+}
+.sol-hud-stats {
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: rgba(242, 232, 211, 0.7);
+  white-space: nowrap;
+}
+.sol-hud-stats b {
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+.sol-dot {
+  margin: 0 3px;
+  color: var(--gold);
+}
+.sol-hud-stats b.sol-xp {
+  display: inline-block;
+  color: var(--gold);
+}
+
+/* empty spots */
+.sol-slot {
+  position: absolute;
+  border-radius: 8px;
+  border: 1.5px dashed rgba(242, 232, 211, 0.16);
+  background: rgba(0, 0, 0, 0.14);
+  display: grid;
+  place-items: center;
+  color: rgba(242, 232, 211, 0.35);
+  padding: 0;
+}
+.sol-stock {
+  cursor: pointer;
+  border-style: solid;
+  border-color: rgba(231, 181, 60, 0.3);
+}
+.sol-found {
+  border-style: solid;
+  border-color: rgba(231, 181, 60, 0.28);
+  background: radial-gradient(circle, rgba(231, 181, 60, 0.07), rgba(0, 0, 0, 0.18));
+}
+.sol-slot-suit {
+  font-size: 26px;
+  color: rgba(231, 181, 60, 0.3);
+}
+.sol-slot-suit.red {
+  color: rgba(214, 69, 43, 0.4);
+}
+.sol-slot-k {
+  font-family: var(--title);
+  font-size: 20px;
+  color: rgba(242, 232, 211, 0.1);
+}
+
+/* cards */
+.sol-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #fffdf6 0%, #f6eedb 55%, #eadfc4 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 2px 4px rgba(0, 0, 0, 0.35);
+  color: #17191d;
+  cursor: grab;
+  touch-action: none;
+  font-family: var(--cond);
+  font-weight: 700;
+  line-height: 1;
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+.sol-card.red {
+  color: #c0301b;
+}
+.sol-card.lifted {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 18px 30px rgba(0, 0, 0, 0.55);
+  cursor: grabbing;
+}
+.sol-card.hinted {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(231, 181, 60, 0.85);
+  animation: sol-hint 0.9s ease-in-out infinite;
+}
+@keyframes sol-hint {
+  50% {
+    box-shadow: 0 0 0 2px var(--gold2), 0 0 26px rgba(246, 215, 122, 1);
+  }
+}
+.sol-card.landed {
+  animation: sol-land 0.45s ease-out;
+}
+@keyframes sol-land {
+  0% {
+    box-shadow: 0 0 0 2px var(--gold2), 0 0 28px rgba(246, 215, 122, 0.95);
+  }
+}
+.sol-corner {
+  position: absolute;
+  top: 0.16em;
+  left: 0.2em;
+  right: 0.2em;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.sol-rank {
+  font-size: 1em;
+  letter-spacing: -0.04em;
+}
+.sol-suit {
+  font-size: 0.82em;
+}
+.sol-center {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12%;
+  text-align: center;
+  font-size: 1.75em;
+}
+.sol-center.ace {
+  font-size: 2.3em;
+  bottom: 8%;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.15));
+}
+/* J, Q, K: a gold-framed panel with the letter, so court cards read as special */
+.sol-court {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 30%;
+  bottom: 9%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1.5px solid #c99a2e;
+  background: linear-gradient(180deg, rgba(231, 181, 60, 0.16), rgba(231, 181, 60, 0.04));
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 246, 0.9), inset 0 0 0 3px rgba(201, 154, 46, 0.5);
+}
+.sol-court b {
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 1.45em;
+  line-height: 0.9;
+}
+.sol-court i {
+  font-style: normal;
+  font-size: 0.8em;
+}
+.sol-card.back {
+  background: linear-gradient(160deg, #8a2229, #4a0e14 70%, #350a0e);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.sol-back-frame {
+  position: absolute;
+  inset: 3px;
+  border-radius: 5px;
+  border: 1px solid rgba(231, 181, 60, 0.65);
+  background:
+    repeating-linear-gradient(45deg, rgba(231, 181, 60, 0.09) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgba(231, 181, 60, 0.09) 0 2px, transparent 2px 7px);
+  display: grid;
+  place-items: center;
+}
+.sol-back-mark {
+  width: 1.5em;
+  height: 1.5em;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(231, 181, 60, 0.75);
+  background: radial-gradient(circle, #5a1218, #2c070a);
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 0.75em;
+  color: var(--gold);
+}
+/* phone-sized cards: a touch more of the corner, a smaller centre */
+.sol-small .sol-rank {
+  font-size: 1.05em;
+}
+.sol-small .sol-center {
+  font-size: 1.5em;
+}
+.sol-small .sol-court {
+  top: 34%;
+  left: 10%;
+  right: 10%;
+}
+.sol-small .sol-slot-suit {
+  font-size: 20px;
+}
+
+/* the win */
+.sol-win {
+  position: fixed;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.35), rgba(0, 0, 0, 0.7));
+  padding: 16px;
+}
+.sol-win-card {
+  position: relative;
+  width: min(100%, 380px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: center;
+  padding: 24px 22px 18px;
+  border-radius: 20px;
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, #1f232b, #0f1115);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(231, 181, 60, 0.18);
+}
+.sol-win-kicker {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 4px;
+  color: rgba(242, 232, 211, 0.6);
+}
+.sol-win-title {
+  font-family: var(--title);
+  font-size: 56px;
+  letter-spacing: 4px;
+  line-height: 0.95;
+  background: linear-gradient(180deg, var(--gold2), var(--gold) 55%, #a8781a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.sol-win-stats {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  margin: 2px 0 6px;
+}
+.sol-win-stats span {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(242, 232, 211, 0.55);
+}
+.sol-win-stats b {
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 1px;
+  color: var(--paper);
+}
+.sol-heist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* the lobby's More games sheet */
+.btn.lobby-game {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+}
+.lobby-game-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lobby-game-art {
+  position: relative;
+  flex: none;
+  width: 54px;
+  height: 52px;
+}
+.lobby-game-card {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 30px;
+  height: 42px;
+  padding: 3px 4px;
+  border-radius: 5px;
+  background: linear-gradient(160deg, #fffdf6, #eadfc4);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), 0 3px 6px rgba(0, 0, 0, 0.4);
+  color: #17191d;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  display: flex;
+  flex-direction: column;
+  transform: rotate(-8deg);
+}
+.lobby-game-card.red {
+  left: 20px;
+  top: 6px;
+  color: #c0301b;
+  transform: rotate(9deg);
+}
+.lobby-game-card i {
+  font-style: normal;
+  font-size: 16px;
+  margin-top: 4px;
+}
+.lobby-games-more {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+}
+
+/* a strip under the top bar: the online queue while you play */
+.sol-banner {
+  position: absolute;
+  top: 54px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 12px, 748px);
+  z-index: 600;
+}
+.queue-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 6px 0 12px;
+  border-radius: 15px;
+  border: 1px solid rgba(89, 179, 106, 0.55);
+  background: rgba(8, 24, 14, 0.85);
+  font-family: var(--cond);
+  font-size: 13px;
+  letter-spacing: 0.3px;
+  color: var(--paper);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.queue-strip > span:nth-child(2) {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.queue-strip b {
+  color: var(--gold2);
+  font-variant-numeric: tabular-nums;
+}
+.queue-strip-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--cash);
+  box-shadow: 0 0 8px var(--cash);
+  animation: queue-pulse 1.2s ease-in-out infinite;
+}
+@keyframes queue-pulse {
+  50% {
+    opacity: 0.35;
+  }
+}
+.queue-strip-x {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--paper);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* away from the queue screen, the strip is a button back to it */
+.queue-strip-go {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.queue-strip-go .queue-strip-words {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.queue-strip-back {
+  flex: none;
+  color: var(--cash);
+  font-weight: 700;
+}
+/* the queue over the lobby: under the player card on phones, out of the chat's way */
+.queue-float {
+  position: fixed;
+  top: calc(96px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 24px, 440px);
+  z-index: 19;
+  animation: queue-float-in 0.35s ease-out;
+}
+.queue-float .queue-strip {
+  height: 38px;
+  border-radius: 19px;
+  padding: 0 7px 0 14px;
+  font-size: 15px;
+  background: rgba(8, 24, 14, 0.94);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(89, 179, 106, 0.15);
+}
+.queue-float .queue-strip-x {
+  width: 28px;
+  height: 28px;
+}
+@keyframes queue-float-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+/* a sideways phone has no room up top: bottom left, across from the chat button */
+@media (max-height: 520px) {
+  .queue-float {
+    top: auto;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: calc(12px + env(safe-area-inset-left));
+    transform: none;
+    width: min(46vw, 380px);
+    animation: none;
+  }
+}
+
+/* XP rising off the card that earned it */
+.sol-float {
+  position: absolute;
+  width: 96px;
+  margin-left: -48px;
+  margin-top: -6px;
+  z-index: 900;
+  pointer-events: none;
+  text-align: center;
+  font-family: var(--title);
+  font-size: 17px;
+  line-height: 1;
+  color: var(--gold);
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.6), 0 0 10px rgba(212, 175, 55, 0.45);
+}
+.sol-float small {
+  display: block;
+  margin-top: 3px;
+  font-family: var(--cond);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--paper);
+}
+.sol-float.big {
+  font-size: 30px;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.6), 0 0 18px rgba(212, 175, 55, 0.7);
+}
+.sol-float.note {
+  width: 180px;
+  margin-left: -90px;
+}
+.sol-float.note small {
+  font-size: 11px;
+  color: var(--gold);
+}
+
+/* the player's Wardrobe carries over: their felt, and their card back (the house back stays Solitaire's oxblood) */
+[data-felt="custom"] .sol {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--cfelt) 85%, #ffffff 8%) 0%, var(--cfelt2) 65%, color-mix(in srgb, var(--cfelt2) 70%, #000000) 100%);
+}
+[data-back="red"] .sol-card.back {
+  background: repeating-linear-gradient(45deg, var(--back) 0 6px, color-mix(in srgb, var(--back) 82%, #ffffff) 6px 12px);
+}
+[data-back="stripes"] .sol-card.back {
+  background: repeating-linear-gradient(90deg, var(--back) 0 5px, color-mix(in srgb, var(--back) 70%, var(--back2)) 5px 7px);
+}
+[data-back="diamonds"] .sol-card.back {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    repeating-linear-gradient(-45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    var(--back);
+}
+[data-back="noir"] .sol-card.back {
+  background: radial-gradient(circle at 50% 50%, #262626, var(--back) 70%);
+}
+[data-back="gold"] .sol-card.back {
+  background: linear-gradient(135deg, var(--back), var(--back2) 45%, var(--back) 55%, var(--back2));
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .sol-back-frame {
+  border-color: color-mix(in srgb, var(--back2) 75%, transparent);
+  background: none;
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .sol-back-mark {
+  border-color: var(--back2);
+  background: radial-gradient(circle, color-mix(in srgb, var(--back) 80%, #000000), color-mix(in srgb, var(--back) 55%, #000000));
+  color: var(--back2);
+}
+
+/* the win cascade's canvas, over the cards and under the win card */
+.sol-cascade {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 650;
+  pointer-events: none;
+}
+
+/* nothing left to play */
+.sol-stuck {
+  position: absolute;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  translate: -50% 0;
+  z-index: 680;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px 10px 18px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(28, 31, 38, 0.96), rgba(12, 14, 18, 0.96));
+  box-shadow: 0 0 0 1px rgba(231, 181, 60, 0.35), 0 12px 32px rgba(0, 0, 0, 0.55);
+  white-space: nowrap;
+}
+.sol-stuck-title {
+  font-family: var(--title);
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: var(--gold);
+  margin-right: 4px;
+}
+.sol-stuck .btn {
+  padding: 8px 14px;
+  min-height: 0;
+}
+.sol-stuck-x {
+  border: 0;
+  background: none;
+  color: rgba(242, 232, 211, 0.6);
+  font-size: 16px;
+  padding: 6px;
+  cursor: pointer;
+}
+
+/* stalling: the deal's XP drains, so the number turns red and ticks down */
+.sol-hud-stats b.sol-xp.drain {
+  color: #ff6b5e;
+  text-shadow: 0 0 8px rgba(255, 80, 60, 0.6);
+}

@@ -4,8 +4,11 @@
 import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
+import { chatStyle } from "../account/items";
+import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
-import { DRINKS } from "./Drinks";
+import { VaultGlass, isVault } from "../vault";
 
 export interface Bubble {
   seat: number;
@@ -90,17 +93,19 @@ function keepOnTable(el: HTMLElement, x: number, bottom: number) {
   el.style.setProperty("--tail", `${Math.max(14, Math.min(x - left, w - 14))}px`);
 }
 
-export function Bubbles({ bubbles, pos }: { bubbles: Bubble[]; pos: (seat: number) => [number, number] }) {
+/** `mine`: your seat, whose bubbles wear your equipped chat style; `looks`: the chat bubble each other seat wears (online) */
+export function Bubbles({ bubbles, pos, mine, looks }: { bubbles: Bubble[]; pos: (seat: number) => [number, number]; mine?: number; looks?: Record<number, string | undefined> }) {
   return (
     <AnimatePresence>
       {bubbles.map((b) => {
         const [x, y] = pos(b.seat);
         const emoji = [...b.text].length <= 2;
+        const look = b.seat !== mine && looks?.[b.seat] && looks[b.seat] !== "chat.house" ? cosmetic(looks[b.seat]!) : undefined;
         return (
           <motion.div
             key={b.key}
-            className={"bubble" + (emoji ? " emoji" : "")}
-            style={{ left: x, top: y - 62 }}
+            className={"bubble" + (emoji ? " emoji" : "") + (b.seat === mine ? " mine" : "") + (look?.chat ? " worn" : "")}
+            style={{ left: x, top: y - 62, ...chatStyle(look) }}
             ref={(el) => {
               if (el) keepOnTable(el, x, y - 62);
             }}
@@ -131,6 +136,10 @@ export function ChatTray({
 }) {
   const [cool, setCool] = useState(false);
   const [drink, setDrink] = useState<string | null>(null);
+  // season emotes and drinks the player owns join the tray
+  const { owned } = useLook();
+  const emotes = [...EMOTES, ...owned.flatMap((id) => (cosmetic(id)?.slot === "emote" ? [cosmetic(id)!.emoji!] : []))];
+  const drinks = [...DRINKS, ...ALL_DRINKS.filter((d) => owned.includes(d.id))];
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", k);
@@ -146,7 +155,7 @@ export function ChatTray({
   return (
     <motion.div className="chat-tray" role="dialog" aria-label="Emotes and quick chat" initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }}>
       <div className="chat-emotes">
-        {EMOTES.map((e) => (
+        {emotes.map((e) => (
           <button key={e} onClick={() => send(e)} aria-label={`Send ${e}`}>
             {e}
           </button>
@@ -160,7 +169,7 @@ export function ChatTray({
         ))}
       </div>
       <div className="chat-drinks">
-        <div className="chat-head">{drink ? `Send ${drink} to…` : "Send a drink"}</div>
+        <div className="chat-head">{drink ? `Send ${isVault(drink) ? "The Vault" : drink} to…` : "Send a drink"}</div>
         {drink ? (
           <div className="chat-lines">
             {rivals.map((r) => (
@@ -181,9 +190,10 @@ export function ChatTray({
           </div>
         ) : (
           <div className="chat-emotes">
-            {DRINKS.map((d) => (
-              <button key={d.id} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}`} title={d.name}>
-                {d.emoji}
+            {drinks.map((d) => (
+              <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
+                {isVault(d.emoji) ? <VaultGlass size={26} /> : d.emoji}
+                <span className="chat-price">{d.price || "free"}</span>
               </button>
             ))}
           </div>

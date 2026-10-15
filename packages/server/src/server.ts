@@ -3,13 +3,27 @@
 // most one room at a time.
 
 import { randomBytes } from "node:crypto";
+import { reverse as dnsReverse } from "node:dns/promises";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
-import { GuestIdentity, type Identity, type IdentityProvider } from "./identity";
+import { DRINKS } from "@heist/profile";
+import { scrub } from "./accounts/activity";
+import { AdminAuth, AdminService, type AdminTeam } from "./accounts/admin";
+import { accountsApi } from "./accounts/api";
+import { serveStatic } from "./static";
+import { ApiError, type AccountService } from "./accounts/service";
+import { GuestIdentity, cleanName, type Identity, type IdentityProvider } from "./identity";
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
-import { realClock, type Clock, type Conn, type GameOverReport, type Room } from "./room";
+import { realClock, type Clock, type Conn, type GameOverReport, type Room, type RoomDeps } from "./room";
 import { Rooms, roomOptions, type Limits } from "./rooms";
+import { Lounge } from "./lounge";
+import { Board } from "./board";
+import { Matchmaker } from "./queue";
 import { MemoryStore, type GameStore } from "./store";
+import type { Hosting } from "./accounts/hosting";
+import type { PushMessage, Pusher } from "./push";
+import { Social, type DmStore } from "./accounts/social";
+import { ErsRoom, ErsRooms } from "./ersRoom";
 
 export interface ServerOptions {
   port?: number;
@@ -18,6 +32,8 @@ export interface ServerOptions {
   store?: GameStore;
   clock?: Clock;
   limits?: Partial<Limits>;
+  /** quick queue: how long the first person waits before bots fill the table (ms) */
+  queueWaitMs?: number;
   graceMs?: number;
   lobbyHoldMs?: number;
   /** browser origins allowed to connect (empty = any; set this in production) */
@@ -28,11 +44,30 @@ export interface ServerOptions {
   rate?: { burst: number; perSec: number };
   onGameOver?: (r: GameOverReport) => void;
   log?: (msg: string, extra?: object) => void;
+  /**
+   * Accounts and progression. When set, sockets sign in with account session tokens (guests get a guest
+   * account), the /api routes are served, online games settle chips, stats and XP, and drinks cost coins.
+   */
+  accounts?: AccountService;
+  /** a built web app to serve at / (so the game and its server share one address) */
+  webDir?: string;
+  /** the owner's admin panel at /admin (needs accounts); off without a password */
+  admin?: { user: string; password: string; secret?: string; team?: AdminTeam };
+  /** server and Render stats for the admin panel */
+  hosting?: Hosting;
+  /** phone alerts (web push) for players who aren't looking when it's their turn (needs accounts) */
+  push?: Pusher;
+  /** where direct messages between friends are kept (default: memory) */
+  dms?: DmStore;
+  /** where the feedback board and the Lounge are kept (board.json, lounge.json; default: memory) */
+  boardDir?: string;
 }
 
 export interface HeistServer {
   http: Server;
   rooms: Rooms;
+  ersRooms: ErsRooms;
+  queue: Matchmaker;
   port(): number;
   close(): Promise<void>;
 }
@@ -41,34 +76,196 @@ const MAX_MESSAGE_BYTES = 16 * 1024;
 /** default token bucket per socket: a burst of 30 messages, refilling 10 per second */
 const RATE = { burst: 30, perSec: 10 };
 const HEARTBEAT_MS = 30_000;
+const DRINK_IDS = new Set(DRINKS.map((d) => d.id));
+/** messages that don't go in the activity log: moves are in the game's own record */
+const QUIET = new Set(["ping", "hello", "answer", "list", "away", "ers_play", "ers_slap", "play", "slap"]);
 
 interface Client {
   conn: Conn | null;
   id: Identity | null;
   room: Room | null;
+  ersRoom: ErsRoom | null;
   tokens: number;
   last: number;
   alive: boolean;
   queue: Promise<void>;
+  ip: string;
+  /** the error this message got, if any (for the activity log) */
+  failed?: string;
+  /** the app is in the background (it says so when it goes and comes back) */
+  away: boolean;
 }
+
+/** at most one alert of a kind per player per this long, so a run of decisions doesn't buzz them over and over */
+const ALERT_GAP_MS = { turn: 45_000, joined: 20_000 };
+const ALERT_DELAY_MS = 4_000;
 
 export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const clock = o.clock ?? realClock;
-  const identity = o.identity ?? new GuestIdentity();
+  const accounts = o.accounts;
+  const identity = o.identity ?? accounts?.identity() ?? new GuestIdentity();
+  const started = clock.now();
+  const admin =
+    accounts && o.admin?.password
+      ? {
+          auth: new AdminAuth(o.admin.user, o.admin.password, o.admin.secret, () => clock.now(), o.admin.team),
+          svc: new AdminService(accounts, accounts.activity, {
+            now: () => clock.now(),
+            game: (id) => store.game?.(id),
+            reverse: (ip) => dnsReverse(ip),
+            live: () => ({
+              sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), uptimeS: Math.round((clock.now() - started) / 1000),
+              rooms: rooms.all().map((r) => r.info()),
+            }),
+          }),
+          hosting: o.hosting,
+        }
+      : undefined;
+  /** the Lounge, the app-wide chat room (it needs accounts: only players who've finished a game talk) */
+  const lounge = accounts ? new Lounge({ now: () => clock.now(), dataDir: o.boardDir }) : undefined;
+  const board = accounts ? new Board({ dataDir: o.boardDir, now: () => clock.now() }) : undefined;
+  /** open sockets per signed-in player, for friends' "online" dots */
+  const connected = new Map<string, number>();
+  const pushTo = async (userId: string, m: PushMessage) => {
+    if (!pusher || !accounts) return 0;
+    let n = 0;
+    for (const sub of await accounts.pushSubs(userId)) {
+      const r = await pusher.send(sub, m);
+      if (r === "gone") await accounts.pushGone(userId, sub.endpoint);
+      else n++;
+    }
+    return n;
+  };
+  const social = accounts
+    ? new Social(accounts, {
+        dms: o.dms,
+        now: () => clock.now(),
+        notify: pushTo,
+        connected: (id) => (connected.get(id) ?? 0) > 0,
+        tableOpen: (code) => {
+          const r = rooms.get(code);
+          return !!r && r.status !== "over";
+        },
+      })
+    : undefined;
+  const api = accounts ? accountsApi(accounts, { allowedOrigins: o.allowedOrigins, now: () => clock.now(), admin, pushKey: o.push?.publicKey, social, lounge, board, notify: pushTo }) : null;
+  /** table activity, for the admin panel's log (moves themselves are in each game's record) */
+  const track = (c: Client, kind: string, data?: Record<string, unknown>, error?: string) =>
+    accounts && c.id && accounts.track({ kind, userId: c.id.userId, name: c.id.name, ip: c.ip, ok: !error, error, data: { ...data, ...(c.room ? { table: c.room.code } : {}) } });
   const store = o.store ?? new MemoryStore();
   const log = o.log ?? (() => {});
   const rate = o.rate ?? RATE;
-  const rooms = new Rooms({ store, clock, log, onGameOver: o.onGameOver, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
+  const onGameOver = (r: GameOverReport) => {
+    o.onGameOver?.(r);
+    if (accounts) void settleOnline(r);
+  };
+  const badge = accounts ? (userId: string) => accounts.badge(userId) : undefined;
+  const pusher = accounts && o.push;
+  let listening = false;
+  const lastAlert = new Map<string, number>();
+  /** Alert a player's phone, unless the Heist app is open in front of them at that table. */
+  const alert: RoomDeps["alert"] = (userId, a) => {
+    // tables rebuilt at start-up ask everyone at once while their apps are still reconnecting: no alerts then
+    if (!pusher || !listening) return;
+    // a dropped connection is usually back within a moment: look again shortly before buzzing anyone
+    clock.set(() => sendAlert(userId, a), ALERT_DELAY_MS);
+  };
+  const sendAlert: NonNullable<RoomDeps["alert"]> = (userId, a) => {
+    if (!pusher || !accounts) return;
+    if (a.kind === "turn" && a.room.waitingOn() !== userId) return;
+    for (const ws of wss.clients) {
+      const c = (ws as WebSocket & { heist?: Client }).heist;
+      if (c?.id?.userId === userId && c.room === a.room && !c.away && ws.readyState === ws.OPEN) return;
+    }
+    const key = `${a.kind}:${userId}`;
+    const now = clock.now();
+    if (now - (lastAlert.get(key) ?? -Infinity) < ALERT_GAP_MS[a.kind]) return;
+    lastAlert.set(key, now);
+    if (lastAlert.size > 20_000) lastAlert.clear();
+    const r = a.room;
+    const filled = r.seats.filter((s) => s.kind === "human").length;
+    const m: PushMessage =
+      a.kind === "turn"
+        ? { title: "Your turn", body: `Table ${r.code} is waiting on you.`, tag: `turn-${r.code}`, url: "./" }
+        : { title: `${a.name ?? "Someone"} sat down`, body: `Table ${r.code}: ${filled} of ${r.players} seats taken.`, tag: `table-${r.code}`, url: "./" };
+    void pushTo(userId, m).catch((e) => log("alert failed", { err: String(e) }));
+  };
+  const rooms = new Rooms({ store, clock, log, onGameOver, badge, alert, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
+  const ersRooms = new ErsRooms({ clock, log });
+  /** each signed-in connection's way into a room, for the matchmaker */
+  const entrances = new Map<string, (room: Room) => ReturnType<Room["join"]>>();
+  const queue = new Matchmaker(rooms, clock, (conn, room) => {
+    const enter = entrances.get(conn.id);
+    return enter ? enter(room) : "bad_state";
+  }, o.queueWaitMs, log);
+
+  /** Pay out an online game to every signed-in player and tell them what they earned. */
+  async function settleOnline(r: GameOverReport) {
+    try {
+      const results = await accounts!.recordOnline(r);
+      for (const ws of wss.clients) {
+        const c = (ws as WebSocket & { heist?: Client }).heist;
+        const res = c?.id ? results.get(c.id.userId) : undefined;
+        if (res && ws.readyState === ws.OPEN) ws.send(JSON.stringify({ t: "reward", game: r.game, reward: res.reward, progress: res.me.progress } satisfies ServerMsg));
+      }
+      rooms.byId(r.roomId)?.touch();
+    } catch (e) {
+      log("settle failed", { game: r.gameId, err: String(e) });
+    }
+  }
+  // a suspended player is dropped from every socket at once (their seat plays dead weight from then on)
+  if (accounts)
+    accounts.onBan = (userId) => {
+      lounge?.removeUser(userId);
+      board?.removeUser(userId);
+      for (const ws of wss.clients) {
+        const c = (ws as WebSocket & { heist?: Client }).heist;
+        if (c?.id?.userId !== userId) continue;
+        ws.send(JSON.stringify(errMsg("suspended", "This account has been suspended.")));
+        ws.close();
+      }
+    };
   const restored = rooms.restore();
   if (restored) log("restored tables", { count: restored });
 
-  const http = createServer((req, res) => {
+  const http = createServer(async (req, res) => {
+    if (api && (await api(req, res))) return;
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
       const cpu = process.cpuUsage();
-      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
+      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
+    if (req.url === "/api/ers/create" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => {
+        let opts: { isPrivate?: boolean; seed?: number } = {};
+        try { if (body) opts = JSON.parse(body); } catch {}
+        const room = ersRooms.create(opts);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, code: room.code, id: room.id }));
+      });
+      return;
+    }
+    if (req.url?.startsWith("/api/ers/") && req.method === "GET") {
+      const code = req.url.slice("/api/ers/".length).split("?")[0];
+      const room = ersRooms.get(code);
+      if (!room) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "no_room" }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, room: room.viewFor(null) }));
+      return;
+    }
+    if (req.url === "/api/ers" && req.method === "GET") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, rooms: ersRooms.list() }));
+      return;
+    }
+    if (o.webDir && (await serveStatic(o.webDir, req, res))) return;
     res.writeHead(404).end();
   });
 
@@ -84,18 +281,33 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         : { threshold: 1024, serverMaxWindowBits: 11, zlibDeflateOptions: { memLevel: 6, level: 6 }, concurrencyLimit: 4 },
     verifyClient: ({ origin }: { origin: string }) => !o.allowedOrigins?.length || o.allowedOrigins.includes(origin),
   });
+  o.hosting?.start(() => wss.clients.size);
 
-  wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
-    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve() };
+  wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+    const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
+    const c: Client = { conn: null, id: null, room: null, ersRoom: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip, away: false };
     const send = (m: ServerMsg) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
     };
-    const err = (code: Parameters<typeof errMsg>[0], msg?: string) => send(errMsg(code, msg));
+    const err = (code: Parameters<typeof errMsg>[0], msg?: string) => {
+      c.failed = msg ?? code;
+      send(errMsg(code, msg));
+    };
 
     ws.on("pong", () => (c.alive = true));
     ws.on("close", () => {
+      track(c, "online.disconnect");
+      if (c.conn) {
+        queue.leave(c.conn.id, false);
+        entrances.delete(c.conn.id);
+        const n = (connected.get(c.conn.userId) ?? 1) - 1;
+        if (n > 0) connected.set(c.conn.userId, n);
+        else connected.delete(c.conn.userId);
+      }
       if (c.room && c.conn) c.room.disconnect(c.conn.id);
+      if (c.ersRoom && c.conn) c.ersRoom.disconnect(c.conn.id);
       c.room = null;
+      c.ersRoom = null;
     });
     ws.on("message", (data, isBinary) => {
       c.alive = true;
@@ -113,21 +325,41 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       }
       if (!m || typeof m !== "object" || typeof m.t !== "string") return err("bad_message");
       // one message at a time per socket, in arrival order (hello is async)
-      c.queue = c.queue.then(() =>
-        handle(m).catch((e) => {
+      c.queue = c.queue.then(async () => {
+        c.failed = undefined;
+        await handle(m).catch((e) => {
           log("handler error", { t: m.t, err: String(e) });
           err("bad_state");
-        }),
-      );
+        });
+        if (!QUIET.has(m.t)) {
+          const { t, ...rest } = m as ClientMsg & Record<string, unknown>;
+          track(c, `table.${t}`, scrub(rest) as Record<string, unknown>, c.failed);
+        }
+      });
     });
 
     async function handle(m: ClientMsg) {
+      if (m.t === "away") {
+        c.away = m.on === true;
+        return;
+      }
       if (m.t === "ping") return send({ t: "pong", n: typeof m.n === "number" ? m.n : undefined, at: clock.now() });
       if (m.t === "hello") {
         if (m.v !== PROTOCOL_VERSION) return err("version", `This server speaks protocol ${PROTOCOL_VERSION}; refresh the page.`);
         if (c.id) return err("bad_state", "Already said hello");
-        c.id = await identity.authenticate(m.token, m.name);
+        try {
+          c.id = await identity.authenticate(m.token, m.name);
+        } catch (x) {
+          if (x instanceof ApiError && x.status === 403) {
+            err("suspended", x.message);
+            return ws.close();
+          }
+          throw x;
+        }
         c.conn = { id: randomBytes(8).toString("base64url"), userId: c.id.userId, name: c.id.name, send };
+        connected.set(c.id.userId, (connected.get(c.id.userId) ?? 0) + 1);
+        entrances.set(c.conn.id, (room) => enter(room, {}));
+        track(c, "online.connect");
         return send({ t: "welcome", v: PROTOCOL_VERSION, userId: c.id.userId, name: c.id.name, token: c.id.token });
       }
       const conn = c.conn;
@@ -135,22 +367,104 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       switch (m.t) {
         case "list":
           return send({ t: "rooms", rooms: rooms.list() });
+        case "queue": {
+          if (c.room?.status === "playing" && c.room.seatOf(conn.userId) !== null) return err("bad_state", "Finish or leave your game first");
+          if (accounts && typeof m.stakes === "number" && !(await accounts.canAfford(conn.userId, m.stakes))) return err("no_chips", "Not enough chips for that table");
+          const ranked = m.ranked === true;
+          if (ranked) {
+            const why = accounts ? await accounts.rankedLocked(conn.userId) : "Ranked needs accounts on this server";
+            if (why) return err("ranked_locked", why);
+          }
+          const rating = accounts ? await (ranked ? accounts.rankedMmr(conn.userId) : accounts.rating(conn.userId)) : undefined;
+          const e = queue.join(conn, m.players, m.stakes, rating, ranked);
+          if (e) return err(e, "Pick 3 to 6 players and a buy-in");
+          return;
+        }
+        case "unqueue":
+          return queue.leave(conn.id);
         case "create": {
+          queue.leave(conn.id);
           const opts = roomOptions(m.options);
           if (!opts) return err("bad_message", "Tables are for 3 to 6 players");
+          // no level picked: the bots play to the host's skill
+          if (accounts && !m.options?.botLevel) opts.botLevel = await accounts.botLevel(conn.userId);
+          if (accounts && !(await accounts.canAfford(conn.userId, opts.stakes))) return err("no_chips", "Not enough chips for that table");
           const room = rooms.create(opts);
           if (!room) return err("bad_state", "The server is full right now");
-          return enter(room, {});
+          enter(room, {});
+          return;
         }
         case "join": {
+          queue.leave(conn.id);
           const room = rooms.get(m.code);
           if (!room) return err("no_room", "No table with that code");
-          return enter(room, { spectate: m.spectate === true, since: m.since });
+          const takesSeat = m.spectate !== true && room.status === "lobby" && room.seatOf(conn.userId) === null;
+          if (accounts && takesSeat && !(await accounts.canAfford(conn.userId, room.stakes))) return err("no_chips", "Not enough chips for that table");
+          enter(room, { spectate: m.spectate === true, since: m.since });
+          return;
+        }
+        case "rename": {
+          const name = cleanName(m.name, "");
+          if (!name) return err("bad_message", "Pick a name");
+          if (accounts) await accounts.renameId(conn.userId, name);
+          conn.name = c.id!.name = name;
+          send({ t: "renamed", name });
+          c.room?.renamed(conn.userId, name);
+          return;
         }
         case "leave":
+          queue.leave(conn.id, false);
           if (c.room) c.room.leave(conn.id);
           c.room = null;
+          if (c.ersRoom) c.ersRoom.leave(conn.id);
+          c.ersRoom = null;
           return send({ t: "left" });
+        case "ers_create": {
+          queue.leave(conn.id);
+          if (c.room) { c.room.leave(conn.id); c.room = null; }
+          if (c.ersRoom) { c.ersRoom.leave(conn.id); c.ersRoom = null; }
+          const room = ersRooms.create({ isPrivate: m.isPrivate });
+          c.ersRoom = room;
+          const res = room.join(conn);
+          if (!res.ok) return err("bad_state", res.error);
+          return;
+        }
+        case "ers_join": {
+          queue.leave(conn.id);
+          if (c.room) { c.room.leave(conn.id); c.room = null; }
+          const room = ersRooms.get(m.code);
+          if (!room) return err("no_room", "No ERS table with that code");
+          if (c.ersRoom && c.ersRoom !== room) { c.ersRoom.leave(conn.id); }
+          c.ersRoom = room;
+          const res = room.join(conn);
+          if (!res.ok) return err(res.error === "room_full" ? "room_full" : "bad_state", res.error);
+          return;
+        }
+        case "ers_play":
+        case "play": {
+          if (!c.ersRoom) return err("no_room", "Join an ERS table first");
+          const res = c.ersRoom.play(conn.id);
+          if (!res.ok) return err(res.error === "not_your_turn" ? "not_your_turn" : "illegal", res.error);
+          return;
+        }
+        case "ers_slap":
+        case "slap": {
+          if (!c.ersRoom) return err("no_room", "Join an ERS table first");
+          c.ersRoom.slap(conn.id, m.time);
+          return;
+        }
+        case "ers_rematch": {
+          if (!c.ersRoom) return err("no_room", "Join an ERS table first");
+          c.ersRoom.rematch(conn.id);
+          return;
+        }
+        case "ers_leave": {
+          if (c.ersRoom) {
+            c.ersRoom.leave(conn.id);
+            c.ersRoom = null;
+          }
+          return send({ t: "ers_left", seat: 0 });
+        }
       }
       const room = c.room;
       if (!room) return err("no_room", "Join a table first");
@@ -171,25 +485,43 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         case "chat":
           e = room.chat(conn.id, m.text);
           break;
-        case "drink":
-          e = room.drink(conn.id, m.to, m.drink);
-          break;
+        case "drink": {
+          if (typeof m.id !== "string") return err("bad_message");
+          const d = room.drinkTargets(conn.id, m.to);
+          if (typeof d === "string") return err(d);
+          if (accounts) {
+            if (accounts.drinkPrice(m.id, d.to.length) === null) return err("bad_message", "No such drink");
+            try {
+              await accounts.payForDrink(conn.userId, m.id, d.to.length);
+            } catch (x) {
+              return err(x instanceof ApiError ? "no_coins" : "bad_state", x instanceof ApiError ? x.message : undefined);
+            }
+            for (const seat of d.to) {
+              const uid = room.userAt(seat);
+              if (uid) void accounts.drinkReceived(uid).catch(() => {});
+            }
+          } else if (!DRINK_IDS.has(m.id)) return err("bad_message", "No such drink");
+          room.sendDrink(conn.id, d.from, d.to, m.id);
+          return;
+        }
         default:
           return err("bad_message", "Unknown message");
       }
       if (e) err(e);
     }
 
-    function enter(room: Room, opts: { spectate?: boolean; since?: number }) {
+    function enter(room: Room, opts: { spectate?: boolean; since?: number }): ReturnType<Room["join"]> {
       const conn = c.conn!;
       if (c.room && c.room !== room) c.room.leave(conn.id);
       else if (c.room === room) room.disconnect(conn.id);
       const e = room.join(conn, opts);
       if (e) {
         c.room = null;
-        return err(e);
+        err(e);
+        return e;
       }
       c.room = room;
+      return null;
     }
 
     (ws as WebSocket & { heist?: Client }).heist = c;
@@ -206,23 +538,35 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       ws.ping();
     }
     rooms.sweep(clock.now());
+    ersRooms.sweep(clock.now());
   }, HEARTBEAT_MS);
   beat.unref();
 
   await new Promise<void>((r) => http.listen(o.port ?? 8787, o.host ?? "0.0.0.0", r));
+  listening = true;
   log("listening", { port: (http.address() as { port: number }).port });
 
   return {
     http,
     rooms,
+    ersRooms,
+    queue,
     port: () => (http.address() as { port: number }).port,
     async close() {
+      o.hosting?.stop();
       clearInterval(beat);
+      queue.close();
       for (const ws of wss.clients) ws.terminate();
       rooms.closeAll();
+      ersRooms.closeAll();
       await new Promise<void>((r) => wss.close(() => r()));
       await new Promise<void>((r) => http.close(() => r()));
       await store.flush();
+      await accounts?.store.flush();
+      await social?.dms.flush();
+      await board?.flush();
+      await lounge?.flush();
+      await accounts?.activity.flush();
     },
   };
 }

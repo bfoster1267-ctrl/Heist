@@ -1,0 +1,936 @@
+// Where the player's account lives. With a game server configured (VITE_SERVER_URL) it's the server:
+// sign-in, career and coins follow the player to any device. Without one (or while it can't be reached)
+// it's this browser, running the same @heist/profile rules, so XP, levels, the shop and career stats
+// all work in the offline build too.
+
+import {
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  botLevelsFor, soloRivals, stage, summarize, upgrade, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+} from "@heist/profile";
+import type { BotLevel } from "@heist/engine";
+import { deviceId } from "../device";
+
+export interface Me {
+  id: string;
+  name: string;
+  guest: boolean;
+  email: string | null;
+  logins: string[];
+  progress: Progress;
+  profile: PublicProfile;
+  /** they've had the "What lost you?" question (server only; missing from older servers) */
+  asked?: boolean;
+}
+
+/** An answer to "What lost you?" ("skip": closed without answering) */
+export type LostReason = "roles" | "buttons" | "lost" | "notForMe" | "liked" | "skip";
+export interface LostAnswer {
+  reason?: LostReason;
+  comment?: string;
+  when?: "left" | "finished";
+  round?: number | null;
+  coached?: boolean;
+}
+
+export interface Config {
+  /** sign-in methods the server has switched on: apple, google, facebook, email, dev */
+  providers: string[];
+  apple: string | null;
+  google: string | null;
+  facebook: string | null;
+}
+
+export interface SoloTicket {
+  gameId: string;
+  seed: number;
+  /** each bot's level, picked from your skill rating (missing: all normal) */
+  levels?: BotLevel[];
+  /** a campaign stage, which sets the seat count (older servers don't send players) */
+  stage?: number;
+  players?: number;
+  /** Coached play: the bots go easy on you */
+  gentle?: boolean;
+  /** Coached play lesson (a player's first coached games teach the game a piece at a time) */
+  lesson?: number;
+  me: Me;
+  /** the reward for a game walked away from (it counts as a loss) */
+  quit: Reward | null;
+}
+
+export interface PackOpened {
+  me: Me;
+  items: string[];
+  dupeXp: number;
+}
+
+export interface LeaderRow {
+  id: string;
+  name: string;
+  level: number;
+  prestige: number;
+  wins: number;
+  games: number;
+  winnings: number;
+  frame: string;
+  /** this season's rank, points and Ranked MMR (only after a ranked game this season) */
+  rank?: string;
+  rp?: number;
+  mmr?: number;
+}
+
+export type BoardKind = "bug" | "idea" | "balance" | "other";
+export type BoardVote = 1 | -1 | 0;
+export type BoardStatus = "new" | "review" | "planned" | "doing" | "shipped" | "wont";
+/** A post on the feedback board (the Lounge's Feedback tab) */
+export interface BoardRow {
+  id: number;
+  at: number;
+  kind: BoardKind;
+  title: string;
+  body: string;
+  userId: string;
+  name: string;
+  badge?: Badge;
+  /** upvotes minus downvotes */
+  score: number;
+  ups: number;
+  downs: number;
+  /** your vote: 1 up, -1 down, 0 none */
+  mine: BoardVote;
+  comments: number;
+  status: BoardStatus;
+  statusAt?: number;
+  /** the Heist team has answered */
+  answered: boolean;
+}
+export type BoardVoted = Pick<BoardRow, "score" | "ups" | "downs" | "mine">;
+export interface BoardComment {
+  id: number;
+  at: number;
+  userId: string;
+  name: string;
+  text: string;
+  badge?: Badge;
+  /** from the Heist team */
+  team?: boolean;
+}
+export interface BoardView {
+  posts: BoardRow[];
+  canPost: boolean;
+  why?: string;
+  /** coins for a confirmed bug or a shipped post, and for each player who upvoted it */
+  reward: number;
+  voterReward: number;
+}
+
+/** A line in the Lounge, the app-wide chat (server only) */
+export interface LoungeMsg {
+  id: number;
+  at: number;
+  userId: string;
+  name: string;
+  text: string;
+  /** level, frame, title and the chat bubble the sender wears */
+  badge?: Badge;
+  /** a drink sent from the Lounge ("<name> sent <to> a <text>") */
+  drink?: { id: string; emoji: string; to: string; toId: string };
+}
+export interface LoungeFeed {
+  msgs: LoungeMsg[];
+  /** lines taken down since (reported, or the sender was suspended) */
+  gone: number[];
+  last: number;
+  /** players looking at the Lounge in the last minute */
+  here: number;
+  canPost: boolean;
+  /** why this player can't talk yet */
+  why?: string;
+}
+
+export interface Backend {
+  readonly kind: "server" | "browser";
+  readonly config: Config;
+  me(): Promise<Me>;
+  /** campaign: play that stage; coached: Coached play (free, small XP, kept out of the career) */
+  soloStart(players: number, stakes: number, name: string, campaign?: number, coached?: boolean): Promise<SoloTicket>;
+  soloFinish(gameId: string, answers: unknown[]): Promise<{ me: Me; reward: Reward }>;
+  /** deal a Solitaire game; a win is paid after the moves replay from the seed */
+  solitaireStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  solitaireFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
+  solitaireBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a FreeCell game; a win is paid after the moves replay from the seed */
+  freecellStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  freecellFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
+  freecellBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a TriPeaks game; a win is paid after the moves replay from the seed */
+  tripeaksStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  tripeaksFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
+  tripeaksBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal an Egyptian Rat Screw game; a win is paid after the moves replay from the seed */
+  ersStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  ersFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay an ERS game's moves so far; null when nothing new */
+  ersBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Spider Solitaire game; a win is paid after the moves replay from the seed */
+  spiderStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  spiderFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Spider game's moves so far */
+  spiderBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Pyramid Solitaire game; a win is paid after the moves replay from the seed */
+  pyramidStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  pyramidFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Pyramid game's moves so far */
+  pyramidBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Yukon Solitaire game; a win is paid after the moves replay from the seed */
+  yukonStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  yukonFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Yukon game's moves so far */
+  yukonBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Scoundrel game; a win is paid after the moves replay from the seed */
+  scoundrelStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  scoundrelFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Scoundrel game's moves so far */
+  scoundrelBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  soloQuit(): Promise<Me>;
+  buy(id: string): Promise<Me>;
+  equip(id: string): Promise<Me>;
+  /** open a season pack: a free one from the pass, or one bought with chips */
+  openPack(paid: boolean): Promise<PackOpened>;
+  prestige(): Promise<{ me: Me; coins: number; unlocked: string[] }>;
+  refill(): Promise<Me>;
+  daily(): Promise<{ me: Me; chips: number }>;
+  drink(id: string, count: number): Promise<Me>;
+  rename(name: string): Promise<Me>;
+  /** email accounts on the server only */
+  changePassword(current: string, next: string): Promise<Me>;
+  leaderboard(by: "winnings" | "level" | "wins" | "ranked"): Promise<LeaderRow[]>;
+  /** another player's public card */
+  player(id: string): Promise<PublicProfile>;
+  // signing in (server only)
+  register(email: string, password: string, name: string): Promise<Me>;
+  login(email: string, password: string): Promise<Me>;
+  oauth(provider: string, credential: string, name?: string): Promise<Me>;
+  dev(name: string): Promise<Me>;
+  signOut(): Promise<Me>;
+  deleteAccount(): Promise<Me>;
+  /** "What lost you?" after the first game (server only) */
+  feedback(a: LostAnswer): Promise<{ me: Me }>;
+  /** the session token, for the game server socket */
+  token(): string | null;
+  /** the Lounge (server only): what's new after a line id, say something, flag a line */
+  lounge?(after: number): Promise<LoungeFeed>;
+  loungeSay?(text: string): Promise<{ msg: LoungeMsg }>;
+  loungeReport?(id: number): Promise<{ ok: boolean; hidden?: boolean }>;
+  /** tell the server a player was muted or unmuted (it only counts mutes, for the owner) */
+  loungeMute?(userId: string, on: boolean): Promise<{ ok: boolean }>;
+  /** send a drink (coins) to whoever said line `to` */
+  loungeDrink?(to: number, id: string): Promise<{ msg: LoungeMsg; me: Me }>;
+  /** the feedback board (server only) */
+  board?(sort: "top" | "new"): Promise<BoardView>;
+  boardPost?(id: number): Promise<{ post: BoardRow & { thread: BoardComment[] } }>;
+  boardNew?(p: { kind: BoardKind; title: string; body: string; device?: string }): Promise<{ post: BoardRow }>;
+  boardVote?(id: number, dir: BoardVote): Promise<BoardVoted>;
+  boardComment?(id: number, text: string): Promise<{ comment: BoardComment }>;
+  boardReport?(id: number, comment?: number): Promise<{ ok: boolean; hidden?: boolean }>;
+}
+
+const store = {
+  get(k: string) {
+    try {
+      return localStorage.getItem(k);
+    } catch {
+      return null;
+    }
+  },
+  set(k: string, v: string | null) {
+    try {
+      if (v === null) localStorage.removeItem(k);
+      else localStorage.setItem(k, v);
+    } catch {
+      /* storage blocked: lasts for this visit only */
+    }
+  },
+};
+
+export class BackendError extends Error {
+  /** the HTTP status, when the server answered */
+  constructor(message: string, readonly status = 0) {
+    super(message);
+  }
+}
+
+// ------------------------------------------------------------------ this browser
+
+interface LocalSave {
+  id: string;
+  name: string;
+  joined: number;
+  progress: Progress;
+  solo: { gameId: string; seed: number; players: number; stakes: number; levels?: BotLevel[]; stage?: number; coached?: boolean; gentle?: boolean; lesson?: number } | null;
+}
+
+const LOCAL_KEY = "heist.profile";
+
+export class BrowserBackend implements Backend {
+  readonly kind = "browser" as const;
+  readonly config: Config = { providers: [], apple: null, google: null, facebook: null };
+  private save: LocalSave;
+
+  constructor() {
+    let s: LocalSave | null = null;
+    try {
+      s = JSON.parse(store.get(LOCAL_KEY) ?? "null");
+    } catch {
+      s = null;
+    }
+    if (!s) {
+      const p = newProgress();
+      // chips from before profiles existed carry over
+      const old = Number(store.get("heist.chips"));
+      if (Number.isFinite(old) && old > 0) p.chips = old;
+      s = { id: "local", name: store.get("heist.name") || "Ace", joined: Date.now(), progress: p, solo: null };
+    }
+    s.progress = upgrade(s.progress);
+    this.save = s;
+    this.write();
+  }
+
+  private write() {
+    store.set(LOCAL_KEY, JSON.stringify(this.save));
+  }
+
+  async feedback() {
+    return { me: this.view() };
+  }
+
+  private view(): Me {
+    const s = this.save;
+    return { id: s.id, name: s.name, guest: true, email: null, logins: [], progress: s.progress, profile: publicProfile(s.id, s.name, s.joined, s.progress) };
+  }
+
+  private apply(r: Progress | Fail): Me {
+    if (failed(r)) throw new BackendError(r.error);
+    this.save.progress = r;
+    this.write();
+    return this.view();
+  }
+
+  async me() {
+    return this.view();
+  }
+
+  private quit(): Reward | null {
+    const g = this.save.solo;
+    if (!g) return null;
+    this.save.solo = null;
+    if (g.coached) return null;
+    const r = settle(this.save.progress, {
+      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: Date.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
+      summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
+    });
+    this.save.progress = r.progress;
+    return r.reward;
+  }
+
+  async soloStart(players: number, stakes: number, name: string, campaign?: number, coached = false): Promise<SoloTicket> {
+    const st = campaign ? stage(campaign) : undefined;
+    if (campaign && (!st || st.n > this.save.progress.campaign + 1)) throw new BackendError("Clear the stage before that one first");
+    if (st) [players, stakes] = [st.players, 0];
+    const quit = this.quit();
+    if (coached) [players, stakes] = [3, 0];
+    if (name) this.save.name = name;
+    const p = buyIn(this.save.progress, stakes);
+    if (failed(p)) throw new BackendError(p.error);
+    this.save.progress = p;
+    const rand = () => Math.floor(Math.random() * 2 ** 31);
+    const lesson = coached ? lessonFor(this.save.progress.coachGames) : undefined;
+    const seed = coached ? easySeed(rand, players, 16, 250, undefined, lesson) : rand();
+    const levels = st || coached ? undefined : botLevelsFor(this.save.progress.rating, players - 1);
+    this.save.solo = { gameId: `l_${seed}`, seed, players, stakes, levels, stage: st?.n, ...(coached ? { coached: true, gentle: true } : {}), ...(lesson ? { lesson } : {}) };
+    this.write();
+    return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, lesson, me: this.view(), quit };
+  }
+
+  private sol: { gameId: string; seed: number; isDaily?: boolean; paid?: SolTally; paidXp?: number; drain?: number } | null = null;
+  async solitaireStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.sol = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.sol.gameId, seed: s };
+  }
+  async solitaireFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.solitaireBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async solitaireBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.sol;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallySol(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = solPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.sol = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleSolitaire(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private fc: { gameId: string; seed: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number } | null = null;
+  async freecellStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.fc = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.fc.gameId, seed: s };
+  }
+  async freecellFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.freecellBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async freecellBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.fc;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyFreeCell(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = fcPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.fc = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private tp: { gameId: string; seed: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number } | null = null;
+  async tripeaksStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.tp = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.tp.gameId, seed: s };
+  }
+  async tripeaksFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.tripeaksBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async tripeaksBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.tp;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyTriPeaks(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = tpPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.tp = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleTriPeaks(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private ersState: { gameId: string; seed: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number } | null = null;
+  async ersStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.ersState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.ersState.gameId, seed: s };
+  }
+  async ersFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.ersBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async ersBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.ersState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyErs(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = ersPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.ersState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleErs(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private spiderState: { gameId: string; seed: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number } | null = null;
+  async spiderStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.spiderState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.spiderState.gameId, seed: s };
+  }
+  async spiderFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.spiderBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async spiderBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.spiderState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallySpider(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = spiderPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.spiderState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleSpider(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private pyramidState: { gameId: string; seed: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number } | null = null;
+  async pyramidStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.pyramidState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.pyramidState.gameId, seed: s };
+  }
+  async pyramidFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.pyramidBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async pyramidBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.pyramidState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyPyramid(g.seed, moves as any);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = pyramidPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.pyramidState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settlePyramid(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private yukonState: { gameId: string; seed: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number } | null = null;
+  async yukonStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.yukonState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.yukonState.gameId, seed: s };
+  }
+  async yukonFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.yukonBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async yukonBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.yukonState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyYukon(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = yukonPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.yukonState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleYukon(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private scoundrelState: { gameId: string; seed: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null = null;
+  async scoundrelStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.scoundrelState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.scoundrelState.gameId, seed: s };
+  }
+  async scoundrelFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.scoundrelBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async scoundrelBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.scoundrelState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyScoundrel(g.seed, moves as any);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = scoundrelPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.scoundrelState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleScoundrel(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  async soloFinish(gameId: string, answers: unknown[]) {
+    const g = this.save.solo;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const rep = replaySolo(g.seed, g.players, answers, undefined, g);
+    this.save.solo = null;
+    const won = rep.winners.includes(0);
+    this.save.progress = addMistakes(this.save.progress, rep.mistakes);
+    if (g.coached) {
+      const c = settleCoached(this.save.progress, won, g.lesson === FIRST_HAND ? { at: Date.now() } : undefined);
+      this.save.progress = c.progress;
+      this.write();
+      return { me: this.view(), reward: c.reward };
+    }
+    const r = settle(this.save.progress, {
+      mode: "bots", players: g.players, stakes: g.stakes, won, payout: payout(g.stakes, g.players, rep.winners, 0), summary: summarize(rep.events, 0), at: Date.now(),
+      rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
+    });
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  async soloQuit() {
+    this.quit();
+    this.write();
+    return this.view();
+  }
+
+  async buy(id: string) {
+    return this.apply(buy(this.save.progress, id));
+  }
+  async equip(id: string) {
+    return this.apply(equip(this.save.progress, id));
+  }
+  async openPack(paid: boolean): Promise<PackOpened> {
+    const r = openPack(this.save.progress, Date.now(), (n) => Math.floor(Math.random() * n), paid);
+    if (failed(r)) throw new BackendError(r.error);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), items: r.items, dupeXp: r.dupeXp };
+  }
+  async prestige() {
+    const r = prestige(this.save.progress);
+    if (failed(r)) throw new BackendError(r.error);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), coins: r.coins, unlocked: r.unlocked };
+  }
+  async refill() {
+    return this.apply(refill(this.save.progress));
+  }
+  async daily() {
+    const r = daily(this.save.progress, Date.now());
+    if (failed(r)) throw new BackendError(r.error);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), chips: r.chips };
+  }
+  async drink(id: string, count: number) {
+    return this.apply(payForDrink(this.save.progress, id, count));
+  }
+  async rename(name: string) {
+    const n = name.trim().slice(0, 20);
+    if (!n) throw new BackendError("Pick a name");
+    this.save.name = n;
+    store.set("heist.name", n);
+    this.write();
+    return this.view();
+  }
+  async leaderboard(): Promise<LeaderRow[]> {
+    return [];
+  }
+  async player(id: string): Promise<PublicProfile> {
+    if (id !== this.save.id) throw new BackendError("Player cards need the game server");
+    return this.view().profile;
+  }
+  async changePassword(): Promise<Me> {
+    throw new BackendError("Passwords need the game server");
+  }
+  private offline(): never {
+    throw new BackendError("Accounts turn on when the game server is live.");
+  }
+  async register() {
+    return this.offline();
+  }
+  async login() {
+    return this.offline();
+  }
+  async oauth() {
+    return this.offline();
+  }
+  async dev() {
+    return this.offline();
+  }
+  async signOut() {
+    return this.view();
+  }
+  async deleteAccount() {
+    store.set(LOCAL_KEY, null);
+    this.save = new BrowserBackend().save;
+    return this.view();
+  }
+  token() {
+    return null;
+  }
+}
+
+// ------------------------------------------------------------------ the game server
+
+const TOKEN_KEY = "heist.session";
+
+export class ServerBackend implements Backend {
+  readonly kind = "server" as const;
+  private constructor(
+    private base: string,
+    readonly config: Config,
+    private session: string | null,
+  ) {}
+
+  /** Connect, or null if the server can't be reached (the app falls back to the browser). */
+  static async connect(base: string): Promise<ServerBackend | null> {
+    try {
+      const r = await fetch(`${base}/api/config`, { signal: AbortSignal.timeout(4000) });
+      if (!r.ok) return null;
+      return new ServerBackend(base, await r.json(), store.get(TOKEN_KEY));
+    } catch {
+      return null;
+    }
+  }
+
+  token() {
+    return this.session;
+  }
+
+  /** Any API route (friends and messages use this; they only exist on the server). */
+  request<T>(path: string, body?: object): Promise<T> {
+    return this.call<T>(path, body);
+  }
+
+  lounge(after: number) {
+    return this.call<LoungeFeed>(`/api/lounge${after ? `?after=${after}` : ""}`);
+  }
+  loungeSay(text: string) {
+    return this.call<{ msg: LoungeMsg }>("/api/lounge/say", { text });
+  }
+  loungeDrink(to: number, id: string) {
+    return this.call<{ msg: LoungeMsg; me: Me }>("/api/lounge/drink", { to, id });
+  }
+  board(sort: "top" | "new") {
+    return this.call<BoardView>(`/api/board?sort=${sort}`);
+  }
+  boardPost(id: number) {
+    return this.call<{ post: BoardRow & { thread: BoardComment[] } }>(`/api/board/post?id=${id}`);
+  }
+  boardNew(p: { kind: BoardKind; title: string; body: string; device?: string }) {
+    return this.call<{ post: BoardRow }>("/api/board/new", p);
+  }
+  boardVote(id: number, dir: BoardVote) {
+    return this.call<BoardVoted>("/api/board/vote", { id, dir });
+  }
+  boardComment(id: number, text: string) {
+    return this.call<{ comment: BoardComment }>("/api/board/comment", { id, text });
+  }
+  boardReport(id: number, comment?: number) {
+    return this.call<{ ok: boolean; hidden?: boolean }>("/api/board/report", comment === undefined ? { id } : { id, comment });
+  }
+  loungeReport(id: number) {
+    return this.call<{ ok: boolean; hidden?: boolean }>("/api/lounge/report", { id });
+  }
+  loungeMute(userId: string, on: boolean) {
+    return this.call<{ ok: boolean }>("/api/lounge/mute", { userId, on });
+  }
+
+  private async call<T>(path: string, body?: object): Promise<T> {
+    const r = await fetch(this.base + path, {
+      method: body ? "POST" : "GET",
+      headers: { "x-heist-device": deviceId(), ...(body ? { "content-type": "application/json" } : {}), ...(this.session ? { authorization: `Bearer ${this.session}` } : {}) },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const out = await r.json().catch(() => ({ error: "The server sent something odd" }));
+    if (!r.ok) throw new BackendError(out.error ?? "Something went wrong", r.status);
+    return out as T;
+  }
+
+  private signedIn(r: { token: string; me: Me }): Me {
+    this.session = r.token;
+    store.set(TOKEN_KEY, r.token);
+    return r.me;
+  }
+
+  async me(): Promise<Me> {
+    if (this.session) {
+      // Only a 401 (expired, or signed out everywhere) drops the session for a guest. A blip while the
+      // server restarts after a deploy must not swap a signed-in player's token for a fresh guest.
+      for (let attempt = 0; ; attempt++) {
+        try {
+          return await this.call<Me>("/api/me");
+        } catch (e) {
+          if (e instanceof BackendError && e.status === 401) break;
+          if (e instanceof BackendError && e.status === 403) throw e; // suspended: no point retrying
+          if (attempt >= 3) throw e;
+          await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+        }
+      }
+    }
+    // the page that linked here (a Reddit post, a search) tells the owner where new players come from
+    const ref = typeof document === "undefined" ? "" : document.referrer.slice(0, 300);
+    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "", ref }));
+  }
+
+  soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
+    return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached ? 2 : false });
+  }
+  soloFinish(gameId: string, answers: unknown[]) {
+    return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });
+  }
+  solitaireStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/solitaire/start", { seed, isDaily });
+  }
+  solitaireFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/solitaire/finish", { gameId, moves, drain });
+  }
+  solitaireBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/solitaire/bank", { gameId, moves, drain });
+  }
+  freecellStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/freecell/start", { seed, isDaily });
+  }
+  freecellFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/freecell/finish", { gameId, moves, drain });
+  }
+  freecellBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/freecell/bank", { gameId, moves, drain });
+  }
+  tripeaksStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/tripeaks/start", { seed, isDaily });
+  }
+  tripeaksFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/tripeaks/finish", { gameId, moves, drain });
+  }
+  tripeaksBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/tripeaks/bank", { gameId, moves, drain });
+  }
+  ersStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/ers/start", { seed, isDaily });
+  }
+  ersFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/ers/finish", { gameId, moves, drain });
+  }
+  ersBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/ers/bank", { gameId, moves, drain });
+  }
+  spiderStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/spider/start", { seed, isDaily });
+  }
+  spiderFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/spider/finish", { gameId, moves, drain });
+  }
+  spiderBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/spider/bank", { gameId, moves, drain });
+  }
+  pyramidStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/pyramid/start", { seed, isDaily });
+  }
+  pyramidFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/pyramid/finish", { gameId, moves, drain });
+  }
+  pyramidBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/pyramid/bank", { gameId, moves, drain });
+  }
+  yukonStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/yukon/start", { seed, isDaily });
+  }
+  yukonFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/yukon/finish", { gameId, moves, drain });
+  }
+  yukonBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/yukon/bank", { gameId, moves, drain });
+  }
+  scoundrelStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/scoundrel/start", { seed, isDaily });
+  }
+  scoundrelFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/scoundrel/finish", { gameId, moves, drain });
+  }
+  scoundrelBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/scoundrel/bank", { gameId, moves, drain });
+  }
+  async soloQuit() {
+    return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;
+  }
+  buy(id: string) {
+    return this.call<Me>("/api/shop/buy", { id });
+  }
+  equip(id: string) {
+    return this.call<Me>("/api/shop/equip", { id });
+  }
+  openPack(paid: boolean) {
+    return this.call<PackOpened>("/api/season/pack", { paid });
+  }
+  prestige() {
+    return this.call<{ me: Me; coins: number; unlocked: string[] }>("/api/prestige", {});
+  }
+  refill() {
+    return this.call<Me>("/api/chips/refill", {});
+  }
+  daily() {
+    return this.call<{ me: Me; chips: number }>("/api/chips/daily", {});
+  }
+  drink(id: string, count: number) {
+    return this.call<Me>("/api/solo/drink", { id, count });
+  }
+  rename(name: string) {
+    return this.call<Me>("/api/me/name", { name });
+  }
+  changePassword(current: string, password: string) {
+    return this.call<Me>("/api/me/password", { current, password });
+  }
+  async leaderboard(by: string) {
+    return (await this.call<{ rows: LeaderRow[] }>(`/api/leaderboard?by=${by}`)).rows;
+  }
+  player(id: string) {
+    return this.call<PublicProfile>(`/api/players/${encodeURIComponent(id)}`);
+  }
+  async register(email: string, password: string, name: string) {
+    return this.signedIn(await this.call("/api/auth/register", { email, password, name }));
+  }
+  async login(email: string, password: string) {
+    return this.signedIn(await this.call("/api/auth/login", { email, password }));
+  }
+  async oauth(provider: string, credential: string, name?: string) {
+    return this.signedIn(await this.call("/api/auth/oauth", { provider, credential, name }));
+  }
+  async dev(name: string) {
+    return this.signedIn(await this.call("/api/auth/dev", { name }));
+  }
+  async signOut() {
+    this.session = null;
+    store.set(TOKEN_KEY, null);
+    return this.me();
+  }
+  feedback(a: LostAnswer) {
+    return this.call<{ me: Me }>("/api/feedback", a);
+  }
+  async deleteAccount() {
+    await this.call("/api/me/delete", {});
+    return this.signOut();
+  }
+}
+
+export async function openBackend(): Promise<Backend> {
+  // "same-origin": the app is served by the game server itself (the Docker image builds it this way)
+  const set = import.meta.env.VITE_SERVER_URL as string | undefined;
+  const url = (set === "same-origin" ? location.origin : set)?.replace(/\/$/, "");
+  if (set !== "same-origin") return (url && (await ServerBackend.connect(url))) || new BrowserBackend();
+  // The game server sent this page, so it is the player's home: never drop to browser-only play (games
+  // would save to this phone instead of the account). Ride out a restart, e.g. during a deploy.
+  for (let attempt = 0; ; attempt++) {
+    const b = await ServerBackend.connect(url!);
+    if (b) return b;
+    if (attempt >= 3) throw new BackendError("Can't reach the game server");
+    await new Promise((r) => setTimeout(r, 1000 * 2 ** attempt));
+  }
+}

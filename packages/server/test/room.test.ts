@@ -346,15 +346,17 @@ describe("Room", () => {
     room.join(b);
     const w = new TestConn("c3", "u3", "Wes");
     room.join(w, { spectate: true });
-    expect(room.drink("c1", 1, "whiskey")).toBeNull();
-    expect(b.last("drink")).toEqual({ t: "drink", from: 0, to: 1, drink: "whiskey" });
-    expect(w.last("drink")).toEqual({ t: "drink", from: 0, to: 1, drink: "whiskey" });
-    expect(room.drink("c1", 0, "beer")).toBe("bad_message"); // not to yourself
-    expect(room.drink("c1", 3, "beer")).toBe("bad_message"); // no such seat
-    expect(room.drink("c1", 2, "absinthe")).toBe("bad_message");
-    expect(room.drink("c3", 0, "beer")).toBe("bad_message"); // spectators can't buy
-    for (let i = 0; i < 4; i++) room.drink("c1", 2, "beer");
-    expect(room.drink("c1", 2, "beer")).toBe("rate_limited");
+    expect(room.drinkTargets("c1", 1)).toBe("bad_state"); // not before the game
+    room.start("u1", 5);
+    expect(room.drinkTargets("c1", 1)).toEqual({ from: 0, to: [1] });
+    room.sendDrink("c1", 0, [1], "whiskey");
+    expect(b.last("drink")).toMatchObject({ t: "drink", from: 0, to: [1], id: "whiskey", name: "Ann" });
+    expect(w.last("drink")).toMatchObject({ t: "drink", from: 0, to: [1], id: "whiskey" });
+    expect(room.drinkTargets("c1", 1)).toBe("rate_limited"); // one every few seconds
+    expect(room.drinkTargets("c2", 1)).toBe("bad_message"); // not to yourself
+    expect(room.drinkTargets("c2", 3)).toBe("bad_message"); // no such seat
+    expect(room.drinkTargets("c2", null)).toEqual({ from: 1, to: [0, 2] }); // a round for the table
+    expect(room.drinkTargets("c3", 0)).toBe("bad_state"); // spectators can't buy
   });
 });
 

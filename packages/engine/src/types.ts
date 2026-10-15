@@ -89,6 +89,16 @@ export interface RuleOptions {
   placeCrew: boolean;
   /** Fixer vs. Fixer is a real negotiation: offers and counter-offers of cash, cards and a Foothold (asks "deal"). */
   openDeals: boolean;
+  /** Learner tables (Coached play lessons): nobody has a Role and no Roles are offered. */
+  noRoles?: boolean;
+  /** Learner tables: the Job deck is Score cards only (no Fixer, Backup or Double-Cross). */
+  scoresOnly?: boolean;
+  /** Learner tables: no side bets. */
+  noBets?: boolean;
+  /** Learner tables: Roles are dealt from this pool instead of all 13 (needs 2 per player). */
+  rolePool?: RoleId[];
+  /** Learner tables: the game ends after this many rounds (everyone Boss once per round), scored like Last Call. */
+  rounds?: number;
 }
 
 /** One finished job, kept so players (and bots) can look back at who backed whom and who got burned. */
