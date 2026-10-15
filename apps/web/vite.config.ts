@@ -113,6 +113,19 @@ function stripAppTags(): Plugin {
 export default defineConfig(({ mode }) => ({
   base: "./",
   plugins: [react(), ...(mode === "single" ? [viteSingleFile(), stripAppTags()] : [serviceWorker()])],
+  server: {
+    host: true,
+    port: 5173,
+    proxy: {
+      "/ws": {
+        target: "ws://localhost:8787",
+        ws: true,
+      },
+      "/api": {
+        target: "http://localhost:8787",
+      },
+    },
+  },
   build: {
     outDir: mode === "single" ? "dist-single" : "dist",
     copyPublicDir: mode !== "single",
