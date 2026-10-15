@@ -2,10 +2,10 @@
 
 import { ROLES, type RoleId } from "@heist/engine";
 import {
-  COSMETICS, DAILY_CHIPS, MAX_LEVEL, RANKED_LEVEL, cosmetic, levelInfo, owns, prestigeCoins, prestigeName, rankName, rankOf, rankedPublic, unlocked, winRate,
+  COSMETICS, DAILY_CHIPS, MAX_LEVEL, RANKED_LEVEL, cosmetic, levelInfo, owns, prestigeCoins, prestigeName, rankName, rankOf, rankedPublic, rarityOf, unlocked, winRate,
   type CareerStats, type Cosmetic, type EquipSlot, type RankedPublic, type Slot,
 } from "@heist/profile";
-import { Cigar, Preview, bannerStyle } from "./items";
+import { Cigar, Preview, RarityBadge, bannerStyle } from "./items";
 import { Season } from "./Season";
 import { Wardrobe } from "./Wardrobe";
 import { AnimatePresence, motion } from "motion/react";
@@ -340,10 +340,11 @@ function Bars({ rows }: { rows: [string, { g: number; w: number }][] }) {
 
 // the shop sells these; season items live in the Season tab
 const SLOTS: [EquipSlot, string][] = [
-  ["felt", "Table felt"],
-  ["cardBack", "Card backs"],
-  ["frame", "Avatar frames"],
+  ["cardBack", "Card Decks"],
+  ["frame", "Avatar Frames"],
+  ["felt", "Table Felt"],
   ["title", "Titles"],
+  ["cigar", "Cigars & Finery"],
 ];
 
 function Shop({ me }: { me: Me }) {
@@ -362,7 +363,7 @@ function Shop({ me }: { me: Me }) {
     <div className="acct-shop">
       <div className="acct-shop-top">
         <Coins amount={p.coins} big />
-        <span className="dim">Earn coins by playing, winning and leveling up. Coins can't be bought.</span>
+        <span className="dim">Earn coins by playing, winning, daily challenges and leveling up. Coins can't be bought.</span>
       </div>
       {SLOTS.map(([slot, label]) => (
         <section key={slot}>
@@ -372,10 +373,18 @@ function Shop({ me }: { me: Me }) {
               const have = owns(p, c.id);
               const on = p.equipped[slot] === c.id;
               const open = unlocked(c, li.level, p.prestige);
+              const rarity = rarityOf(c);
               return (
-                <motion.div key={c.id} className={"acct-item" + (on ? " on" : "") + (!open ? " locked" : "")} layout whileHover={{ y: -3 }}>
+                <motion.div
+                  key={c.id}
+                  className={"acct-item" + (on ? " on" : "") + (!open ? " locked" : "")}
+                  data-rarity={rarity}
+                  layout
+                  whileHover={{ y: -3 }}
+                >
                   <Preview c={c} name={me.name} />
                   <div className="acct-item-name">{c.name}</div>
+                  <RarityBadge rarity={rarity} />
                   {on ? (
                     <div className="acct-item-tag">Equipped</div>
                   ) : have ? (

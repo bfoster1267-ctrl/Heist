@@ -1,23 +1,46 @@
-// The Wardrobe: everything the player owns, by kind, ready to wear. One place for the table's look, card
-// backs, frames, titles and the season's items; the Shop and the Season pass are where new things come from.
+// The Wardrobe & Fitting Room: Luxury character showcase and equipment suite.
+// Players preview their complete avatar, frame, cigar, title, and card deck on table felt in real time.
 
-import { ALL_COSMETICS, DEFAULT_EQUIPPED, owns, type Cosmetic, type EquipSlot } from "@heist/profile";
+import {
+  ALL_COSMETICS,
+  DEFAULT_EQUIPPED,
+  cosmetic,
+  owns,
+  rarityOf,
+  type Cosmetic,
+  type EquipSlot,
+} from "@heist/profile";
 import { useState } from "react";
 import { THEMES, setPrefs, usePrefs } from "../prefs";
 import type { Me } from "./backend";
-import { Preview } from "./items";
+import { Avatar, Stars } from "./bits";
+import { Cigar, Preview, RarityBadge } from "./items";
 import { useAccount } from "./useAccount";
 import { VaultGlass, isVault } from "../vault";
+import { buzz } from "../haptics";
+import { card as cardSound, click, win as winSound } from "../sound";
+import "./wardrobe.css";
 
-/** each kind of thing you can wear, and where more of it comes from */
+const CATEGORIES = [
+  { id: "all", label: "All Items" },
+  { id: "felt", label: "Table Felt" },
+  { id: "cardBack", label: "Card Decks" },
+  { id: "frame", label: "Avatar Frames" },
+  { id: "title", label: "Titles" },
+  { id: "finery", label: "Banners & Cigars" },
+  { id: "collected", label: "Drinks & Emotes" },
+] as const;
+
+type CategoryId = (typeof CATEGORIES)[number]["id"];
+
 const SLOTS: [EquipSlot, string, "shop" | "season"][] = [
-  ["felt", "Table felt", "shop"],
-  ["cardBack", "Card backs", "shop"],
-  ["frame", "Avatar frames", "shop"],
+  ["felt", "Table Felt", "shop"],
+  ["cardBack", "Card Decks", "shop"],
+  ["frame", "Avatar Frames", "shop"],
   ["title", "Titles", "shop"],
   ["banner", "Banners", "season"],
-  ["chat", "Chat bubbles", "season"],
   ["cigar", "Cigars", "season"],
+  ["chat", "Chat Bubbles", "season"],
 ];
 
 export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") => void }) {
@@ -25,58 +48,251 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
   const prefs = usePrefs();
   const p = me.progress;
   const [busy, setBusy] = useState<string | null>(null);
-  const wear = async (id: string) => {
+  const [tab, setTab] = useState<CategoryId>("all");
+
+  // Temporary preview state for "The Fitting Room"
+  const [previewLook, setPreviewLook] = useState<Record<EquipSlot, string>>(() => ({
+    ...p.equipped,
+  }));
+
+  const isPreviewing = Object.entries(previewLook).some(
+    ([slot, id]) => p.equipped[slot as EquipSlot] !== id,
+  );
+
+  const wear = async (id: string, slot?: EquipSlot) => {
+    click();
+    buzz("win");
+    winSound();
     setBusy(id);
     await act((b) => b.equip(id));
+    if (slot) {
+      setPreviewLook((prev) => ({ ...prev, [slot]: id }));
+    }
     setBusy(null);
   };
-  const collected = (slot: "emote" | "drink") => ALL_COSMETICS.filter((c) => c.slot === slot && c.season && p.owned.includes(c.id));
+
+  const previewItem = (c: Cosmetic) => {
+    if (c.slot in DEFAULT_EQUIPPED) {
+      cardSound();
+      buzz("tap");
+      setPreviewLook((prev) => ({ ...prev, [c.slot as EquipSlot]: c.id }));
+    }
+  };
+
+  const resetLook = () => {
+    click();
+    buzz("tap");
+    setPreviewLook({ ...p.equipped });
+  };
+
+  const collected = (slot: "emote" | "drink") =>
+    ALL_COSMETICS.filter((c) => c.slot === slot && c.season && p.owned.includes(c.id));
   const emotes = collected("emote");
   const drinks = collected("drink");
+
+  // Active previewed cosmetic objects
+  const previewedFelt = cosmetic(previewLook.felt);
+  const previewedBack = cosmetic(previewLook.cardBack);
+  const previewedFrame = cosmetic(previewLook.frame);
+  const previewedTitle = cosmetic(previewLook.title);
+  const previewedCigar = cosmetic(previewLook.cigar);
+
+  // Felt background color style
+  const [feltMain, feltEdge] = previewedFelt?.colors ?? ["#1f6b45", "#0b3322"];
+  const [backMain, backAccent] = previewedBack?.colors ?? ["#232832", "#e7b53c"];
+
   return (
     <div className="acct-shop wardrobe">
-      <p className="dim wardrobe-intro">Everything you own, ready to wear. New looks come from the Shop and the Season pass.</p>
-
-      <section>
-        <h3>Table style</h3>
-        <div className="acct-items">
-          {THEMES.map((t) => {
-            const on = prefs.theme === t.id;
-            return (
-              <div key={t.id} className={"acct-item" + (on ? " on" : "")}>
-                <div className="acct-prev acct-prev-felt" style={{ background: t.felt, borderColor: t.rail }} />
-                <div className="acct-item-name">{t.name}</div>
-                {on ? (
-                  <div className="acct-item-tag">Wearing</div>
-                ) : (
-                  <button className="btn small gold" onClick={() => setPrefs({ theme: t.id })}>
-                    Wear
-                  </button>
-                )}
-              </div>
-            );
-          })}
+      {/* -------------------------------------------------------------
+          THE FITTING ROOM: Live Interactive Character Showcase
+      ------------------------------------------------------------- */}
+      <div className="fitting-room">
+        <div className="fitting-room-ambient-glow" />
+        <div className="fitting-room-top">
+          <div className="fitting-room-title">
+            <span>✨</span> THE FITTING ROOM
+          </div>
+          {isPreviewing ? (
+            <div className="fitting-room-status previewing">
+              <span>● Previewing Custom Look</span>
+              <button
+                type="button"
+                className="btn small ghost"
+                style={{ fontSize: 10, padding: "2px 8px", height: "auto" }}
+                onClick={resetLook}
+              >
+                Reset
+              </button>
+            </div>
+          ) : (
+            <div className="fitting-room-status">Active Setup</div>
+          )}
         </div>
-      </section>
 
-      {SLOTS.map(([slot, label, from]) => {
+        <div className="fitting-stage">
+          {/* Left: Player Persona (Avatar, Crown, Lit Cigar, Title) */}
+          <div className="fitting-player-pedestal">
+            <div className="fitting-avatar-wrap">
+              <Avatar
+                name={me.name}
+                frame={previewLook.frame}
+                level={p.xp ? Math.floor(p.xp / 1000) + 1 : 1}
+                size={74}
+              />
+            </div>
+            <div className="fitting-player-details">
+              <div className="fitting-player-name">
+                {me.name} <Stars prestige={p.prestige} size={12} />
+              </div>
+              <div className="fitting-player-title">
+                {previewedTitle?.text ? `“${previewedTitle.text}”` : "Contender"}
+              </div>
+              <div className="fitting-player-cigar">
+                <Cigar id={previewLook.cigar} size={50} />
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Table Felt & 3D Perspective Card Fan */}
+          <div
+            className="fitting-table-pedestal"
+            style={{
+              background: `radial-gradient(ellipse at 50% 45%, ${feltMain}, ${feltEdge})`,
+            }}
+          >
+            <div className="fitting-deck-fan">
+              <div
+                className="fitting-card-sample c-under"
+                data-pattern={previewedBack?.pattern}
+                style={{
+                  background: backMain,
+                  ["--back" as string]: backMain,
+                  ["--back2" as string]: backAccent,
+                }}
+              >
+                <span>H</span>
+              </div>
+              <div
+                className="fitting-card-sample c-top"
+                data-pattern={previewedBack?.pattern}
+                style={{
+                  background: backMain,
+                  ["--back" as string]: backMain,
+                  ["--back2" as string]: backAccent,
+                }}
+              >
+                <span>H</span>
+              </div>
+            </div>
+            <span className="fitting-felt-label">
+              {previewedFelt?.name ?? "Table Felt"} · {previewedBack?.name ?? "Cards"}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Category Pills Navigation */}
+      <div className="wardrobe-nav-pills" role="tablist">
+        {CATEGORIES.map((cat) => (
+          <button
+            key={cat.id}
+            type="button"
+            className={`wardrobe-nav-pill ${tab === cat.id ? "active" : ""}`}
+            onClick={() => {
+              click();
+              buzz("tap");
+              setTab(cat.id);
+            }}
+            role="tab"
+            aria-selected={tab === cat.id}
+          >
+            {cat.label}
+          </button>
+        ))}
+      </div>
+
+      {/* -------------------------------------------------------------
+          Theme Preset Felts
+      ------------------------------------------------------------- */}
+      {(tab === "all" || tab === "felt") && (
+        <section>
+          <h3>Casino Classic Felts</h3>
+          <div className="acct-items">
+            {THEMES.map((t) => {
+              const on = prefs.theme === t.id;
+              return (
+                <div key={t.id} className={"acct-item" + (on ? " on" : "")} data-rarity="common">
+                  <div className="acct-prev acct-prev-felt" style={{ background: t.felt, borderColor: t.rail }} />
+                  <div className="acct-item-name">{t.name}</div>
+                  <RarityBadge rarity="common" />
+                  {on ? (
+                    <div className="acct-item-tag">Wearing</div>
+                  ) : (
+                    <button
+                      className="btn small gold"
+                      onClick={() => {
+                        click();
+                        buzz("tap");
+                        setPrefs({ theme: t.id });
+                      }}
+                    >
+                      Wear
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* -------------------------------------------------------------
+          Cosmetic Equipment Slots
+      ------------------------------------------------------------- */}
+      {SLOTS.filter(([slot]) => {
+        if (tab === "all") return true;
+        if (tab === "felt") return slot === "felt";
+        if (tab === "cardBack") return slot === "cardBack";
+        if (tab === "frame") return slot === "frame";
+        if (tab === "title") return slot === "title";
+        if (tab === "finery") return slot === "banner" || slot === "cigar" || slot === "chat";
+        return false;
+      }).map(([slot, label, from]) => {
         const house = DEFAULT_EQUIPPED[slot];
         const mine = ALL_COSMETICS.filter((c) => c.slot === slot && c.id !== house && owns(p, c.id));
         const list: Cosmetic[] = [...ALL_COSMETICS.filter((c) => c.id === house), ...mine];
+
         return (
           <section key={slot}>
             <h3>{label}</h3>
             <div className="acct-items">
               {list.map((c) => {
                 const on = p.equipped[slot] === c.id;
+                const isPreview = previewLook[slot] === c.id;
+                const rarity = rarityOf(c);
+
                 return (
-                  <div key={c.id} className={"acct-item" + (on ? " on" : "")}>
+                  <div
+                    key={c.id}
+                    className={"acct-item" + (on ? " on" : "") + (isPreview && !on ? " previewing-card" : "")}
+                    data-rarity={rarity}
+                    onClick={() => previewItem(c)}
+                    style={{ cursor: "pointer" }}
+                  >
                     <Preview c={c} name={me.name} />
                     <div className="acct-item-name">{c.name}</div>
+                    <RarityBadge rarity={rarity} />
                     {on ? (
-                      <div className="acct-item-tag">Wearing</div>
+                      <div className="acct-item-tag">Equipped</div>
                     ) : (
-                      <button className="btn small gold" disabled={busy === c.id} onClick={() => wear(c.id)}>
+                      <button
+                        className="btn small gold"
+                        disabled={busy === c.id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void wear(c.id, slot);
+                        }}
+                      >
                         Wear
                       </button>
                     )}
@@ -88,7 +304,9 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
                   <span className="wardrobe-more-plus" aria-hidden>
                     +
                   </span>
-                  <span className="acct-item-name">{from === "shop" ? "Find more in the Shop" : "Earn more in the Season pass"}</span>
+                  <span className="acct-item-name">
+                    {from === "shop" ? "Find more in the Shop" : "Earn more in the Season pass"}
+                  </span>
                 </button>
               )}
             </div>
@@ -96,14 +314,17 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
         );
       })}
 
-      {(emotes.length > 0 || drinks.length > 0) && (
+      {/* -------------------------------------------------------------
+          Collected Emotes & Drinks
+      ------------------------------------------------------------- */}
+      {(tab === "all" || tab === "collected") && (emotes.length > 0 || drinks.length > 0) && (
         <section>
-          <h3>Collected</h3>
+          <h3>Collected Finery</h3>
           {emotes.length > 0 && (
             <div className="wardrobe-collected">
               <span className="dim">In your chat tray</span>
               {emotes.map((c) => (
-                <span key={c.id} title={c.name}>
+                <span key={c.id} title={c.name} className="acct-collected-emoji">
                   {c.emoji}
                 </span>
               ))}
@@ -113,7 +334,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
             <div className="wardrobe-collected">
               <span className="dim">On your drink menu</span>
               {drinks.map((c) => (
-                <span key={c.id} title={c.name}>
+                <span key={c.id} title={c.name} className="acct-collected-emoji">
                   {c.emoji && isVault(c.emoji) ? <VaultGlass size={24} /> : c.emoji}
                 </span>
               ))}
