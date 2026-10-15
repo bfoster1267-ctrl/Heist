@@ -304,6 +304,14 @@ function page(o: { title: string; description: string; path: string; body: strin
   const url = SITE + o.path;
   return `<!doctype html>
 <html lang="en"><head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-18515793903"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-18515793903');
+</script>
 <title>${esc(o.title)}</title>
 <meta name="description" content="${esc(o.description)}" />
 <link rel="canonical" href="${url}" />
