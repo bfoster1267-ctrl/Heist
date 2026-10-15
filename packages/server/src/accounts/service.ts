@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -722,6 +722,40 @@ export class AccountService {
       if (t.won) x.spider = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
       const r = settleSpider(x.progress, this.now(), pay.gained, pay.xp);
+      x.progress = r.progress;
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Pyramid Solitaire game. */
+  pyramidStart(a: Account) {
+    return this.update(a.id, (x) => {
+      x.pyramid = { gameId: `pyr_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.pyramid.gameId, seed: x.pyramid.seed };
+    });
+  }
+
+  /** Pay for Pyramid deal so far: server replays moves from seed. */
+  pyramidBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.pyramid;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallyPyramid(g.seed, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = pyramidPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      if (t.won) x.pyramid = null;
+      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      const r = settlePyramid(x.progress, this.now(), pay.gained, pay.xp);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });

@@ -19,6 +19,7 @@ import { FreeCell } from "./freecell/FreeCell";
 import { TriPeaks } from "./tripeaks/TriPeaks";
 import { Ers } from "./ers/Ers";
 import { Spider } from "./spider/Spider";
+import { Pyramid } from "./pyramid/Pyramid";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -156,6 +157,25 @@ function Game() {
     setSpiderState(on);
     try {
       history.replaceState(null, "", on ? "/spider" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Pyramid Solitaire: from the lobby, or straight in at playheist.net/pyramid
+  const [pyramid, setPyramidState] = useState(() => {
+    const on = location.pathname === "/pyramid";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setPyramid = useCallback((on: boolean) => {
+    setPyramidState(on);
+    try {
+      history.replaceState(null, "", on ? "/pyramid" + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
       /* fine without */
@@ -469,6 +489,25 @@ function Game() {
       </>
     );
 
+  if (pyramid && !table)
+    return (
+      <>
+        <Pyramid
+          onExit={() => setPyramid(false)}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setPyramid(false);
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -489,6 +528,7 @@ function Game() {
             onTriPeaks={() => setTp(true)}
             onErs={() => setErs(true)}
             onSpider={() => setSpider(true)}
+            onPyramid={() => setPyramid(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

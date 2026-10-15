@@ -52,6 +52,7 @@ export function Lobby({
   onTriPeaks,
   onErs,
   onSpider,
+  onPyramid,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -78,6 +79,8 @@ export function Lobby({
   onErs?: () => void;
   /** open Spider Solitaire */
   onSpider?: () => void;
+  /** open Pyramid Solitaire */
+  onPyramid?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -273,7 +276,7 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider) && (
+        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid) && (
           <Sheet title="More games" onClose={() => setGames(false)}>
             {onSolitaire && (
               <button
@@ -362,6 +365,24 @@ export function Lobby({
                 <span className="lobby-game-text">
                   Spider Solitaire
                   <span className="lobby-sub">10 cascades & 8 suit runs. Wins earn XP and season pass XP.</span>
+                </span>
+              </button>
+            )}
+            {onPyramid && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onPyramid();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card red">K<i>♦</i></span>
+                  <span className="lobby-game-card">7<i>♠</i></span>
+                </span>
+                <span className="lobby-game-text">
+                  Pyramid Solitaire
+                  <span className="lobby-sub">Pair cards to 13 & dismantle the 7-row pyramid. Wins earn XP.</span>
                 </span>
               </button>
             )}
