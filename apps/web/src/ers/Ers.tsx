@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { ErsMultiplayer } from "./ErsMultiplayer";
 import "./ers.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -34,6 +35,14 @@ export function Ers({ onExit, onHeist, banner }: {
   banner?: ReactNode;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const [pvp, setPvp] = useState(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.has("pvp") || p.has("join") || location.pathname.startsWith("/ers/pvp");
+    } catch {
+      return false;
+    }
+  });
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [state, setState] = useState<ErsState | null>(null);
   const [moves, setMoves] = useState<ErsMove[]>([]);
@@ -250,6 +259,16 @@ export function Ers({ onExit, onHeist, banner }: {
 
   const room = me ? ersRoom(me.progress, Date.now()) : ERS_DAY_XP;
 
+  if (pvp) {
+    return (
+      <ErsMultiplayer
+        initialCode={typeof window !== "undefined" ? (new URLSearchParams(location.search).get("join") ?? undefined) : undefined}
+        onExit={() => setPvp(false)}
+        banner={banner}
+      />
+    );
+  }
+
   return (
     <div className={`ers ${shaking ? "shaking" : ""}`}>
       <div className="ers-felt-rim" />
@@ -280,6 +299,16 @@ export function Ers({ onExit, onHeist, banner }: {
             title="Rules & Slap conditions"
           >
             <Icon d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2a2 2 0 011-3.73A2.5 2.5 0 0013 7a2.5 2.5 0 00-5 0h2a.5.5 0 011 0c0 .83-.67 1.5-1.5 1.5S8 9.17 8 10h2a1 1 0 001-1 1 1 0 012 0c0 .55-.45 1-1 1v3z" />
+          </button>
+
+          <button
+            type="button"
+            className="ers-icon-btn"
+            style={{ width: "auto", padding: "0 10px", fontSize: 13, fontFamily: "var(--cond)", fontWeight: 800, color: "var(--gold)" }}
+            onClick={() => { click(); setPvp(true); }}
+            title="Play 2-Player Real-time PvP Duel"
+          >
+            ⚔️ 2P DUEL
           </button>
 
           <button

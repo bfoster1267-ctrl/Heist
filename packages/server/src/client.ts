@@ -238,6 +238,24 @@ export class HeistClient {
   leave() {
     this.send({ t: "leave" });
   }
+  ersCreate(isPrivate = false) {
+    this.send({ t: "ers_create", isPrivate });
+  }
+  ersJoin(code: string) {
+    this.send({ t: "ers_join", code });
+  }
+  ersPlay() {
+    this.send({ t: "ers_play" });
+  }
+  ersSlap(time?: number) {
+    this.send({ t: "ers_slap", time });
+  }
+  ersRematch() {
+    this.send({ t: "ers_rematch" });
+  }
+  ersLeave() {
+    this.send({ t: "ers_leave" });
+  }
   /**
    * Play as another account (the player signed in or out in the app since this socket said hello).
    * Away from a table the socket reconnects at once as the new account; at a table (or before the

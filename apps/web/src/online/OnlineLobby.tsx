@@ -13,6 +13,8 @@ import { session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
 import { dismissAlertsAsk, shouldAskForAlerts, turnOnAlerts, useAlertState } from "../alerts";
 import { Solitaire } from "../solitaire/Solitaire";
+import { ARCADE_GAMES, type ArcadeGameId } from "../arcade/ArcadeHub";
+import "../arcade/arcade.css";
 import "./online.css";
 
 function useSession(sess: OnlineSession) {
@@ -46,6 +48,8 @@ export function OnlineLobby({
   onBuyIn,
   onWin,
   onEnd,
+  onArcade,
+  onOpenArcade,
 }: {
   name: string;
   chips: number;
@@ -57,6 +61,10 @@ export function OnlineLobby({
   onWin: (won: number) => void;
   /** any game you sat in has finished, won or not (the account shows its rewards card) */
   onEnd?: () => void;
+  /** switch to any solo arcade game while waiting in queue */
+  onArcade?: (game?: ArcadeGameId) => void;
+  /** open the full Arcade Hub modal */
+  onOpenArcade?: () => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
   const room = sess.room;
@@ -108,7 +116,27 @@ export function OnlineLobby({
   // Solitaire while waiting in the queue: the queue timer rides along on top, and the table takes over
   // the moment it's dealt (the return above)
   if (sol && !room)
-    return <Solitaire onExit={() => setSol(false)} banner={sess.queue ? <QueueStrip sess={sess} /> : <div className="queue-strip">Not in the queue any more</div>} />;
+    return (
+      <Solitaire
+        onExit={() => setSol(false)}
+        banner={
+          sess.queue ? (
+            <QueueStrip
+              sess={sess}
+              onSwitchGame={(g) => {
+                setSol(false);
+                onArcade?.(g);
+              }}
+              activeGame="solitaire"
+              onOpenArcade={onOpenArcade}
+              inline
+            />
+          ) : (
+            <div className="queue-strip">Not in the queue any more</div>
+          )
+        }
+      />
+    );
 
   return (
     <div className="lobby">
@@ -120,7 +148,17 @@ export function OnlineLobby({
         </button>
       )}
       <motion.div className="lobby-card online-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-        {room ? <RoomView sess={sess} onLeave={() => sess.leave()} /> : <Pick sess={sess} chips={chips} onSolitaire={() => setSol(true)} />}
+        {room ? (
+          <RoomView sess={sess} onLeave={() => sess.leave()} />
+        ) : (
+          <Pick
+            sess={sess}
+            chips={chips}
+            onSolitaire={() => setSol(true)}
+            onArcade={onArcade}
+            onOpenArcade={onOpenArcade}
+          />
+        )}
         {sess.error && (
           <div className="online-error" onClick={() => sess.clearError()}>
             {sess.error}
@@ -158,7 +196,19 @@ function lastTable(): string | null {
 type Mode = "casual" | "ranked";
 const MODE_KEY = "heist.mode";
 
-function Pick({ sess, chips, onSolitaire }: { sess: OnlineSession; chips: number; onSolitaire: () => void }) {
+function Pick({
+  sess,
+  chips,
+  onSolitaire,
+  onArcade,
+  onOpenArcade,
+}: {
+  sess: OnlineSession;
+  chips: number;
+  onSolitaire: () => void;
+  onArcade?: (game?: ArcadeGameId) => void;
+  onOpenArcade?: () => void;
+}) {
   const { me } = useAccount();
   // signed in or out since the socket opened: play as the account the app shows
   useEffect(() => sess.syncAccount(), [sess, me?.id]);
@@ -304,7 +354,12 @@ function Pick({ sess, chips, onSolitaire }: { sess: OnlineSession; chips: number
           </div>
         )}
         {sess.queue ? (
-          <QueueCard sess={sess} onSolitaire={onSolitaire} />
+          <QueueCard
+            sess={sess}
+            onSolitaire={onSolitaire}
+            onArcade={onArcade}
+            onOpenArcade={onOpenArcade}
+          />
         ) : ranked ? (
           <div className="start-row">
             <button className="btn gold huge" disabled={!online || !!locked || chips < buyIn} onClick={() => sess.client.queue(RANKED_PLAYERS, buyIn, true)}>
@@ -378,11 +433,51 @@ const mmss = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, 
 
 /** The queue, squeezed into one line: who's in, the timer, and a way out of line. With `onOpen` the line
  *  itself is a button back to the queue (on screens away from it). */
-function QueueStrip({ sess, onOpen }: { sess: OnlineSession; onOpen?: () => void }) {
+function QueueStrip({
+  sess,
+  onOpen,
+  onSwitchGame,
+  activeGame,
+  onOpenArcade,
+  inline,
+}: {
+  sess: OnlineSession;
+  onOpen?: () => void;
+  onSwitchGame?: (game: ArcadeGameId) => void;
+  activeGame?: ArcadeGameId | null;
+  onOpenArcade?: () => void;
+  inline?: boolean;
+}) {
   const q = sess.queue!;
   const now = useSeconds();
   const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
   const waited = Math.max(0, now - Math.floor(sess.queuedSince / 1000));
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!switcherOpen) return;
+    const onDocClick = (e: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setSwitcherOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSwitcherOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("touchstart", onDocClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("touchstart", onDocClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [switcherOpen]);
+
+  const currentGame = ARCADE_GAMES.find((g) => g.id === activeGame);
+  const currentGameLabel = currentGame ? currentGame.title : "Arcade";
+
   const words = (
     <span className="queue-strip-words">
       {q.ranked ? "Ranked" : "Finding players"} · {q.waiting}/{q.players} · <b>{mmss(waited)}</b>
@@ -402,6 +497,76 @@ function QueueStrip({ sess, onOpen }: { sess: OnlineSession; onOpen?: () => void
       ) : (
         words
       )}
+      {(onSwitchGame || onOpenArcade) && (
+        <div className="queue-switcher-wrapper" ref={menuRef}>
+          <button
+            type="button"
+            className={`queue-switcher-toggle ${switcherOpen ? "active" : ""}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSwitcherOpen((o) => !o);
+            }}
+            aria-label="Switch solo arcade game while in queue"
+            aria-expanded={switcherOpen}
+            title="Switch solo game"
+          >
+            <span aria-hidden>🕹️</span>
+            <span>{currentGameLabel}</span>
+            <span className="arrow" aria-hidden>{switcherOpen ? "▴" : "▾"}</span>
+          </button>
+          {switcherOpen && (
+            <div
+              className={`queue-switcher-menu ${inline ? "drop-down" : "drop-up"}`}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="queue-switcher-head">
+                <div>
+                  <div className="queue-switcher-head-title">ARCADE SWITCHER</div>
+                  <div className="queue-switcher-head-sub">Switch games without losing queue spot</div>
+                </div>
+              </div>
+              {ARCADE_GAMES.map((g) => {
+                const isCurrent = activeGame === g.id;
+                const c1 = g.art.cards[0];
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={`queue-switcher-item ${isCurrent ? "active" : ""}`}
+                    onClick={() => {
+                      setSwitcherOpen(false);
+                      onSwitchGame?.(g.id);
+                    }}
+                  >
+                    <span className={`queue-switcher-item-badge ${c1.red ? "red" : ""}`}>
+                      {c1.isSymbol ? c1.rank : `${c1.rank}${c1.suit}`}
+                    </span>
+                    <span className="queue-switcher-item-text">
+                      <span className="queue-switcher-item-title">{g.title}</span>
+                      <span className="queue-switcher-item-sub">{g.subtitle}</span>
+                    </span>
+                    {isCurrent && <span className="queue-switcher-active-tag">Playing</span>}
+                  </button>
+                );
+              })}
+              {onOpenArcade && (
+                <div className="queue-switcher-footer">
+                  <button
+                    type="button"
+                    className="queue-switcher-hub-btn"
+                    onClick={() => {
+                      setSwitcherOpen(false);
+                      onOpenArcade();
+                    }}
+                  >
+                    <span>Browse All in Arcade Hub ⇗</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <button className="queue-strip-x" onClick={() => sess.client.unqueue()} aria-label="Leave the queue">
         ✕
       </button>
@@ -413,7 +578,15 @@ function QueueStrip({ sess, onOpen }: { sess: OnlineSession; onOpen?: () => void
  * In line for a table but somewhere else in the app (the lobby, Solitaire): a bar that says so and
  * takes you back to the queue, and takes you to the table the moment it's dealt.
  */
-export function QueueBar({ name, onBack, onDone, inline }: {
+export function QueueBar({
+  name,
+  onBack,
+  onDone,
+  inline,
+  onSwitchGame,
+  activeGame,
+  onOpenArcade,
+}: {
   name: string;
   /** back to the online lobby (it shows the queue, or the table once dealt) */
   onBack: () => void;
@@ -421,6 +594,12 @@ export function QueueBar({ name, onBack, onDone, inline }: {
   onDone: () => void;
   /** as a strip inside a screen's own layout (Solitaire's banner) instead of floating over it */
   inline?: boolean;
+  /** switch directly to any solo arcade game while staying in line */
+  onSwitchGame?: (game: ArcadeGameId) => void;
+  /** active solo game id */
+  activeGame?: ArcadeGameId | null;
+  /** open the full Arcade Hub modal */
+  onOpenArcade?: () => void;
 }) {
   const sess = useSession(useMemo(() => session(name), [name]));
   const dealt = !!sess.room;
@@ -432,12 +611,31 @@ export function QueueBar({ name, onBack, onDone, inline }: {
     else if (!inLine) go.current.onDone();
   }, [dealt, inLine]);
   if (!sess.queue) return null;
-  const strip = <QueueStrip sess={sess} onOpen={onBack} />;
+  const strip = (
+    <QueueStrip
+      sess={sess}
+      onOpen={onBack}
+      onSwitchGame={onSwitchGame}
+      activeGame={activeGame}
+      onOpenArcade={onOpenArcade}
+      inline={inline}
+    />
+  );
   return inline ? strip : <div className="queue-float">{strip}</div>;
 }
 
 /** Waiting in the quick queue: who's in line, and when bots fill the rest. */
-function QueueCard({ sess, onSolitaire }: { sess: OnlineSession; onSolitaire: () => void }) {
+function QueueCard({
+  sess,
+  onSolitaire,
+  onArcade,
+  onOpenArcade,
+}: {
+  sess: OnlineSession;
+  onSolitaire: () => void;
+  onArcade?: (game?: ArcadeGameId) => void;
+  onOpenArcade?: () => void;
+}) {
   const q = sess.queue!;
   const now = useSeconds();
   const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
@@ -450,9 +648,14 @@ function QueueCard({ sess, onSolitaire }: { sess: OnlineSession; onSolitaire: ()
       <div className="fine">
         {q.ranked ? "No bots in Ranked: the table deals when six are in line." : left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}
       </div>
-      <button className="btn primary" onClick={onSolitaire}>
+      <button className="btn primary" onClick={() => (onArcade ? onArcade("solitaire") : onSolitaire())}>
         Play Solitaire while you wait
       </button>
+      {onOpenArcade && (
+        <button className="btn ghost" onClick={onOpenArcade}>
+          Browse Solo Arcade (8 Games)
+        </button>
+      )}
       <button className="btn ghost" onClick={() => sess.client.unqueue()}>
         Cancel
       </button>

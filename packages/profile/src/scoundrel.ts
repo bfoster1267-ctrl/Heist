@@ -5,6 +5,7 @@
 import { cardRank, cardSuit, type PlayingCard } from "./solitaire";
 
 export type { PlayingCard };
+export { cardRank, cardSuit };
 
 export type CardKind = "monster" | "weapon" | "potion";
 

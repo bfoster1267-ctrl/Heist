@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { isIOS, isStandalone } from "./appShell";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
+import { ArcadeHub } from "./arcade/ArcadeHub";
 
 const FLOAT_POS = [
   { left: "6%", top: "12%" },
@@ -209,7 +210,14 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
-          {(onSolitaire || onFreeCell || onTriPeaks) && <Mode icon="cards" label="More games" sub="Solitaire, FreeCell & TriPeaks" onClick={() => setGames(true)} />}
+          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel) && (
+            <Mode
+              icon="cards"
+              label="Solo Arcade"
+              sub="8 Card Games · Solitaire & Roguelike"
+              onClick={() => setGames(true)}
+            />
+          )}
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
           <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
@@ -282,154 +290,39 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel) && (
-          <Sheet title="More games" onClose={() => setGames(false)}>
-            {onSolitaire && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onSolitaire();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">A<i>♠</i></span>
-                  <span className="lobby-game-card red">K<i>♥</i></span>
-                </span>
-                <span className="lobby-game-text">
-                  Solitaire
-                  <span className="lobby-sub">Classic Klondike. Wins earn XP and season pass XP.</span>
-                </span>
-              </button>
-            )}
-            {onFreeCell && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onFreeCell();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">8<i>♣</i></span>
-                  <span className="lobby-game-card red">7<i>♦</i></span>
-                </span>
-                <span className="lobby-game-text">
-                  FreeCell
-                  <span className="lobby-sub">8 cascades & 4 cells. Wins earn XP and season pass XP.</span>
-                </span>
-              </button>
-            )}
-            {onTriPeaks && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onTriPeaks();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">Q<i>♠</i></span>
-                  <span className="lobby-game-card red">K<i>♥</i></span>
-                </span>
-                <span className="lobby-game-text">
-                  TriPeaks
-                  <span className="lobby-sub">3 peaks & fast streaks. Wins earn XP and season pass XP.</span>
-                </span>
-              </button>
-            )}
-            {onErs && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onErs();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">J<i>♣</i></span>
-                  <span className="lobby-game-card red">⚡</span>
-                </span>
-                <span className="lobby-game-text">
-                  Egyptian Rat Screw
-                  <span className="lobby-sub">Fast-reaction slaps & face card challenges. Earn XP & level up.</span>
-                </span>
-              </button>
-            )}
-            {onSpider && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onSpider();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">K<i>♠</i></span>
-                  <span className="lobby-game-card">A<i>♠</i></span>
-                </span>
-                <span className="lobby-game-text">
-                  Spider Solitaire
-                  <span className="lobby-sub">10 cascades & 8 suit runs. Wins earn XP and season pass XP.</span>
-                </span>
-              </button>
-            )}
-            {onPyramid && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onPyramid();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card red">K<i>♦</i></span>
-                  <span className="lobby-game-card">7<i>♠</i></span>
-                </span>
-                <span className="lobby-game-text">
-                  Pyramid Solitaire
-                  <span className="lobby-sub">Pair cards to 13 & dismantle the 7-row pyramid. Wins earn XP.</span>
-                </span>
-              </button>
-            )}
-            {onYukon && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onYukon();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">K<i>♠</i></span>
-                  <span className="lobby-game-card red">Q<i>♦</i></span>
-                </span>
-                <span className="lobby-game-text">
-                  Yukon Solitaire
-                  <span className="lobby-sub">Move deep stacks & build 4 foundations. Wins earn XP.</span>
-                </span>
-              </button>
-            )}
-            {onScoundrel && (
-              <button
-                className="btn lobby-big lobby-game"
-                onClick={() => {
-                  setGames(false);
-                  onScoundrel();
-                }}
-              >
-                <span className="lobby-game-art" aria-hidden="true">
-                  <span className="lobby-game-card">💀</span>
-                  <span className="lobby-game-card red">🗡️</span>
-                </span>
-                <span className="lobby-game-text">
-                  Scoundrel
-                  <span className="lobby-sub">Card dungeon crawler roguelike. Slay monsters & escape.</span>
-                </span>
-              </button>
-            )}
-            <p className="dim lobby-games-more">More card games are on the way.</p>
-          </Sheet>
+        {games && (
+          <ArcadeHub
+            onClose={() => setGames(false)}
+            onSelectGame={(id) => {
+              setGames(false);
+              switch (id) {
+                case "solitaire":
+                  onSolitaire?.();
+                  break;
+                case "freecell":
+                  onFreeCell?.();
+                  break;
+                case "spider":
+                  onSpider?.();
+                  break;
+                case "tripeaks":
+                  onTriPeaks?.();
+                  break;
+                case "pyramid":
+                  onPyramid?.();
+                  break;
+                case "yukon":
+                  onYukon?.();
+                  break;
+                case "ers":
+                  onErs?.();
+                  break;
+                case "scoundrel":
+                  onScoundrel?.();
+                  break;
+              }
+            }}
+          />
         )}
       </AnimatePresence>
       <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>

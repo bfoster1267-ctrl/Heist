@@ -23,6 +23,7 @@ import { MemoryStore, type GameStore } from "./store";
 import type { Hosting } from "./accounts/hosting";
 import type { PushMessage, Pusher } from "./push";
 import { Social, type DmStore } from "./accounts/social";
+import { ErsRoom, ErsRooms } from "./ersRoom";
 
 export interface ServerOptions {
   port?: number;
@@ -65,6 +66,7 @@ export interface ServerOptions {
 export interface HeistServer {
   http: Server;
   rooms: Rooms;
+  ersRooms: ErsRooms;
   queue: Matchmaker;
   port(): number;
   close(): Promise<void>;
@@ -76,12 +78,13 @@ const RATE = { burst: 30, perSec: 10 };
 const HEARTBEAT_MS = 30_000;
 const DRINK_IDS = new Set(DRINKS.map((d) => d.id));
 /** messages that don't go in the activity log: moves are in the game's own record */
-const QUIET = new Set(["ping", "hello", "answer", "list", "away"]);
+const QUIET = new Set(["ping", "hello", "answer", "list", "away", "ers_play", "ers_slap", "play", "slap"]);
 
 interface Client {
   conn: Conn | null;
   id: Identity | null;
   room: Room | null;
+  ersRoom: ErsRoom | null;
   tokens: number;
   last: number;
   alive: boolean;
@@ -188,6 +191,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     void pushTo(userId, m).catch((e) => log("alert failed", { err: String(e) }));
   };
   const rooms = new Rooms({ store, clock, log, onGameOver, badge, alert, graceMs: o.graceMs, lobbyHoldMs: o.lobbyHoldMs }, o.limits);
+  const ersRooms = new ErsRooms({ clock, log });
   /** each signed-in connection's way into a room, for the matchmaker */
   const entrances = new Map<string, (room: Room) => ReturnType<Room["join"]>>();
   const queue = new Matchmaker(rooms, clock, (conn, room) => {
@@ -232,6 +236,35 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
+    if (req.url === "/api/ers/create" && req.method === "POST") {
+      let body = "";
+      req.on("data", (chunk) => { body += chunk; });
+      req.on("end", () => {
+        let opts: { isPrivate?: boolean; seed?: number } = {};
+        try { if (body) opts = JSON.parse(body); } catch {}
+        const room = ersRooms.create(opts);
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: true, code: room.code, id: room.id }));
+      });
+      return;
+    }
+    if (req.url?.startsWith("/api/ers/") && req.method === "GET") {
+      const code = req.url.slice("/api/ers/".length).split("?")[0];
+      const room = ersRooms.get(code);
+      if (!room) {
+        res.writeHead(404, { "content-type": "application/json" });
+        res.end(JSON.stringify({ ok: false, error: "no_room" }));
+        return;
+      }
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, room: room.viewFor(null) }));
+      return;
+    }
+    if (req.url === "/api/ers" && req.method === "GET") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, rooms: ersRooms.list() }));
+      return;
+    }
     if (o.webDir && (await serveStatic(o.webDir, req, res))) return;
     res.writeHead(404).end();
   });
@@ -252,7 +285,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
-    const c: Client = { conn: null, id: null, room: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip, away: false };
+    const c: Client = { conn: null, id: null, room: null, ersRoom: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip, away: false };
     const send = (m: ServerMsg) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
     };
@@ -272,7 +305,9 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
         else connected.delete(c.conn.userId);
       }
       if (c.room && c.conn) c.room.disconnect(c.conn.id);
+      if (c.ersRoom && c.conn) c.ersRoom.disconnect(c.conn.id);
       c.room = null;
+      c.ersRoom = null;
     });
     ws.on("message", (data, isBinary) => {
       c.alive = true;
@@ -381,7 +416,55 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           queue.leave(conn.id, false);
           if (c.room) c.room.leave(conn.id);
           c.room = null;
+          if (c.ersRoom) c.ersRoom.leave(conn.id);
+          c.ersRoom = null;
           return send({ t: "left" });
+        case "ers_create": {
+          queue.leave(conn.id);
+          if (c.room) { c.room.leave(conn.id); c.room = null; }
+          if (c.ersRoom) { c.ersRoom.leave(conn.id); c.ersRoom = null; }
+          const room = ersRooms.create({ isPrivate: m.isPrivate });
+          c.ersRoom = room;
+          const res = room.join(conn);
+          if (!res.ok) return err("bad_state", res.error);
+          return;
+        }
+        case "ers_join": {
+          queue.leave(conn.id);
+          if (c.room) { c.room.leave(conn.id); c.room = null; }
+          const room = ersRooms.get(m.code);
+          if (!room) return err("no_room", "No ERS table with that code");
+          if (c.ersRoom && c.ersRoom !== room) { c.ersRoom.leave(conn.id); }
+          c.ersRoom = room;
+          const res = room.join(conn);
+          if (!res.ok) return err(res.error === "room_full" ? "room_full" : "bad_state", res.error);
+          return;
+        }
+        case "ers_play":
+        case "play": {
+          if (!c.ersRoom) return err("no_room", "Join an ERS table first");
+          const res = c.ersRoom.play(conn.id);
+          if (!res.ok) return err(res.error === "not_your_turn" ? "not_your_turn" : "illegal", res.error);
+          return;
+        }
+        case "ers_slap":
+        case "slap": {
+          if (!c.ersRoom) return err("no_room", "Join an ERS table first");
+          c.ersRoom.slap(conn.id, m.time);
+          return;
+        }
+        case "ers_rematch": {
+          if (!c.ersRoom) return err("no_room", "Join an ERS table first");
+          c.ersRoom.rematch(conn.id);
+          return;
+        }
+        case "ers_leave": {
+          if (c.ersRoom) {
+            c.ersRoom.leave(conn.id);
+            c.ersRoom = null;
+          }
+          return send({ t: "ers_left", seat: 0 });
+        }
       }
       const room = c.room;
       if (!room) return err("no_room", "Join a table first");
@@ -455,6 +538,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       ws.ping();
     }
     rooms.sweep(clock.now());
+    ersRooms.sweep(clock.now());
   }, HEARTBEAT_MS);
   beat.unref();
 
@@ -465,6 +549,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   return {
     http,
     rooms,
+    ersRooms,
     queue,
     port: () => (http.address() as { port: number }).port,
     async close() {
@@ -473,6 +558,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       queue.close();
       for (const ws of wss.clients) ws.terminate();
       rooms.closeAll();
+      ersRooms.closeAll();
       await new Promise<void>((r) => wss.close(() => r()));
       await new Promise<void>((r) => http.close(() => r()));
       await store.flush();

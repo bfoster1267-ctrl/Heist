@@ -6,7 +6,9 @@
 // for the seat that receives it, so other hands, face-down showdown cards and the deck are never sent.
 
 import type { Answer, Ask, BotLevel, Frame, GameState, RuleOptions } from "@heist/engine";
-import type { Badge, Progress, Reward } from "@heist/profile";
+import type { Badge, Progress, Reward, PlayingCard, SlapReason } from "@heist/profile";
+
+export type { PlayingCard, SlapReason };
 
 export const PROTOCOL_VERSION = 1;
 
@@ -97,7 +99,16 @@ export type ClientMsg =
   | { t: "drink"; id: string; to: number | null }
   | { t: "ping"; n?: number }
   /** the app went to the background (or came back): while away, your turn sends a phone alert */
-  | { t: "away"; on: boolean };
+  | { t: "away"; on: boolean }
+  // ERS Multiplayer messages
+  | { t: "ers_create"; isPrivate?: boolean }
+  | { t: "ers_join"; code: string }
+  | { t: "ers_play" }
+  | { t: "ers_slap"; time?: number }
+  | { t: "ers_rematch" }
+  | { t: "ers_leave" }
+  | { t: "play" }
+  | { t: "slap"; time?: number };
 
 // ------------------------------------------------------------------ server -> client
 
@@ -146,4 +157,68 @@ export type ServerMsg =
   | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number; ranked?: boolean }
   | { t: "unqueued" }
   | { t: "error"; code: ErrorCode; msg: string }
-  | { t: "pong"; n?: number; at: number };
+  | { t: "pong"; n?: number; at: number }
+  // ERS Multiplayer broadcasts
+  | { t: "ers_welcome"; seat: 0 | 1 | null; code: string }
+  | { t: "ers_rooms"; rooms: ErsRoomSummary[] }
+  | { t: "ers_sync"; room: ErsRoomView }
+  | { t: "ers_flip"; seat: 0 | 1; card: PlayingCard; potCount: number; topCards: PlayingCard[]; turn: 0 | 1; challenge: { by: 0 | 1; chances: number } | null }
+  | { t: "ers_slap"; seat: 0 | 1; valid: boolean; reason: SlapReason; winnerSeat: 0 | 1 | null; cardsWon: number; burnedCard?: PlayingCard; potCount: number; p0Count: number; p1Count: number; slower?: boolean }
+  | { t: "ers_challenge"; by: 0 | 1; chances: number; status: "started" | "step" | "won"; cardsAwarded?: number }
+  | { t: "ers_over"; winner: 0 | 1; reason: string; stats: ErsStats }
+  | { t: "ers_error"; code: string; msg: string }
+  | { t: "ers_left"; seat: 0 | 1 };
+
+// ------------------------------------------------------------------ ERS types
+
+export interface ErsRoomSummary {
+  code: string;
+  players: number;
+  status: "waiting" | "playing" | "over";
+}
+
+export interface ErsMoveLog {
+  id: number;
+  time: number;
+  seat: 0 | 1;
+  action: "play" | "slap" | "burn" | "challenge_win" | "slap_win" | "game_over";
+  card?: PlayingCard;
+  reason?: string;
+  detail: string;
+}
+
+export interface ErsStats {
+  cardsWon: [number, number];
+  slaps: [number, number];
+  falseSlaps: [number, number];
+  faceChallengesWon: [number, number];
+}
+
+export interface ErsRoomView {
+  id: string;
+  code: string;
+  status: "waiting" | "playing" | "over";
+  you: {
+    seat: 0 | 1 | null;
+    cardCount: number;
+    cards?: PlayingCard[];
+  };
+  opponent: {
+    seat: 0 | 1 | null;
+    name: string;
+    connected: boolean;
+    cardCount: number;
+  } | null;
+  turn: 0 | 1;
+  challenge: { by: 0 | 1; chances: number } | null;
+  potCount: number;
+  topCards: PlayingCard[];
+  slapWindow: boolean;
+  validSlapReason: SlapReason;
+  winner: 0 | 1 | null;
+  winReason?: string;
+  stats: ErsStats;
+  lastEvent?: string;
+  moveLogs: ErsMoveLog[];
+}
+

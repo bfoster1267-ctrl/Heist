@@ -9,3 +9,4 @@ export { AccountService, ApiError, type Me, type LeaderRow } from "./accounts/se
 export { FileAccountStore, MemoryAccountStore, type Account, type AccountStore } from "./accounts/store";
 export { OAuth, type OAuthConfig } from "./accounts/oauth";
 export { accountsApi } from "./accounts/api";
+export { ErsRoom, ErsRooms, generateErsCode, type ErsRoomDeps, type ErsSeatState } from "./ersRoom";

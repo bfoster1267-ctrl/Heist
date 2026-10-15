@@ -4,7 +4,7 @@ import {
   replayTriPeaks, tallyTriPeaks, tallyTpXp, tpGain, tpHasMoves, tpPay, tpWon,
   type TpMove, type TriPeaksState,
 } from "../src/tripeaks";
-import { settleTriPeaks, type Progress } from "../src/progress";
+import { settleTriPeaks, newProgress, type Progress } from "../src/progress";
 
 describe("TriPeaks engine", () => {
   it("deals exactly 28 tableau cards, 1 waste, 23 stock cards", () => {
@@ -86,15 +86,7 @@ describe("TriPeaks engine", () => {
     expect(g5.any).toBe(true);
 
     // Progress settlement for reaching 5-card streak
-    const initialProgress: Progress = {
-      chips: 10000,
-      coins: 300,
-      xp: 0,
-      prestige: 0,
-      heists: { won: 0, lost: 0, streak: 0, bestStreak: 0 },
-      season: { number: 1, xp: 0, claimed: [] },
-      tripeaks: { won: 0, day: null, xp: 0 },
-    };
+    const initialProgress: Progress = newProgress();
 
     const pay5 = tpPay(t4, 4, t5, 0);
     expect(pay5.xp).toBe(4); // 1 for clear + 3 for streak5 bonus

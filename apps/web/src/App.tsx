@@ -22,6 +22,7 @@ import { Spider } from "./spider/Spider";
 import { Pyramid } from "./pyramid/Pyramid";
 import { Yukon } from "./yukon/Yukon";
 import { Scoundrel } from "./scoundrel/Scoundrel";
+import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -241,15 +242,37 @@ function Game() {
     awayRef.current = n;
     setAwayState(n);
   }, []);
+  const openSoloGame = useCallback(
+    (id: ArcadeGameId | null) => {
+      setSol(id === "solitaire");
+      setFc(id === "freecell");
+      setTp(id === "tripeaks");
+      setErs(id === "ers");
+      setSpider(id === "spider");
+      setPyramid(id === "pyramid");
+      setYukon(id === "yukon");
+      setScoundrel(id === "scoundrel");
+    },
+    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel],
+  );
+  const activeSoloGame: ArcadeGameId | null =
+    sol ? "solitaire"
+    : fc ? "freecell"
+    : tp ? "tripeaks"
+    : ers ? "ers"
+    : spider ? "spider"
+    : pyramid ? "pyramid"
+    : yukon ? "yukon"
+    : scoundrel ? "scoundrel"
+    : null;
+  const [arcadeHubOpen, setArcadeHubOpen] = useState(false);
   const backToLine = useCallback(() => {
     const n = awayRef.current;
     if (n === null) return;
     setAway(null);
-    setSol(false);
-    setFc(false);
-    setTp(false);
+    openSoloGame(null);
     setOnline(n);
-  }, [setAway, setSol, setFc, setTp]);
+  }, [setAway, openSoloGame]);
   // After an online game the server sends what it earned. It usually lands while the table is still
   // playing the last moves, so it's held until the table shows the end, then shown like a game vs bots.
   const onlineEnd = useRef<{ reward: Reward | null; ended: boolean }>({
@@ -422,6 +445,18 @@ function Game() {
             setOnline(null);
             void act((b) => b.me());
           }}
+          onArcade={(g) => {
+            if (session(online).queue) setAway(online);
+            setOnline(null);
+            openSoloGame(g ?? "solitaire");
+            void act((b) => b.me());
+          }}
+          onOpenArcade={() => {
+            if (session(online).queue) setAway(online);
+            setOnline(null);
+            setArcadeHubOpen(true);
+            void act((b) => b.me());
+          }}
           onBuyIn={() => void act((b) => b.me())}
           onWin={() => {}}
           onEnd={() => {
@@ -438,7 +473,7 @@ function Game() {
       <>
         <Solitaire
           onExit={() => setSol(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="solitaire" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           // only a guest who never played Heist gets the Heist button (their coached first hand); everyone else has Play now in the lobby
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
@@ -458,7 +493,7 @@ function Game() {
       <>
         <FreeCell
           onExit={() => setFc(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="freecell" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -477,7 +512,7 @@ function Game() {
       <>
         <TriPeaks
           onExit={() => setTp(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="tripeaks" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -496,7 +531,7 @@ function Game() {
       <>
         <Ers
           onExit={() => setErs(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="ers" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -515,7 +550,7 @@ function Game() {
       <>
         <Spider
           onExit={() => setSpider(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="spider" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -534,7 +569,7 @@ function Game() {
       <>
         <Pyramid
           onExit={() => setPyramid(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="pyramid" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -553,7 +588,7 @@ function Game() {
       <>
         <Yukon
           onExit={() => setYukon(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="yukon" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -572,7 +607,7 @@ function Game() {
       <>
         <Scoundrel
           onExit={() => setScoundrel(false)}
-          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="scoundrel" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
@@ -620,7 +655,7 @@ function Game() {
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
           {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge friends={friendsSlot} /> : null}
-          {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} />}
+          {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
         </>
       ) : (
         <Table
@@ -649,6 +684,18 @@ function Game() {
               setProfile(false);
               setChatWith(null);
             }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {arcadeHubOpen && (
+          <ArcadeHub
+            onClose={() => setArcadeHubOpen(false)}
+            onSelectGame={(id) => {
+              setArcadeHubOpen(false);
+              openSoloGame(id);
+            }}
+            activeGame={activeSoloGame}
           />
         )}
       </AnimatePresence>
