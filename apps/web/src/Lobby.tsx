@@ -51,6 +51,7 @@ export function Lobby({
   onFreeCell,
   onTriPeaks,
   onErs,
+  onSpider,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -75,6 +76,8 @@ export function Lobby({
   onTriPeaks?: () => void;
   /** open Egyptian Rat Screw */
   onErs?: () => void;
+  /** open Spider Solitaire */
+  onSpider?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -270,7 +273,7 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs) && (
+        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider) && (
           <Sheet title="More games" onClose={() => setGames(false)}>
             {onSolitaire && (
               <button
@@ -341,6 +344,24 @@ export function Lobby({
                 <span className="lobby-game-text">
                   Egyptian Rat Screw
                   <span className="lobby-sub">Fast-reaction slaps & face card challenges. Earn XP & level up.</span>
+                </span>
+              </button>
+            )}
+            {onSpider && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onSpider();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card">K<i>♠</i></span>
+                  <span className="lobby-game-card">A<i>♠</i></span>
+                </span>
+                <span className="lobby-game-text">
+                  Spider Solitaire
+                  <span className="lobby-sub">10 cascades & 8 suit runs. Wins earn XP and season pass XP.</span>
                 </span>
               </button>
             )}
