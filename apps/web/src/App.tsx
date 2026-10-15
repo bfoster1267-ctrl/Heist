@@ -283,7 +283,29 @@ function Game() {
     : yukon ? "yukon"
     : scoundrel ? "scoundrel"
     : null;
-  const [arcadeHubOpen, setArcadeHubOpen] = useState(false);
+  const [arcadeHubOpen, setArcadeHubOpenState] = useState(() => {
+    try {
+      const p = location.pathname;
+      const isHubPath = p === "/arcade" || p === "/card-games" || p === "/games";
+      if (isHubPath) localStorage.setItem("heist.welcomed", "1");
+      return isHubPath || new URLSearchParams(location.search).has("arcade");
+    } catch {
+      return false;
+    }
+  });
+  const setArcadeHubOpen = useCallback((on: boolean) => {
+    setArcadeHubOpenState(on);
+    try {
+      if (on) {
+        history.replaceState(null, "", "/card-games" + location.search);
+        localStorage.setItem("heist.welcomed", "1");
+      } else if (location.pathname === "/arcade" || location.pathname === "/card-games" || location.pathname === "/games") {
+        history.replaceState(null, "", "/" + location.search);
+      }
+    } catch {
+      /* fine without */
+    }
+  }, []);
   const [dailyHubOpen, setDailyHubOpen] = useState(() => {
     try {
       const p = new URLSearchParams(location.search);

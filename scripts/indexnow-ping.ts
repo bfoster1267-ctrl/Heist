@@ -16,7 +16,10 @@ const URLS = [
   `https://${HOST}/yukon`,
   `https://${HOST}/ers`,
   `https://${HOST}/scoundrel`,
+  `https://${HOST}/card-games`,
+  `https://${HOST}/arcade`,
   `https://${HOST}/blog`,
+  `https://${HOST}/blog/best-free-online-card-games`,
 ];
 
 const ENDPOINTS = [

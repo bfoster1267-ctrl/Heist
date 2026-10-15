@@ -35,7 +35,50 @@ const PAGES: Record<string, Page> = {
   <li><a href="/spider">Spider Solitaire</a></li>
   <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
   <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
-  <li><a href="/blog">Strategy &amp; Guides Blog</a></li>
+  <li><a href="/card-games">All Free Card Games Hub</a></li>
+  <li><a href="/blog/best-free-online-card-games">10 Best Free Online Card Games Guide</a></li>
+</ul>`,
+  },
+  "/card-games": {
+    title: "Best Free Online Card Games: Play 9 Browser Card Games Free",
+    description:
+      "Play the best free online card games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, and Heist. 100% free, no ads.",
+    keywords:
+      "best free online card games, free online card games, browser card games, play card games online no download, solitaire online, freecell online, multiplayer card game",
+    text: `<h1>Best Free Online Card Games: Play in Browser (No Ads, No Download)</h1>
+<p>Play 9 of the best free online card games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, or multiplayer bluffing games with friends.</p>
+<h2>All 9 Free Online Card Games</h2>
+<ul>
+  <li><a href="/solitaire"><strong>Klondike Solitaire</strong></a> — Classic 7-column Solitaire with Draw 1 &amp; Draw 3, unlimited undo, smart hints, and daily streak challenges.</li>
+  <li><a href="/freecell"><strong>FreeCell Solitaire</strong></a> — 100% open information strategy with 4 reserve cells. Virtually every deal is solvable.</li>
+  <li><a href="/spider"><strong>Spider Solitaire</strong></a> — 10-column tableau requiring full descending suit runs from King to Ace.</li>
+  <li><a href="/tripeaks"><strong>TriPeaks Solitaire</strong></a> — Fast-paced arcade card matching across 3 peaks with combo multipliers.</li>
+  <li><a href="/pyramid"><strong>Pyramid Solitaire</strong></a> — Dismantle the ancient pyramid by pairing cards that sum to 13.</li>
+  <li><a href="/yukon"><strong>Yukon Solitaire</strong></a> — Tactical freedom: move any group of face-up cards regardless of sequence.</li>
+  <li><a href="/ers"><strong>Egyptian Rat Screw (ERS)</strong></a> — High-reflex slap card game. Face-card penalty face-offs, doubles, and live 1v1 PvP duels.</li>
+  <li><a href="/scoundrel"><strong>Scoundrel Dungeon Roguelike</strong></a> — Zach Gage &amp; Kurt Bieg's 52-card tabletop dungeon crawler with weapons, monsters, and health potions.</li>
+  <li><a href="/"><strong>Heist Multiplayer</strong></a> — 3 to 6-player social deduction and poker bluffing battle. Pull jobs with your crew or double-cross for the pot.</li>
+</ul>
+<p>Read our full ranking and strategy guide: <a href="/blog/best-free-online-card-games">The 10 Best Free Online Card Games in 2026</a>.</p>`,
+  },
+  "/arcade": {
+    title: "Card Game Arcade: Play 9 Free Card Games Online in Browser",
+    description:
+      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, and Heist free with daily streak challenges.",
+    keywords:
+      "card game arcade, free online card games, browser card games, daily solitaire arcade",
+    text: `<h1>Heist Card Game Arcade</h1>
+<p>Explore 9 complete card games in your browser. Single-player brainteasers, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
+<ul>
+  <li><a href="/solitaire">Klondike Solitaire</a></li>
+  <li><a href="/freecell">FreeCell</a></li>
+  <li><a href="/spider">Spider Solitaire</a></li>
+  <li><a href="/tripeaks">TriPeaks</a></li>
+  <li><a href="/pyramid">Pyramid</a></li>
+  <li><a href="/yukon">Yukon</a></li>
+  <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
+  <li><a href="/scoundrel">Scoundrel</a></li>
+  <li><a href="/">Heist Multiplayer</a></li>
 </ul>`,
   },
   "/solitaire": {
@@ -124,6 +167,7 @@ export function pageHtml(html: string, path: string): string {
   if (!page) return html;
   const url = SITE + (path === "/" ? "" : path);
   const isMain = path === "/";
+  const isHub = path === "/card-games" || path === "/arcade";
   const gameName = isMain ? "Heist" : page.title.split(":")[0];
 
   const jsonLd = {
@@ -196,6 +240,29 @@ export function pageHtml(html: string, path: string): string {
                     text: "The Heist Solo Arcade includes 8 complete card games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), and the Scoundrel dungeon roguelike, complete with daily global seeds and Wordle-style score sharing.",
                   },
                 },
+              ],
+            },
+          ]
+        : []),
+      ...(isHub
+        ? [
+            {
+              "@type": "ItemList",
+              "@id": `${url}/#itemlist`,
+              name: "Best Free Online Card Games",
+              description: page.description,
+              itemListOrder: "https://schema.org/ItemListOrderAscending",
+              numberOfItems: 9,
+              itemListElement: [
+                { "@type": "ListItem", position: 1, name: "Heist Multiplayer", url: `${SITE}/` },
+                { "@type": "ListItem", position: 2, name: "Klondike Solitaire", url: `${SITE}/solitaire` },
+                { "@type": "ListItem", position: 3, name: "FreeCell Solitaire", url: `${SITE}/freecell` },
+                { "@type": "ListItem", position: 4, name: "Spider Solitaire", url: `${SITE}/spider` },
+                { "@type": "ListItem", position: 5, name: "TriPeaks Solitaire", url: `${SITE}/tripeaks` },
+                { "@type": "ListItem", position: 6, name: "Pyramid Solitaire", url: `${SITE}/pyramid` },
+                { "@type": "ListItem", position: 7, name: "Yukon Solitaire", url: `${SITE}/yukon` },
+                { "@type": "ListItem", position: 8, name: "Egyptian Rat Screw (ERS)", url: `${SITE}/ers` },
+                { "@type": "ListItem", position: 9, name: "Scoundrel Dungeon Roguelike", url: `${SITE}/scoundrel` },
               ],
             },
           ]
