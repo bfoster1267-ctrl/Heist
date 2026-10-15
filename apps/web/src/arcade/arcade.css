@@ -699,6 +699,36 @@
   box-shadow: 0 0 14px rgba(16, 185, 129, 0.4);
 }
 
+.arcade-duel-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 1px solid rgba(231, 181, 60, 0.6);
+  background: rgba(231, 181, 60, 0.12);
+  color: var(--gold);
+  font-family: var(--title, "Bebas Neue", Impact, sans-serif);
+  font-size: 16px;
+  letter-spacing: 1.2px;
+  line-height: 1;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+
+.arcade-duel-btn:hover {
+  background: rgba(231, 181, 60, 0.25);
+  border-color: var(--gold);
+  transform: translateY(-1px);
+  box-shadow: 0 0 14px rgba(231, 181, 60, 0.3);
+}
+
+.arcade-duel-btn:active {
+  transform: translateY(1px);
+}
+
 /* --------------------------------------------------------------------------
    IN-QUEUE QUICK-SWITCHER COMPONENT & DROPDOWN
    -------------------------------------------------------------------------- */

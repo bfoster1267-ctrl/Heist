@@ -127,9 +127,24 @@ function Game() {
       /* fine without */
     }
   }, []);
-  // Egyptian Rat Screw: from the lobby, or straight in at playheist.net/ers
+  // Egyptian Rat Screw: from the lobby, or straight in at playheist.net/ers (or via PvP duel invite ?join=)
+  const [ersPvp, setErsPvp] = useState(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.has("join") || p.has("joinErs") || p.has("pvp") || location.pathname === "/ers/pvp";
+    } catch {
+      return false;
+    }
+  });
   const [ers, setErsState] = useState(() => {
-    const on = location.pathname === "/ers";
+    let hasErsJoin = false;
+    try {
+      const p = new URLSearchParams(location.search);
+      hasErsJoin = p.has("joinErs") || (p.has("join") && !p.has("table"));
+    } catch {
+      /* fine without */
+    }
+    const on = location.pathname === "/ers" || location.pathname.startsWith("/ers") || hasErsJoin;
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -139,6 +154,7 @@ function Game() {
   });
   const setErs = useCallback((on: boolean) => {
     setErsState(on);
+    if (!on) setErsPvp(false);
     try {
       history.replaceState(null, "", on ? "/ers" + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
@@ -243,11 +259,12 @@ function Game() {
     setAwayState(n);
   }, []);
   const openSoloGame = useCallback(
-    (id: ArcadeGameId | null) => {
+    (id: ArcadeGameId | null, pvp = false) => {
       setSol(id === "solitaire");
       setFc(id === "freecell");
       setTp(id === "tripeaks");
       setErs(id === "ers");
+      if (id === "ers") setErsPvp(pvp);
       setSpider(id === "spider");
       setPyramid(id === "pyramid");
       setYukon(id === "yukon");
@@ -530,12 +547,17 @@ function Game() {
     return (
       <>
         <Ers
-          onExit={() => setErs(false)}
+          initialPvp={ersPvp}
+          onExit={() => {
+            setErs(false);
+            setErsPvp(false);
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="ers" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setErs(false);
+                  setErsPvp(false);
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -691,9 +713,9 @@ function Game() {
         {arcadeHubOpen && (
           <ArcadeHub
             onClose={() => setArcadeHubOpen(false)}
-            onSelectGame={(id) => {
+            onSelectGame={(id, pvp) => {
               setArcadeHubOpen(false);
-              openSoloGame(id);
+              openSoloGame(id, pvp);
             }}
             activeGame={activeSoloGame}
           />

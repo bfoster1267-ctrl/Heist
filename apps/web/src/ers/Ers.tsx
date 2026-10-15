@@ -29,16 +29,18 @@ interface Float {
 
 const NOTHING: ErsTally = { cardsCaptured: 0, slaps: 0, faceChallengesWon: 0, won: false };
 
-export function Ers({ onExit, onHeist, banner }: {
+export function Ers({ onExit, onHeist, banner, initialPvp }: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
+  initialPvp?: boolean;
 }) {
   const { backend, act, showReward, me } = useAccount();
   const [pvp, setPvp] = useState(() => {
+    if (initialPvp) return true;
     try {
       const p = new URLSearchParams(location.search);
-      return p.has("pvp") || p.has("join") || location.pathname.startsWith("/ers/pvp");
+      return p.has("pvp") || p.has("join") || p.has("joinErs") || location.pathname.startsWith("/ers/pvp");
     } catch {
       return false;
     }
@@ -260,9 +262,12 @@ export function Ers({ onExit, onHeist, banner }: {
   const room = me ? ersRoom(me.progress, Date.now()) : ERS_DAY_XP;
 
   if (pvp) {
+    const codeFromUrl = typeof window !== "undefined"
+      ? (new URLSearchParams(location.search).get("join") ?? new URLSearchParams(location.search).get("joinErs") ?? undefined)
+      : undefined;
     return (
       <ErsMultiplayer
-        initialCode={typeof window !== "undefined" ? (new URLSearchParams(location.search).get("join") ?? undefined) : undefined}
+        initialCode={codeFromUrl}
         onExit={() => setPvp(false)}
         banner={banner}
       />

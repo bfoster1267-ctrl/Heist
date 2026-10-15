@@ -187,11 +187,11 @@ export const ARCADE_GAMES: ArcadeGame[] = [
   {
     id: "ers",
     title: "Egyptian Rat Screw",
-    subtitle: "Combat Slap & Tributes",
-    tagline: "High-octane card-slapping duel: face card tributes and lightning reflexes.",
+    subtitle: "Combat Slap & 2P Duel",
+    tagline: "High-octane card duel: live 2-player multiplayer with invite links or solo vs bot.",
     category: "action",
     difficulty: "Expert",
-    tags: ["Reaction", "Slap Rules", "Card Battles"],
+    tags: ["2P Online Duel", "Invite Friends", "Reaction", "Slap Rules"],
     deckInfo: "Shared 52-card duel deck",
     path: "/ers",
     art: {
@@ -199,10 +199,10 @@ export const ARCADE_GAMES: ArcadeGame[] = [
         { rank: "J", suit: "♣", red: false },
         { rank: "⚡", suit: "", red: true, isSymbol: true },
       ],
-      badge: "Reaction",
+      badge: "2P Duel",
     },
     rules: {
-      overview: "Fast-action reaction game played against sharp AI bots in real time.",
+      overview: "Fast-action card-slapping game. Play solo against AI bots, or challenge friends with a shareable invite link in real-time 2-player PvP!",
       goal: "Capture the entire deck by winning face-card challenge bounties and slapping pile combinations.",
       keyRule: "Face cards demand tributes (Ace=4, King=3, Queen=2, Jack=1 cards). Slap on Doubles (7-7), Sandwiches (8-K-8), Tens (6+4), Marriage (K-Q), or Top-Bottom match!",
       tip: "Keep your finger hovered right over the slap target. Hesitation for even a fraction of a second costs the pot!",
@@ -236,7 +236,7 @@ export const ARCADE_GAMES: ArcadeGame[] = [
 
 export interface ArcadeHubProps {
   onClose: () => void;
-  onSelectGame: (gameId: ArcadeGameId) => void;
+  onSelectGame: (gameId: ArcadeGameId, pvp?: boolean) => void;
   activeGame?: ArcadeGameId | null;
 }
 
@@ -260,22 +260,28 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
     setOpenRules((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const copyGameLink = (game: ArcadeGame) => {
+  const copyGameLink = async (game: ArcadeGame) => {
     const origin = window.location.origin;
     const url = `${origin}${game.path}`;
-    try {
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(url);
-      }
-    } catch {
-      /* ignore */
-    }
     buzz("tap");
     click();
-    setCopiedId(game.id);
-    window.setTimeout(() => {
-      setCopiedId((curr) => (curr === game.id ? null : curr));
-    }, 1800);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: `Heist Solo Arcade - ${game.title}`,
+          text: `Play ${game.title} on Heist Solo Arcade!`,
+          url,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopiedId(game.id);
+        window.setTimeout(() => {
+          setCopiedId((curr) => (curr === game.id ? null : curr));
+        }, 1800);
+      }
+    } catch {
+      /* user dismissed native share */
+    }
   };
 
   const filteredGames = useMemo(() => {
@@ -491,13 +497,29 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
                       <span>{isCopied ? "Link Copied!" : game.path}</span>
                     </button>
 
+                    {game.id === "ers" && (
+                      <button
+                        type="button"
+                        className="arcade-duel-btn"
+                        onClick={() => {
+                          cardSound();
+                          buzz("tap");
+                          onSelectGame(game.id, true);
+                        }}
+                        aria-label="Play 2-Player Real-time PvP Duel"
+                        title="2-Player PvP with Invite Link"
+                      >
+                        ⚔️ 2P DUEL
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       className="arcade-play-btn"
                       onClick={() => {
                         cardSound();
                         buzz("tap");
-                        onSelectGame(game.id);
+                        onSelectGame(game.id, false);
                       }}
                       aria-label={`${isCurrent ? "Resume" : "Play"} ${game.title}`}
                     >

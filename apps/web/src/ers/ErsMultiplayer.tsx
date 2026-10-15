@@ -10,11 +10,20 @@ import {
 import { HeistClient } from "@heist/server/client";
 import type { ErsRoomView, ErsStats } from "@heist/server/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { InviteFriends } from "../account/Friends";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { serverUrl } from "../online/session";
 import { card as cardSound, click, win as winSound } from "../sound";
 import "./ers.css";
+
+export function ersInviteLink(code: string) {
+  const u = new URL(location.href);
+  u.pathname = "/ers";
+  u.search = `?join=${code}`;
+  u.hash = "";
+  return u.toString();
+}
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -47,6 +56,7 @@ export function ErsMultiplayer({
   const [shaking, setShaking] = useState(false);
   const [showRules, setShowRules] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
   const [floats, setFloats] = useState<Float[]>([]);
   const floatId = useRef(0);
 
@@ -80,7 +90,7 @@ export function ErsMultiplayer({
       }
     });
 
-    c.on("ers_flip", (m) => {
+    c.on("ers_flip", () => {
       cardSound();
       setTurnElapsed(0);
     });
@@ -99,15 +109,32 @@ export function ErsMultiplayer({
       }
     });
 
-    c.on("ers_over", (m) => {
+    c.on("ers_over", () => {
       winSound();
       buzz("win");
+    });
+
+    c.on("error", (m) => {
+      setToast(m.msg || "Table error");
+      setRoom(null);
+      setMode("lobby");
     });
 
     void c.connect().then(() => {
       setClient(c);
       if (initialCode) {
-        c.ersJoin(initialCode.toUpperCase());
+        let code = initialCode.trim();
+        if (code.includes("?") || code.includes("/")) {
+          try {
+            const u = new URL(code.startsWith("http") ? code : `https://${code}`);
+            const fromParam = u.searchParams.get("join") || u.searchParams.get("joinErs") || u.searchParams.get("table");
+            if (fromParam) code = fromParam;
+          } catch {
+            /* fallback */
+          }
+        }
+        const clean = code.slice(0, 5).toUpperCase();
+        c.ersJoin(clean);
         setMode("room");
       }
     }).catch(() => {
@@ -151,7 +178,18 @@ export function ErsMultiplayer({
     if (!client || !codeToJoin.trim()) return;
     click();
     buzz("tap");
-    client.ersJoin(codeToJoin.trim().toUpperCase());
+    let code = codeToJoin.trim();
+    if (code.includes("?") || code.includes("/")) {
+      try {
+        const u = new URL(code.startsWith("http") ? code : `https://${code}`);
+        const fromParam = u.searchParams.get("join") || u.searchParams.get("joinErs") || u.searchParams.get("table");
+        if (fromParam) code = fromParam;
+      } catch {
+        /* fallback */
+      }
+    }
+    const clean = code.slice(0, 5).toUpperCase();
+    client.ersJoin(clean);
     setMode("room");
   }, [client]);
 
@@ -178,13 +216,41 @@ export function ErsMultiplayer({
     client.ersRematch();
   }, [client]);
 
-  const handleCopyCode = useCallback(() => {
+  const handleShareInvite = useCallback(async () => {
     if (!room?.code) return;
     click();
     buzz("tap");
-    void navigator.clipboard?.writeText(room.code);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    const url = ersInviteLink(room.code);
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Heist - Egyptian Rat Screw Duel",
+          text: `Duel me in Egyptian Rat Screw on Heist! Room code: ${room.code}`,
+          url,
+        });
+      } else if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(url);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      }
+    } catch {
+      /* user dismissed native share */
+    }
+  }, [room?.code]);
+
+  const handleCopyRawCode = useCallback(async () => {
+    if (!room?.code) return;
+    click();
+    buzz("tap");
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(room.code);
+        setCopiedCode(true);
+        window.setTimeout(() => setCopiedCode(false), 2000);
+      }
+    } catch {
+      /* ignore */
+    }
   }, [room?.code]);
 
   const isMyTurn = room?.status === "playing" && room.turn === seat;
@@ -409,30 +475,55 @@ export function ErsMultiplayer({
         {/* Lobby overlay when waiting for opponent */}
         {room && room.status === "waiting" && (
           <div className="ers-lobby-overlay">
-            <div className="ers-lobby-box">
-              <div className="ers-lobby-title">WAITING FOR PLAYER 2</div>
-              <div className="ers-lobby-desc">
-                Share this room code with a friend or open it in another browser window to duel:
+            <div className="ers-lobby-box" style={{ maxWidth: 380 }}>
+              <div className="ers-lobby-title">WAITING FOR OPPONENT</div>
+              <div className="ers-lobby-desc" style={{ marginBottom: 4 }}>
+                Share an invite link with a friend to duel head-to-head in real time:
               </div>
 
-              <div className="ers-code-big">{room.code}</div>
+              <div className="tagline" style={{ textTransform: "uppercase", letterSpacing: 2, fontSize: 12, opacity: 0.7 }}>
+                Table code
+              </div>
+              <div
+                className="room-code"
+                onClick={handleCopyRawCode}
+                title="Tap to copy code only"
+                aria-label={`Room code ${room.code}. Tap to copy code.`}
+              >
+                {room.code}
+              </div>
+
+              {/* Friends get a notification that opens the app at this table; a texted link is for everyone else */}
+              <InviteFriends code={room.code} seated={[me?.id ?? null]} onText={handleShareInvite} />
 
               <button
                 type="button"
-                className="ers-btn-primary"
-                onClick={handleCopyCode}
-                aria-label="Copy room code"
+                className="btn gold big"
+                style={{ width: "100%", height: 50, fontSize: 16 }}
+                onClick={handleShareInvite}
+                aria-label="Text an invite link"
               >
-                {copied ? "COPIED TO CLIPBOARD!" : "COPY ROOM CODE"}
+                {copied ? "Link copied" : "Text an invite link"}
               </button>
 
-              <div style={{ fontSize: 12, color: "#888", fontStyle: "italic" }}>
-                Game begins automatically when opponent joins.
+              <button
+                type="button"
+                className="btn ghost small"
+                style={{ margin: "2px auto 0", display: "block" }}
+                onClick={handleCopyRawCode}
+                aria-label="Copy room code only"
+              >
+                {copiedCode ? "Code copied to clipboard!" : "Copy code only"}
+              </button>
+
+              <div style={{ fontSize: 12, color: "#888", fontStyle: "italic", marginTop: 4 }}>
+                Game begins automatically when opponent joins. Works across mobile & desktop.
               </div>
 
               <button
                 type="button"
-                className="ers-btn-secondary"
+                className="btn ghost"
+                style={{ width: "100%", marginTop: 6 }}
                 onClick={() => {
                   click();
                   buzz("tap");
@@ -440,9 +531,9 @@ export function ErsMultiplayer({
                   setRoom(null);
                   setMode("lobby");
                 }}
-                aria-label="Cancel and return to lobby"
+                aria-label="Cancel table and return to lobby"
               >
-                Cancel / Return to Lobby
+                Cancel & Return to Lobby
               </button>
             </div>
           </div>
@@ -451,58 +542,73 @@ export function ErsMultiplayer({
         {/* Initial Lobby / Join Modal when not in a room */}
         {mode === "lobby" && !room && (
           <div className="ers-lobby-overlay">
-            <div className="ers-lobby-box">
+            <div className="ers-lobby-box" style={{ maxWidth: 380 }}>
               <div className="ers-lobby-title">MULTIPLAYER DUEL</div>
               <div className="ers-lobby-desc">
-                Play real-time Egyptian Rat Screw head-to-head with live card flips and instant slaps.
+                Play real-time Egyptian Rat Screw head-to-head with live card flips, tributes, and instant slaps.
               </div>
 
               <button
                 type="button"
-                className="ers-btn-primary"
+                className="btn gold big"
+                style={{ width: "100%", height: 50, fontSize: 16 }}
                 onClick={handleCreateRoom}
                 disabled={!connected}
-                aria-label="Create new table"
+                aria-label="Create duel table"
               >
-                CREATE NEW TABLE
+                CREATE DUEL TABLE
               </button>
 
-              <div style={{ color: "#777", fontSize: 13, margin: "4px 0" }}>— OR JOIN TABLE —</div>
+              <div style={{ color: "#777", fontSize: 13, margin: "10px 0 6px" }}>— OR JOIN WITH CODE OR LINK —</div>
 
               <input
                 type="text"
                 className="ers-code-input"
-                placeholder="ENTER CODE"
-                maxLength={5}
+                placeholder="ENTER 5-LETTER CODE"
                 value={joinCodeInput}
-                onChange={(e) => setJoinCodeInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleJoinRoom(joinCodeInput);
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  if (val.includes("?") || val.includes("/")) {
+                    try {
+                      const u = new URL(val.startsWith("http") ? val : `https://${val}`);
+                      const c = u.searchParams.get("join") || u.searchParams.get("joinErs") || u.searchParams.get("table");
+                      if (c) {
+                        setJoinCodeInput(c.slice(0, 5).toUpperCase());
+                        return;
+                      }
+                    } catch {}
+                  }
+                  setJoinCodeInput(val.slice(0, 5).toUpperCase());
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && joinCodeInput.trim()) handleJoinRoom(joinCodeInput);
+                }}
+                aria-label="Enter room code or paste invite link"
               />
 
               <button
                 type="button"
-                className="ers-btn-secondary"
+                className="btn primary"
+                style={{ width: "100%", marginTop: 6 }}
                 onClick={() => handleJoinRoom(joinCodeInput)}
                 disabled={!connected || !joinCodeInput.trim()}
-                aria-label="Join table with code"
+                aria-label="Join duel with code"
               >
-                JOIN TABLE
+                JOIN DUEL
               </button>
 
               <button
                 type="button"
-                className="ers-btn-secondary"
-                style={{ marginTop: 8 }}
+                className="btn ghost"
+                style={{ marginTop: 12, width: "100%" }}
                 onClick={() => {
                   click();
                   buzz("tap");
                   onExit();
                 }}
-                aria-label="Back to Solitaire and Solo games"
+                aria-label="Back to Solo Arcade"
               >
-                Back to Solitaire & Solo
+                Back to Solo Arcade
               </button>
             </div>
           </div>
