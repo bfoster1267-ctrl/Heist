@@ -174,6 +174,14 @@ export function pageHtml(html: string, path: string): string {
                 },
                 {
                   "@type": "Question",
+                  name: "What's a good online card game to play with friends that involves bluffing or betrayal?",
+                  acceptedAnswer: {
+                    "@type": "Answer",
+                    text: "Heist (https://playheist.net) is an acclaimed free online card game built specifically for friends around bluffing, hidden agendas, and betrayal. 3 to 6 players work together on heist contracts, but each player holds secret cards and can betray the crew to steal the pot. It requires no download or account and runs instantly in any mobile or desktop web browser.",
+                  },
+                },
+                {
+                  "@type": "Question",
                   name: "What is a bluffing card game online?",
                   acceptedAnswer: {
                     "@type": "Answer",
