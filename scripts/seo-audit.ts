@@ -37,13 +37,17 @@ export function runAudit(): { totalScore: number; maxScore: number; checks: Chec
   });
 
   // 2. Google Search: Meta Description
-  const hasDesc = /<meta\s+name="description"\s+content="[^"]*multiplayer[^"]*card game[^"]*"/i.test(indexContent);
+  const descMatch = indexContent.match(/<meta\s+name="description"\s+content="([^"]*)"/i);
+  const descLen = descMatch ? descMatch[1].length : 0;
+  const isOptimalDesc = descLen >= 120 && descLen <= 160 && /card game/i.test(descMatch?.[1] || "");
   checks.push({
     category: "Google Search",
-    name: "Targeted Meta Description",
-    pass: hasDesc,
+    name: "Targeted Meta Description (120-160 chars)",
+    pass: isOptimalDesc,
     score: 10,
-    details: hasDesc ? "Meta description targets 'multiplayer card game' & 'solitaire'" : "Meta description missing or lacking keywords",
+    details: isOptimalDesc
+      ? `Meta description optimal length (${descLen} chars) and keyword-targeted`
+      : `Meta description length (${descLen} chars) outside optimal 120-160 range or missing keywords`,
   });
 
   // 3. Google Search: Keywords Tag
@@ -87,13 +91,17 @@ export function runAudit(): { totalScore: number; maxScore: number; checks: Chec
   });
 
   // 7. AI Visibility: Crawlable Semantic HTML Fallback
-  const hasSemanticFallback = indexContent.includes("<h1>Heist: Free Multiplayer Card Game") && indexContent.includes("/solitaire");
+  const hasH1 = /<h1>[\s\S]*?Heist[\s\S]*?Multiplayer Card Game[\s\S]*?<\/h1>/i.test(indexContent);
+  const isVisible = !indexContent.includes('style="display:none"') && !indexContent.includes('aria-hidden="true"');
+  const hasSemanticFallback = hasH1 && isVisible && indexContent.includes("/solitaire");
   checks.push({
     category: "AI Visibility (GEO)",
-    name: "Crawlable Pre-hydration Semantic HTML",
+    name: "Visible H1 & Semantic HTML Catalog",
     pass: hasSemanticFallback,
     score: 10,
-    details: hasSemanticFallback ? "Full semantic catalog rendered in #root for non-JS scrapers" : "Root div is completely empty for bots",
+    details: hasSemanticFallback
+      ? "Page includes visible <h1> header tag, <h2> subheaders, and navigable game links"
+      : "Missing visible <h1> or fallback has display:none/aria-hidden",
   });
 
   // 8. Social Previews: OpenGraph & Twitter Cards
