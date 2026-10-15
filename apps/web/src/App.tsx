@@ -17,6 +17,7 @@ import { session } from "./online/session";
 import { Solitaire } from "./solitaire/Solitaire";
 import { FreeCell } from "./freecell/FreeCell";
 import { TriPeaks } from "./tripeaks/TriPeaks";
+import { Ers } from "./ers/Ers";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -116,6 +117,25 @@ function Game() {
     setTpState(on);
     try {
       history.replaceState(null, "", on ? "/tripeaks" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Egyptian Rat Screw: from the lobby, or straight in at playheist.net/ers
+  const [ers, setErsState] = useState(() => {
+    const on = location.pathname === "/ers";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setErs = useCallback((on: boolean) => {
+    setErsState(on);
+    try {
+      history.replaceState(null, "", on ? "/ers" + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
       /* fine without */
@@ -391,6 +411,25 @@ function Game() {
       </>
     );
 
+  if (ers && !table)
+    return (
+      <>
+        <Ers
+          onExit={() => setErs(false)}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setErs(false);
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -409,6 +448,7 @@ function Game() {
             onSolitaire={() => setSol(true)}
             onFreeCell={() => setFc(true)}
             onTriPeaks={() => setTp(true)}
+            onErs={() => setErs(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

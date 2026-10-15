@@ -50,6 +50,7 @@ export function Lobby({
   onSolitaire,
   onFreeCell,
   onTriPeaks,
+  onErs,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -72,6 +73,8 @@ export function Lobby({
   onFreeCell?: () => void;
   /** open TriPeaks */
   onTriPeaks?: () => void;
+  /** open Egyptian Rat Screw */
+  onErs?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -267,7 +270,7 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && (onSolitaire || onFreeCell || onTriPeaks) && (
+        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs) && (
           <Sheet title="More games" onClose={() => setGames(false)}>
             {onSolitaire && (
               <button
@@ -320,6 +323,24 @@ export function Lobby({
                 <span className="lobby-game-text">
                   TriPeaks
                   <span className="lobby-sub">3 peaks & fast streaks. Wins earn XP and season pass XP.</span>
+                </span>
+              </button>
+            )}
+            {onErs && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onErs();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card">J<i>♣</i></span>
+                  <span className="lobby-game-card red">⚡</span>
+                </span>
+                <span className="lobby-game-text">
+                  Egyptian Rat Screw
+                  <span className="lobby-sub">Fast-reaction slaps & face card challenges. Earn XP & level up.</span>
                 </span>
               </button>
             )}

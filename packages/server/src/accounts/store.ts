@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
-import type { Progress, SolTally, FcTally, TpTally } from "@heist/profile";
+import type { Progress, SolTally, FcTally, TpTally, ErsTally } from "@heist/profile";
 import type { PushSub } from "../push";
 
 export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
@@ -54,6 +54,8 @@ export interface Account {
   freecell?: { gameId: string; seed: number; startedAt: number; paid?: FcTally; paidXp?: number; drain?: number } | null;
   /** the TriPeaks deal in progress */
   tripeaks?: { gameId: string; seed: number; startedAt: number; paid?: TpTally; paidXp?: number; drain?: number } | null;
+  /** the Egyptian Rat Screw game in progress */
+  ers?: { gameId: string; seed: number; startedAt: number; paid?: ErsTally; paidXp?: number; drain?: number } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */

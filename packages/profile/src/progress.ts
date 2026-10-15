@@ -10,6 +10,7 @@ import { addCounts, type MistakeCounts } from "./coach";
 import { SOL_XP, tallyXp, type SolTally } from "./solitaire";
 import { FC_XP, tallyFcXp, type FcTally } from "./freecell";
 import { TP_XP, tallyTpXp, type TpTally } from "./tripeaks";
+import { ERS_XP, tallyErsXp, type ErsTally } from "./ers";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -58,6 +59,8 @@ export interface Progress {
   freecell?: { won: number; day: string | null; xp: number };
   /** TriPeaks: games won, and XP paid today (UTC day) toward the daily ceiling */
   tripeaks?: { won: number; day: string | null; xp: number };
+  /** Egyptian Rat Screw: games won, and XP paid today (UTC day) toward the daily ceiling */
+  ers?: { won: number; day: string | null; xp: number };
 }
 
 export function newProgress(): Progress {
@@ -69,6 +72,7 @@ export function newProgress(): Progress {
     solitaire: { won: 0, day: null, xp: 0 },
     freecell: { won: 0, day: null, xp: 0 },
     tripeaks: { won: 0, day: null, xp: 0 },
+    ers: { won: 0, day: null, xp: 0 },
   };
 }
 
@@ -405,6 +409,67 @@ export function settleTriPeaks(
   };
 }
 
+export const ERS_DAY_XP = 500;
+
+/** ERS XP still to be earned today. */
+export const ersRoom = (p: Progress, at: number) =>
+  Math.max(0, ERS_DAY_XP - (p.ers?.day === day(at) ? p.ers?.xp ?? 0 : 0));
+
+/**
+ * Pay for Egyptian Rat Screw play checked by replaying the moves.
+ */
+export function settleErs(
+  prev: Progress,
+  at: number,
+  gained: ErsTally,
+  pay = tallyErsXp(gained)
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const ers = { ...(p.ers ?? { won: 0, day: null, xp: 0 }), xp: p.ers?.xp ?? 0 };
+  if (ers.day !== today) Object.assign(ers, { day: today, xp: 0 });
+  if (gained.won) ers.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.slaps, "successful slap", "successful slaps"), xp: gained.slaps * ERS_XP.slap, coins: 0 },
+    { label: plural(gained.faceChallengesWon, "face challenge won", "face challenges won"), xp: gained.faceChallengesWon * ERS_XP.challenge, coins: 0 },
+    { label: "ERS victory", xp: gained.won ? ERS_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, pay));
+  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  const room = Math.max(0, ERS_DAY_XP - ers.xp);
+  if (total > room) lines = [{ label: "Egyptian Rat Screw (daily XP limit reached)", xp: room, coins: 0 }];
+  ers.xp += Math.min(total, room);
+  const season = Math.min(total, room);
+  p.ers = ers;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const pass = season ? addPassXp(p, season, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+    },
+  };
+}
+
 /** Add one game's rookie mistakes to the player's tally. */
 export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
   return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
@@ -489,8 +554,16 @@ export function buyIn(prev: Progress, stakes: number): Progress | Fail {
   return { ...structuredClone(prev), chips: prev.chips - stakes };
 }
 
-/** Fill in fields added after a profile was saved (old saves keep working). */
 export function upgrade(p: Partial<Progress>): Progress {
   const base = newProgress();
-  return { ...base, ...p, stats: { ...base.stats, ...p.stats }, equipped: { ...base.equipped, ...p.equipped }, solitaire: { ...base.solitaire, ...p.solitaire } };
+  return {
+    ...base,
+    ...p,
+    stats: { ...base.stats, ...p.stats },
+    equipped: { ...base.equipped, ...p.equipped },
+    solitaire: { ...base.solitaire, ...p.solitaire },
+    freecell: { ...(base.freecell ?? { won: 0, day: null, xp: 0 }), ...p.freecell },
+    tripeaks: { ...(base.tripeaks ?? { won: 0, day: null, xp: 0 }), ...p.tripeaks },
+    ers: { ...(base.ers ?? { won: 0, day: null, xp: 0 }), ...p.ers },
+  };
 }
