@@ -14,6 +14,7 @@ import { ERS_XP, tallyErsXp, type ErsTally } from "./ers";
 import { SPIDER_XP, tallySpiderXp, type SpiderTally } from "./spider";
 import { PYRAMID_XP, tallyPyramidXp, type PyramidTally } from "./pyramid";
 import { YUKON_XP, tallyYukonXp, type YukonTally, YUKON_DAY_XP } from "./yukon";
+import { SCOUNDREL_XP, tallyScoundrelXp, type ScoundrelTally, SCOUNDREL_DAY_XP } from "./scoundrel";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -70,6 +71,8 @@ export interface Progress {
   pyramid?: { won: number; day: string | null; xp: number };
   /** Yukon Solitaire: games won, and XP paid today (UTC day) toward the daily ceiling */
   yukon?: { won: number; day: string | null; xp: number };
+  /** Scoundrel: games won, and XP paid today (UTC day) toward the daily ceiling */
+  scoundrel?: { won: number; day: string | null; xp: number };
 }
 
 export function newProgress(): Progress {
@@ -85,6 +88,7 @@ export function newProgress(): Progress {
     spider: { won: 0, day: null, xp: 0 },
     pyramid: { won: 0, day: null, xp: 0 },
     yukon: { won: 0, day: null, xp: 0 },
+    scoundrel: { won: 0, day: null, xp: 0 },
   };
 }
 
@@ -661,6 +665,65 @@ export function settleYukon(
   };
 }
 
+/** Scoundrel XP still to be earned today. */
+export const scoundrelRoom = (p: Progress, at: number) =>
+  Math.max(0, SCOUNDREL_DAY_XP - (p.scoundrel?.day === day(at) ? p.scoundrel?.xp ?? 0 : 0));
+
+/**
+ * Pay for Scoundrel play checked by replaying the moves.
+ */
+export function settleScoundrel(
+  prev: Progress,
+  at: number,
+  gained: ScoundrelTally,
+  pay = tallyScoundrelXp(gained)
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const sc = { ...(p.scoundrel ?? { won: 0, day: null, xp: 0 }), xp: p.scoundrel?.xp ?? 0 };
+  if (sc.day !== today) Object.assign(sc, { day: today, xp: 0 });
+  if (gained.won) sc.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.monstersSlayed, "monster slayed", "monsters slayed"), xp: gained.monstersSlayed * SCOUNDREL_XP.monster, coins: 0 },
+    { label: plural(gained.roomsCleared, "room cleared", "rooms cleared"), xp: gained.roomsCleared * SCOUNDREL_XP.room, coins: 0 },
+    { label: "Escaped the dungeon", xp: gained.won ? SCOUNDREL_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, pay));
+  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  const room = Math.max(0, SCOUNDREL_DAY_XP - sc.xp);
+  if (total > room) lines = [{ label: "Scoundrel (daily XP limit reached)", xp: room, coins: 0 }];
+  sc.xp += Math.min(total, room);
+  const season = Math.min(total, room);
+  p.scoundrel = sc;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const pass = season ? addPassXp(p, season, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+    },
+  };
+}
+
 /** Add one game's rookie mistakes to the player's tally. */
 export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
   return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
@@ -759,5 +822,6 @@ export function upgrade(p: Partial<Progress>): Progress {
     spider: { ...(base.spider ?? { won: 0, day: null, xp: 0 }), ...p.spider },
     pyramid: { ...(base.pyramid ?? { won: 0, day: null, xp: 0 }), ...p.pyramid },
     yukon: { ...(base.yukon ?? { won: 0, day: null, xp: 0 }), ...p.yukon },
+    scoundrel: { ...(base.scoundrel ?? { won: 0, day: null, xp: 0 }), ...p.scoundrel },
   };
 }

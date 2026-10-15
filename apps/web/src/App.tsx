@@ -21,6 +21,7 @@ import { Ers } from "./ers/Ers";
 import { Spider } from "./spider/Spider";
 import { Pyramid } from "./pyramid/Pyramid";
 import { Yukon } from "./yukon/Yukon";
+import { Scoundrel } from "./scoundrel/Scoundrel";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -196,6 +197,25 @@ function Game() {
     setYukonState(on);
     try {
       history.replaceState(null, "", on ? "/yukon" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Scoundrel: from the lobby, or straight in at playheist.net/scoundrel
+  const [scoundrel, setScoundrelState] = useState(() => {
+    const on = location.pathname === "/scoundrel";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setScoundrel = useCallback((on: boolean) => {
+    setScoundrelState(on);
+    try {
+      history.replaceState(null, "", on ? "/scoundrel" + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
       /* fine without */
@@ -547,6 +567,25 @@ function Game() {
       </>
     );
 
+  if (scoundrel && !table)
+    return (
+      <>
+        <Scoundrel
+          onExit={() => setScoundrel(false)}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setScoundrel(false);
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -569,6 +608,7 @@ function Game() {
             onSpider={() => setSpider(true)}
             onPyramid={() => setPyramid(true)}
             onYukon={() => setYukon(true)}
+            onScoundrel={() => setScoundrel(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

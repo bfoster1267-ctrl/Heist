@@ -54,6 +54,7 @@ export function Lobby({
   onSpider,
   onPyramid,
   onYukon,
+  onScoundrel,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -84,6 +85,8 @@ export function Lobby({
   onPyramid?: () => void;
   /** open Yukon Solitaire */
   onYukon?: () => void;
+  /** open Scoundrel */
+  onScoundrel?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -279,7 +282,7 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon) && (
+        {games && (onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel) && (
           <Sheet title="More games" onClose={() => setGames(false)}>
             {onSolitaire && (
               <button
@@ -404,6 +407,24 @@ export function Lobby({
                 <span className="lobby-game-text">
                   Yukon Solitaire
                   <span className="lobby-sub">Move deep stacks & build 4 foundations. Wins earn XP.</span>
+                </span>
+              </button>
+            )}
+            {onScoundrel && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onScoundrel();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card">💀</span>
+                  <span className="lobby-game-card red">🗡️</span>
+                </span>
+                <span className="lobby-game-text">
+                  Scoundrel
+                  <span className="lobby-sub">Card dungeon crawler roguelike. Slay monsters & escape.</span>
                 </span>
               </button>
             )}

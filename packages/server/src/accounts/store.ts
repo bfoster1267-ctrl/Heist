@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
-import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally } from "@heist/profile";
+import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally } from "@heist/profile";
 import type { PushSub } from "../push";
 
 export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
@@ -62,6 +62,8 @@ export interface Account {
   pyramid?: { gameId: string; seed: number; startedAt: number; paid?: PyramidTally; paidXp?: number; drain?: number } | null;
   /** the Yukon Solitaire deal in progress */
   yukon?: { gameId: string; seed: number; startedAt: number; paid?: YukonTally; paidXp?: number; drain?: number } | null;
+  /** the Scoundrel game in progress */
+  scoundrel?: { gameId: string; seed: number; startedAt: number; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */

@@ -19,3 +19,4 @@ export * from "./ers";
 export * from "./spider";
 export * from "./pyramid";
 export * from "./yukon";
+export * from "./scoundrel";
