@@ -12,6 +12,7 @@ import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 import { ArcadeHub } from "./arcade/ArcadeHub";
 import { ChallengeBanner } from "./daily/ChallengeBanner";
+import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal";
 
 const FLOAT_POS = [
   { left: "6%", top: "12%" },
@@ -569,8 +570,6 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
   );
 }
 
-type InstallEvent = Event & { prompt(): Promise<void> };
-
 /** Nudge toward the home-screen app: Safari's Share menu on iPhone, the install prompt elsewhere. */
 function InstallHint() {
   const [hidden, setHidden] = useState(() => {
@@ -580,16 +579,10 @@ function InstallHint() {
       return false;
     }
   });
-  const [deferred, setDeferred] = useState<InstallEvent | null>(null);
-  useEffect(() => {
-    const f = (e: Event) => {
-      e.preventDefault();
-      setDeferred(e as InstallEvent);
-    };
-    window.addEventListener("beforeinstallprompt", f);
-    return () => window.removeEventListener("beforeinstallprompt", f);
-  }, []);
-  if (hidden || isStandalone() || location.protocol === "file:") return null;
+  const [modalOpen, setModalOpen] = useState(false);
+
+  if (hidden || isStandalone() || location.protocol === "file:" || !isMobileDevice()) return null;
+
   const close = () => {
     setHidden(true);
     try {
@@ -598,34 +591,37 @@ function InstallHint() {
       /* storage blocked */
     }
   };
-  if (isIOS())
-    return (
-      <div className="install" role="note">
+
+  return (
+    <>
+      <div className="install" role="note" onClick={() => setModalOpen(true)} style={{ cursor: "pointer" }}>
         <span>
-          <b>Play it like an app.</b> Tap Share{" "}
-          <svg className="share" viewBox="0 0 14 16" aria-label="Share" fill="none" stroke="currentColor" strokeWidth="1.6">
-            <path d="M7 1v9M3.5 4.5 7 1l3.5 3.5M4 7H2v8h10V7h-2" />
-          </svg>{" "}
-          then <b>Add to Home Screen</b>. It opens full screen and works offline.
+          <b>📱 Looks like you're playing on a mobile device!</b> Tap to install Heist for full-screen play.
         </span>
-        <button className="x" onClick={close} aria-label="Hide">
+        <button
+          type="button"
+          className="btn small primary"
+          onClick={(e) => {
+            e.stopPropagation();
+            setModalOpen(true);
+          }}
+          style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
+        >
+          How to Install ➔
+        </button>
+        <button
+          className="x"
+          onClick={(e) => {
+            e.stopPropagation();
+            close();
+          }}
+          aria-label="Hide"
+        >
           ✕
         </button>
       </div>
-    );
-  if (!deferred) return null;
-  return (
-    <div className="install" role="note">
-      <span>
-        <b>Install Heist</b> to play full screen, even offline.
-      </span>
-      <button className="btn small primary" onClick={() => void deferred.prompt().then(close)}>
-        Install
-      </button>
-      <button className="x" onClick={close} aria-label="Hide">
-        ✕
-      </button>
-    </div>
+      <MobileInstallModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
+    </>
   );
 }
 

@@ -27,6 +27,7 @@ import {
   getDailyQuests,
   recordQuestActivity,
   claimDailyVault,
+  claimWelcomeGift,
   type DailyGame,
 } from "../src";
 
@@ -526,3 +527,29 @@ describe("Daily Quest Trio & Loot Vault", () => {
     expect(claim.progress.coins).toBe(p.coins + 100);
   });
 });
+
+describe("Day-1 Welcome Starter Pack", () => {
+  it("grants 1 free streak freeze and 250 coins on first claim, then rejects duplicates", () => {
+    const p = newProgress();
+    expect(p.daily?.welcomeClaimed).toBeFalsy();
+    expect(p.daily?.freezes ?? 0).toBe(0);
+    const startCoins = p.coins;
+
+    const res1 = claimWelcomeGift(p);
+    expect(res1.claimed).toBe(true);
+    expect(res1.coins).toBe(250);
+    expect(res1.freezes).toBe(1);
+    expect(res1.progress.daily?.welcomeClaimed).toBe(true);
+    expect(res1.progress.daily?.freezes).toBe(1);
+    expect(res1.progress.coins).toBe(startCoins + 250);
+
+    // Duplicate claim attempt
+    const res2 = claimWelcomeGift(res1.progress);
+    expect(res2.claimed).toBe(false);
+    expect(res2.coins).toBe(0);
+    expect(res2.freezes).toBe(0);
+    expect(res2.progress.daily?.freezes).toBe(1); // Unchanged
+    expect(res2.progress.coins).toBe(startCoins + 250);
+  });
+});
+

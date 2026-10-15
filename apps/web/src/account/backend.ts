@@ -5,7 +5,7 @@
 
 import {
   easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
-  botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 import { deviceId } from "../device";
@@ -204,6 +204,7 @@ export interface Backend {
   daily(): Promise<{ me: Me; chips: number }>;
   buyStreakFreeze(): Promise<Me>;
   claimDailyVault(): Promise<{ me: Me; coins: number; xp: number }>;
+  claimWelcomeGift(): Promise<{ me: Me; claimed: boolean; coins: number; freezes: number }>;
   drink(id: string, count: number): Promise<Me>;
   rename(name: string): Promise<Me>;
   /** email accounts on the server only */
@@ -644,6 +645,12 @@ export class BrowserBackend implements Backend {
     this.write();
     return { me: this.view(), coins: r.coins, xp: r.xp };
   }
+  async claimWelcomeGift(): Promise<{ me: Me; claimed: boolean; coins: number; freezes: number }> {
+    const r = claimWelcomeGift(this.save.progress);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), claimed: r.claimed, coins: r.coins, freezes: r.freezes };
+  }
   async drink(id: string, count: number) {
     return this.apply(payForDrink(this.save.progress, id, count));
   }
@@ -900,6 +907,9 @@ export class ServerBackend implements Backend {
   }
   claimDailyVault() {
     return this.call<{ me: Me; coins: number; xp: number }>("/api/daily/vault", {});
+  }
+  claimWelcomeGift() {
+    return this.call<{ me: Me; claimed: boolean; coins: number; freezes: number }>("/api/daily/welcome", {});
   }
   drink(id: string, count: number) {
     return this.call<Me>("/api/solo/drink", { id, count });

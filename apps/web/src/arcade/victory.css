@@ -384,3 +384,68 @@
 .vic-btn-sub:hover {
   background: rgba(255, 255, 255, 0.12);
 }
+
+/* Day 1 Welcome Pack Card */
+.vic-welcome-gift-card {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(56, 189, 248, 0.22) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.5);
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.2);
+  border-radius: 14px;
+  padding: 0.85rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  text-align: left;
+  animation: vicPulse 2.5s infinite;
+}
+
+.vic-welcome-gift-title {
+  font-family: var(--cond, sans-serif);
+  font-weight: 800;
+  font-size: 0.95rem;
+  letter-spacing: 0.05em;
+  color: #fbbf24;
+}
+
+.vic-welcome-gift-sub {
+  font-size: 0.78rem;
+  color: #e2e8f0;
+  margin-top: 0.15rem;
+  line-height: 1.35;
+}
+
+/* Streak Reminder (Web Push) */
+.vic-reminder-row {
+  display: flex;
+  justify-content: center;
+}
+
+.vic-reminder-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f1f5f9;
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 0.45rem 0.9rem;
+  border-radius: 9999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.vic-reminder-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.vic-reminder-confirmed {
+  font-size: 0.78rem;
+  color: #4ade80;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+

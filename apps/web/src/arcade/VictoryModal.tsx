@@ -15,9 +15,11 @@ import {
 } from "@heist/profile";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
 import { shareDailyResult } from "../daily/shareHelpers";
+import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
 import "./victory.css";
 
 export interface VictoryModalProps {
@@ -49,7 +51,17 @@ export function VictoryModal({
   onExit,
   onHeist,
 }: VictoryModalProps) {
+  const { act } = useAccount();
   const [copied, setCopied] = useState(false);
+  const [welcomePackClaimed, setWelcomePackClaimed] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [reminderSet, setReminderSet] = useState(() => {
+    try {
+      return typeof Notification !== "undefined" && Notification.permission === "granted";
+    } catch {
+      return false;
+    }
+  });
   const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
   const [pwaDismissed, setPwaDismissed] = useState(() => {
     try {
@@ -58,6 +70,40 @@ export function VictoryModal({
       return false;
     }
   });
+
+  // Automatically award Day 1 Welcome Starter Pack if not yet claimed
+  useEffect(() => {
+    if (progress && !progress.daily?.welcomeClaimed && act) {
+      act((b) => b.claimWelcomeGift())
+        .then((res) => {
+          if (res && "claimed" in res && res.claimed) {
+            setWelcomePackClaimed(true);
+            buzz("win");
+          }
+        })
+        .catch(() => {});
+    }
+  }, [progress, act]);
+
+  const handleSetReminder = async () => {
+    click();
+    buzz("tap");
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      alert("Browser push notifications are not supported on this device/browser.");
+      return;
+    }
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm === "granted") {
+        setReminderSet(true);
+        buzz("win");
+      } else {
+        alert("Notifications were disabled. Please allow notifications in browser settings.");
+      }
+    } catch {
+      /* ignore */
+    }
+  };
 
   // Calculate streak & multiplier
   const streak = progress ? Math.max(1, getDailyStreak(progress, Date.now())) : 1;
@@ -191,6 +237,32 @@ export function VictoryModal({
           </div>
         </div>
 
+        {/* Streak Reminder (Web Push) */}
+        <div className="vic-reminder-row">
+          {reminderSet ? (
+            <div className="vic-reminder-confirmed">
+              <span>✓</span> Streak reminder active! We'll alert you before reset.
+            </div>
+          ) : (
+            <button type="button" className="vic-reminder-btn" onClick={handleSetReminder}>
+              <span>🔔</span> Remind Me Tomorrow
+            </button>
+          )}
+        </div>
+
+        {/* Day 1 Welcome Starter Pack Notification */}
+        {welcomePackClaimed && (
+          <div className="vic-welcome-gift-card">
+            <span style={{ fontSize: "1.8rem" }}>🎁</span>
+            <div>
+              <div className="vic-welcome-gift-title">DAY 1 STARTER PACK UNLOCKED!</div>
+              <div className="vic-welcome-gift-sub">
+                +1 Streak Freeze 🧊 &amp; +250 Coins 🪙 added! Your streak is protected if you miss tomorrow.
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Clinking Loot & XP Rewards */}
         <div className="vic-rewards-row">
           <div className="vic-reward-item">
@@ -237,13 +309,13 @@ export function VictoryModal({
           </div>
         )}
 
-        {/* Mobile PWA / Bookmark Retention Hook */}
+        {/* Mobile PWA / Full Screen Install Hook */}
         {showPwaPrompt && (
           <div className="vic-pwa-card">
             <span style={{ fontSize: "1.4rem" }}>📲</span>
             <div className="vic-pwa-content">
-              <div className="vic-pwa-title">Add to Home Screen</div>
-              <div className="vic-pwa-sub">1-tap daily card challenges &amp; never lose your streak.</div>
+              <div className="vic-pwa-title">Play in Full Screen</div>
+              <div className="vic-pwa-sub">Install to home screen for zero browser bars and offline play.</div>
             </div>
             <button
               type="button"
@@ -251,11 +323,10 @@ export function VictoryModal({
               onClick={() => {
                 click();
                 buzz("tap");
-                dismissPwa();
-                alert("To install: Tap the browser Share button (⎋) below and select 'Add to Home Screen'!");
+                setShowInstallModal(true);
               }}
             >
-              How to Add
+              How to Install ➔
             </button>
           </div>
         )}
@@ -324,6 +395,9 @@ export function VictoryModal({
           </div>
         </div>
       </div>
+      {showInstallModal && (
+        <MobileInstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />
+      )}
     </div>,
     document.body
   );

@@ -332,6 +332,8 @@ export interface DailyProgress {
   usedFreezeDates?: string[];
   /** Daily quest tracking per date */
   quests?: Record<string, DailyQuestData>;
+  /** Whether the Day-1 Welcome Gift (1 Free Streak Freeze + 250 Coins) has been claimed */
+  welcomeClaimed?: boolean;
 }
 
 export function newDailyProgress(): DailyProgress {
@@ -346,6 +348,7 @@ export function newDailyProgress(): DailyProgress {
     freezes: 0,
     usedFreezeDates: [],
     quests: {},
+    welcomeClaimed: false,
   };
 }
 
@@ -642,3 +645,25 @@ export function claimDailyVault(
   p.xp += DAILY_VAULT_XP;
   return { progress: p, success: true, coins: DAILY_VAULT_COINS, xp: DAILY_VAULT_XP };
 }
+
+export const WELCOME_GIFT_COINS = 250;
+export const WELCOME_GIFT_FREEZES = 1;
+
+/**
+ * Claims the Day-1 Welcome Gift (1 Free Streak Freeze + 250 Coins) for new players.
+ * Gives immediate skin in the game & loss aversion protection for tomorrow.
+ */
+export function claimWelcomeGift(
+  prev: Progress
+): { progress: Progress; claimed: boolean; coins: number; freezes: number } {
+  const p: Progress = structuredClone(prev);
+  if (!p.daily) p.daily = newDailyProgress();
+  if (p.daily.welcomeClaimed) {
+    return { progress: p, claimed: false, coins: 0, freezes: 0 };
+  }
+  p.daily.welcomeClaimed = true;
+  p.daily.freezes = Math.min(MAX_STREAK_FREEZES, (p.daily.freezes ?? 0) + WELCOME_GIFT_FREEZES);
+  p.coins = (p.coins ?? 0) + WELCOME_GIFT_COINS;
+  return { progress: p, claimed: true, coins: WELCOME_GIFT_COINS, freezes: WELCOME_GIFT_FREEZES };
+}
+
