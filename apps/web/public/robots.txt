@@ -1,0 +1,33 @@
+# robots.txt for https://playheist.net
+User-agent: *
+Allow: /
+
+# Explicitly allow major search and AI crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Applebot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+Sitemap: https://playheist.net/sitemap.xml

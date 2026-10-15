@@ -8,6 +8,7 @@
     "test": "npm test -w packages/engine",
     "sim": "npm run sim -w packages/engine",
     "server": "npm run dev -w packages/server",
-    "test:server": "npm test -w packages/server"
+    "test:server": "npm test -w packages/server",
+    "test:seo": "npx tsx scripts/seo-audit.ts"
   }
 }
