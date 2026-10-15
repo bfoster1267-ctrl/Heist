@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -184,6 +184,11 @@ export interface Backend {
   pyramidFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Pyramid game's moves so far */
   pyramidBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Yukon Solitaire game; a win is paid after the moves replay from the seed */
+  yukonStart(): Promise<{ gameId: string; seed: number }>;
+  yukonFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Yukon game's moves so far */
+  yukonBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -506,6 +511,33 @@ export class BrowserBackend implements Backend {
     return { me: this.view(), reward: r.reward };
   }
 
+  private yukonState: { gameId: string; seed: number; paid?: YukonTally; paidXp?: number; drain?: number } | null = null;
+  async yukonStart() {
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    this.yukonState = { gameId: `l_${seed}`, seed };
+    return { gameId: this.yukonState.gameId, seed };
+  }
+  async yukonFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.yukonBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async yukonBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.yukonState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyYukon(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = yukonPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.yukonState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleYukon(this.save.progress, Date.now(), pay.gained, pay.xp);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
   async soloFinish(gameId: string, answers: unknown[]) {
     const g = this.save.solo;
     if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
@@ -775,6 +807,15 @@ export class ServerBackend implements Backend {
   }
   pyramidBank(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/pyramid/bank", { gameId, moves, drain });
+  }
+  yukonStart() {
+    return this.call<{ gameId: string; seed: number }>("/api/yukon/start", {});
+  }
+  yukonFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/yukon/finish", { gameId, moves, drain });
+  }
+  yukonBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/yukon/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

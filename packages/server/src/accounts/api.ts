@@ -310,6 +310,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/pyramid/start": async (_b, t) => svc.pyramidStart(await me(t)),
     "POST /api/pyramid/finish": async (b, t) => svc.pyramidBank(await me(t), b.gameId, b.moves, true, b.drain),
     "POST /api/pyramid/bank": async (b, t) => svc.pyramidBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/yukon/start": async (_b, t) => svc.yukonStart(await me(t)),
+    "POST /api/yukon/finish": async (b, t) => svc.yukonBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/yukon/bank": async (b, t) => svc.yukonBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;

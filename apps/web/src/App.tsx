@@ -20,6 +20,7 @@ import { TriPeaks } from "./tripeaks/TriPeaks";
 import { Ers } from "./ers/Ers";
 import { Spider } from "./spider/Spider";
 import { Pyramid } from "./pyramid/Pyramid";
+import { Yukon } from "./yukon/Yukon";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -176,6 +177,25 @@ function Game() {
     setPyramidState(on);
     try {
       history.replaceState(null, "", on ? "/pyramid" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Yukon Solitaire: from the lobby, or straight in at playheist.net/yukon
+  const [yukon, setYukonState] = useState(() => {
+    const on = location.pathname === "/yukon";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setYukon = useCallback((on: boolean) => {
+    setYukonState(on);
+    try {
+      history.replaceState(null, "", on ? "/yukon" + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
       /* fine without */
@@ -508,6 +528,25 @@ function Game() {
       </>
     );
 
+  if (yukon && !table)
+    return (
+      <>
+        <Yukon
+          onExit={() => setYukon(false)}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setYukon(false);
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -529,6 +568,7 @@ function Game() {
             onErs={() => setErs(true)}
             onSpider={() => setSpider(true)}
             onPyramid={() => setPyramid(true)}
+            onYukon={() => setYukon(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

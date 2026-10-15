@@ -13,6 +13,7 @@ import { TP_XP, tallyTpXp, type TpTally } from "./tripeaks";
 import { ERS_XP, tallyErsXp, type ErsTally } from "./ers";
 import { SPIDER_XP, tallySpiderXp, type SpiderTally } from "./spider";
 import { PYRAMID_XP, tallyPyramidXp, type PyramidTally } from "./pyramid";
+import { YUKON_XP, tallyYukonXp, type YukonTally, YUKON_DAY_XP } from "./yukon";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -67,6 +68,8 @@ export interface Progress {
   spider?: { won: number; day: string | null; xp: number };
   /** Pyramid Solitaire: games won, and XP paid today (UTC day) toward the daily ceiling */
   pyramid?: { won: number; day: string | null; xp: number };
+  /** Yukon Solitaire: games won, and XP paid today (UTC day) toward the daily ceiling */
+  yukon?: { won: number; day: string | null; xp: number };
 }
 
 export function newProgress(): Progress {
@@ -81,6 +84,7 @@ export function newProgress(): Progress {
     ers: { won: 0, day: null, xp: 0 },
     spider: { won: 0, day: null, xp: 0 },
     pyramid: { won: 0, day: null, xp: 0 },
+    yukon: { won: 0, day: null, xp: 0 },
   };
 }
 
@@ -598,6 +602,65 @@ export function settlePyramid(
   };
 }
 
+/** Yukon XP still to be earned today. */
+export const yukonRoom = (p: Progress, at: number) =>
+  Math.max(0, YUKON_DAY_XP - (p.yukon?.day === day(at) ? p.yukon?.xp ?? 0 : 0));
+
+/**
+ * Pay for Yukon Solitaire play checked by replaying the moves.
+ */
+export function settleYukon(
+  prev: Progress,
+  at: number,
+  gained: YukonTally,
+  pay = tallyYukonXp(gained)
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const yk = { ...(p.yukon ?? { won: 0, day: null, xp: 0 }), xp: p.yukon?.xp ?? 0 };
+  if (yk.day !== today) Object.assign(yk, { day: today, xp: 0 });
+  if (gained.won) yk.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.unturned, "card turned up", "cards turned up"), xp: gained.unturned * YUKON_XP.turn, coins: 0 },
+    { label: plural(gained.foundations, "card to foundation", "cards to foundation"), xp: gained.foundations * YUKON_XP.foundation, coins: 0 },
+    { label: "Yukon cleared", xp: gained.won ? YUKON_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, pay));
+  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  const room = Math.max(0, YUKON_DAY_XP - yk.xp);
+  if (total > room) lines = [{ label: "Yukon Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
+  yk.xp += Math.min(total, room);
+  const season = Math.min(total, room);
+  p.yukon = yk;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const pass = season ? addPassXp(p, season, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+    },
+  };
+}
+
 /** Add one game's rookie mistakes to the player's tally. */
 export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
   return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
@@ -695,5 +758,6 @@ export function upgrade(p: Partial<Progress>): Progress {
     ers: { ...(base.ers ?? { won: 0, day: null, xp: 0 }), ...p.ers },
     spider: { ...(base.spider ?? { won: 0, day: null, xp: 0 }), ...p.spider },
     pyramid: { ...(base.pyramid ?? { won: 0, day: null, xp: 0 }), ...p.pyramid },
+    yukon: { ...(base.yukon ?? { won: 0, day: null, xp: 0 }), ...p.yukon },
   };
 }
