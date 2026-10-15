@@ -13,6 +13,9 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
+import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./yukon.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -52,12 +55,28 @@ interface SelectedStack {
   rootCard: PlayingCard;
 }
 
-export function Yukon({ onExit, onHeist, banner }: {
+export function Yukon({
+  onExit,
+  onHeist,
+  banner,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<YukonState[]>([]);
   const [moves, setMoves] = useState<string[]>([]);
@@ -120,8 +139,11 @@ export function Yukon({ onExit, onHeist, banner }: {
   }, [me]);
 
   const deal = useCallback(async () => {
-    const g = backend ? await backend.yukonStart().catch(() => null) : null;
-    const seed = g ? g.seed : Math.floor(Math.random() * 2 ** 31);
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
+    const g = backend ? await backend.yukonStart(firstSeed, dailyFlag).catch(() => null) : null;
+    const seed = g ? g.seed : (firstSeed ?? Math.floor(Math.random() * 2 ** 31));
     const initial = dealYukon(seed);
     setGame({ gameId: g?.gameId ?? null, seed });
     setHist([initial]);
@@ -137,7 +159,7 @@ export function Yukon({ onExit, onHeist, banner }: {
     banked.current = 0;
     cardSound();
     buzz("tap");
-  }, [backend]);
+  }, [backend, initialSeed, isDaily]);
 
   useEffect(() => {
     void deal();
@@ -716,12 +738,60 @@ export function Yukon({ onExit, onHeist, banner }: {
             <button className="yk-win-btn" onClick={() => { cardSound(); buzz("tap"); void deal(); }}>
               PLAY AGAIN
             </button>
+            <button
+              className="yk-win-btn"
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setChallengeOpen(true);
+              }}
+            >
+              🏆 CHALLENGE A FRIEND
+            </button>
+            {isDaily && (
+              <button
+                className="yk-win-btn"
+                style={{ marginTop: 8, background: "linear-gradient(135deg, #ff8c00, #ff4500)", border: "none" }}
+                onClick={async () => {
+                  click();
+                  buzz("tap");
+                  await shareDailyResult({
+                    game: "yukon",
+                    gameTitle: "Yukon Solitaire",
+                    won: true,
+                    time: timeStr,
+                    moves: moves.length,
+                    streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                    multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                  });
+                }}
+              >
+                🔥 SHARE DAILY CARD
+              </button>
+            )}
             <button className="yk-win-btn secondary" style={{ marginTop: 8 }} onClick={() => { click(); buzz("tap"); onExit(); }}>
               LOBBY
             </button>
           </div>
         </motion.div>
       )}
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="yukon"
+            gameTitle="Yukon Solitaire"
+            seed={game.seed}
+            time={timeStr}
+            moves={moves.length}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

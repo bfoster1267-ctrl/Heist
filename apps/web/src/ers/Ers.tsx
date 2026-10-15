@@ -7,12 +7,16 @@
 import {
   applyErs, cardRank, cardRed, cardSuit, checkSlap, dealErs,
   ERS_DAY_XP, ersPay, ersRoom, tallyErs, tallyErsXp,
+  getDailyStreak, getStreakMultiplier,
   type ErsMove, type ErsState, type ErsTally, type PlayingCard, type SlapReason,
 } from "@heist/profile";
+import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
 import { ErsMultiplayer } from "./ErsMultiplayer";
 import "./ers.css";
 
@@ -29,13 +33,32 @@ interface Float {
 
 const NOTHING: ErsTally = { cardsCaptured: 0, slaps: 0, faceChallengesWon: 0, won: false };
 
-export function Ers({ onExit, onHeist, banner, initialPvp }: {
+export function Ers({
+  onExit,
+  onHeist,
+  banner,
+  initialPvp,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
   initialPvp?: boolean;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
+  const [started, setStarted] = useState(Date.now());
+  const [now, setNow] = useState(Date.now());
   const [pvp, setPvp] = useState(() => {
     if (initialPvp) return true;
     try {
@@ -67,32 +90,40 @@ export function Ers({ onExit, onHeist, banner, initialPvp }: {
   const deal = useCallback(async () => {
     if (botTimer.current) clearTimeout(botTimer.current);
     if (slapTimer.current) clearTimeout(slapTimer.current);
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
     try {
-      const g = backend ? await backend.ersStart().catch(() => null) : null;
-      if (g) {
-        setGame(g);
-        setState(dealErs(g.seed));
-      } else {
-        const seed = Math.floor(Math.random() * 2 ** 31);
-        setGame({ gameId: null, seed });
-        setState(dealErs(seed));
-      }
+      const g = backend ? await backend.ersStart(firstSeed, dailyFlag).catch(() => null) : null;
+      const seed = g ? g.seed : (firstSeed ?? Math.floor(Math.random() * 2 ** 31));
+      setGame({ gameId: g?.gameId ?? null, seed });
+      setState(dealErs(seed));
       setMoves([]);
       setDone(false);
       setToast("Ready! Tap Flip to start");
+      setStarted(Date.now());
+      setNow(Date.now());
       best.current = NOTHING;
       banked.current = 0;
     } catch {
-      const seed = Math.floor(Math.random() * 2 ** 31);
+      const seed = firstSeed ?? Math.floor(Math.random() * 2 ** 31);
       setGame({ gameId: null, seed });
       setState(dealErs(seed));
       setMoves([]);
       setDone(false);
       setToast("Ready! Tap Flip to start");
+      setStarted(Date.now());
+      setNow(Date.now());
       best.current = NOTHING;
       banked.current = 0;
     }
-  }, [backend]);
+  }, [backend, initialSeed, isDaily]);
+
+  useEffect(() => {
+    if (done) return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [done]);
 
   useEffect(() => {
     void deal();
@@ -252,6 +283,11 @@ export function Ers({ onExit, onHeist, banner, initialPvp }: {
       }
     }
   }, [state, done]);
+
+  const elapsed = Math.max(0, Math.floor((now - started) / 1000));
+  const m = Math.floor(elapsed / 60);
+  const s = elapsed % 60;
+  const clock = `${m}:${s < 10 ? "0" : ""}${s}`;
 
   const p0Count = state?.p0.length ?? 26;
   const p1Count = state?.p1.length ?? 26;
@@ -550,6 +586,99 @@ export function Ers({ onExit, onHeist, banner, initialPvp }: {
       {state?.winner === 0 && (
         <WinCascade from={() => ({ x: window.innerWidth / 2 - 45, y: window.innerHeight / 2 - 64 })} cw={90} ch={128} />
       )}
+
+      {/* Game Over / Victory Overlay */}
+      {done && state && state.winner !== null && (
+        <div className="ers-rules-overlay" onClick={() => {}}>
+          <div className="ers-rules-card" style={{ textAlign: "center", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
+            <div className="ers-rules-title" style={{ fontSize: 26, color: state.winner === 0 ? "#ffd700" : "#ff5555" }}>
+              {state.winner === 0 ? "🏆 VICTORY! 🏆" : "DEFEAT"}
+            </div>
+            <p style={{ margin: "12px 0 16px", color: "#ccc", fontSize: 14 }}>
+              {state.winner === 0 ? "You swept the entire deck and bested Viper!" : "Viper swept the deck. Better luck next deal!"}
+            </p>
+            <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 20, color: "#fff", fontSize: 16 }}>
+              <span><b>{moves.length}</b> moves</span>
+              <span><b>{clock}</b> time</span>
+              <span><b>{tally?.slaps ?? 0}</b> slaps</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button
+                type="button"
+                className="ers-rules-close-btn"
+                onClick={() => void deal()}
+                style={{ background: "#ffd700", color: "#000", fontWeight: 700 }}
+              >
+                PLAY AGAIN
+              </button>
+              {state.winner === 0 && (
+                <button
+                  type="button"
+                  className="ers-rules-close-btn"
+                  onClick={() => {
+                    click();
+                    buzz("tap");
+                    setChallengeOpen(true);
+                  }}
+                  style={{ background: "#2a2d34", color: "#fff" }}
+                >
+                  🏆 CHALLENGE A FRIEND
+                </button>
+              )}
+              {state.winner === 0 && isDaily && (
+                <button
+                  type="button"
+                  className="ers-rules-close-btn"
+                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
+                  onClick={async () => {
+                    click();
+                    buzz("tap");
+                    await shareDailyResult({
+                      game: "ers",
+                      gameTitle: "Egyptian Rat Screw",
+                      won: true,
+                      time: clock,
+                      moves: moves.length,
+                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                    });
+                  }}
+                >
+                  🔥 SHARE DAILY CARD
+                </button>
+              )}
+              <button
+                type="button"
+                className="ers-rules-close-btn"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onExit();
+                }}
+                style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.2)", color: "#888" }}
+              >
+                LOBBY
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="ers"
+            gameTitle="Egyptian Rat Screw"
+            seed={game.seed}
+            time={clock}
+            moves={moves.length}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Online queue timer banner overlay */}
       {banner}

@@ -13,6 +13,9 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
+import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./solitaire.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -82,14 +85,30 @@ const DEAL_MS = DEAL.gather + 28 * DEAL.step + 600;
 /** When the card at row `j` of column `i` lands, dealt the classic way: across the columns, row by row. */
 const landsAt = (i: number, j: number) => DEAL.gather + (7 * j - (j * (j - 1)) / 2 + i - j) * DEAL.step;
 
-export function Solitaire({ onExit, onHeist, banner }: {
+export function Solitaire({
+  onExit,
+  onHeist,
+  banner,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   /** the win card's "Heist" button (left out while waiting in the online queue) */
   onHeist?: () => void;
   /** a strip under the top bar (the online queue and its timer) */
   banner?: ReactNode;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<Klondike[]>([]);
   const [moves, setMoves] = useState<SolMove[]>([]);
@@ -178,11 +197,14 @@ export function Solitaire({ onExit, onHeist, banner }: {
     drainRef.current = 0;
     setDrain(0);
     setFloats([]);
-    const g = backend ? await backend.solitaireStart().catch(() => null) : null;
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
+    const g = backend ? await backend.solitaireStart(firstSeed, dailyFlag).catch(() => null) : null;
     dayLeft.current = meNow.current ? solitaireRoom(meNow.current.progress, Date.now()) : SOLITAIRE_DAY_XP;
     maxedShown.current = false;
     // offline (or no server): still playable, it just can't pay XP
-    const next = g ?? { gameId: null, seed: Math.floor(Math.random() * 2 ** 31) };
+    const next = g ?? { gameId: null, seed: firstSeed ?? Math.floor(Math.random() * 2 ** 31) };
     setGame(next);
     setHist([dealKlondike(next.seed)]);
     setMoves([]);
@@ -194,7 +216,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
     setDealT(0);
     setDealAt(reduce ? 0 : Date.now());
     cardSound(4);
-  }, [backend, bank, reduce]);
+  }, [backend, bank, reduce, initialSeed, isDaily]);
   useEffect(() => {
     void deal();
   }, [deal]);
@@ -575,6 +597,37 @@ export function Solitaire({ onExit, onHeist, banner }: {
               <button className="btn primary big" onClick={() => void deal()} autoFocus>
                 Deal again
               </button>
+              <button
+                className="btn big"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  setChallengeOpen(true);
+                }}
+              >
+                🏆 Challenge a Friend
+              </button>
+              {isDaily && (
+                <button
+                  className="btn big"
+                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
+                  onClick={async () => {
+                    click();
+                    buzz("tap");
+                    await shareDailyResult({
+                      game: "solitaire",
+                      gameTitle: "Klondike Solitaire",
+                      won: true,
+                      time: clock,
+                      moves: moves.length,
+                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                    });
+                  }}
+                >
+                  🔥 Share Daily Card
+                </button>
+              )}
               {onHeist && (
                 <button className="btn big sol-heist" onClick={() => { click(); buzz("tap"); onHeist(); }}>
                   Heist
@@ -585,6 +638,22 @@ export function Solitaire({ onExit, onHeist, banner }: {
               </button>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="solitaire"
+            gameTitle="Klondike Solitaire"
+            seed={game.seed}
+            time={clock}
+            moves={moves.length}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
         )}
       </AnimatePresence>
     </div>

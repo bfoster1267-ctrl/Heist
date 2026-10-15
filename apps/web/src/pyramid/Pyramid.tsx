@@ -13,6 +13,9 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
+import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./pyramid.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -52,12 +55,28 @@ type SelectedCard =
   | { source: "pyramid"; index: number; card: PlayingCard }
   | { source: "waste"; card: PlayingCard };
 
-export function Pyramid({ onExit, onHeist, banner }: {
+export function Pyramid({
+  onExit,
+  onHeist,
+  banner,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<PyramidState[]>([]);
   const [moves, setMoves] = useState<PyramidMove[]>([]);
@@ -121,8 +140,11 @@ export function Pyramid({ onExit, onHeist, banner }: {
   }, [me]);
 
   const deal = useCallback(async () => {
-    const g = backend ? await backend.pyramidStart().catch(() => null) : null;
-    const seed = g ? g.seed : Math.floor(Math.random() * 2 ** 31);
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
+    const g = backend ? await backend.pyramidStart(firstSeed, dailyFlag).catch(() => null) : null;
+    const seed = g ? g.seed : (firstSeed ?? Math.floor(Math.random() * 2 ** 31));
     const initial = dealPyramid(seed);
     setGame({ gameId: g?.gameId ?? null, seed });
     setHist([initial]);
@@ -139,7 +161,7 @@ export function Pyramid({ onExit, onHeist, banner }: {
     maxedShown.current = false;
     cardSound();
     buzz("tap");
-  }, [backend]);
+  }, [backend, initialSeed, isDaily]);
 
   useEffect(() => {
     void deal();
@@ -620,12 +642,60 @@ export function Pyramid({ onExit, onHeist, banner }: {
             <button className="pyr-win-btn" onClick={() => { cardSound(); buzz("tap"); void deal(); }}>
               PLAY AGAIN
             </button>
+            <button
+              className="pyr-win-btn"
+              style={{ marginTop: 8 }}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setChallengeOpen(true);
+              }}
+            >
+              🏆 CHALLENGE A FRIEND
+            </button>
+            {isDaily && (
+              <button
+                className="pyr-win-btn"
+                style={{ marginTop: 8, background: "linear-gradient(135deg, #ff8c00, #ff4500)", border: "none" }}
+                onClick={async () => {
+                  click();
+                  buzz("tap");
+                  await shareDailyResult({
+                    game: "pyramid",
+                    gameTitle: "Pyramid Solitaire",
+                    won: true,
+                    time: timeStr,
+                    moves: moves.length,
+                    streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                    multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                  });
+                }}
+              >
+                🔥 SHARE DAILY CARD
+              </button>
+            )}
             <button className="pyr-win-btn secondary" style={{ marginTop: 8 }} onClick={() => { click(); buzz("tap"); onExit(); }}>
               LOBBY
             </button>
           </div>
         </motion.div>
       )}
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="pyramid"
+            gameTitle="Pyramid Solitaire"
+            seed={game.seed}
+            time={timeStr}
+            moves={moves.length}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

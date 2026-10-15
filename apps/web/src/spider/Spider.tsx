@@ -9,9 +9,13 @@ import {
   type SpiderState, type SpiderSuitMode, type SpiderTally,
 } from "@heist/profile";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { AnimatePresence } from "motion/react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
+import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./spider.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -41,12 +45,28 @@ function useSpiderBoard() {
   return { width, height: size.h, gap, cw, ch, left: Math.round((size.w - width) / 2) + gap };
 }
 
-export function Spider({ onExit, onHeist, banner }: {
+export function Spider({
+  onExit,
+  onHeist,
+  banner,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<SpiderState[]>([]);
   const [moves, setMoves] = useState<SpiderMove[]>([]);
@@ -68,13 +88,16 @@ export function Spider({ onExit, onHeist, banner }: {
 
   // Load new deal
   const deal = useCallback(async (suitMode = mode) => {
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
     try {
-      const g = backend ? await backend.spiderStart().catch(() => null) : null;
+      const g = backend ? await backend.spiderStart(firstSeed, dailyFlag).catch(() => null) : null;
       if (g) {
         setGame(g);
         setHist([dealSpider(g.seed, suitMode)]);
       } else {
-        const seed = Math.floor(Math.random() * 2 ** 31);
+        const seed = firstSeed ?? Math.floor(Math.random() * 2 ** 31);
         setGame({ gameId: null, seed });
         setHist([dealSpider(seed, suitMode)]);
       }
@@ -85,7 +108,7 @@ export function Spider({ onExit, onHeist, banner }: {
       best.current = NOTHING;
       banked.current = 0;
     } catch {
-      const seed = Math.floor(Math.random() * 2 ** 31);
+      const seed = firstSeed ?? Math.floor(Math.random() * 2 ** 31);
       setGame({ gameId: null, seed });
       setHist([dealSpider(seed, suitMode)]);
       setMoves([]);
@@ -95,7 +118,7 @@ export function Spider({ onExit, onHeist, banner }: {
       best.current = NOTHING;
       banked.current = 0;
     }
-  }, [backend, mode]);
+  }, [backend, mode, initialSeed, isDaily]);
 
   useEffect(() => {
     void deal();
@@ -514,6 +537,36 @@ export function Spider({ onExit, onHeist, banner }: {
               <button className="btn primary big" onClick={() => { cardSound(4); buzz("tap"); void deal(mode); }} autoFocus>
                 Deal again
               </button>
+              <button
+                className="btn big"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  setChallengeOpen(true);
+                }}
+              >
+                🏆 Challenge a Friend
+              </button>
+              {isDaily && (
+                <button
+                  className="btn big"
+                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
+                  onClick={async () => {
+                    click();
+                    buzz("tap");
+                    await shareDailyResult({
+                      game: "spider",
+                      gameTitle: "Spider Solitaire",
+                      won: true,
+                      moves: moves.length,
+                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                    });
+                  }}
+                >
+                  🔥 Share Daily Card
+                </button>
+              )}
               {onHeist && (
                 <button className="btn big" onClick={() => { click(); buzz("tap"); onHeist(); }}>
                   Heist
@@ -526,6 +579,21 @@ export function Spider({ onExit, onHeist, banner }: {
           </div>
         </>
       )}
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="spider"
+            gameTitle="Spider Solitaire"
+            seed={game.seed}
+            moves={moves.length}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Online queue timer banner */}
       {banner}

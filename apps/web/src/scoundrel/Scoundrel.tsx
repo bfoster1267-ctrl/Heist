@@ -14,6 +14,9 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
+import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./scoundrel.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -29,12 +32,28 @@ interface Float {
 
 const NOTHING: ScoundrelTally = { monstersSlayed: 0, roomsCleared: 0, hpLeft: 20, won: false };
 
-export function Scoundrel({ onExit, onHeist, banner }: {
+export function Scoundrel({
+  onExit,
+  onHeist,
+  banner,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<ScoundrelState[]>([]);
   const [moves, setMoves] = useState<ScoundrelMove[]>([]);
@@ -95,8 +114,11 @@ export function Scoundrel({ onExit, onHeist, banner }: {
   }, [me]);
 
   const deal = useCallback(async () => {
-    const g = backend ? await backend.scoundrelStart().catch(() => null) : null;
-    const seed = g ? g.seed : Math.floor(Math.random() * 2 ** 31);
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
+    const g = backend ? await backend.scoundrelStart(firstSeed, dailyFlag).catch(() => null) : null;
+    const seed = g ? g.seed : (firstSeed ?? Math.floor(Math.random() * 2 ** 31));
     const initial = dealScoundrel(seed);
     setGame({ gameId: g?.gameId ?? null, seed });
     setHist([initial]);
@@ -111,7 +133,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
     banked.current = 0;
     cardSound();
     buzz("tap");
-  }, [backend]);
+  }, [backend, initialSeed, isDaily]);
 
   useEffect(() => {
     void deal();
@@ -635,6 +657,38 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                 onClick={() => {
                   click();
                   buzz("tap");
+                  setChallengeOpen(true);
+                }}
+                aria-label="Challenge a friend"
+              >
+                🏆 CHALLENGE A FRIEND
+              </button>
+              {isDaily && (
+                <button
+                  className="sc-result-btn"
+                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", border: "none" }}
+                  onClick={async () => {
+                    click();
+                    buzz("tap");
+                    await shareDailyResult({
+                      game: "scoundrel",
+                      gameTitle: "Scoundrel",
+                      won: true,
+                      score: k.hp,
+                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                    });
+                  }}
+                  aria-label="Share daily challenge result"
+                >
+                  🔥 SHARE DAILY CARD
+                </button>
+              )}
+              <button
+                className="sc-result-btn secondary"
+                onClick={() => {
+                  click();
+                  buzz("tap");
                   onExit();
                 }}
                 aria-label="Back to Lobby"
@@ -645,6 +699,21 @@ export function Scoundrel({ onExit, onHeist, banner }: {
           </div>
         </motion.div>
       )}
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="scoundrel"
+            gameTitle="Scoundrel"
+            seed={game.seed}
+            score={k?.hp}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

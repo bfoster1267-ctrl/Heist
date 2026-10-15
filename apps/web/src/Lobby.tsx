@@ -1,7 +1,7 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt } from "@heist/profile";
+import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt, type Progress } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
@@ -11,6 +11,7 @@ import { isIOS, isStandalone } from "./appShell";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 import { ArcadeHub } from "./arcade/ArcadeHub";
+import { ChallengeBanner } from "./daily/ChallengeBanner";
 
 const FLOAT_POS = [
   { left: "6%", top: "12%" },
@@ -62,6 +63,8 @@ export function Lobby({
   nextLesson,
   tour,
   onTour,
+  progress,
+  onOpenDaily,
 }: {
   chips: number;
   onPlay: (c: LobbyChoice) => void;
@@ -99,6 +102,8 @@ export function Lobby({
   tour?: TourStep | null;
   /** move the tour on (null: it's over) */
   onTour?: (step: TourStep | null) => void;
+  progress?: Progress;
+  onOpenDaily?: () => void;
 }) {
   const [players, setPlayers] = useState(() => remembered("heist.players", [3, 4, 5, 6], 4));
   const [name, setName] = useState(() => {
@@ -208,6 +213,12 @@ export function Lobby({
           )}
         </div>
 
+        {onOpenDaily && (
+          <div style={{ width: "100%", maxWidth: 420, margin: "0 auto 14px", display: "flex", justifyContent: "center" }}>
+            <ChallengeBanner progress={progress} onOpenDaily={onOpenDaily} />
+          </div>
+        )}
+
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel) && (
@@ -292,6 +303,8 @@ export function Lobby({
       <AnimatePresence>
         {games && (
           <ArcadeHub
+            progress={progress}
+            onOpenDaily={onOpenDaily}
             onClose={() => setGames(false)}
             onSelectGame={(id) => {
               setGames(false);

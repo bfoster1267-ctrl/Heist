@@ -552,9 +552,10 @@ export class AccountService {
   }
 
   /** Deal a Solitaire game. Starting another one just replaces it (nothing is at stake). */
-  solitaireStart(a: Account) {
+  solitaireStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.solitaire = { gameId: `k_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.solitaire = { gameId: `k_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.solitaire.gameId, seed: x.solitaire.seed };
     });
@@ -585,16 +586,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.solitaire = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleSolitaire(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleSolitaire(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal a FreeCell game. */
-  freecellStart(a: Account) {
+  freecellStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.freecell = { gameId: `fc_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.freecell = { gameId: `fc_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.freecell.gameId, seed: x.freecell.seed };
     });
@@ -619,16 +621,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.freecell = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleFreeCell(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleFreeCell(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal a TriPeaks game. */
-  tripeaksStart(a: Account) {
+  tripeaksStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.tripeaks = { gameId: `tp_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.tripeaks = { gameId: `tp_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.tripeaks.gameId, seed: x.tripeaks.seed };
     });
@@ -653,16 +656,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.tripeaks = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleTriPeaks(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleTriPeaks(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal an Egyptian Rat Screw game. */
-  ersStart(a: Account) {
+  ersStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.ers = { gameId: `ers_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.ers = { gameId: `ers_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.ers.gameId, seed: x.ers.seed };
     });
@@ -687,16 +691,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.ers = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleErs(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleErs(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal a Spider Solitaire game. */
-  spiderStart(a: Account) {
+  spiderStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.spider = { gameId: `sp_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.spider = { gameId: `sp_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.spider.gameId, seed: x.spider.seed };
     });
@@ -721,16 +726,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.spider = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleSpider(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleSpider(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal a Pyramid Solitaire game. */
-  pyramidStart(a: Account) {
+  pyramidStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.pyramid = { gameId: `pyr_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.pyramid = { gameId: `pyr_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.pyramid.gameId, seed: x.pyramid.seed };
     });
@@ -755,16 +761,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.pyramid = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settlePyramid(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settlePyramid(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal a Yukon Solitaire game. */
-  yukonStart(a: Account) {
+  yukonStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.yukon = { gameId: `yk_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.yukon = { gameId: `yk_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.yukon.gameId, seed: x.yukon.seed };
     });
@@ -789,16 +796,17 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.yukon = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleYukon(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleYukon(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });
   }
 
   /** Deal a Scoundrel game. */
-  scoundrelStart(a: Account) {
+  scoundrelStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.scoundrel = { gameId: `sc_${randomBytes(6).toString("base64url")}`, seed: randomInt(2 ** 31), startedAt: this.now() };
+      x.scoundrel = { gameId: `sc_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.scoundrel.gameId, seed: x.scoundrel.seed };
     });
@@ -823,7 +831,7 @@ export class AccountService {
       g.paidXp = pay.paidXp;
       if (t.won) x.scoundrel = null;
       if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
-      const r = settleScoundrel(x.progress, this.now(), pay.gained, pay.xp);
+      const r = settleScoundrel(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       return { me: this.me(x), reward: r.reward };
     });

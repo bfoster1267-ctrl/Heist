@@ -62,10 +62,63 @@ export function getStreakMultiplier(streak: number): number {
   return 2.0;
 }
 
+/**
+ * Returns the player's active daily streak.
+ * If the player played yesterday or today (UTC), streak is active.
+ * If more than 1 day has passed without completing a daily challenge, streak has reset to 0.
+ */
+export function getDailyStreak(progress?: Progress | null, timestamp?: number | Date): number {
+  if (!progress?.daily) return 0;
+  const current = progress.daily.current ?? progress.daily.streak?.current ?? 0;
+  if (current <= 0) return 0;
+  const lastDate = progress.daily.lastDate ?? progress.daily.streak?.lastDate ?? null;
+  if (!lastDate) return 0;
+  const today = todayUtc(timestamp);
+  const diff = daysBetween(lastDate, today);
+  // Active if completed today (diff === 0) or yesterday (diff === 1)
+  if (diff === 0 || diff === 1) {
+    return current;
+  }
+  // Missed at least 1 full day
+  return 0;
+}
+
 /** Formats current or given timestamp as UTC YYYY-MM-DD. */
 export function todayUtc(timestamp?: number | Date): string {
   const d = timestamp instanceof Date ? timestamp : timestamp !== undefined ? new Date(timestamp) : new Date();
   return d.toISOString().slice(0, 10);
+}
+
+/** Origin epoch for sequential challenge numbering (2026-01-01 = Day 1). */
+export const DAILY_EPOCH_DATE = "2026-01-01";
+
+/** Returns current challenge index starting from 1 (e.g. Day #288). */
+export function formatDailyChallengeNumber(dateStr?: string): number {
+  const date = dateStr ?? todayUtc();
+  return Math.max(1, daysBetween(DAILY_EPOCH_DATE, date) + 1);
+}
+
+/** Returns the featured daily game for a given date, rotating deterministically across all 8 games. */
+export function getFeaturedDailyGame(timestamp?: number | Date): DailyGame {
+  const date = todayUtc(timestamp);
+  const num = formatDailyChallengeNumber(date);
+  return DAILY_GAMES[(num - 1) % DAILY_GAMES.length];
+}
+
+/** Milliseconds remaining until the next UTC midnight reset. */
+export function getRemainingMsUntilNextUtcDay(now = Date.now()): number {
+  const d = new Date(now);
+  const next = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  return Math.max(0, next - now);
+}
+
+/** Formats milliseconds into HH:MM:SS string. */
+export function formatCountdown(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
 /**

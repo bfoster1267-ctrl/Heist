@@ -23,6 +23,7 @@ import { Pyramid } from "./pyramid/Pyramid";
 import { Yukon } from "./yukon/Yukon";
 import { Scoundrel } from "./scoundrel/Scoundrel";
 import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
+import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -283,6 +284,56 @@ function Game() {
     : scoundrel ? "scoundrel"
     : null;
   const [arcadeHubOpen, setArcadeHubOpen] = useState(false);
+  const [dailyHubOpen, setDailyHubOpen] = useState(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      return p.has("daily");
+    } catch {
+      return false;
+    }
+  });
+
+  const [gameConfig, setGameConfig] = useState<{
+    seed?: number;
+    isDaily?: boolean;
+    challengerTime?: string | null;
+    challengerMoves?: number | null;
+    challengerScore?: number | null;
+  }>(() => {
+    try {
+      const p = new URLSearchParams(location.search);
+      const seedStr = p.get("challenge") ?? p.get("seed");
+      const seed = seedStr ? parseInt(seedStr, 10) : undefined;
+      const isDaily = p.has("dailyGame") || p.has("daily");
+      const challengerTime = p.get("ctime");
+      const challengerMoves = p.has("cmoves") ? parseInt(p.get("cmoves")!, 10) : null;
+      const challengerScore = p.has("cscore") ? parseInt(p.get("cscore")!, 10) : null;
+      return {
+        seed: Number.isNaN(seed) ? undefined : seed,
+        isDaily,
+        challengerTime,
+        challengerMoves: Number.isNaN(challengerMoves) ? null : challengerMoves,
+        challengerScore: Number.isNaN(challengerScore) ? null : challengerScore,
+      };
+    } catch {
+      return {};
+    }
+  });
+
+  const launchDailyGame = useCallback(
+    (gameId: ArcadeGameId, seed: number) => {
+      setDailyHubOpen(false);
+      setGameConfig({
+        seed,
+        isDaily: true,
+        challengerTime: null,
+        challengerMoves: null,
+        challengerScore: null,
+      });
+      openSoloGame(gameId);
+    },
+    [openSoloGame],
+  );
   const backToLine = useCallback(() => {
     const n = awayRef.current;
     if (n === null) return;
@@ -489,13 +540,22 @@ function Game() {
     return (
       <>
         <Solitaire
-          onExit={() => setSol(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setSol(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="solitaire" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           // only a guest who never played Heist gets the Heist button (their coached first hand); everyone else has Play now in the lobby
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setSol(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -509,12 +569,21 @@ function Game() {
     return (
       <>
         <FreeCell
-          onExit={() => setFc(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setFc(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="freecell" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setFc(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -528,12 +597,21 @@ function Game() {
     return (
       <>
         <TriPeaks
-          onExit={() => setTp(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setTp(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="tripeaks" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setTp(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -548,9 +626,15 @@ function Game() {
       <>
         <Ers
           initialPvp={ersPvp}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
           onExit={() => {
             setErs(false);
             setErsPvp(false);
+            setGameConfig({});
           }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="ers" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
@@ -558,6 +642,7 @@ function Game() {
               ? () => {
                   setErs(false);
                   setErsPvp(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -571,12 +656,21 @@ function Game() {
     return (
       <>
         <Spider
-          onExit={() => setSpider(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setSpider(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="spider" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setSpider(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -590,12 +684,21 @@ function Game() {
     return (
       <>
         <Pyramid
-          onExit={() => setPyramid(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setPyramid(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="pyramid" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setPyramid(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -609,12 +712,21 @@ function Game() {
     return (
       <>
         <Yukon
-          onExit={() => setYukon(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setYukon(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="yukon" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setYukon(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -628,12 +740,21 @@ function Game() {
     return (
       <>
         <Scoundrel
-          onExit={() => setScoundrel(false)}
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setScoundrel(false);
+            setGameConfig({});
+          }}
           banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="scoundrel" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
           onHeist={
             me.guest && !me.progress.coachGames && !me.progress.stats.games
               ? () => {
                   setScoundrel(false);
+                  setGameConfig({});
                   void sit({ players: 3, name: me.name, stakes: 0, coached: true });
                 }
               : undefined
@@ -671,6 +792,8 @@ function Game() {
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}
             tour={me.progress.coachGames ? tour : null}
             onTour={setTour}
+            progress={me.progress}
+            onOpenDaily={() => setDailyHubOpen(true)}
           />
           <div className="acct-corner">
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
@@ -712,12 +835,23 @@ function Game() {
       <AnimatePresence>
         {arcadeHubOpen && (
           <ArcadeHub
+            progress={me.progress}
+            onOpenDaily={() => setDailyHubOpen(true)}
             onClose={() => setArcadeHubOpen(false)}
             onSelectGame={(id, pvp) => {
               setArcadeHubOpen(false);
               openSoloGame(id, pvp);
             }}
             activeGame={activeSoloGame}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {dailyHubOpen && (
+          <DailyHub
+            progress={me.progress}
+            onClose={() => setDailyHubOpen(false)}
+            onPlayChallenge={launchDailyGame}
           />
         )}
       </AnimatePresence>

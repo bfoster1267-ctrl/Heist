@@ -155,42 +155,42 @@ export interface Backend {
   soloStart(players: number, stakes: number, name: string, campaign?: number, coached?: boolean): Promise<SoloTicket>;
   soloFinish(gameId: string, answers: unknown[]): Promise<{ me: Me; reward: Reward }>;
   /** deal a Solitaire game; a win is paid after the moves replay from the seed */
-  solitaireStart(): Promise<{ gameId: string; seed: number }>;
+  solitaireStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   solitaireFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
   solitaireBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal a FreeCell game; a win is paid after the moves replay from the seed */
-  freecellStart(): Promise<{ gameId: string; seed: number }>;
+  freecellStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   freecellFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
   freecellBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal a TriPeaks game; a win is paid after the moves replay from the seed */
-  tripeaksStart(): Promise<{ gameId: string; seed: number }>;
+  tripeaksStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   tripeaksFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
   tripeaksBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal an Egyptian Rat Screw game; a win is paid after the moves replay from the seed */
-  ersStart(): Promise<{ gameId: string; seed: number }>;
+  ersStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   ersFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay an ERS game's moves so far; null when nothing new */
   ersBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal a Spider Solitaire game; a win is paid after the moves replay from the seed */
-  spiderStart(): Promise<{ gameId: string; seed: number }>;
+  spiderStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   spiderFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Spider game's moves so far */
   spiderBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal a Pyramid Solitaire game; a win is paid after the moves replay from the seed */
-  pyramidStart(): Promise<{ gameId: string; seed: number }>;
+  pyramidStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   pyramidFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Pyramid game's moves so far */
   pyramidBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal a Yukon Solitaire game; a win is paid after the moves replay from the seed */
-  yukonStart(): Promise<{ gameId: string; seed: number }>;
+  yukonStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   yukonFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Yukon game's moves so far */
   yukonBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** deal a Scoundrel game; a win is paid after the moves replay from the seed */
-  scoundrelStart(): Promise<{ gameId: string; seed: number }>;
+  scoundrelStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
   scoundrelFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Scoundrel game's moves so far */
   scoundrelBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
@@ -354,11 +354,11 @@ export class BrowserBackend implements Backend {
     return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, lesson, me: this.view(), quit };
   }
 
-  private sol: { gameId: string; seed: number; paid?: SolTally; paidXp?: number; drain?: number } | null = null;
-  async solitaireStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.sol = { gameId: `l_${seed}`, seed };
-    return { gameId: this.sol.gameId, seed };
+  private sol: { gameId: string; seed: number; isDaily?: boolean; paid?: SolTally; paidXp?: number; drain?: number } | null = null;
+  async solitaireStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.sol = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.sol.gameId, seed: s };
   }
   async solitaireFinish(gameId: string, moves: string[], drain: number) {
     const r = await this.solitaireBank(gameId, moves, drain, true);
@@ -375,17 +375,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.sol = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleSolitaire(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleSolitaire(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private fc: { gameId: string; seed: number; paid?: FcTally; paidXp?: number; drain?: number } | null = null;
-  async freecellStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.fc = { gameId: `l_${seed}`, seed };
-    return { gameId: this.fc.gameId, seed };
+  private fc: { gameId: string; seed: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number } | null = null;
+  async freecellStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.fc = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.fc.gameId, seed: s };
   }
   async freecellFinish(gameId: string, moves: string[], drain: number) {
     const r = await this.freecellBank(gameId, moves, drain, true);
@@ -402,17 +402,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.fc = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private tp: { gameId: string; seed: number; paid?: TpTally; paidXp?: number; drain?: number } | null = null;
-  async tripeaksStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.tp = { gameId: `l_${seed}`, seed };
-    return { gameId: this.tp.gameId, seed };
+  private tp: { gameId: string; seed: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number } | null = null;
+  async tripeaksStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.tp = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.tp.gameId, seed: s };
   }
   async tripeaksFinish(gameId: string, moves: string[], drain: number) {
     const r = await this.tripeaksBank(gameId, moves, drain, true);
@@ -429,17 +429,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.tp = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleTriPeaks(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleTriPeaks(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private ersState: { gameId: string; seed: number; paid?: ErsTally; paidXp?: number; drain?: number } | null = null;
-  async ersStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.ersState = { gameId: `l_${seed}`, seed };
-    return { gameId: this.ersState.gameId, seed };
+  private ersState: { gameId: string; seed: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number } | null = null;
+  async ersStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.ersState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.ersState.gameId, seed: s };
   }
   async ersFinish(gameId: string, moves: string[], drain: number) {
     const r = await this.ersBank(gameId, moves, drain, true);
@@ -456,17 +456,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.ersState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleErs(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleErs(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private spiderState: { gameId: string; seed: number; paid?: SpiderTally; paidXp?: number; drain?: number } | null = null;
-  async spiderStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.spiderState = { gameId: `l_${seed}`, seed };
-    return { gameId: this.spiderState.gameId, seed };
+  private spiderState: { gameId: string; seed: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number } | null = null;
+  async spiderStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.spiderState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.spiderState.gameId, seed: s };
   }
   async spiderFinish(gameId: string, moves: unknown[], drain: number) {
     const r = await this.spiderBank(gameId, moves, drain, true);
@@ -483,17 +483,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.spiderState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleSpider(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleSpider(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private pyramidState: { gameId: string; seed: number; paid?: PyramidTally; paidXp?: number; drain?: number } | null = null;
-  async pyramidStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.pyramidState = { gameId: `l_${seed}`, seed };
-    return { gameId: this.pyramidState.gameId, seed };
+  private pyramidState: { gameId: string; seed: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number } | null = null;
+  async pyramidStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.pyramidState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.pyramidState.gameId, seed: s };
   }
   async pyramidFinish(gameId: string, moves: unknown[], drain: number) {
     const r = await this.pyramidBank(gameId, moves, drain, true);
@@ -510,17 +510,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.pyramidState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settlePyramid(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settlePyramid(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private yukonState: { gameId: string; seed: number; paid?: YukonTally; paidXp?: number; drain?: number } | null = null;
-  async yukonStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.yukonState = { gameId: `l_${seed}`, seed };
-    return { gameId: this.yukonState.gameId, seed };
+  private yukonState: { gameId: string; seed: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number } | null = null;
+  async yukonStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.yukonState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.yukonState.gameId, seed: s };
   }
   async yukonFinish(gameId: string, moves: string[], drain: number) {
     const r = await this.yukonBank(gameId, moves, drain, true);
@@ -537,17 +537,17 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.yukonState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleYukon(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleYukon(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private scoundrelState: { gameId: string; seed: number; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null = null;
-  async scoundrelStart() {
-    const seed = Math.floor(Math.random() * 2 ** 31);
-    this.scoundrelState = { gameId: `l_${seed}`, seed };
-    return { gameId: this.scoundrelState.gameId, seed };
+  private scoundrelState: { gameId: string; seed: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null = null;
+  async scoundrelStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.scoundrelState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.scoundrelState.gameId, seed: s };
   }
   async scoundrelFinish(gameId: string, moves: unknown[], drain: number) {
     const r = await this.scoundrelBank(gameId, moves, drain, true);
@@ -564,7 +564,7 @@ export class BrowserBackend implements Backend {
     g.paidXp = pay.paidXp;
     if (t.won) this.scoundrelState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleScoundrel(this.save.progress, Date.now(), pay.gained, pay.xp);
+    const r = settleScoundrel(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
@@ -786,8 +786,8 @@ export class ServerBackend implements Backend {
   soloFinish(gameId: string, answers: unknown[]) {
     return this.call<{ me: Me; reward: Reward }>("/api/solo/finish", { gameId, answers });
   }
-  solitaireStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/solitaire/start", {});
+  solitaireStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/solitaire/start", { seed, isDaily });
   }
   solitaireFinish(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/solitaire/finish", { gameId, moves, drain });
@@ -795,8 +795,8 @@ export class ServerBackend implements Backend {
   solitaireBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/solitaire/bank", { gameId, moves, drain });
   }
-  freecellStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/freecell/start", {});
+  freecellStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/freecell/start", { seed, isDaily });
   }
   freecellFinish(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/freecell/finish", { gameId, moves, drain });
@@ -804,8 +804,8 @@ export class ServerBackend implements Backend {
   freecellBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/freecell/bank", { gameId, moves, drain });
   }
-  tripeaksStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/tripeaks/start", {});
+  tripeaksStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/tripeaks/start", { seed, isDaily });
   }
   tripeaksFinish(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/tripeaks/finish", { gameId, moves, drain });
@@ -813,8 +813,8 @@ export class ServerBackend implements Backend {
   tripeaksBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/tripeaks/bank", { gameId, moves, drain });
   }
-  ersStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/ers/start", {});
+  ersStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/ers/start", { seed, isDaily });
   }
   ersFinish(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/ers/finish", { gameId, moves, drain });
@@ -822,8 +822,8 @@ export class ServerBackend implements Backend {
   ersBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/ers/bank", { gameId, moves, drain });
   }
-  spiderStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/spider/start", {});
+  spiderStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/spider/start", { seed, isDaily });
   }
   spiderFinish(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/spider/finish", { gameId, moves, drain });
@@ -831,8 +831,8 @@ export class ServerBackend implements Backend {
   spiderBank(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/spider/bank", { gameId, moves, drain });
   }
-  pyramidStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/pyramid/start", {});
+  pyramidStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/pyramid/start", { seed, isDaily });
   }
   pyramidFinish(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/pyramid/finish", { gameId, moves, drain });
@@ -840,8 +840,8 @@ export class ServerBackend implements Backend {
   pyramidBank(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/pyramid/bank", { gameId, moves, drain });
   }
-  yukonStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/yukon/start", {});
+  yukonStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/yukon/start", { seed, isDaily });
   }
   yukonFinish(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/yukon/finish", { gameId, moves, drain });
@@ -849,8 +849,8 @@ export class ServerBackend implements Backend {
   yukonBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/yukon/bank", { gameId, moves, drain });
   }
-  scoundrelStart() {
-    return this.call<{ gameId: string; seed: number }>("/api/scoundrel/start", {});
+  scoundrelStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/scoundrel/start", { seed, isDaily });
   }
   scoundrelFinish(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward }>("/api/scoundrel/finish", { gameId, moves, drain });

@@ -13,6 +13,9 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { FriendChallengeModal } from "../daily/FriendChallengeModal";
+import { shareDailyResult } from "../daily/shareHelpers";
+import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./freecell.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -58,12 +61,28 @@ function useBoard() {
 const DEAL = { gather: 280, step: 30, flip: 100 };
 const DEAL_MS = DEAL.gather + 52 * DEAL.step + 400;
 
-export function FreeCell({ onExit, onHeist, banner }: {
+export function FreeCell({
+  onExit,
+  onHeist,
+  banner,
+  initialSeed,
+  isDaily = false,
+  challengerTime,
+  challengerMoves,
+  challengerScore,
+}: {
   onExit: () => void;
   onHeist?: () => void;
   banner?: ReactNode;
+  initialSeed?: number;
+  isDaily?: boolean;
+  challengerTime?: string | null;
+  challengerMoves?: number | null;
+  challengerScore?: number | null;
 }) {
   const { backend, act, showReward, me } = useAccount();
+  const initialDeal = useRef(true);
+  const [challengeOpen, setChallengeOpen] = useState(false);
   const [game, setGame] = useState<{ gameId: string | null; seed: number } | null>(null);
   const [hist, setHist] = useState<FreeCellState[]>([]);
   const [moves, setMoves] = useState<FcMove[]>([]);
@@ -148,10 +167,13 @@ export function FreeCell({ onExit, onHeist, banner }: {
     drainRef.current = 0;
     setDrain(0);
     setFloats([]);
-    const g = backend ? await backend.freecellStart().catch(() => null) : null;
+    const firstSeed = initialDeal.current ? initialSeed : undefined;
+    const dailyFlag = initialDeal.current ? isDaily : false;
+    initialDeal.current = false;
+    const g = backend ? await backend.freecellStart(firstSeed, dailyFlag).catch(() => null) : null;
     dayLeft.current = meNow.current ? freecellRoom(meNow.current.progress, Date.now()) : FREECELL_DAY_XP;
     maxedShown.current = false;
-    const next = g ?? { gameId: null, seed: Math.floor(Math.random() * 2 ** 31) };
+    const next = g ?? { gameId: null, seed: firstSeed ?? Math.floor(Math.random() * 2 ** 31) };
     setGame(next);
     setHist([dealFreeCell(next.seed)]);
     setMoves([]);
@@ -163,7 +185,7 @@ export function FreeCell({ onExit, onHeist, banner }: {
     setDealT(0);
     setDealAt(reduce ? 0 : Date.now());
     cardSound(4);
-  }, [backend, bank, reduce]);
+  }, [backend, bank, reduce, initialSeed, isDaily]);
 
   useEffect(() => {
     void deal();
@@ -568,6 +590,37 @@ export function FreeCell({ onExit, onHeist, banner }: {
               <button className="btn primary big" onClick={() => void deal()} autoFocus>
                 Deal again
               </button>
+              <button
+                className="btn big"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  setChallengeOpen(true);
+                }}
+              >
+                🏆 Challenge a Friend
+              </button>
+              {isDaily && (
+                <button
+                  className="btn big"
+                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
+                  onClick={async () => {
+                    click();
+                    buzz("tap");
+                    await shareDailyResult({
+                      game: "freecell",
+                      gameTitle: "FreeCell",
+                      won: true,
+                      time: clock,
+                      moves: moves.length,
+                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
+                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
+                    });
+                  }}
+                >
+                  🔥 Share Daily Card
+                </button>
+              )}
               {onHeist && (
                 <button className="btn big fc-heist" onClick={() => { click(); buzz("tap"); onHeist(); }}>
                   Heist
@@ -578,6 +631,22 @@ export function FreeCell({ onExit, onHeist, banner }: {
               </button>
             </motion.div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {challengeOpen && game && (
+          <FriendChallengeModal
+            game="freecell"
+            gameTitle="FreeCell"
+            seed={game.seed}
+            time={clock}
+            moves={moves.length}
+            challengerTime={challengerTime}
+            challengerMoves={challengerMoves}
+            challengerScore={challengerScore}
+            onClose={() => setChallengeOpen(false)}
+          />
         )}
       </AnimatePresence>
     </div>

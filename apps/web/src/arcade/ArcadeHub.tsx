@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import type { Progress } from "@heist/profile";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
+import { ChallengeBanner } from "../daily/ChallengeBanner";
 import "./arcade.css";
 
 export type ArcadeGameId =
@@ -238,9 +240,11 @@ export interface ArcadeHubProps {
   onClose: () => void;
   onSelectGame: (gameId: ArcadeGameId, pvp?: boolean) => void;
   activeGame?: ArcadeGameId | null;
+  progress?: Progress;
+  onOpenDaily?: () => void;
 }
 
-export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps) {
+export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenDaily }: ArcadeHubProps) {
   const [tab, setTab] = useState<ArcadeCategory>("all");
   const [search, setSearch] = useState("");
   const [openRules, setOpenRules] = useState<Record<string, boolean>>({});
@@ -339,6 +343,12 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
             ✕
           </button>
         </div>
+
+        {onOpenDaily && (
+          <div style={{ padding: "0 20px 10px" }}>
+            <ChallengeBanner progress={progress} onOpenDaily={onOpenDaily} />
+          </div>
+        )}
 
         {/* Filter Tabs & Search */}
         <div className="arcade-controls-bar">
