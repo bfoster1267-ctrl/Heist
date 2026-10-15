@@ -290,7 +290,7 @@ export function pageHtml(html: string, path: string): string {
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`;
 
   return html
-    .replace(/<title>[^<]*<\/title>/, head)
+    .replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, head + "\n")
     .replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);
 }
 
