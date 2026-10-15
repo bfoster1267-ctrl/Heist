@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -164,6 +164,11 @@ export interface Backend {
   freecellFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
   freecellBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a TriPeaks game; a win is paid after the moves replay from the seed */
+  tripeaksStart(): Promise<{ gameId: string; seed: number }>;
+  tripeaksFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
+  tripeaksBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -373,6 +378,33 @@ export class BrowserBackend implements Backend {
     if (t.won) this.fc = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
     const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private tp: { gameId: string; seed: number; paid?: TpTally; paidXp?: number; drain?: number } | null = null;
+  async tripeaksStart() {
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    this.tp = { gameId: `l_${seed}`, seed };
+    return { gameId: this.tp.gameId, seed };
+  }
+  async tripeaksFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.tripeaksBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async tripeaksBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.tp;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyTriPeaks(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = tpPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.tp = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleTriPeaks(this.save.progress, Date.now(), pay.gained, pay.xp);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
@@ -611,6 +643,15 @@ export class ServerBackend implements Backend {
   }
   freecellBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/freecell/bank", { gameId, moves, drain });
+  }
+  tripeaksStart() {
+    return this.call<{ gameId: string; seed: number }>("/api/tripeaks/start", {});
+  }
+  tripeaksFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/tripeaks/finish", { gameId, moves, drain });
+  }
+  tripeaksBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/tripeaks/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

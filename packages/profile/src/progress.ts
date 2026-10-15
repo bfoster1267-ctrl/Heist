@@ -9,6 +9,7 @@ import { TIER_XP, addPassXp, passLines, type PassResult, type PassState } from "
 import { addCounts, type MistakeCounts } from "./coach";
 import { SOL_XP, tallyXp, type SolTally } from "./solitaire";
 import { FC_XP, tallyFcXp, type FcTally } from "./freecell";
+import { TP_XP, tallyTpXp, type TpTally } from "./tripeaks";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -55,6 +56,8 @@ export interface Progress {
   solitaire: { won: number; day: string | null; xp: number };
   /** FreeCell: games won, and XP paid today (UTC day) toward the daily ceiling */
   freecell?: { won: number; day: string | null; xp: number };
+  /** TriPeaks: games won, and XP paid today (UTC day) toward the daily ceiling */
+  tripeaks?: { won: number; day: string | null; xp: number };
 }
 
 export function newProgress(): Progress {
@@ -65,6 +68,7 @@ export function newProgress(): Progress {
     rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
     solitaire: { won: 0, day: null, xp: 0 },
     freecell: { won: 0, day: null, xp: 0 },
+    tripeaks: { won: 0, day: null, xp: 0 },
   };
 }
 
@@ -312,6 +316,69 @@ export function settleFreeCell(
   fc.xp += Math.min(total, room);
   const season = Math.min(total, room);
   p.freecell = fc;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const pass = season ? addPassXp(p, season, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+    },
+  };
+}
+
+export const TRIPEAKS_DAY_XP = 500;
+
+/** TriPeaks XP still to be earned today. */
+export const tripeaksRoom = (p: Progress, at: number) =>
+  Math.max(0, TRIPEAKS_DAY_XP - (p.tripeaks?.day === day(at) ? p.tripeaks?.xp ?? 0 : 0));
+
+/**
+ * Pay for TriPeaks play checked by replaying the moves.
+ */
+export function settleTriPeaks(
+  prev: Progress,
+  at: number,
+  gained: TpTally,
+  pay = tallyTpXp(gained)
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const tp = { ...(p.tripeaks ?? { won: 0, day: null, xp: 0 }), xp: p.tripeaks?.xp ?? 0 };
+  if (tp.day !== today) Object.assign(tp, { day: today, xp: 0 });
+  if (gained.won) tp.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.cleared, "card cleared", "cards cleared"), xp: gained.cleared * TP_XP.clear, coins: 0 },
+    { label: plural(gained.peaks, "peak cleared", "peaks cleared"), xp: gained.peaks * TP_XP.peak, coins: 0 },
+    { label: "TriPeaks cleared", xp: gained.won ? TP_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+  if (gained.maxStreak >= 10) lines.push({ label: "10-card combo streak", xp: TP_XP.streak10, coins: 0 });
+  else if (gained.maxStreak >= 5) lines.push({ label: "5-card combo streak", xp: TP_XP.streak5, coins: 0 });
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, pay));
+  if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
+  const room = Math.max(0, TRIPEAKS_DAY_XP - tp.xp);
+  if (total > room) lines = [{ label: "TriPeaks (daily XP limit reached)", xp: room, coins: 0 }];
+  tp.xp += Math.min(total, room);
+  const season = Math.min(total, room);
+  p.tripeaks = tp;
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);

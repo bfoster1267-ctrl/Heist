@@ -14,3 +14,4 @@ export * from "./easy";
 export * from "./lessons";
 export * from "./solitaire";
 export * from "./freecell";
+export * from "./tripeaks";

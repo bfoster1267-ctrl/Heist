@@ -49,6 +49,7 @@ export function Lobby({
   onSave,
   onSolitaire,
   onFreeCell,
+  onTriPeaks,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -69,6 +70,8 @@ export function Lobby({
   onSolitaire?: () => void;
   /** open FreeCell */
   onFreeCell?: () => void;
+  /** open TriPeaks */
+  onTriPeaks?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -191,7 +194,7 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
-          {(onSolitaire || onFreeCell) && <Mode icon="cards" label="More games" sub="Solitaire & FreeCell · earns XP" onClick={() => setGames(true)} />}
+          {(onSolitaire || onFreeCell || onTriPeaks) && <Mode icon="cards" label="More games" sub="Solitaire, FreeCell & TriPeaks" onClick={() => setGames(true)} />}
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
           <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
@@ -264,7 +267,7 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && (onSolitaire || onFreeCell) && (
+        {games && (onSolitaire || onFreeCell || onTriPeaks) && (
           <Sheet title="More games" onClose={() => setGames(false)}>
             {onSolitaire && (
               <button
@@ -299,6 +302,24 @@ export function Lobby({
                 <span className="lobby-game-text">
                   FreeCell
                   <span className="lobby-sub">8 cascades & 4 cells. Wins earn XP and season pass XP.</span>
+                </span>
+              </button>
+            )}
+            {onTriPeaks && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onTriPeaks();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card">Q<i>♠</i></span>
+                  <span className="lobby-game-card red">K<i>♥</i></span>
+                </span>
+                <span className="lobby-game-text">
+                  TriPeaks
+                  <span className="lobby-sub">3 peaks & fast streaks. Wins earn XP and season pass XP.</span>
                 </span>
               </button>
             )}

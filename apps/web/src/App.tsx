@@ -16,6 +16,7 @@ import { OnlineLobby, QueueBar, inviteCode } from "./online/OnlineLobby";
 import { session } from "./online/session";
 import { Solitaire } from "./solitaire/Solitaire";
 import { FreeCell } from "./freecell/FreeCell";
+import { TriPeaks } from "./tripeaks/TriPeaks";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
@@ -101,6 +102,25 @@ function Game() {
       /* fine without */
     }
   }, []);
+  // TriPeaks: from the lobby, or straight in at playheist.net/tripeaks (its own link to share)
+  const [tp, setTpState] = useState(() => {
+    const on = location.pathname === "/tripeaks";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setTp = useCallback((on: boolean) => {
+    setTpState(on);
+    try {
+      history.replaceState(null, "", on ? "/tripeaks" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
   // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
   const [tour, setTourState] = useState<TourStep | null>(savedTour);
   const setTour = useCallback((t: TourStep | null) => {
@@ -127,8 +147,9 @@ function Game() {
     setAway(null);
     setSol(false);
     setFc(false);
+    setTp(false);
     setOnline(n);
-  }, [setAway, setSol, setFc]);
+  }, [setAway, setSol, setFc, setTp]);
   // After an online game the server sends what it earned. It usually lands while the table is still
   // playing the last moves, so it's held until the table shows the end, then shown like a game vs bots.
   const onlineEnd = useRef<{ reward: Reward | null; ended: boolean }>({
@@ -351,6 +372,25 @@ function Game() {
       </>
     );
 
+  if (tp && !table)
+    return (
+      <>
+        <TriPeaks
+          onExit={() => setTp(false)}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setTp(false);
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -368,6 +408,7 @@ function Game() {
             onSave={me.guest ? () => setProfile("account") : undefined}
             onSolitaire={() => setSol(true)}
             onFreeCell={() => setFc(true)}
+            onTriPeaks={() => setTp(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

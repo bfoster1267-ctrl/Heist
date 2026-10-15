@@ -298,6 +298,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/freecell/start": async (_b, t) => svc.freecellStart(await me(t)),
     "POST /api/freecell/finish": async (b, t) => svc.freecellBank(await me(t), b.gameId, b.moves, true, b.drain),
     "POST /api/freecell/bank": async (b, t) => svc.freecellBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/tripeaks/start": async (_b, t) => svc.tripeaksStart(await me(t)),
+    "POST /api/tripeaks/finish": async (b, t) => svc.tripeaksBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/tripeaks/bank": async (b, t) => svc.tripeaksBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
