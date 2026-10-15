@@ -181,11 +181,20 @@ export function Lobby({
         <div className="lobby-hero">
           {newbie ? (
             <>
-              <button className="btn primary lobby-big" onClick={coach}>
-                Learn to play
-                <span className="lobby-sub">Play one hand with a coach. Free.</span>
+              <button
+                type="button"
+                className="btn primary lobby-big"
+                onClick={() => setGames(true)}
+                style={{ background: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)", marginBottom: "0.6rem" }}
+              >
+                🃏 Play Solo Arcade &amp; Daily Deals
+                <span className="lobby-sub">Klondike Solitaire, FreeCell, Spider &amp; more. Instant play.</span>
               </button>
-              <p className="lobby-locked">Quick Play and online tables open after your first lesson.</p>
+
+              <button className="btn lobby-big" onClick={coach}>
+                🕵️ Learn Multiplayer Heist
+                <span className="lobby-sub">3-6 player bluffing game. One quick coached hand. Free.</span>
+              </button>
               {onSignIn && (
                 <button className="lobby-change" onClick={onSignIn}>
                   I already have an account
