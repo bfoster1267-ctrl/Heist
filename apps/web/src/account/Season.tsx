@@ -2,7 +2,7 @@
 // are worn from the Wardrobe. All of it sits beside career XP and levels; nothing here changes the game.
 
 import {
-  PACK_KEEP, PACK_PRICE, PASS_TIERS, TIER_XP, cosmetic, currentPass, passTrack, seasonAt, seasonOwned,
+  PACK_KEEP, PACK_PRICE, PASS_TIERS, TIER_XP, cosmetic, currentPass, passTrack, rarityOf, seasonAt, seasonOwned,
   tierOf, type Slot, type TierReward,
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
@@ -12,7 +12,7 @@ import { reducedMotion } from "../prefs";
 import { Chips } from "../table/pieces";
 import type { Me } from "./backend";
 import { Coins } from "./bits";
-import { Preview } from "./items";
+import { Preview, RarityBadge } from "./items";
 import { useAccount } from "./useAccount";
 
 const SLOT_NAMES: [Slot, string][] = [
@@ -210,11 +210,13 @@ export function Track({ rewards, tier, name, sweep = false }: { rewards: TierRew
       {rewards.map((r, i) => {
         const t = i + 1;
         const c = r.kind === "item" ? cosmetic(r.id) : undefined;
-        const legendary = c?.rarity === "legendary";
+        const rarity = c ? rarityOf(c) : "common";
+        const legendary = rarity === "legendary";
         return (
           <div
             key={t}
             className={"season-tier-card" + (t <= tier ? " got" : "") + (t === tier + 1 ? " next" : "") + (legendary ? " legendary" : "") + (legendary && spot ? " spot" : "")}
+            data-rarity={rarity}
           >
             <div className="season-tier-num">{t}</div>
             {c ? (
@@ -224,7 +226,7 @@ export function Track({ rewards, tier, name, sweep = false }: { rewards: TierRew
             )}
             <div className="season-tier-what">{rewardText(r)}</div>
             {c && <div className="season-tier-slot">{slotLabel(c.slot)}</div>}
-            {legendary && <div className="season-tier-slot season-tier-legendary">Legendary</div>}
+            {c && <RarityBadge rarity={rarity} />}
             {t <= tier && <div className="season-tier-check">✓</div>}
           </div>
         );
@@ -242,17 +244,19 @@ function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp:
         <div className="season-reveal-items">
           {items.map((id, i) => {
             const c = cosmetic(id)!;
+            const rarity = rarityOf(c);
             return (
               <motion.div
                 key={id}
                 className="acct-item season-reveal-item"
+                data-rarity={rarity}
                 initial={{ rotateY: 180, opacity: 0, y: 20 }}
                 animate={{ rotateY: 0, opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 + i * 0.35, duration: 0.5 }}
               >
                 <Preview c={c} name={name} />
                 <div className="acct-item-name">{c.name}</div>
-                <div className={"season-rarity" + (c.rarity === "legendary" ? " legendary" : "")}>{c.rarity ?? "common"}</div>
+                <RarityBadge rarity={rarity} />
                 <div className="season-tier-slot">{slotLabel(c.slot)}</div>
               </motion.div>
             );

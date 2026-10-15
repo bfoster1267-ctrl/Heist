@@ -124,8 +124,13 @@ export const PACK_SIZE = 3;
 /** Chips you must still have after paying for a pack: the top-up amount (REFILL_TO; a test keeps them equal). */
 export const PACK_KEEP = 2_500;
 
-/** Odds by rarity. Shiny and legendary tiers come later. */
-export const PACK_ODDS: Record<Rarity, number> = { common: 1, legendary: 0 };
+/** Odds by rarity for packs. */
+export const PACK_ODDS: Record<Rarity, number> = {
+  common: 0.65,
+  rare: 0.23,
+  epic: 0.09,
+  legendary: 0.03,
+};
 
 
 

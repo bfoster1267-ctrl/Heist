@@ -1,10 +1,16 @@
-// How each kind of cosmetic looks in the shop, the Wardrobe, the season track and pack reveals, plus the pieces that
-// show season items elsewhere (a banner behind the profile header, a cigar by your seat).
-
-import { cosmetic, type Cosmetic } from "@heist/profile";
+import { cosmetic, rarityOf, type Cosmetic, type Rarity } from "@heist/profile";
 import type { CSSProperties } from "react";
 import { Avatar } from "./bits";
 import { VaultGlass, isVault } from "../vault";
+
+export function RarityBadge({ rarity }: { rarity: Rarity }) {
+  const icon = rarity === "legendary" ? "✦" : rarity === "epic" ? "★" : rarity === "rare" ? "◆" : "•";
+  return (
+    <span className={`rarity-pill ${rarity}`}>
+      {icon} {rarity}
+    </span>
+  );
+}
 
 /** A banner's background: its pattern over a two-color gradient. */
 export function bannerStyle(id: string | undefined): CSSProperties | undefined {

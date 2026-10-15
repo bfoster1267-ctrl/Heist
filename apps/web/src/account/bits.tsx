@@ -12,8 +12,21 @@ export function initials(name: string) {
 
 export function Avatar({ name, frame, level, size = 56 }: { name: string; frame: string; level?: number; size?: number }) {
   const c = cosmetic(frame)?.colors;
+  const isVaultCrown = frame === "frame.vault_crown";
+  const isCyberNeon = frame === "frame.cyber_neon";
+  const isInferno = frame === "frame.inferno";
+  const frameClass = isVaultCrown
+    ? " framed framed-vault_crown"
+    : isCyberNeon
+    ? " framed framed-cyber_neon"
+    : isInferno
+    ? " framed framed-inferno"
+    : c
+    ? " framed"
+    : "";
   return (
-    <span className={"acct-avatar" + (c ? " framed" : "")} style={{ width: size, height: size, fontSize: size * 0.38, ...(c ? { ["--ring" as string]: c[0], ["--ring2" as string]: c[1] } : {}) }}>
+    <span className={"acct-avatar" + frameClass} style={{ width: size, height: size, fontSize: size * 0.38, ...(c ? { ["--ring" as string]: c[0], ["--ring2" as string]: c[1] } : {}) }}>
+      {isVaultCrown && <span className="avatar-crown-overlay" aria-hidden="true">👑</span>}
       <span className="acct-avatar-face">{initials(name)}</span>
       {level !== undefined && <span className="acct-avatar-level">{level}</span>}
     </span>
