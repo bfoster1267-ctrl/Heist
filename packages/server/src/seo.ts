@@ -17,7 +17,7 @@ const PAGES: Record<string, Page> = {
   "/": {
     title: "Heist — Free Multiplayer Card Game & Solitaire Arcade in Browser",
     description:
-      "Play Heist, the fast-paced free multiplayer card game and poker bluffing battle in your browser. Play with friends online or tackle daily Klondike Solitaire, FreeCell, TriPeaks & Pyramid challenges. No download, 100% free.",
+      "Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid.",
     keywords:
       "multiplayer card game browser, free multiplayer card game, bluffing card game online, party card game online, play card games with friends online, online card games to play with friends, browser card game with friends, daily solitaire challenge, free online card game, play heist",
     text: `<h1>Heist: Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</h1>
@@ -224,7 +224,7 @@ export function pageHtml(html: string, path: string): string {
 
   return html
     .replace(/<title>[^<]*<\/title>/, head)
-    .replace('<div id="root"></div>', `<div id="root">${page.text}</div>`);
+    .replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);
 }
 
 export const ROBOTS = `User-agent: *

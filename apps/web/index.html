@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#0b0d10" />
     
     <title>Heist — Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</title>
-    <meta name="description" content="Play Heist, the fast-paced free multiplayer card game and poker bluffing battle in your browser. Also play daily Klondike Solitaire, FreeCell, TriPeaks, Pyramid &amp; Yukon with friends. No download, 100% free." />
+    <meta name="description" content="Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid." />
     <meta name="keywords" content="multiplayer card game browser, free multiplayer card game, bluffing card game online, online card games to play with friends, browser card game with friends, daily solitaire challenge, free online card game, solitaire browser, tripeaks online, pyramid solitaire, freecell online, card games online no download" />
     <link rel="canonical" href="https://playheist.net/" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
@@ -17,7 +17,7 @@
     <meta property="og:url" content="https://playheist.net/" />
     <meta property="og:site_name" content="Heist" />
     <meta property="og:title" content="Heist — Free Multiplayer Card Game &amp; Solitaire Arcade in Browser" />
-    <meta property="og:description" content="Play Heist, the free multiplayer bluffing card game and solo solitaire arcade in your browser. Run jobs, double-cross your crew, and conquer daily challenges with friends. No downloads required." />
+    <meta property="og:description" content="Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid." />
     <meta property="og:image" content="https://playheist.net/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -147,24 +147,27 @@
   </head>
   <body>
     <div id="root">
-      <!-- Semantic crawlable HTML fallback for search engines, web crawlers, and AI bots -->
-      <header style="display:none" aria-hidden="true">
-        <h1>Heist: Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</h1>
-        <p>Play Heist, the fast-paced free multiplayer card game and poker bluffing battle in your browser. Also play daily Klondike Solitaire, FreeCell, TriPeaks, Pyramid, Yukon, Spider, and Scoundrel. Playable with friends or solo with zero downloads.</p>
-        <nav>
+      <main class="ssr-fallback">
+        <h1>Heist — Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</h1>
+        <p>Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid.</p>
+        <h2>Play Card Games With Friends Online</h2>
+        <p>Gather your crew for 3 to 6-player real-time matches. Pull jobs, split loot, and bluff your way to the top with poker hands and secret deals.</p>
+        <h2>Daily Solitaire &amp; Solo Card Arcade</h2>
+        <p>Enjoy daily seeded challenges with global streak multipliers and score cards across 8 complete card games:</p>
+        <nav aria-label="Game Modes">
           <ul>
-            <li><a href="https://playheist.net/">Heist Multiplayer Poker Game</a></li>
-            <li><a href="https://playheist.net/solitaire">Klondike Solitaire Online</a></li>
-            <li><a href="https://playheist.net/tripeaks">TriPeaks Solitaire Challenge</a></li>
-            <li><a href="https://playheist.net/freecell">FreeCell Solitaire Browser</a></li>
-            <li><a href="https://playheist.net/pyramid">Pyramid Solitaire Online</a></li>
-            <li><a href="https://playheist.net/yukon">Yukon Solitaire Free</a></li>
-            <li><a href="https://playheist.net/spider">Spider Solitaire</a></li>
-            <li><a href="https://playheist.net/ers">Egyptian Rat Screw (ERS)</a></li>
-            <li><a href="https://playheist.net/scoundrel">Scoundrel Roguelike Card Game</a></li>
+            <li><a href="/solitaire">Klondike Solitaire Online</a></li>
+            <li><a href="/tripeaks">TriPeaks Solitaire Challenge</a></li>
+            <li><a href="/freecell">FreeCell Solitaire</a></li>
+            <li><a href="/pyramid">Pyramid Solitaire</a></li>
+            <li><a href="/yukon">Yukon Solitaire</a></li>
+            <li><a href="/spider">Spider Solitaire</a></li>
+            <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
+            <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
+            <li><a href="/blog">Strategy &amp; Guides Blog</a></li>
           </ul>
         </nav>
-      </header>
+      </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
