@@ -312,6 +312,14 @@ function page(o: { title: string; description: string; path: string; body: strin
   gtag('js', new Date());
   gtag('config', 'AW-18515793903');
 </script>
+<!-- Event snippet for Page view conversion page -->
+<script>
+  gtag('event', 'conversion', {
+      'send_to': 'AW-18515793903/IaDnCJ-EoZ4dEO-vgv1E',
+      'value': 1.0,
+      'currency': 'USD'
+  });
+</script>
 <title>${esc(o.title)}</title>
 <meta name="description" content="${esc(o.description)}" />
 <link rel="canonical" href="${url}" />
