@@ -9,6 +9,7 @@ import {
   formatCountdown,
   formatDailyChallengeNumber,
   getDailyChallenge,
+  getDailyQuests,
   getDailyStreak,
   getFeaturedDailyGame,
   getMilestoneBonus,
@@ -22,6 +23,7 @@ import {
 } from "@heist/profile";
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import "./daily.css";
@@ -44,9 +46,13 @@ export interface DailyHubProps {
   onPlayChallenge: (game: DailyGame, seed: number) => void;
 }
 
-export function DailyHub({ progress, onClose, onPlayChallenge }: DailyHubProps) {
+export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: DailyHubProps) {
+  const { me, act } = useAccount() ?? {};
+  const progress = me?.progress ?? propProgress;
   const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
   const [copiedShare, setCopiedShare] = useState(false);
+  const [buyingFreeze, setBuyingFreeze] = useState(false);
+  const [claimingVault, setClaimingVault] = useState(false);
 
   // Countdown timer ticker
   useEffect(() => {
@@ -69,6 +75,40 @@ export function DailyHub({ progress, onClose, onPlayChallenge }: DailyHubProps) 
   const challengeNo = formatDailyChallengeNumber(today);
   const streak = progress ? getDailyStreak(progress, Date.now()) : 0;
   const multiplier = getStreakMultiplier(streak);
+  const freezes = progress?.daily?.freezes ?? 0;
+  const questsSummary = progress ? getDailyQuests(progress) : null;
+
+  // Handle Buy Freeze
+  const handleBuyFreeze = async () => {
+    click();
+    buzz("tap");
+    if (!act) return;
+    setBuyingFreeze(true);
+    try {
+      await act((b) => b.buyStreakFreeze());
+      buzz("bump");
+    } catch (err: unknown) {
+      alert((err as Error).message || "Could not buy streak freeze");
+    } finally {
+      setBuyingFreeze(false);
+    }
+  };
+
+  // Handle Claim Vault
+  const handleClaimVault = async () => {
+    click();
+    buzz("tap");
+    if (!act) return;
+    setClaimingVault(true);
+    try {
+      await act((b) => b.claimDailyVault());
+      buzz("win");
+    } catch (err: unknown) {
+      alert((err as Error).message || "Could not claim vault");
+    } finally {
+      setClaimingVault(false);
+    }
+  };
 
   // Featured rotating game for today
   const featuredGame = getFeaturedDailyGame();
@@ -136,6 +176,85 @@ export function DailyHub({ progress, onClose, onPlayChallenge }: DailyHubProps) 
           </div>
         </div>
 
+        {/* Streak Freeze Bar */}
+        <div className="daily-freeze-bar">
+          <div className="daily-freeze-info">
+            <span style={{ fontSize: 22 }} aria-hidden="true">🧊</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 13, color: "#38bdf8", letterSpacing: "0.5px" }}>
+                {freezes > 0 ? `${freezes} STREAK FREEZE EQUIPPED` : "NO STREAK FREEZE EQUIPPED"}
+              </div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>
+                {freezes > 0 ? "Protected! Streak won't break if you miss 1 day." : "Miss a day and streak resets. Equip protection!"}
+              </div>
+            </div>
+          </div>
+          {freezes < 2 && (
+            <button
+              type="button"
+              className="daily-freeze-btn"
+              onClick={handleBuyFreeze}
+              disabled={buyingFreeze || (progress?.coins ?? 0) < 200}
+            >
+              {buyingFreeze ? "Equipping..." : "+ Equip (200 🪙)"}
+            </button>
+          )}
+        </div>
+
+        {/* Daily Quests Trio */}
+        {questsSummary && (
+          <div className="daily-quests-box">
+            <div className="daily-quests-header">
+              <span style={{ fontWeight: 800, letterSpacing: "1px" }}>🎯 TODAY'S DAILY QUESTS</span>
+              <span style={{ color: "#fbbf24", fontWeight: 700 }}>
+                {questsSummary.quests.filter((q) => q.done).length}/3 Done
+              </span>
+            </div>
+            <div className="daily-quests-list">
+              {questsSummary.quests.map((q) => (
+                <div key={q.id} className="daily-quest-item">
+                  <span style={{ fontSize: 22 }}>{q.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
+                      <span>{q.title}</span>
+                      <span style={{ color: q.done ? "#22c55e" : "#94a3b8" }}>
+                        {q.done ? "COMPLETED ✓" : `${q.current}/${q.target}`}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>{q.desc}</div>
+                    <div className="daily-progress-track" style={{ height: 4 }}>
+                      <div
+                        className="daily-progress-fill"
+                        style={{
+                          width: `${Math.min(100, (q.current / q.target) * 100)}%`,
+                          background: q.done ? "#22c55e" : "#3b82f6",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Daily Vault Loot Safe Claim */}
+            {questsSummary.allCompleted && !questsSummary.vaultClaimed && (
+              <button
+                type="button"
+                className="daily-vault-claim-btn"
+                onClick={handleClaimVault}
+                disabled={claimingVault}
+              >
+                <span>🏆</span> CRACK DAILY VAULT (+100 🪙 &amp; +250 XP)
+              </button>
+            )}
+            {questsSummary.vaultClaimed && (
+              <div className="daily-vault-done">
+                <span>✓</span> Daily Loot Vault Claimed Today!
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Milestone Progress Bar */}
         {nextMilestoneBonus && (
           <div className="daily-milestone-wrap">
@@ -172,6 +291,8 @@ export function DailyHub({ progress, onClose, onPlayChallenge }: DailyHubProps) 
             </button>
           </div>
         </div>
+
+
 
         {/* 8-Game Grid */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

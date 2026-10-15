@@ -23,6 +23,10 @@ import {
   upgrade,
   failed,
   levelInfo,
+  buyStreakFreeze,
+  getDailyQuests,
+  recordQuestActivity,
+  claimDailyVault,
   type DailyGame,
 } from "../src";
 
@@ -449,5 +453,76 @@ describe("upgrade function preserves daily state", () => {
     expect(up.daily?.current).toBe(5);
     expect(up.daily?.longest).toBe(10);
     expect(up.daily?.lastDate).toBe("2026-10-15");
+  });
+});
+
+describe("Streak Freeze System (Duolingo Retention Model)", () => {
+  it("allows purchasing a streak freeze with 200 coins up to max 2", () => {
+    let p = newProgress();
+    p.coins = 500;
+    expect(p.daily?.freezes ?? 0).toBe(0);
+
+    const b1 = buyStreakFreeze(p);
+    expect(b1.success).toBe(true);
+    expect(b1.progress.coins).toBe(300);
+    expect(b1.progress.daily?.freezes).toBe(1);
+
+    const b2 = buyStreakFreeze(b1.progress);
+    expect(b2.success).toBe(true);
+    expect(b2.progress.coins).toBe(100);
+    expect(b2.progress.daily?.freezes).toBe(2);
+
+    // Cannot exceed max 2 freezes
+    const b3 = buyStreakFreeze(b2.progress);
+    expect(b3.success).toBe(false);
+    expect(b3.error).toContain("Maximum 2");
+  });
+
+  it("consumes an equipped freeze on 1 missed day to keep streak intact", () => {
+    let p = newProgress();
+    // Play on day 1
+    p = recordDailyCompletion(p, "solitaire", "2026-10-10").progress;
+    expect(p.daily?.current).toBe(1);
+
+    // Equip 1 freeze
+    p.daily!.freezes = 1;
+
+    // Skip day 2 (2026-10-11) and play on day 3 (2026-10-12)
+    const res = recordDailyCompletion(p, "solitaire", "2026-10-12");
+    expect(res.usedFreeze).toBe(true);
+    expect(res.streak).toBe(2); // Streak continues!
+    expect(res.progress.daily?.freezes).toBe(0); // Freeze consumed!
+    expect(res.progress.daily?.usedFreezeDates).toContain("2026-10-12");
+  });
+});
+
+describe("Daily Quest Trio & Loot Vault", () => {
+  it("tracks moves and xp towards daily quests and cracks the vault", () => {
+    let p = newProgress();
+    const today = todayUtc();
+
+    let q = getDailyQuests(p, today);
+    expect(q.allCompleted).toBe(false);
+    expect(q.quests[0].done).toBe(false);
+
+    // Record activity: 30 moves, 200 xp
+    p = recordQuestActivity(p, { moves: 35, xp: 250 }, today);
+    q = getDailyQuests(p, today);
+    expect(q.quests[0].done).toBe(true); // 30+ moves
+    expect(q.quests[1].done).toBe(true); // 200+ xp
+    expect(q.quests[2].done).toBe(false); // Daily challenge not done yet
+
+    // Complete daily challenge
+    p = recordDailyCompletion(p, "solitaire", today).progress;
+    q = getDailyQuests(p, today);
+    expect(q.allCompleted).toBe(true);
+    expect(q.vaultClaimed).toBe(false);
+
+    // Claim loot vault
+    const claim = claimDailyVault(p, today);
+    expect(claim.success).toBe(true);
+    expect(claim.coins).toBe(100);
+    expect(claim.xp).toBe(250);
+    expect(claim.progress.coins).toBe(p.coins + 100);
   });
 });

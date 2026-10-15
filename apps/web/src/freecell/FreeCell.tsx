@@ -16,6 +16,7 @@ import { card as cardSound, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
+import { VictoryModal } from "../arcade/VictoryModal";
 import "./freecell.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -572,67 +573,20 @@ export function FreeCell({
         </AnimatePresence>
       </div>
 
-      {/* Win modal */}
-      <AnimatePresence>
-        {won && (
-          <motion.div className="fc-win" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ delay: reduce ? 0.6 : 2.6 }}>
-            <motion.div className="fc-win-card" initial={{ scale: 0.7, y: 30 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 220, damping: 18, delay: reduce ? 0.8 : 2.8 }}>
-              <div className="fc-win-kicker">CLEAN JOB</div>
-              <div className="fc-win-title">SOLVED</div>
-              <div className="fc-win-stats">
-                <span>
-                  <b>{moves.length}</b>moves
-                </span>
-                <span>
-                  <b>{clock}</b>time
-                </span>
-              </div>
-              <button className="btn primary big" onClick={() => void deal()} autoFocus>
-                Deal again
-              </button>
-              <button
-                className="btn big"
-                onClick={() => {
-                  click();
-                  buzz("tap");
-                  setChallengeOpen(true);
-                }}
-              >
-                🏆 Challenge a Friend
-              </button>
-              {isDaily && (
-                <button
-                  className="btn big"
-                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
-                  onClick={async () => {
-                    click();
-                    buzz("tap");
-                    await shareDailyResult({
-                      game: "freecell",
-                      gameTitle: "FreeCell",
-                      won: true,
-                      time: clock,
-                      moves: moves.length,
-                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
-                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
-                    });
-                  }}
-                >
-                  🔥 Share Daily Card
-                </button>
-              )}
-              {onHeist && (
-                <button className="btn big fc-heist" onClick={() => { click(); buzz("tap"); onHeist(); }}>
-                  Heist
-                </button>
-              )}
-              <button className="btn ghost" onClick={() => { click(); buzz("tap"); onExit(); }}>
-                Lobby
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {won && (
+        <VictoryModal
+          game="freecell"
+          gameTitle="FreeCell"
+          moves={moves.length}
+          time={clock}
+          isDaily={isDaily}
+          progress={me?.progress}
+          onDealAgain={() => void deal()}
+          onChallengeFriend={() => setChallengeOpen(true)}
+          onExit={() => onExit()}
+          onHeist={onHeist ? () => onHeist() : undefined}
+        />
+      )}
 
       <AnimatePresence>
         {challengeOpen && game && (

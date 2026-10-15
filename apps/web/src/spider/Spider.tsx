@@ -16,6 +16,7 @@ import { card as cardSound, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
+import { VictoryModal } from "../arcade/VictoryModal";
 import "./spider.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -526,57 +527,17 @@ export function Spider({
       {k?.won && (
         <>
           <WinCascade from={() => ({ x: window.innerWidth / 2 - b.cw / 2, y: 120 })} cw={b.cw} ch={b.ch} />
-          <div className="spider-win-overlay">
-            <div className="spider-win-card">
-              <div className="spider-win-kicker">CLEAN RUN</div>
-              <div className="spider-win-title">SPIDER SOLVED!</div>
-              <div className="spider-win-stats">
-                <span><b>{moves.length}</b> moves</span>
-                <span><b>8/8</b> runs cleared</span>
-              </div>
-              <button className="btn primary big" onClick={() => { cardSound(4); buzz("tap"); void deal(mode); }} autoFocus>
-                Deal again
-              </button>
-              <button
-                className="btn big"
-                onClick={() => {
-                  click();
-                  buzz("tap");
-                  setChallengeOpen(true);
-                }}
-              >
-                🏆 Challenge a Friend
-              </button>
-              {isDaily && (
-                <button
-                  className="btn big"
-                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
-                  onClick={async () => {
-                    click();
-                    buzz("tap");
-                    await shareDailyResult({
-                      game: "spider",
-                      gameTitle: "Spider Solitaire",
-                      won: true,
-                      moves: moves.length,
-                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
-                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
-                    });
-                  }}
-                >
-                  🔥 Share Daily Card
-                </button>
-              )}
-              {onHeist && (
-                <button className="btn big" onClick={() => { click(); buzz("tap"); onHeist(); }}>
-                  Heist
-                </button>
-              )}
-              <button className="btn ghost" onClick={() => { click(); buzz("tap"); onExit(); }}>
-                Lobby
-              </button>
-            </div>
-          </div>
+          <VictoryModal
+            game="spider"
+            gameTitle="Spider Solitaire"
+            moves={moves.length}
+            isDaily={isDaily}
+            progress={me?.progress}
+            onDealAgain={() => { cardSound(4); buzz("tap"); void deal(mode); }}
+            onChallengeFriend={() => setChallengeOpen(true)}
+            onExit={() => onExit()}
+            onHeist={onHeist ? () => onHeist() : undefined}
+          />
         </>
       )}
 

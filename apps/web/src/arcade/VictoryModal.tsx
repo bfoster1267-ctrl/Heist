@@ -1,0 +1,330 @@
+// Duolingo-style Dopamine Victory Modal for All Solo Card Games
+// Delivers a high-energy post-game celebration: animated streak flame, clinking coins,
+// XP fill bar, daily quest progress, Wordle-style score sharing, and home screen retention hooks.
+
+import {
+  formatCountdown,
+  formatDailyChallengeNumber,
+  getDailyQuests,
+  getDailyStreak,
+  getRemainingMsUntilNextUtcDay,
+  getStreakMultiplier,
+  levelInfo,
+  type DailyGame,
+  type Progress,
+} from "@heist/profile";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import { buzz } from "../haptics";
+import { click, chipRun, win } from "../sound";
+import { shareDailyResult } from "../daily/shareHelpers";
+import "./victory.css";
+
+export interface VictoryModalProps {
+  game: DailyGame | string;
+  gameTitle: string;
+  moves?: number;
+  time?: string;
+  score?: number;
+  isDaily?: boolean;
+  progress?: Progress | null;
+  usedFreeze?: boolean;
+  onDealAgain: () => void;
+  onChallengeFriend?: () => void;
+  onExit: () => void;
+  onHeist?: () => void;
+}
+
+export function VictoryModal({
+  game,
+  gameTitle,
+  moves,
+  time,
+  score,
+  isDaily,
+  progress,
+  usedFreeze,
+  onDealAgain,
+  onChallengeFriend,
+  onExit,
+  onHeist,
+}: VictoryModalProps) {
+  const [copied, setCopied] = useState(false);
+  const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
+  const [pwaDismissed, setPwaDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("heist.pwaPrompt") === "off";
+    } catch {
+      return false;
+    }
+  });
+
+  // Calculate streak & multiplier
+  const streak = progress ? Math.max(1, getDailyStreak(progress, Date.now())) : 1;
+  const multiplier = getStreakMultiplier(streak);
+  const freezes = progress?.daily?.freezes ?? 0;
+
+  // Level info
+  const lvl = progress ? levelInfo(progress.xp) : { level: 1, pct: 0, into: 0, need: 100, maxed: false };
+  const levelPercent = Math.min(100, Math.round(lvl.pct * 100));
+
+  // Today's Quests
+  const questsSummary = progress ? getDailyQuests(progress) : null;
+
+  // Play fanfare and chip clinks on mount
+  useEffect(() => {
+    win();
+    buzz("win");
+    const t = setTimeout(() => {
+      chipRun(6);
+    }, 450);
+    return () => clearTimeout(t);
+  }, []);
+
+  // Countdown timer for next challenge
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setMsLeft(getRemainingMsUntilNextUtcDay());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Handle Share Card
+  const handleShare = async () => {
+    click();
+    buzz("tap");
+    const success = await shareDailyResult({
+      game: (game as DailyGame) || "solitaire",
+      gameTitle,
+      won: true,
+      time,
+      moves,
+      score,
+      streak,
+      multiplier,
+      challengeNumber: formatDailyChallengeNumber(),
+    });
+    if (success) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2400);
+    }
+  };
+
+  // Check standalone mode (PWA)
+  const isStandalone = () => {
+    if (typeof window === "undefined") return false;
+    return (
+      window.matchMedia("(display-mode: standalone)").matches ||
+      ("standalone" in window.navigator && Boolean((window.navigator as unknown as { standalone: boolean }).standalone))
+    );
+  };
+
+  const showPwaPrompt = !isStandalone() && !pwaDismissed;
+
+  const dismissPwa = () => {
+    setPwaDismissed(true);
+    try {
+      localStorage.setItem("heist.pwaPrompt", "off");
+    } catch {
+      // storage blocked
+    }
+  };
+
+  return createPortal(
+    <div className="vic-overlay" role="dialog" aria-modal="true" aria-label="Game Won Celebration">
+      <div className="vic-modal" onClick={(e) => e.stopPropagation()}>
+        {/* Header Badge & Title */}
+        <div className="vic-badge-row">
+          <span className="vic-badge">
+            <span>🏆</span> {isDaily ? "DAILY CHALLENGE SOLVED" : "CLEAN JOB"}
+          </span>
+        </div>
+        <h2 className="vic-title">VICTORY!</h2>
+
+        {/* Quick Stats Row */}
+        <div className="vic-stats-row">
+          {time && (
+            <div className="vic-stat-pill">
+              <span className="vic-stat-val">{time}</span>
+              <span className="vic-stat-lbl">Time</span>
+            </div>
+          )}
+          {moves !== undefined && (
+            <div className="vic-stat-pill">
+              <span className="vic-stat-val">{moves}</span>
+              <span className="vic-stat-lbl">Moves</span>
+            </div>
+          )}
+          {score !== undefined && (
+            <div className="vic-stat-pill">
+              <span className="vic-stat-val">{score}</span>
+              <span className="vic-stat-lbl">Score</span>
+            </div>
+          )}
+        </div>
+
+        {/* The Duolingo Flame Streak Card */}
+        <div className="vic-streak-card">
+          <span className="vic-flame-icon" aria-hidden="true">🔥</span>
+          <div className="vic-streak-content">
+            <div className="vic-streak-title">
+              <span>{streak}-DAY STREAK!</span>
+              <span style={{ fontSize: "0.75rem", background: "rgba(0,0,0,0.4)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>
+                {multiplier}x XP
+              </span>
+            </div>
+            <div className="vic-streak-sub">
+              {streak === 1
+                ? "First win locked in! Play tomorrow to reach Day 2."
+                : `Streak active! Keep the fire burning in ${formatCountdown(msLeft)}.`}
+            </div>
+            {usedFreeze && (
+              <div className="vic-freeze-tag">
+                <span>🧊</span> Streak Freeze saved your streak!
+              </div>
+            )}
+            {freezes > 0 && !usedFreeze && (
+              <div className="vic-freeze-tag">
+                <span>🧊</span> {freezes} Streak Freeze Protected
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Clinking Loot & XP Rewards */}
+        <div className="vic-rewards-row">
+          <div className="vic-reward-item">
+            <span className="vic-reward-icon">🪙</span>
+            <div>
+              <div className="vic-reward-val">+{isDaily ? 50 : 25} COINS</div>
+              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Loot Earned</div>
+            </div>
+          </div>
+          <div className="vic-reward-item">
+            <span className="vic-reward-icon">⭐</span>
+            <div>
+              <div className="vic-reward-val">+{Math.round((isDaily ? 100 : 50) * multiplier)} XP</div>
+              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Level {lvl.level} ({levelPercent}%)</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Daily Quests Mini Progress */}
+        {questsSummary && (
+          <div className="vic-quests-card">
+            <div className="vic-quests-head">
+              <span>Daily Quests ({questsSummary.quests.filter((q) => q.done).length}/3)</span>
+              <span style={{ color: "#fbbf24" }}>Vault: +100 🪙</span>
+            </div>
+            <div className="vic-quests-row">
+              {questsSummary.quests.map((q) => (
+                <div key={q.id} className="vic-quest-mini">
+                  <div className="vic-quest-mini-top">
+                    <span>{q.icon}</span>
+                    <span style={{ fontWeight: 700, color: q.done ? "#22c55e" : "#94a3b8" }}>
+                      {q.done ? "✓" : `${q.current}/${q.target}`}
+                    </span>
+                  </div>
+                  <div className="vic-quest-bar">
+                    <div
+                      className={`vic-quest-fill ${q.done ? "done" : ""}`}
+                      style={{ width: `${Math.min(100, (q.current / q.target) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Mobile PWA / Bookmark Retention Hook */}
+        {showPwaPrompt && (
+          <div className="vic-pwa-card">
+            <span style={{ fontSize: "1.4rem" }}>📲</span>
+            <div className="vic-pwa-content">
+              <div className="vic-pwa-title">Add to Home Screen</div>
+              <div className="vic-pwa-sub">1-tap daily card challenges &amp; never lose your streak.</div>
+            </div>
+            <button
+              type="button"
+              className="vic-pwa-btn"
+              onClick={() => {
+                click();
+                buzz("tap");
+                dismissPwa();
+                alert("To install: Tap the browser Share button (⎋) below and select 'Add to Home Screen'!");
+              }}
+            >
+              How to Add
+            </button>
+          </div>
+        )}
+
+        {/* Main Action Buttons */}
+        <div className="vic-actions">
+          <button
+            type="button"
+            className="vic-btn-deal"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onDealAgain();
+            }}
+            autoFocus
+          >
+            PLAY NEXT DEAL 🃏
+          </button>
+
+          <button
+            type="button"
+            className="vic-btn-share"
+            onClick={handleShare}
+          >
+            <span>🔥</span> {copied ? "COPIED TO CLIPBOARD! ✓" : "SHARE SCORE CARD"}
+          </button>
+
+          <div className="vic-sub-actions">
+            {onChallengeFriend && (
+              <button
+                type="button"
+                className="vic-btn-sub"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onChallengeFriend();
+                }}
+              >
+                🏆 Challenge Friend
+              </button>
+            )}
+            {onHeist && (
+              <button
+                type="button"
+                className="vic-btn-sub"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onHeist();
+                }}
+              >
+                Multiplayer Heist
+              </button>
+            )}
+            <button
+              type="button"
+              className="vic-btn-sub"
+              onClick={() => {
+                click();
+                buzz("tap");
+                onExit();
+              }}
+            >
+              Lobby
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}

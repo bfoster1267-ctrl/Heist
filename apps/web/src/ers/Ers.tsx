@@ -17,6 +17,7 @@ import { buzz } from "../haptics";
 import { card as cardSound, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
+import { VictoryModal } from "../arcade/VictoryModal";
 import { ErsMultiplayer } from "./ErsMultiplayer";
 import "./ers.css";
 
@@ -587,15 +588,15 @@ export function Ers({
         <WinCascade from={() => ({ x: window.innerWidth / 2 - 45, y: window.innerHeight / 2 - 64 })} cw={90} ch={128} />
       )}
 
-      {/* Game Over / Victory Overlay */}
-      {done && state && state.winner !== null && (
+      {/* Game Over Defeat Overlay */}
+      {done && state && state.winner === 1 && (
         <div className="ers-rules-overlay" onClick={() => {}}>
           <div className="ers-rules-card" style={{ textAlign: "center", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
-            <div className="ers-rules-title" style={{ fontSize: 26, color: state.winner === 0 ? "#ffd700" : "#ff5555" }}>
-              {state.winner === 0 ? "🏆 VICTORY! 🏆" : "DEFEAT"}
+            <div className="ers-rules-title" style={{ fontSize: 26, color: "#ff5555" }}>
+              DEFEAT
             </div>
             <p style={{ margin: "12px 0 16px", color: "#ccc", fontSize: 14 }}>
-              {state.winner === 0 ? "You swept the entire deck and bested Viper!" : "Viper swept the deck. Better luck next deal!"}
+              Viper swept the deck. Better luck next deal!
             </p>
             <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 20, color: "#fff", fontSize: 16 }}>
               <span><b>{moves.length}</b> moves</span>
@@ -611,42 +612,6 @@ export function Ers({
               >
                 PLAY AGAIN
               </button>
-              {state.winner === 0 && (
-                <button
-                  type="button"
-                  className="ers-rules-close-btn"
-                  onClick={() => {
-                    click();
-                    buzz("tap");
-                    setChallengeOpen(true);
-                  }}
-                  style={{ background: "#2a2d34", color: "#fff" }}
-                >
-                  🏆 CHALLENGE A FRIEND
-                </button>
-              )}
-              {state.winner === 0 && isDaily && (
-                <button
-                  type="button"
-                  className="ers-rules-close-btn"
-                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", color: "#fff", border: "none" }}
-                  onClick={async () => {
-                    click();
-                    buzz("tap");
-                    await shareDailyResult({
-                      game: "ers",
-                      gameTitle: "Egyptian Rat Screw",
-                      won: true,
-                      time: clock,
-                      moves: moves.length,
-                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
-                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
-                    });
-                  }}
-                >
-                  🔥 SHARE DAILY CARD
-                </button>
-              )}
               <button
                 type="button"
                 className="ers-rules-close-btn"
@@ -662,6 +627,22 @@ export function Ers({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Victory Celebration Modal */}
+      {done && state && state.winner === 0 && (
+        <VictoryModal
+          game="ers"
+          gameTitle="Egyptian Rat Screw"
+          moves={moves.length}
+          time={clock}
+          isDaily={isDaily}
+          progress={me?.progress}
+          onDealAgain={() => void deal()}
+          onChallengeFriend={() => setChallengeOpen(true)}
+          onExit={() => onExit()}
+          onHeist={onHeist ? () => onHeist() : undefined}
+        />
       )}
 
       <AnimatePresence>

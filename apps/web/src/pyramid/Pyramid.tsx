@@ -16,6 +16,7 @@ import { card as cardSound, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
+import { VictoryModal } from "../arcade/VictoryModal";
 import "./pyramid.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -628,57 +629,17 @@ export function Pyramid({
 
       {/* Win Celebration */}
       {done && (
-        <motion.div
-          className="pyr-win"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="pyr-win-card">
-            <div className="pyr-win-title">CLEARED!</div>
-            <div className="pyr-win-sub">
-              You dismantled the entire pyramid in <b>{moves.length} moves</b> and <b>{timeStr}</b>.
-            </div>
-            <button className="pyr-win-btn" onClick={() => { cardSound(); buzz("tap"); void deal(); }}>
-              PLAY AGAIN
-            </button>
-            <button
-              className="pyr-win-btn"
-              style={{ marginTop: 8 }}
-              onClick={() => {
-                click();
-                buzz("tap");
-                setChallengeOpen(true);
-              }}
-            >
-              🏆 CHALLENGE A FRIEND
-            </button>
-            {isDaily && (
-              <button
-                className="pyr-win-btn"
-                style={{ marginTop: 8, background: "linear-gradient(135deg, #ff8c00, #ff4500)", border: "none" }}
-                onClick={async () => {
-                  click();
-                  buzz("tap");
-                  await shareDailyResult({
-                    game: "pyramid",
-                    gameTitle: "Pyramid Solitaire",
-                    won: true,
-                    time: timeStr,
-                    moves: moves.length,
-                    streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
-                    multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
-                  });
-                }}
-              >
-                🔥 SHARE DAILY CARD
-              </button>
-            )}
-            <button className="pyr-win-btn secondary" style={{ marginTop: 8 }} onClick={() => { click(); buzz("tap"); onExit(); }}>
-              LOBBY
-            </button>
-          </div>
-        </motion.div>
+        <VictoryModal
+          game="pyramid"
+          gameTitle="Pyramid Solitaire"
+          moves={moves.length}
+          time={timeStr}
+          isDaily={isDaily}
+          progress={me?.progress}
+          onDealAgain={() => { cardSound(); buzz("tap"); void deal(); }}
+          onChallengeFriend={() => setChallengeOpen(true)}
+          onExit={() => onExit()}
+        />
       )}
 
       <AnimatePresence>

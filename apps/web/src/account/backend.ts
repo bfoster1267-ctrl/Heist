@@ -5,7 +5,7 @@
 
 import {
   easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
-  botLevelsFor, soloRivals, stage, summarize, upgrade, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 import { deviceId } from "../device";
@@ -202,6 +202,8 @@ export interface Backend {
   prestige(): Promise<{ me: Me; coins: number; unlocked: string[] }>;
   refill(): Promise<Me>;
   daily(): Promise<{ me: Me; chips: number }>;
+  buyStreakFreeze(): Promise<Me>;
+  claimDailyVault(): Promise<{ me: Me; coins: number; xp: number }>;
   drink(id: string, count: number): Promise<Me>;
   rename(name: string): Promise<Me>;
   /** email accounts on the server only */
@@ -628,6 +630,20 @@ export class BrowserBackend implements Backend {
     this.write();
     return { me: this.view(), chips: r.chips };
   }
+  async buyStreakFreeze(): Promise<Me> {
+    const r = buyStreakFreeze(this.save.progress);
+    if (!r.success) throw new BackendError(r.error || "Cannot buy streak freeze");
+    this.save.progress = r.progress;
+    this.write();
+    return this.view();
+  }
+  async claimDailyVault(): Promise<{ me: Me; coins: number; xp: number }> {
+    const r = claimDailyVault(this.save.progress);
+    if (!r.success) throw new BackendError("Daily vault not ready or already claimed");
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), coins: r.coins, xp: r.xp };
+  }
   async drink(id: string, count: number) {
     return this.apply(payForDrink(this.save.progress, id, count));
   }
@@ -878,6 +894,12 @@ export class ServerBackend implements Backend {
   }
   daily() {
     return this.call<{ me: Me; chips: number }>("/api/chips/daily", {});
+  }
+  buyStreakFreeze() {
+    return this.call<Me>("/api/daily/freeze", {});
+  }
+  claimDailyVault() {
+    return this.call<{ me: Me; coins: number; xp: number }>("/api/daily/vault", {});
   }
   drink(id: string, count: number) {
     return this.call<Me>("/api/solo/drink", { id, count });

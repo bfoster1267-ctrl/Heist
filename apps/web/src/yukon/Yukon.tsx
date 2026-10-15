@@ -16,6 +16,7 @@ import { card as cardSound, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
+import { VictoryModal } from "../arcade/VictoryModal";
 import "./yukon.css";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
@@ -724,57 +725,17 @@ export function Yukon({
 
       {/* Win Celebration */}
       {done && (
-        <motion.div
-          className="yk-win"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4 }}
-        >
-          <div className="yk-win-card">
-            <div className="yk-win-title">SOLVED!</div>
-            <div className="yk-win-sub">
-              You cleared all 4 foundations in <b>{moves.length} moves</b> and <b>{timeStr}</b>.
-            </div>
-            <button className="yk-win-btn" onClick={() => { cardSound(); buzz("tap"); void deal(); }}>
-              PLAY AGAIN
-            </button>
-            <button
-              className="yk-win-btn"
-              style={{ marginTop: 8 }}
-              onClick={() => {
-                click();
-                buzz("tap");
-                setChallengeOpen(true);
-              }}
-            >
-              🏆 CHALLENGE A FRIEND
-            </button>
-            {isDaily && (
-              <button
-                className="yk-win-btn"
-                style={{ marginTop: 8, background: "linear-gradient(135deg, #ff8c00, #ff4500)", border: "none" }}
-                onClick={async () => {
-                  click();
-                  buzz("tap");
-                  await shareDailyResult({
-                    game: "yukon",
-                    gameTitle: "Yukon Solitaire",
-                    won: true,
-                    time: timeStr,
-                    moves: moves.length,
-                    streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
-                    multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
-                  });
-                }}
-              >
-                🔥 SHARE DAILY CARD
-              </button>
-            )}
-            <button className="yk-win-btn secondary" style={{ marginTop: 8 }} onClick={() => { click(); buzz("tap"); onExit(); }}>
-              LOBBY
-            </button>
-          </div>
-        </motion.div>
+        <VictoryModal
+          game="yukon"
+          gameTitle="Yukon Solitaire"
+          moves={moves.length}
+          time={timeStr}
+          isDaily={isDaily}
+          progress={me?.progress}
+          onDealAgain={() => { cardSound(); buzz("tap"); void deal(); }}
+          onChallengeFriend={() => setChallengeOpen(true)}
+          onExit={() => onExit()}
+        />
       )}
 
       <AnimatePresence>

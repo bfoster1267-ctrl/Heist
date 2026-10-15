@@ -25,6 +25,10 @@ export function isDailyGame(game: string): game is DailyGame {
 export const DAILY_BASE_BONUS_XP = 50;
 /** Base bonus coins awarded for first completion of a daily challenge. */
 export const DAILY_BASE_BONUS_COINS = 15;
+/** Cost in Gold Coins to equip one Streak Freeze protection item (Duolingo model). */
+export const STREAK_FREEZE_COST = 200;
+/** Maximum number of streak freezes a player can hold simultaneously. */
+export const MAX_STREAK_FREEZES = 2;
 
 export interface StreakMilestone {
   streak: number;
@@ -65,7 +69,8 @@ export function getStreakMultiplier(streak: number): number {
 /**
  * Returns the player's active daily streak.
  * If the player played yesterday or today (UTC), streak is active.
- * If more than 1 day has passed without completing a daily challenge, streak has reset to 0.
+ * If the player missed 1 day (diff === 2) and has an active Streak Freeze, streak is protected!
+ * If more days have passed without completing a daily challenge, streak has reset to 0.
  */
 export function getDailyStreak(progress?: Progress | null, timestamp?: number | Date): number {
   if (!progress?.daily) return 0;
@@ -79,7 +84,11 @@ export function getDailyStreak(progress?: Progress | null, timestamp?: number | 
   if (diff === 0 || diff === 1) {
     return current;
   }
-  // Missed at least 1 full day
+  // Missed exactly 1 day (diff === 2), but protected by a streak freeze!
+  if (diff === 2 && (progress.daily.freezes ?? 0) > 0) {
+    return current;
+  }
+  // Missed without freeze
   return 0;
 }
 
@@ -295,6 +304,13 @@ export interface DailyStreakState {
   lastDate: string | null;
 }
 
+export interface DailyQuestData {
+  moves: number;
+  xp: number;
+  challengeDone: boolean;
+  vaultClaimed: boolean;
+}
+
 export interface DailyProgress {
   /** Global consecutive days played streak */
   current: number;
@@ -310,6 +326,12 @@ export interface DailyProgress {
   completed: Record<string, boolean>;
   /** Map of "YYYY-MM-DD" to list of games completed */
   completedDays: Record<string, string[]>;
+  /** Equippable streak freezes (Duolingo style) preventing streak loss on missed days */
+  freezes?: number;
+  /** Log of UTC dates when a freeze was consumed */
+  usedFreezeDates?: string[];
+  /** Daily quest tracking per date */
+  quests?: Record<string, DailyQuestData>;
 }
 
 export function newDailyProgress(): DailyProgress {
@@ -321,6 +343,9 @@ export function newDailyProgress(): DailyProgress {
     byGame: {},
     completed: {},
     completedDays: {},
+    freezes: 0,
+    usedFreezeDates: [],
+    quests: {},
   };
 }
 
@@ -338,11 +363,13 @@ export interface DailyCompletionResult {
   alreadyCompletedToday: boolean;
   gameAlreadyCompleted: boolean;
   challenge: DailyChallenge;
+  usedFreeze?: boolean;
 }
 
 /**
  * Records a daily challenge completion for a given game on dateStr (UTC YYYY-MM-DD).
  * Updates global and per-game streak, longest streak, applies streak multipliers and milestone bonuses.
+ * Automatically consumes an equipped Streak Freeze if exactly 1 day was missed.
  */
 export function recordDailyCompletion(
   prev: Progress,
@@ -364,6 +391,7 @@ export function recordDailyCompletion(
 
   let currentStreak = p.daily.current ?? p.daily.streak?.current ?? 0;
   let longestStreak = p.daily.longest ?? p.daily.streak?.longest ?? 0;
+  let usedFreeze = false;
 
   // Advance global streak if this is the first challenge completed on `today`
   if (!alreadyCompletedToday) {
@@ -375,8 +403,14 @@ export function recordDailyCompletion(
       if (diff === 1) {
         // Consecutive calendar day
         currentStreak += 1;
+      } else if (diff === 2 && (p.daily.freezes ?? 0) > 0) {
+        // Missed yesterday, but protected by Streak Freeze!
+        p.daily.freezes = (p.daily.freezes ?? 1) - 1;
+        p.daily.usedFreezeDates = [...(p.daily.usedFreezeDates ?? []), today];
+        usedFreeze = true;
+        currentStreak += 1;
       } else if (diff > 1 || diff < 0) {
-        // Missed day(s) or clocks went backwards: streak broken
+        // Missed day(s) without freeze: streak broken
         currentStreak = 1;
       }
     }
@@ -395,6 +429,8 @@ export function recordDailyCompletion(
     } else {
       const diff = daysBetween(gameStreakState.lastDate, today);
       if (diff === 1) {
+        gameCurrent += 1;
+      } else if (diff === 2 && usedFreeze) {
         gameCurrent += 1;
       } else if (diff > 1 || diff < 0) {
         gameCurrent = 1;
@@ -456,7 +492,153 @@ export function recordDailyCompletion(
     alreadyCompletedToday,
     gameAlreadyCompleted,
     challenge,
+    usedFreeze,
   };
 
   return result;
+}
+
+/**
+ * Buys and equips a Streak Freeze with Gold Coins.
+ */
+export function buyStreakFreeze(progress: Progress): { progress: Progress; success: boolean; error?: string } {
+  const p: Progress = structuredClone(progress);
+  if (!p.daily) p.daily = newDailyProgress();
+  const currentFreezes = p.daily.freezes ?? 0;
+  if (currentFreezes >= MAX_STREAK_FREEZES) {
+    return { progress: p, success: false, error: "Maximum 2 Streak Freezes already equipped." };
+  }
+  if (p.coins < STREAK_FREEZE_COST) {
+    return { progress: p, success: false, error: `Need ${STREAK_FREEZE_COST} Coins (you have ${p.coins}).` };
+  }
+  p.coins -= STREAK_FREEZE_COST;
+  p.daily.freezes = currentFreezes + 1;
+  return { progress: p, success: true };
+}
+
+// ---- Daily Quest Trio & Loot Vault -------------------------------------------------------------
+
+export interface DailyQuestStatus {
+  id: "moves" | "xp" | "daily";
+  title: string;
+  desc: string;
+  icon: string;
+  target: number;
+  current: number;
+  done: boolean;
+  rewardCoins: number;
+  rewardXp: number;
+}
+
+export interface DailyQuestSummary {
+  date: string;
+  quests: DailyQuestStatus[];
+  allCompleted: boolean;
+  vaultClaimed: boolean;
+  vaultCoins: number;
+  vaultXp: number;
+}
+
+export const DAILY_VAULT_COINS = 100;
+export const DAILY_VAULT_XP = 250;
+
+/**
+ * Returns today's active 3 daily micro-quests and completion status.
+ */
+export function getDailyQuests(progress?: Progress | null, dateStr?: string): DailyQuestSummary {
+  const today = dateStr ?? todayUtc();
+  const qData = progress?.daily?.quests?.[today] ?? { moves: 0, xp: 0, challengeDone: false, vaultClaimed: false };
+  const hasDailyDone = qData.challengeDone || Boolean(progress?.daily?.completedDays?.[today]?.length);
+
+  const quests: DailyQuestStatus[] = [
+    {
+      id: "moves",
+      title: "Tactical Execution",
+      desc: "Make 30 card moves in any game",
+      icon: "⚡",
+      target: 30,
+      current: Math.min(30, qData.moves),
+      done: qData.moves >= 30,
+      rewardCoins: 25,
+      rewardXp: 50,
+    },
+    {
+      id: "xp",
+      title: "Heist Operative",
+      desc: "Earn 200 XP across solo or table games",
+      icon: "💎",
+      target: 200,
+      current: Math.min(200, qData.xp),
+      done: qData.xp >= 200,
+      rewardCoins: 35,
+      rewardXp: 100,
+    },
+    {
+      id: "daily",
+      title: "Daily Specialist",
+      desc: "Complete today's featured daily challenge deal",
+      icon: "👑",
+      target: 1,
+      current: hasDailyDone ? 1 : 0,
+      done: hasDailyDone,
+      rewardCoins: 50,
+      rewardXp: 150,
+    },
+  ];
+
+  const allCompleted = quests.every((q) => q.done);
+  return {
+    date: today,
+    quests,
+    allCompleted,
+    vaultClaimed: Boolean(qData.vaultClaimed),
+    vaultCoins: DAILY_VAULT_COINS,
+    vaultXp: DAILY_VAULT_XP,
+  };
+}
+
+/**
+ * Records player moves or XP towards today's daily quest goals.
+ */
+export function recordQuestActivity(
+  prev: Progress,
+  activity: { moves?: number; xp?: number; challengeDone?: boolean },
+  dateStr?: string
+): Progress {
+  const p: Progress = structuredClone(prev);
+  if (!p.daily) p.daily = newDailyProgress();
+  if (!p.daily.quests) p.daily.quests = {};
+  const today = dateStr ?? todayUtc();
+  const existing = p.daily.quests[today] ?? { moves: 0, xp: 0, challengeDone: false, vaultClaimed: false };
+
+  p.daily.quests[today] = {
+    moves: existing.moves + (activity.moves ?? 0),
+    xp: existing.xp + (activity.xp ?? 0),
+    challengeDone: existing.challengeDone || Boolean(activity.challengeDone),
+    vaultClaimed: existing.vaultClaimed,
+  };
+  return p;
+}
+
+/**
+ * Cracks open and claims the Daily Loot Safe once all 3 quests are complete.
+ */
+export function claimDailyVault(
+  prev: Progress,
+  dateStr?: string
+): { progress: Progress; success: boolean; coins: number; xp: number } {
+  const p: Progress = structuredClone(prev);
+  const today = dateStr ?? todayUtc();
+  const summary = getDailyQuests(p, today);
+  if (!summary.allCompleted || summary.vaultClaimed) {
+    return { progress: p, success: false, coins: 0, xp: 0 };
+  }
+  if (!p.daily) p.daily = newDailyProgress();
+  if (!p.daily.quests) p.daily.quests = {};
+  const existing = p.daily.quests[today] ?? { moves: 0, xp: 0, challengeDone: false, vaultClaimed: false };
+  existing.vaultClaimed = true;
+  p.daily.quests[today] = existing;
+  p.coins += DAILY_VAULT_COINS;
+  p.xp += DAILY_VAULT_XP;
+  return { progress: p, success: true, coins: DAILY_VAULT_COINS, xp: DAILY_VAULT_XP };
 }

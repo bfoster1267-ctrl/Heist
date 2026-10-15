@@ -16,6 +16,7 @@ import { reducedMotion } from "../prefs";
 import { card as cardSound, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
+import { VictoryModal } from "../arcade/VictoryModal";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./scoundrel.css";
 
@@ -615,89 +616,20 @@ export function Scoundrel({
         </motion.div>
       )}
 
-      {/* Victory Screen */}
+      {/* Victory Modal */}
       {k?.escaped && !k.dead && (
-        <motion.div
-          className="sc-modal-wrap"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div className="sc-result-card">
-            <div className="sc-result-title">DUNGEON ESCAPED!</div>
-            <div className="sc-result-sub">
-              You survived the entire dungeon! Final score: <b>{k.hp} HP remaining</b>.
-            </div>
-            <div className="sc-result-btns">
-              {onHeist && (
-                <button
-                  className="sc-result-btn"
-                  onClick={() => {
-                    click();
-                    buzz("tap");
-                    onHeist();
-                  }}
-                  aria-label="Play Heist"
-                >
-                  HEIST
-                </button>
-              )}
-              <button
-                className="sc-result-btn secondary"
-                onClick={() => {
-                  cardSound();
-                  buzz("tap");
-                  void deal();
-                }}
-                aria-label="Enter dungeon again"
-              >
-                ENTER AGAIN
-              </button>
-              <button
-                className="sc-result-btn secondary"
-                onClick={() => {
-                  click();
-                  buzz("tap");
-                  setChallengeOpen(true);
-                }}
-                aria-label="Challenge a friend"
-              >
-                🏆 CHALLENGE A FRIEND
-              </button>
-              {isDaily && (
-                <button
-                  className="sc-result-btn"
-                  style={{ background: "linear-gradient(135deg, #ff8c00, #ff4500)", border: "none" }}
-                  onClick={async () => {
-                    click();
-                    buzz("tap");
-                    await shareDailyResult({
-                      game: "scoundrel",
-                      gameTitle: "Scoundrel",
-                      won: true,
-                      score: k.hp,
-                      streak: me ? getDailyStreak(me.progress, Date.now()) : 1,
-                      multiplier: me ? getStreakMultiplier(getDailyStreak(me.progress, Date.now())) : 1.0,
-                    });
-                  }}
-                  aria-label="Share daily challenge result"
-                >
-                  🔥 SHARE DAILY CARD
-                </button>
-              )}
-              <button
-                className="sc-result-btn secondary"
-                onClick={() => {
-                  click();
-                  buzz("tap");
-                  onExit();
-                }}
-                aria-label="Back to Lobby"
-              >
-                LOBBY
-              </button>
-            </div>
-          </div>
-        </motion.div>
+        <VictoryModal
+          game="scoundrel"
+          gameTitle="Scoundrel"
+          moves={moves.length}
+          score={k.hp}
+          isDaily={isDaily}
+          progress={me?.progress}
+          onDealAgain={() => void deal()}
+          onChallengeFriend={() => setChallengeOpen(true)}
+          onExit={() => onExit()}
+          onHeist={onHeist ? () => onHeist() : undefined}
+        />
       )}
 
       <AnimatePresence>
