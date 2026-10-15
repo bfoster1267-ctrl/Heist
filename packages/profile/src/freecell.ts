@@ -357,10 +357,13 @@ export function findFcHint(state: FreeCellState): FcHint {
       const seq = col.slice(col.length - depth);
       if (!isOrderedSequence(seq)) continue;
       const m = tapMoveFc(state, `t${i}`, depth);
-      if (m && !m.includes(">c")) {
-        const destIdx = Number(m.split(">")[1][1]);
-        if (state.cols[destIdx].length > 0 || depth < col.length) {
-          return { pile: `t${i}`, depth };
+      if (m) {
+        const tabMatch = /^t\d+>t(\d+)/.exec(m);
+        if (tabMatch) {
+          const destIdx = Number(tabMatch[1]);
+          if (state.cols[destIdx].length > 0 || depth < col.length) {
+            return { pile: `t${i}`, depth };
+          }
         }
       }
     }

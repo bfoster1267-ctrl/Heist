@@ -388,8 +388,10 @@ export function settleTriPeaks(
     { label: plural(gained.peaks, "peak cleared", "peaks cleared"), xp: gained.peaks * TP_XP.peak, coins: 0 },
     { label: "TriPeaks cleared", xp: gained.won ? TP_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
-  if (gained.maxStreak >= 10) lines.push({ label: "10-card combo streak", xp: TP_XP.streak10, coins: 0 });
-  else if (gained.maxStreak >= 5) lines.push({ label: "5-card combo streak", xp: TP_XP.streak5, coins: 0 });
+  const hasStreak10 = "streak10" in gained ? Boolean((gained as any).streak10) : gained.maxStreak >= 10;
+  const hasStreak5 = "streak5" in gained ? Boolean((gained as any).streak5) : gained.maxStreak >= 5;
+  if (hasStreak10) lines.push({ label: "10-card combo streak", xp: TP_XP.streak10, coins: 0 });
+  if (hasStreak5) lines.push({ label: "5-card combo streak", xp: TP_XP.streak5, coins: 0 });
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, pay));

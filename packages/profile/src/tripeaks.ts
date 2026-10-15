@@ -245,23 +245,37 @@ export function tallyTpXp(t: TpTally) {
   return xp;
 }
 
+export interface TpGainGained {
+  cleared: number;
+  maxStreak: number;
+  peaks: number;
+  won: boolean;
+  streak5: boolean;
+  streak10: boolean;
+}
+
 export function tpGain(paid: TpTally | undefined, t: TpTally) {
   const p = paid ?? { cleared: 0, maxStreak: 0, peaks: 0, won: false };
-  const gained = {
+  const streak5 = p.maxStreak < 5 && t.maxStreak >= 5;
+  const streak10 = p.maxStreak < 10 && t.maxStreak >= 10;
+  const gained: TpGainGained = {
     cleared: Math.max(0, t.cleared - p.cleared),
-    maxStreak: Math.max(0, t.maxStreak - p.maxStreak),
+    maxStreak: streak10 ? 10 : streak5 ? 5 : 0,
     peaks: Math.max(0, t.peaks - p.peaks),
     won: t.won && !p.won,
+    streak5,
+    streak10,
+  };
+  const paidTally: TpTally = {
+    cleared: Math.max(t.cleared, p.cleared),
+    maxStreak: Math.max(t.maxStreak, p.maxStreak),
+    peaks: Math.max(t.peaks, p.peaks),
+    won: t.won || p.won,
   };
   return {
     gained,
-    paid: {
-      cleared: Math.max(t.cleared, p.cleared),
-      maxStreak: Math.max(t.maxStreak, p.maxStreak),
-      peaks: Math.max(t.peaks, p.peaks),
-      won: t.won || p.won,
-    },
-    any: tallyTpXp(gained) > 0,
+    paid: paidTally,
+    any: tallyTpXp(paidTally) > tallyTpXp(p),
   };
 }
 

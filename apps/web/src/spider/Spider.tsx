@@ -3,7 +3,7 @@
 // custom ivory card faces, oxblood backs, floating XP, queue timer banner, and win cascade.
 
 import {
-  applySpider, canMoveSpider, cardRank, cardRed, cardSuit, dealSpider,
+  applySpider, canDealSpider, canMoveSpider, cardRank, cardRed, cardSuit, dealSpider,
   isValidSpiderSequence, SPIDER_DAY_XP, spiderPay, spiderRoom,
   tallySpider, tallySpiderXp, type PlayingCard, type SpiderMove,
   type SpiderState, type SpiderSuitMode, type SpiderTally,
@@ -149,7 +149,7 @@ export function Spider({ onExit, onHeist, banner }: {
 
   // Stock deal
   const handleDealStock = useCallback(() => {
-    if (!k || k.won || k.stock.length < 10) return;
+    if (!k || !canDealSpider(k)) return;
     cardSound();
     buzz("tap");
     const next = applySpider(k, { kind: "deal" });
@@ -212,16 +212,15 @@ export function Spider({ onExit, onHeist, banner }: {
         if (to === colIdx) continue;
         if (canMoveSpider(k, colIdx, cardIdx, to)) {
           const dest = k.tableau[to];
-          // Prefer same suit target if available
+          // Only auto-move if there is a same suit target
           if (dest.length > 0 && cardSuit(dest[dest.length - 1].card) === cardSuit(item.card)) {
             targetCol = to;
             break;
           }
-          if (targetCol === null) targetCol = to;
         }
       }
 
-      // If smart move found, perform move immediately!
+      // If same-suit move found, perform move immediately!
       if (targetCol !== null) {
         cardSound();
         buzz("tap");
@@ -234,7 +233,7 @@ export function Spider({ onExit, onHeist, banner }: {
         return;
       }
 
-      // Otherwise select sequence
+      // Otherwise select sequence so user can explicitly choose destination
       buzz("tap");
       setSelected({ col: colIdx, cardIndex: cardIdx });
       setHint(null);

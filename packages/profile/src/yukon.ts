@@ -4,7 +4,7 @@
 
 import { cardRank, cardRed, cardSuit, type PlayingCard } from "./solitaire";
 
-export type { PlayingCard };
+export { cardRank, cardRed, cardSuit, type PlayingCard };
 
 export interface YukonColumn {
   down: PlayingCard[];
@@ -112,12 +112,12 @@ export function applyYukon(s: YukonState, move: string): YukonState {
     return next;
   }
 
-  // Move tableau cards: "t{c1}>t{c2}:{count}"
-  const mTab = /^t([0-6])>t([0-6]):(\d+)$/.exec(move);
+  // Move tableau cards: "t{c1}>t{c2}" or "t{c1}>t{c2}:{count}"
+  const mTab = /^t([0-6])>t([0-6])(?::(\d+))?$/.exec(move);
   if (mTab) {
     const from = Number(mTab[1]);
     const to = Number(mTab[2]);
-    const count = Number(mTab[3]);
+    const count = mTab[3] !== undefined ? Number(mTab[3]) : 1;
     if (from === to || count <= 0) return s;
     const colFrom = s.cols[from];
     const colTo = s.cols[to];

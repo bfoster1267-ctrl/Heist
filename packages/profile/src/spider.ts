@@ -119,13 +119,36 @@ export function isValidSpiderSequence(col: SpiderCard[], cardIndex: number): boo
   return true;
 }
 
+/** Remove all completed King-to-Ace runs from the end of a column, auto-flipping exposed cards */
+export function clearCompleteRuns(col: SpiderCard[]): number {
+  let cleared = 0;
+  while (true) {
+    const runIdx = findCompleteRun(col);
+    if (runIdx === null) break;
+    col.splice(runIdx, 13);
+    cleared++;
+    if (col.length > 0) {
+      col[col.length - 1].up = true;
+    }
+  }
+  return cleared;
+}
+
+/** Check if dealing 10 cards from stock is legal */
+export function canDealSpider(state: SpiderState, requireNoEmpty = false): boolean {
+  if (state.won || state.stock.length < 10) return false;
+  if (requireNoEmpty && state.tableau.some((c) => c.length === 0)) return false;
+  return true;
+}
+
 /**
  * Check if moving the sequence starting at cardIndex from fromCol to toCol is legal:
  * - The sequence on fromCol must be valid same-suit descending.
  * - If toCol is empty, any valid sequence is accepted.
- * - If toCol is not empty, top card of toCol must have rank = sequence start card rank + 1.
+ * - If toCol is not empty, top card of toCol must have rank = sequence start card rank + 1 and be face-up.
  */
 export function canMoveSpider(state: SpiderState, fromCol: number, cardIndex: number, toCol: number): boolean {
+  if (state.won) return false;
   if (fromCol === toCol) return false;
   if (fromCol < 0 || fromCol >= 10 || toCol < 0 || toCol >= 10) return false;
   const source = state.tableau[fromCol];
@@ -136,8 +159,9 @@ export function canMoveSpider(state: SpiderState, fromCol: number, cardIndex: nu
   const movingTop = source[cardIndex].card;
   if (dest.length === 0) return true; // Empty column accepts any valid sequence
 
-  const targetCard = dest[dest.length - 1].card;
-  return cardRank(targetCard) === cardRank(movingTop) + 1;
+  const targetCard = dest[dest.length - 1];
+  if (!targetCard.up) return false;
+  return cardRank(targetCard.card) === cardRank(movingTop) + 1;
 }
 
 /** Check if a cascade ends with a complete same-suit King down to Ace (13 cards) */
@@ -175,14 +199,7 @@ export function applySpider(state: SpiderState, move: SpiderMove): SpiderState {
     // Check if any completed runs were formed by the deal
     let nextCompleted = state.completed;
     for (let c = 0; c < 10; c++) {
-      const runIdx = findCompleteRun(nextTableau[c]);
-      if (runIdx !== null) {
-        nextTableau[c].splice(runIdx, 13);
-        nextCompleted++;
-        if (nextTableau[c].length > 0) {
-          nextTableau[c][nextTableau[c].length - 1].up = true;
-        }
-      }
+      nextCompleted += clearCompleteRuns(nextTableau[c]);
     }
 
     return {
@@ -190,7 +207,7 @@ export function applySpider(state: SpiderState, move: SpiderMove): SpiderState {
       tableau: nextTableau,
       stock: nextStock,
       completed: nextCompleted,
-      won: nextCompleted === 8,
+      won: nextCompleted >= 8,
     };
   }
 
@@ -207,22 +224,16 @@ export function applySpider(state: SpiderState, move: SpiderMove): SpiderState {
       nextTableau[fromCol][nextTableau[fromCol].length - 1].up = true;
     }
 
-    // Check if target column now has a completed King->Ace run
+    // Check if target column or source column now has completed King->Ace runs
     let nextCompleted = state.completed;
-    const runIdx = findCompleteRun(nextTableau[toCol]);
-    if (runIdx !== null) {
-      nextTableau[toCol].splice(runIdx, 13);
-      nextCompleted++;
-      if (nextTableau[toCol].length > 0) {
-        nextTableau[toCol][nextTableau[toCol].length - 1].up = true;
-      }
-    }
+    nextCompleted += clearCompleteRuns(nextTableau[toCol]);
+    nextCompleted += clearCompleteRuns(nextTableau[fromCol]);
 
     return {
       ...state,
       tableau: nextTableau,
       completed: nextCompleted,
-      won: nextCompleted === 8,
+      won: nextCompleted >= 8,
     };
   }
 

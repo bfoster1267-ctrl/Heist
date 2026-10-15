@@ -42,7 +42,8 @@ function useBoard() {
   const gap = Math.max(3, Math.round(width * 0.012));
   const cw = Math.floor((width - gap * 8) / 7.2);
   const ch = Math.round(cw * 1.4);
-  const rowH = Math.min(Math.round(ch * 0.44), Math.floor((size.h - 220) / 7));
+  const maxRowH = Math.max(16, Math.floor((size.h - 140 - 2 * ch) / 6));
+  const rowH = Math.min(Math.round(ch * 0.44), maxRowH);
   const boardLeft = Math.round((size.w - width) / 2) + gap;
   return { width, height: size.h, gap, cw, ch, rowH, left: boardLeft };
 }
@@ -474,7 +475,7 @@ export function Pyramid({ onExit, onHeist, banner }: {
 
             {/* Bottom Deck Zone: Stock & Waste */}
             {(() => {
-              const stockTop = 10 + 7 * b.rowH + 16;
+              const stockTop = 10 + 6 * b.rowH + b.ch + 16;
               const stockLeft = b.left + 2 * (b.cw + b.gap);
               const wasteLeft = b.left + 3.5 * (b.cw + b.gap);
 

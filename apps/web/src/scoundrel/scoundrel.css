@@ -591,3 +591,173 @@
 .sc-result-btn:active {
   transform: scale(0.96);
 }
+
+.sc-result-btns {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.sc-result-btn.secondary {
+  border-color: rgba(231, 181, 60, 0.4);
+  background: rgba(28, 31, 38, 0.95);
+  color: var(--gold);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+}
+
+/* Responsive adjustments for mobile screens */
+@media (max-width: 500px) {
+  .sc-bar {
+    top: 4px;
+    gap: 4px;
+  }
+
+  .sc-icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+  }
+
+  .sc-icon-btn.armed {
+    width: 50px;
+  }
+
+  .sc-hud {
+    height: 36px;
+  }
+
+  .sc-hud-name {
+    font-size: 13px;
+    letter-spacing: 2px;
+  }
+
+  .sc-hud-stats {
+    font-size: 11px;
+    letter-spacing: 0.2px;
+  }
+
+  .sc-status-panel {
+    margin-top: 48px;
+    gap: 8px;
+    width: min(100% - 16px, 640px);
+  }
+
+  .sc-hp-box {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .sc-hp-label {
+    font-size: 12px;
+    min-width: 70px;
+  }
+
+  .sc-hp-val {
+    font-size: 13px;
+    min-width: 44px;
+  }
+
+  .sc-equip-row {
+    gap: 8px;
+  }
+
+  .sc-weapon-box {
+    padding: 6px 10px;
+    gap: 8px;
+  }
+
+  .sc-weapon-title {
+    font-size: 12px;
+  }
+
+  .sc-weapon-sub {
+    font-size: 10px;
+  }
+
+  .sc-dungeon-count {
+    padding: 6px 12px;
+    font-size: 11px;
+  }
+
+  .sc-room-wrap {
+    margin-top: 12px;
+    gap: 10px;
+    width: min(100% - 16px, 640px);
+  }
+
+  .sc-room-header {
+    font-size: 12px;
+  }
+
+  .sc-cards-grid {
+    gap: 6px;
+  }
+
+  .sc-card {
+    padding: 4px;
+  }
+
+  .sc-card-badge {
+    font-size: 8.5px;
+    padding: 1px 4px;
+    top: -6px;
+    right: -4px;
+    letter-spacing: 0;
+  }
+
+  .sc-card-center {
+    font-size: 1.5em;
+  }
+
+  .sc-card-desc {
+    font-size: 9px;
+  }
+
+  .sc-card-rank {
+    font-size: 1em;
+  }
+
+  .sc-card-suit {
+    font-size: 0.8em;
+  }
+
+  .sc-actions-row {
+    margin-top: 12px;
+    width: min(100% - 16px, 640px);
+  }
+
+  .sc-action-btn {
+    padding: 8px 16px;
+    font-size: 12px;
+  }
+
+  .sc-choice-modal {
+    padding: 16px;
+    gap: 10px;
+  }
+
+  .sc-result-card {
+    padding: 20px 24px;
+  }
+
+  .sc-result-title {
+    font-size: 26px;
+    letter-spacing: 4px;
+  }
+}
+
+@media (max-width: 360px) {
+  .sc-card-center {
+    font-size: 1.25em;
+  }
+
+  .sc-card-desc {
+    font-size: 8px;
+  }
+
+  .sc-weapon-sub {
+    display: none;
+  }
+}

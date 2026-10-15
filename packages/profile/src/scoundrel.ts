@@ -151,8 +151,8 @@ export function applyScoundrel(state: ScoundrelState, move: ScoundrelMove): Scou
     } else if (kind === "weapon") {
       nextWeapon = { card, power: val };
     } else if (kind === "monster") {
-      nextMonsters++;
-      if (useWeapon && nextWeapon) {
+      if (useWeapon) {
+        if (!nextWeapon) return state;
         // Weapon durability check: can only attack monster if value <= lastDefeated (if any)
         if (nextWeapon.lastDefeated !== undefined && val > nextWeapon.lastDefeated) {
           // Cannot use weapon against a stronger monster than the last one defeated with this weapon
@@ -165,6 +165,7 @@ export function applyScoundrel(state: ScoundrelState, move: ScoundrelMove): Scou
         // Barehanded fight: take full damage
         nextHp -= val;
       }
+      nextMonsters++;
     }
 
     if (nextHp <= 0) {
@@ -224,6 +225,7 @@ export function applyScoundrel(state: ScoundrelState, move: ScoundrelMove): Scou
         potionUsedThisRoom: nextPotionUsed,
         cardsResolvedInRoom: resolved,
         monstersSlayed: nextMonsters,
+        roomsCleared: state.roomsCleared + 1,
         escaped: true,
         dead: false,
       };

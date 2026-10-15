@@ -25,6 +25,29 @@
 .yk-board {
   position: absolute;
   inset: env(safe-area-inset-top) 0 0 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(231, 181, 60, 0.3) transparent;
+}
+
+.yk-board::-webkit-scrollbar {
+  width: 6px;
+}
+
+.yk-board::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.yk-board::-webkit-scrollbar-thumb {
+  background: rgba(231, 181, 60, 0.3);
+  border-radius: 3px;
+}
+
+.yk-board::-webkit-scrollbar-thumb:hover {
+  background: rgba(231, 181, 60, 0.6);
 }
 
 .yk-bar {
@@ -147,6 +170,12 @@
   font-weight: 700;
   font-size: 13px;
   color: rgba(242, 232, 211, 0.25);
+}
+
+.yk-slot.hinted {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(231, 181, 60, 0.85);
+  animation: yk-hint 0.9s ease-in-out infinite;
 }
 
 /* cards */

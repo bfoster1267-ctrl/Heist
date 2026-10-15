@@ -136,7 +136,7 @@ export function applyErs(state: ErsState, move: ErsMove): ErsState {
         reason === "tens" ? "SUMS TO 10" : "TOP-BOTTOM";
 
       const nextTurn = who;
-      const winner = p0.length === 52 ? 0 : p1.length === 52 ? 1 : null;
+      const winner = p0.length === 0 ? 1 : p1.length === 0 ? 0 : null;
 
       return {
         p0,
@@ -154,13 +154,14 @@ export function applyErs(state: ErsState, move: ErsMove): ErsState {
         const burned = slapper.pop()!;
         pot.unshift(burned);
       }
+      const winner = p0.length === 0 && p1.length > 0 ? 1 : p1.length === 0 && p0.length > 0 ? 0 : null;
       return {
         p0,
         p1,
         pot,
         turn: state.turn,
         challenge: state.challenge,
-        winner: p0.length === 0 ? 1 : p1.length === 0 ? 0 : null,
+        winner,
         lastEvent: `${who === 0 ? "You" : "Bot"} false slapped! (-1 card)`,
       };
     }
@@ -169,7 +170,30 @@ export function applyErs(state: ErsState, move: ErsMove): ErsState {
   // Play card move: "play:0" or "play:1"
   const who = move === "play:0" ? 0 : 1;
   const pile = who === 0 ? p0 : p1;
-  if (pile.length === 0) return state;
+
+  // If player attempts to play but has no cards left
+  if (pile.length === 0) {
+    if (state.challenge !== null) {
+      const challenger = state.challenge.by;
+      const claimerPile = challenger === 0 ? p0 : p1;
+      claimerPile.unshift(...pot);
+      const winner = p0.length === 0 ? 1 : p1.length === 0 ? 0 : null;
+      return {
+        p0,
+        p1,
+        pot: [],
+        turn: challenger,
+        challenge: null,
+        winner,
+        lastEvent: `${challenger === 0 ? "You" : "Bot"} won the challenge! (+${pot.length} cards)`,
+      };
+    }
+    return {
+      ...state,
+      winner: who === 0 ? 1 : 0,
+      lastEvent: `${who === 0 ? "You" : "Bot"} has no cards left!`,
+    };
+  }
 
   const card = pile.pop()!;
   pot.push(card);
@@ -178,6 +202,23 @@ export function applyErs(state: ErsState, move: ErsMove): ErsState {
   // If a face card was played, it sets up a new challenge
   if (chances > 0) {
     const nextTurn = who === 0 ? 1 : 0;
+    const opponentPile = nextTurn === 0 ? p0 : p1;
+
+    // If opponent has no cards left to answer, challenger claims the pot immediately
+    if (opponentPile.length === 0) {
+      pile.unshift(...pot);
+      const winner = p0.length === 0 ? 1 : p1.length === 0 ? 0 : null;
+      return {
+        p0,
+        p1,
+        pot: [],
+        turn: who,
+        challenge: null,
+        winner,
+        lastEvent: `${who === 0 ? "You" : "Bot"} won the challenge! (+${pot.length} cards)`,
+      };
+    }
+
     return {
       p0,
       p1,
@@ -192,8 +233,8 @@ export function applyErs(state: ErsState, move: ErsMove): ErsState {
   // A number card was played during an active challenge
   if (state.challenge !== null) {
     const left = state.challenge.chances - 1;
-    if (left > 0) {
-      // Opponent still has remaining chances
+    if (left > 0 && pile.length > 0) {
+      // Opponent still has remaining chances and cards to play
       return {
         p0,
         p1,
@@ -204,12 +245,12 @@ export function applyErs(state: ErsState, move: ErsMove): ErsState {
         lastEvent: `${left} ${left === 1 ? "chance" : "chances"} left`,
       };
     } else {
-      // Challenge failed! Challenger claims the pot
+      // Challenge failed! (Chances ran out or player ran out of cards). Challenger claims the pot
       const challenger = state.challenge.by;
       const claimerPile = challenger === 0 ? p0 : p1;
       claimerPile.unshift(...pot);
 
-      const winner = p0.length === 52 ? 0 : p1.length === 52 ? 1 : null;
+      const winner = p0.length === 0 ? 1 : p1.length === 0 ? 0 : null;
       return {
         p0,
         p1,

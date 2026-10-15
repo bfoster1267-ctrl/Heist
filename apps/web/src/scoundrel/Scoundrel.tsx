@@ -42,7 +42,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
-  const [combatChoice, setCombatChoice] = useState<{ roomIndex: number; card: PlayingCard } | null>(null);
+  const [combatChoice, setCombatChoice] = useState<{ roomIndex: number; card: PlayingCard; pos: { x: number; y: number } } | null>(null);
   const board = useRef<HTMLDivElement>(null);
   const k = hist[hist.length - 1];
   const reduce = reducedMotion();
@@ -200,7 +200,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
     if (kind === "monster") {
       if (k.weapon) {
         // Prompt combat choice between weapon and barehanded
-        setCombatChoice({ roomIndex, card });
+        setCombatChoice({ roomIndex, card, pos });
       } else {
         // Barehanded fight
         cardSound();
@@ -343,9 +343,9 @@ export function Scoundrel({ onExit, onHeist, banner }: {
             {/* Dungeon Room Cards */}
             <div className="sc-room-wrap">
               <div className="sc-room-header">
-                <span>ROOM (PICK 3 CARDS):</span>
+                <span>{k.dungeon.length === 0 ? "ROOM (CLEAR ALL CARDS):" : "ROOM (PICK 3 CARDS):"}</span>
                 <span>
-                  Resolved: <b>{k.cardsResolvedInRoom} / 3</b>
+                  Resolved: <b>{k.cardsResolvedInRoom} / {k.dungeon.length === 0 ? k.room.filter((c) => c !== null).length + k.cardsResolvedInRoom : 3}</b>
                 </span>
               </div>
 
@@ -365,7 +365,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                   if (kind === "monster") badgeLabel = `MONSTER ${val}`;
                   else if (kind === "weapon") badgeLabel = `WEAPON ${val}`;
                   else if (kind === "potion") {
-                    badgeLabel = k.potionUsedThisRoom ? "POTION (EMPTY)" : `HEAL +${val}`;
+                    badgeLabel = k.potionUsedThisRoom ? "DISCARD" : `HEAL +${val}`;
                   }
 
                   return (
@@ -390,6 +390,8 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                             ? `ATK ${val}`
                             : kind === "weapon"
                             ? `PWR ${val}`
+                            : k.potionUsedThisRoom
+                            ? "DISCARD"
                             : `+${val} HP`}
                         </div>
                       </div>
@@ -404,12 +406,14 @@ export function Scoundrel({ onExit, onHeist, banner }: {
               <button
                 className="sc-action-btn flee"
                 onClick={onFlee}
-                disabled={!k.canFlee || k.cardsResolvedInRoom > 0 || k.dungeon.length === 0}
+                disabled={!k.canFlee || k.cardsResolvedInRoom > 0 || k.dungeon.length === 0 || k.room.filter((c) => c !== null).length < 4}
                 title={
                   !k.canFlee
                     ? "Cannot flee twice in a row"
                     : k.cardsResolvedInRoom > 0
                     ? "Can only flee before picking any cards"
+                    : k.dungeon.length === 0
+                    ? "Cannot flee when dungeon deck is empty"
                     : "Put 4 cards to bottom of dungeon & deal 4 fresh"
                 }
               >
@@ -443,11 +447,17 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                       className="sc-choice-btn primary"
                       disabled={!canUseWeapon}
                       onClick={() => {
-                        applyMove({
-                          kind: "pick",
-                          roomIndex: combatChoice.roomIndex,
-                          useWeapon: true,
-                        });
+                        cardSound();
+                        buzz("bump");
+                        applyMove(
+                          {
+                            kind: "pick",
+                            roomIndex: combatChoice.roomIndex,
+                            useWeapon: true,
+                          },
+                          combatChoice.pos,
+                          "Slayed!"
+                        );
                       }}
                     >
                       <span>USE WEAPON (PWR {weapon?.power})</span>
@@ -455,18 +465,24 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                     </button>
                     {!canUseWeapon && weapon && (
                       <small style={{ color: "#ff8a80", fontSize: "11px" }}>
-                        Weapon already hit monster with {weapon.lastDefeated} power.
+                        Weapon durability limit: can only fight monsters ≤ {weapon.lastDefeated}.
                       </small>
                     )}
 
                     <button
                       className="sc-choice-btn"
                       onClick={() => {
-                        applyMove({
-                          kind: "pick",
-                          roomIndex: combatChoice.roomIndex,
-                          useWeapon: false,
-                        });
+                        cardSound();
+                        buzz("bump");
+                        applyMove(
+                          {
+                            kind: "pick",
+                            roomIndex: combatChoice.roomIndex,
+                            useWeapon: false,
+                          },
+                          combatChoice.pos,
+                          "Barehanded"
+                        );
                       }}
                     >
                       <span>FIGHT BAREHANDED</span>
@@ -514,9 +530,16 @@ export function Scoundrel({ onExit, onHeist, banner }: {
               Slain in the dungeon. You defeated <b>{k.monstersSlayed} monsters</b> and cleared{" "}
               <b>{k.roomsCleared} rooms</b>.
             </div>
-            <button className="sc-result-btn" onClick={() => void deal()}>
-              TRY AGAIN
-            </button>
+            <div className="sc-result-btns">
+              {hist.length > 1 && (
+                <button className="sc-result-btn secondary" onClick={onUndo}>
+                  UNDO MOVE
+                </button>
+              )}
+              <button className="sc-result-btn" onClick={() => void deal()}>
+                TRY AGAIN
+              </button>
+            </div>
           </div>
         </motion.div>
       )}

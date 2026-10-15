@@ -200,35 +200,114 @@ export function Yukon({ onExit, onHeist, banner }: {
     }
   }, [k, moves, tally, game, done, act, showReward]);
 
+  const colTop = 10 + b.ch + 16;
+
+  // Auto-adjust spacing per column if a column grows tall
+  const colOffsets = useMemo(() => {
+    if (!k) return [];
+    const availableRoom = Math.max(220, b.height - (banner ? 96 : 56) - colTop - 40);
+    return k.cols.map((col) => {
+      let downH = Math.max(8, Math.round(b.ch * 0.16));
+      let upH = Math.max(16, Math.round(b.ch * 0.28));
+      const downCount = col.down.length;
+      const upCount = col.up.length;
+      const needed = downCount * downH + Math.max(0, upCount - 1) * upH + b.ch;
+      if (needed > availableRoom && downCount + upCount > 1) {
+        const minUpH = Math.max(14, Math.round(b.ch * 0.14));
+        const minDownH = Math.max(6, Math.round(b.ch * 0.08));
+
+        if (upCount > 1) {
+          const targetUpH = Math.floor((availableRoom - b.ch - downCount * downH) / (upCount - 1));
+          upH = Math.max(minUpH, Math.min(upH, targetUpH));
+        }
+
+        const stillNeeded = downCount * downH + Math.max(0, upCount - 1) * upH + b.ch;
+        if (stillNeeded > availableRoom && downCount > 0) {
+          const targetDownH = Math.floor((availableRoom - b.ch - Math.max(0, upCount - 1) * upH) / downCount);
+          downH = Math.max(minDownH, Math.min(downH, targetDownH));
+        }
+      }
+      return { downH, upH };
+    });
+  }, [k, b.height, b.ch, colTop, banner]);
+
+  const maxColBottom = useMemo(() => {
+    if (!k || !colOffsets.length) return colTop + b.ch + 40;
+    return k.cols.reduce((max, col, idx) => {
+      const off = colOffsets[idx] ?? { downH: b.downH, upH: b.upH };
+      const bottom = colTop + col.down.length * off.downH + Math.max(0, col.up.length - 1) * off.upH + b.ch + 40;
+      return Math.max(max, bottom);
+    }, colTop + b.ch + 40);
+  }, [k, colOffsets, colTop, b.ch, b.downH, b.upH]);
+
+  const getValidTableauDestinations = useCallback(
+    (s: YukonState, fromCol: number, rootCard: PlayingCard, isKingBase = false) => {
+      const dests: number[] = [];
+      for (let to = 0; to < 7; to++) {
+        if (to === fromCol) continue;
+        const colTo = s.cols[to];
+        if (colTo.up.length === 0) {
+          if (cardRank(rootCard) === 13 && !isKingBase) {
+            dests.push(to);
+          }
+        } else {
+          const topDest = colTo.up[colTo.up.length - 1];
+          if (fitsYukon(rootCard, topDest)) {
+            dests.push(to);
+          }
+        }
+      }
+      return dests;
+    },
+    []
+  );
+
   // Handle click on a face-up card in column `colIdx` at position `idx` in `up`
   const onCardClick = (colIdx: number, idx: number, card: PlayingCard, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!k || yukonWon(k)) return;
     const col = k.cols[colIdx];
     const isTopCard = idx === col.up.length - 1;
+    const count = col.up.length - idx;
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const pos = { x: rect.left + rect.width / 2, y: rect.top };
 
-    // 1. If top card of column and no card is selected, check if it can go to foundation
-    if (!selected && isTopCard) {
-      const suit = cardSuit(card);
-      if (fitsYukonFoundation(card, k.found[suit])) {
+    // Case 1: No card is selected
+    if (!selected) {
+      // 1a. If exposed bottom card can move to foundation, auto-move!
+      if (isTopCard) {
+        const suit = cardSuit(card);
+        if (fitsYukonFoundation(card, k.found[suit])) {
+          cardSound();
+          buzz("bump");
+          applyMoveStr(`t${colIdx}>f`, pos, "Foundation");
+          return;
+        }
+      }
+
+      // 1b. Check if this stack can legally move to a single valid tableau column
+      const isKingBase = idx === 0 && col.down.length === 0 && cardRank(card) === 13;
+      const validDests = getValidTableauDestinations(k, colIdx, card, isKingBase);
+
+      if (validDests.length === 1) {
+        // Exactly one legal destination column -> auto-move!
+        const toCol = validDests[0];
         cardSound();
         buzz("bump");
-        applyMoveStr(`t${colIdx}>f`, pos, "Foundation");
+        const isKing = cardRank(card) === 13 && k.cols[toCol].up.length === 0;
+        applyMoveStr(`t${colIdx}>t${toCol}:${count}`, pos, isKing ? "King" : "Placed");
         return;
       }
-    }
 
-    // 2. If no card selected, select this stack
-    if (!selected) {
+      // Multiple valid destinations or none: select this stack for tap-to-destination
       click();
       buzz("tap");
-      const count = col.up.length - idx;
       setSelected({ fromCol: colIdx, indexInUp: idx, count, rootCard: card });
       return;
     }
 
-    // 3. If clicking the exact same card in the selected stack, deselect
+    // Case 2: A stack is already selected
+    // 2a. Clicking the exact same card in the selected stack -> deselect
     if (selected.fromCol === colIdx && selected.indexInUp === idx) {
       click();
       buzz("tap");
@@ -236,25 +315,42 @@ export function Yukon({ onExit, onHeist, banner }: {
       return;
     }
 
-    // 4. Try placing selected stack onto this card (if it's the top card of another column)
-    if (selected.fromCol !== colIdx && isTopCard) {
-      if (fitsYukon(selected.rootCard, card)) {
+    // 2b. Clicking another card in the same column -> switch selection to that stack
+    if (selected.fromCol === colIdx) {
+      click();
+      buzz("tap");
+      setSelected({ fromCol: colIdx, indexInUp: idx, count, rootCard: card });
+      return;
+    }
+
+    // 2c. Clicking in a different column -> try placing selected stack onto that column!
+    if (col.up.length > 0) {
+      const topDest = col.up[col.up.length - 1];
+      if (fitsYukon(selected.rootCard, topDest)) {
         cardSound();
         buzz("bump");
         applyMoveStr(`t${selected.fromCol}>t${colIdx}:${selected.count}`, pos, "Placed");
         return;
       }
+    } else {
+      // Empty column takes King
+      if (cardRank(selected.rootCard) === 13) {
+        cardSound();
+        buzz("bump");
+        applyMoveStr(`t${selected.fromCol}>t${colIdx}:${selected.count}`, pos, "King");
+        return;
+      }
     }
 
-    // 5. Otherwise switch selection to this card/stack
+    // 2d. Otherwise switch selection to the tapped card/stack
     click();
     buzz("tap");
-    const count = col.up.length - idx;
     setSelected({ fromCol: colIdx, indexInUp: idx, count, rootCard: card });
   };
 
   // Handle click on an empty column slot
   const onEmptyColClick = (colIdx: number, e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!k || yukonWon(k) || !selected) return;
     if (cardRank(selected.rootCard) === 13) {
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
@@ -267,15 +363,34 @@ export function Yukon({ onExit, onHeist, banner }: {
 
   // Handle click on a foundation pile
   const onFoundationClick = (suitIdx: number, e: React.MouseEvent) => {
-    if (!k || yukonWon(k) || !selected) return;
-    // Foundation only accepts a single card
-    if (selected.count === 1) {
+    e.stopPropagation();
+    if (!k || yukonWon(k)) return;
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const pos = { x: rect.left + rect.width / 2, y: rect.top };
+
+    // If a single card is selected and fits this foundation:
+    if (selected && selected.count === 1) {
       if (fitsYukonFoundation(selected.rootCard, k.found[suitIdx])) {
-        const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-        const pos = { x: rect.left + rect.width / 2, y: rect.top };
         cardSound();
         buzz("bump");
         applyMoveStr(`t${selected.fromCol}>f`, pos, "Foundation");
+        return;
+      }
+    }
+
+    // If no card is selected, check if any column's top card fits this foundation
+    if (!selected) {
+      for (let c = 0; c < 7; c++) {
+        const col = k.cols[c];
+        if (col.up.length > 0) {
+          const topCard = col.up[col.up.length - 1];
+          if (cardSuit(topCard) === suitIdx && fitsYukonFoundation(topCard, k.found[suitIdx])) {
+            cardSound();
+            buzz("bump");
+            applyMoveStr(`t${c}>f`, pos, "Foundation");
+            return;
+          }
+        }
       }
     }
   };
@@ -381,7 +496,11 @@ export function Yukon({ onExit, onHeist, banner }: {
       )}
 
       {/* Main Board */}
-      <div className="yk-board" style={{ top: banner ? 96 : 56 }}>
+      <div
+        className="yk-board"
+        style={{ top: banner ? 96 : 56 }}
+        onClick={() => setSelected(null)}
+      >
         {k && (
           <>
             {/* Top row: 4 Foundations at columns 3, 4, 5, 6 */}
@@ -391,10 +510,17 @@ export function Yukon({ onExit, onHeist, banner }: {
               const pile = k.found[suit];
               const topCard = pile.length > 0 ? pile[pile.length - 1] : null;
 
+              const isFoundationHinted = Boolean(
+                hint?.isFoundation &&
+                hint.sourceCol !== undefined &&
+                k.cols[hint.sourceCol]?.up.length > 0 &&
+                cardSuit(k.cols[hint.sourceCol].up[k.cols[hint.sourceCol].up.length - 1]) === suit
+              );
+
               return (
                 <div
                   key={`found-${suit}`}
-                  className="yk-slot foundation"
+                  className={`yk-slot foundation ${isFoundationHinted ? "hinted" : ""}`}
                   style={{
                     left,
                     top: 10,
@@ -440,14 +566,14 @@ export function Yukon({ onExit, onHeist, banner }: {
             {/* 7 Tableau Columns */}
             {k.cols.map((col, colIdx) => {
               const colLeft = b.left + colIdx * (b.cw + b.gap);
-              const colTop = 10 + b.ch + 16;
+              const off = colOffsets[colIdx] ?? { downH: b.downH, upH: b.upH };
 
               return (
                 <div key={`col-${colIdx}`}>
                   {/* Empty column slot */}
                   {col.down.length === 0 && col.up.length === 0 && (
                     <div
-                      className="yk-slot column"
+                      className={`yk-slot column ${hint?.targetCol === colIdx ? "hinted" : ""}`}
                       style={{
                         left: colLeft,
                         top: colTop,
@@ -467,7 +593,7 @@ export function Yukon({ onExit, onHeist, banner }: {
                       className="yk-card back"
                       style={{
                         left: colLeft,
-                        top: colTop + downIdx * b.downH,
+                        top: colTop + downIdx * off.downH,
                         width: b.cw,
                         height: b.ch,
                         zIndex: downIdx + 1,
@@ -484,7 +610,7 @@ export function Yukon({ onExit, onHeist, banner }: {
                     const rank = cardRank(card);
                     const suit = cardSuit(card);
                     const red = cardRed(card);
-                    const cardTop = colTop + col.down.length * b.downH + upIdx * b.upH;
+                    const cardTop = colTop + col.down.length * off.downH + upIdx * off.upH;
 
                     const isSelected =
                       selected?.fromCol === colIdx && upIdx >= selected.indexInUp;
@@ -533,6 +659,18 @@ export function Yukon({ onExit, onHeist, banner }: {
                 </div>
               );
             })}
+
+            {/* Scroll anchor spacer so tall columns can smoothly scroll without bottom clipping */}
+            <div
+              style={{
+                position: "absolute",
+                top: maxColBottom,
+                left: 0,
+                width: 1,
+                height: 1,
+                pointerEvents: "none",
+              }}
+            />
           </>
         )}
       </div>

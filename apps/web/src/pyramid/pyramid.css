@@ -319,6 +319,12 @@
   transform: scale(0.95);
 }
 
+.pyr-recycle-btn.hinted {
+  border-color: var(--gold2);
+  box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(231, 181, 60, 0.85);
+  animation: pyr-hint 0.9s ease-in-out infinite;
+}
+
 /* floating XP */
 .pyr-float {
   position: absolute;

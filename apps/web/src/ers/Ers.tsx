@@ -231,18 +231,13 @@ export function Ers({ onExit, onHeist, banner }: {
     } else {
       // False slap! Burn penalty
       buzz("alert");
-      if (state.p0.length > 0) {
-        const burned = state.p0[state.p0.length - 1];
-        const next: ErsState = {
-          ...state,
-          p0: state.p0.slice(0, -1),
-          pot: [burned, ...state.pot],
-          lastEvent: "False slap: burned 1 card to the pot",
-        };
-        setState(next);
-        setToast("⚠️ False slap! Burned 1 card to the pot.");
+      const next = applyErs(state, "slap:0");
+      setMoves((m) => [...m, "slap:0"]);
+      setState(next);
+      if (next.lastEvent) {
+        setToast(next.lastEvent);
       } else {
-        setToast("⚠️ False slap! No cards to burn.");
+        setToast("⚠️ False slap! Burned 1 card to the pot.");
       }
     }
   }, [state, done]);

@@ -241,17 +241,27 @@ export function TriPeaks({ onExit, onHeist, banner }: {
   // Floating XP
   useEffect(() => {
     if (!tally || !k) return;
-    const { gained, paid, any } = tpGain(best.current, tally);
-    const before = Math.min(pot(best.current), dayLeft.current);
+    const prevBest = best.current;
+    const { gained, paid, any } = tpGain(prevBest, tally);
+    const before = Math.min(pot(prevBest), dayLeft.current);
     best.current = paid;
     const xp = Math.min(pot(paid), dayLeft.current) - before;
-    const maxed = any && xp < tallyTpXp(gained) && !maxedShown.current;
+    const xpEarned = tallyTpXp(paid) - tallyTpXp(prevBest);
+    const maxed = any && xp < xpEarned && !maxedShown.current;
     if (maxed) maxedShown.current = true;
     if ((!xp && !maxed) || !game?.gameId) return;
 
     const x = colX(5.5) + b.cw / 2;
     const y = bottomY;
-    const tag = maxed ? "MAXED TODAY · HEIST PAYS MORE" : gained.peaks ? "PEAK CLEARED" : gained.maxStreak >= 10 ? "10x STREAK" : gained.maxStreak >= 5 ? "5x STREAK" : null;
+    const tag = maxed
+      ? "MAXED TODAY · HEIST PAYS MORE"
+      : gained.peaks
+        ? "PEAK CLEARED"
+        : (gained.streak10 || gained.maxStreak >= 10)
+          ? "10x STREAK"
+          : (gained.streak5 || gained.maxStreak >= 5)
+            ? "5x STREAK"
+            : null;
     const id = ++floatId.current;
     setFloats((f) => [...f.slice(-5), { id, x, y, xp, tag }]);
     window.setTimeout(() => setFloats((f) => f.filter((q) => q.id !== id)), tag ? 1400 : 900);
