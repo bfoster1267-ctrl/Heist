@@ -72,7 +72,7 @@ function outcome(key: string, out: unknown): Record<string, unknown> {
   if (key === "POST /api/chips/refill") x.chips = o.refilled;
   if (key === "POST /api/prestige") Object.assign(x, { coins: o.coins, unlocked: o.unlocked });
   if (key === "POST /api/solo/start") Object.assign(x, { gameId: o.gameId, players: o.players, stage: o.stage });
-  if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") x.reward = o.reward && { xp: o.reward.xp };
+  if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank") x.reward = o.reward && { xp: o.reward.xp };
   if (key === "POST /api/board/new" && o.post) Object.assign(x, { post: o.post.id, kind: o.post.kind, title: o.post.title });
   if (key === "POST /api/lounge/report" && o.reported) Object.assign(x, { reported: o.reported, hidden: o.hidden });
   if (key === "POST /api/solo/finish" || key === "POST /api/solo/quit") x.reward = o.reward && { xp: o.reward.xp, coins: o.reward.coins, payout: o.reward.payout };
@@ -153,7 +153,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     // a finished game's moves are kept with the game itself (the admin panel replays them)
     const sent =
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
-      : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
+      : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
       : key === "POST /api/auth/guest" ? { ...body, ref: undefined }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
@@ -295,6 +295,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/solitaire/start": async (_b, t) => svc.solitaireStart(await me(t)),
     "POST /api/solitaire/finish": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves, true, b.drain),
     "POST /api/solitaire/bank": async (b, t) => svc.solitaireBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/freecell/start": async (_b, t) => svc.freecellStart(await me(t)),
+    "POST /api/freecell/finish": async (b, t) => svc.freecellBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/freecell/bank": async (b, t) => svc.freecellBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
@@ -560,7 +563,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (key.startsWith("POST /api/auth/") || key === "POST /api/me/password") {
         if (limited(ip)) throw new ApiError(429, "Too many tries. Wait a few minutes and try again.");
       }
-      body = req.method === "POST" ? await readBody(req, key === "POST /api/solo/finish" || key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" ? SOLO_BODY_LIMIT : BODY_LIMIT) : {};
+      body = req.method === "POST" ? await readBody(req, key === "POST /api/solo/finish" || key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank" ? SOLO_BODY_LIMIT : BODY_LIMIT) : {};
       if (param) body = { ...body, id: param };
       const out = await route(body, token, url.searchParams, param);
       send(res, 200, out);

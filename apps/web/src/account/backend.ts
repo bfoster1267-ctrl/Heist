@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -159,6 +159,11 @@ export interface Backend {
   solitaireFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
   solitaireBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a FreeCell game; a win is paid after the moves replay from the seed */
+  freecellStart(): Promise<{ gameId: string; seed: number }>;
+  freecellFinish(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a deal's moves so far (each part paid once), less what stalling and hints drained; null when nothing new */
+  freecellBank(gameId: string, moves: string[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -341,6 +346,33 @@ export class BrowserBackend implements Backend {
     if (t.won) this.sol = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
     const r = settleSolitaire(this.save.progress, Date.now(), pay.gained, pay.xp);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private fc: { gameId: string; seed: number; paid?: FcTally; paidXp?: number; drain?: number } | null = null;
+  async freecellStart() {
+    const seed = Math.floor(Math.random() * 2 ** 31);
+    this.fc = { gameId: `l_${seed}`, seed };
+    return { gameId: this.fc.gameId, seed };
+  }
+  async freecellFinish(gameId: string, moves: string[], drain: number) {
+    const r = await this.freecellBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async freecellBank(gameId: string, moves: string[], drain: number, finish = false) {
+    const g = this.fc;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyFreeCell(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = fcPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.won) this.fc = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
@@ -570,6 +602,15 @@ export class ServerBackend implements Backend {
   }
   solitaireBank(gameId: string, moves: string[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/solitaire/bank", { gameId, moves, drain });
+  }
+  freecellStart() {
+    return this.call<{ gameId: string; seed: number }>("/api/freecell/start", {});
+  }
+  freecellFinish(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/freecell/finish", { gameId, moves, drain });
+  }
+  freecellBank(gameId: string, moves: string[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/freecell/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

@@ -48,6 +48,7 @@ export function Lobby({
   onSignIn,
   onSave,
   onSolitaire,
+  onFreeCell,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -66,6 +67,8 @@ export function Lobby({
   onSave?: () => void;
   /** open Solitaire */
   onSolitaire?: () => void;
+  /** open FreeCell */
+  onFreeCell?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -188,7 +191,7 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
-          {onSolitaire && <Mode icon="cards" label="More games" sub="Solitaire · earns season XP" onClick={() => setGames(true)} />}
+          {(onSolitaire || onFreeCell) && <Mode icon="cards" label="More games" sub="Solitaire & FreeCell · earns XP" onClick={() => setGames(true)} />}
           <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
           <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
@@ -261,24 +264,44 @@ export function Lobby({
         )}
       </AnimatePresence>
       <AnimatePresence>
-        {games && onSolitaire && (
+        {games && (onSolitaire || onFreeCell) && (
           <Sheet title="More games" onClose={() => setGames(false)}>
-            <button
-              className="btn lobby-big lobby-game"
-              onClick={() => {
-                setGames(false);
-                onSolitaire();
-              }}
-            >
-              <span className="lobby-game-art" aria-hidden="true">
-                <span className="lobby-game-card">A<i>♠</i></span>
-                <span className="lobby-game-card red">K<i>♥</i></span>
-              </span>
-              <span className="lobby-game-text">
-                Solitaire
-                <span className="lobby-sub">Classic Klondike. Wins earn XP and season pass XP.</span>
-              </span>
-            </button>
+            {onSolitaire && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onSolitaire();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card">A<i>♠</i></span>
+                  <span className="lobby-game-card red">K<i>♥</i></span>
+                </span>
+                <span className="lobby-game-text">
+                  Solitaire
+                  <span className="lobby-sub">Classic Klondike. Wins earn XP and season pass XP.</span>
+                </span>
+              </button>
+            )}
+            {onFreeCell && (
+              <button
+                className="btn lobby-big lobby-game"
+                onClick={() => {
+                  setGames(false);
+                  onFreeCell();
+                }}
+              >
+                <span className="lobby-game-art" aria-hidden="true">
+                  <span className="lobby-game-card">8<i>♣</i></span>
+                  <span className="lobby-game-card red">7<i>♦</i></span>
+                </span>
+                <span className="lobby-game-text">
+                  FreeCell
+                  <span className="lobby-sub">8 cascades & 4 cells. Wins earn XP and season pass XP.</span>
+                </span>
+              </button>
+            )}
             <p className="dim lobby-games-more">More card games are on the way.</p>
           </Sheet>
         )}

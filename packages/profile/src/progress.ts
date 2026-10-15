@@ -8,6 +8,7 @@ import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats"
 import { TIER_XP, addPassXp, passLines, type PassResult, type PassState } from "./season";
 import { addCounts, type MistakeCounts } from "./coach";
 import { SOL_XP, tallyXp, type SolTally } from "./solitaire";
+import { FC_XP, tallyFcXp, type FcTally } from "./freecell";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -52,6 +53,8 @@ export interface Progress {
   ranked: RankedState | null;
   /** Solitaire: games won, and XP paid today (UTC day) toward the daily ceiling */
   solitaire: { won: number; day: string | null; xp: number };
+  /** FreeCell: games won, and XP paid today (UTC day) toward the daily ceiling */
+  freecell?: { won: number; day: string | null; xp: number };
 }
 
 export function newProgress(): Progress {
@@ -61,6 +64,7 @@ export function newProgress(): Progress {
     mistakes: {}, coachGames: 0,
     rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
     solitaire: { won: 0, day: null, xp: 0 },
+    freecell: { won: 0, day: null, xp: 0 },
   };
 }
 
@@ -247,6 +251,67 @@ export function settleSolitaire(prev: Progress, at: number, gained: SolTally, pa
   s.xp += Math.min(total, room);
   const season = Math.min(total, room);
   p.solitaire = s;
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = 0;
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const pass = season ? addPassXp(p, season, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+    },
+  };
+}
+
+export const FREECELL_DAY_XP = 500;
+
+/** FreeCell XP still to be earned today. */
+export const freecellRoom = (p: Progress, at: number) =>
+  Math.max(0, FREECELL_DAY_XP - (p.freecell?.day === day(at) ? p.freecell?.xp ?? 0 : 0));
+
+/**
+ * Pay for FreeCell play checked by replaying the moves.
+ */
+export function settleFreeCell(
+  prev: Progress,
+  at: number,
+  gained: FcTally,
+  pay = tallyFcXp(gained)
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const fc = { ...(p.freecell ?? { won: 0, day: null, xp: 0 }), xp: p.freecell?.xp ?? 0 };
+  if (fc.day !== today) Object.assign(fc, { day: today, xp: 0 });
+  if (gained.won) fc.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.moves, "new move", "new moves"), xp: gained.moves * FC_XP.move, coins: 0 },
+    { label: plural(gained.aces, "ace sent up", "aces sent up"), xp: gained.aces * FC_XP.ace, coins: 0 },
+    { label: plural(gained.stacks, "suit finished", "suits finished"), xp: gained.stacks * FC_XP.stack, coins: 0 },
+    { label: "FreeCell solved", xp: gained.won ? FC_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, pay));
+  if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
+  const room = Math.max(0, FREECELL_DAY_XP - fc.xp);
+  if (total > room) lines = [{ label: "FreeCell (daily XP limit reached)", xp: room, coins: 0 }];
+  fc.xp += Math.min(total, room);
+  const season = Math.min(total, room);
+  p.freecell = fc;
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
