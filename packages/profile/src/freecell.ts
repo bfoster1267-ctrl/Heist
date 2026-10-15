@@ -479,7 +479,7 @@ export function fcPay(
 ) {
   const g = fcGain(paid, t);
   const before = paidXp ?? tallyFcXp(paid ?? { moves: 0, aces: 0, stacks: 0, won: false });
-  const pot = Math.max(0, tallyFcXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallyFcXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return {
     gained: g.gained,
     paid: g.paid,

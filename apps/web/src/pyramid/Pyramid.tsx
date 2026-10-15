@@ -312,6 +312,8 @@ export function Pyramid({ onExit, onHeist, banner }: {
       cardSound();
       buzz("bump");
       applyMove({ kind: "recycle" });
+    } else {
+      buzz("tap");
     }
   };
 
@@ -353,7 +355,7 @@ export function Pyramid({ onExit, onHeist, banner }: {
       <div className="pyr-bar">
         <button
           className="pyr-icon-btn"
-          onClick={onExit}
+          onClick={() => { click(); buzz("tap"); onExit(); }}
           title="Exit"
           aria-label="Exit"
         >
@@ -396,6 +398,8 @@ export function Pyramid({ onExit, onHeist, banner }: {
         <button
           className={`pyr-icon-btn ${armed ? "armed" : ""}`}
           onClick={() => {
+            click();
+            buzz("tap");
             if (armed) void deal();
             else {
               setArmed(true);
@@ -497,6 +501,15 @@ export function Pyramid({ onExit, onHeist, banner }: {
                       height: b.ch,
                     }}
                     onClick={onStockClick}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={k.stock.length > 0 ? `Draw from stock (${k.stock.length} left)` : k.waste.length > 0 ? "Recycle waste pile" : "Stock and waste are empty"}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onStockClick();
+                      }
+                    }}
                   >
                     {k.stock.length > 0 ? (
                       <div
@@ -604,8 +617,11 @@ export function Pyramid({ onExit, onHeist, banner }: {
             <div className="pyr-win-sub">
               You dismantled the entire pyramid in <b>{moves.length} moves</b> and <b>{timeStr}</b>.
             </div>
-            <button className="pyr-win-btn" onClick={() => void deal()}>
+            <button className="pyr-win-btn" onClick={() => { cardSound(); buzz("tap"); void deal(); }}>
               PLAY AGAIN
+            </button>
+            <button className="pyr-win-btn secondary" style={{ marginTop: 8 }} onClick={() => { click(); buzz("tap"); onExit(); }}>
+              LOBBY
             </button>
           </div>
         </motion.div>

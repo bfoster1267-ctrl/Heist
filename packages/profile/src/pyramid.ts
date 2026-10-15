@@ -223,7 +223,7 @@ export function pyramidPay(
 ) {
   const g = pyramidGain(paid, t);
   const before = paidXp ?? tallyPyramidXp(paid ?? { clearedCards: 0, moves: 0, won: false });
-  const pot = Math.max(0, tallyPyramidXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallyPyramidXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return {
     gained: g.gained,
     paid: g.paid,
@@ -289,11 +289,69 @@ export function findPyramidHint(state: PyramidState): PyramidHint | null {
     return { kind: "draw" };
   }
 
-  // 5. Recycle if waste has cards
+  // 5. Recycle if waste has cards that can produce a move
   if (state.waste.length > 0) {
-    return { kind: "recycle" };
+    for (const c of state.waste) {
+      if (pyramidValue(c) === 13) return { kind: "recycle" };
+      for (const idx of uncovered) {
+        if (pyramidValue(state.pyramid[idx]!) + pyramidValue(c) === 13) return { kind: "recycle" };
+      }
+    }
   }
 
   return null;
+}
+
+/** Check if any legal move is available in the current state or remaining deck */
+export function pyramidHasMoves(state: PyramidState): boolean {
+  if (state.won) return false;
+
+  const uncovered: number[] = [];
+  for (let i = 0; i < 28; i++) {
+    if (isPyramidUncovered(state.pyramid, i)) uncovered.push(i);
+  }
+
+  // 1. King in pyramid
+  for (const idx of uncovered) {
+    const c = state.pyramid[idx];
+    if (c !== null && pyramidValue(c) === 13) return true;
+  }
+
+  // 2. Pairs within pyramid
+  for (let i = 0; i < uncovered.length; i++) {
+    const cardA = state.pyramid[uncovered[i]]!;
+    for (let j = i + 1; j < uncovered.length; j++) {
+      const cardB = state.pyramid[uncovered[j]]!;
+      if (pyramidValue(cardA) + pyramidValue(cardB) === 13) return true;
+    }
+  }
+
+  // 3. Waste king
+  if (state.waste.length > 0 && pyramidValue(state.waste[state.waste.length - 1]) === 13) {
+    return true;
+  }
+
+  // 4. Pair with current top of waste
+  if (state.waste.length > 0) {
+    const topW = state.waste[state.waste.length - 1];
+    for (const idx of uncovered) {
+      if (pyramidValue(state.pyramid[idx]!) + pyramidValue(topW) === 13) return true;
+    }
+  }
+
+  // 5. Stock draws available
+  if (state.stock.length > 0) return true;
+
+  // 6. Recycle available and waste has useful cards
+  if (state.waste.length > 0) {
+    for (const c of state.waste) {
+      if (pyramidValue(c) === 13) return true;
+      for (const idx of uncovered) {
+        if (pyramidValue(state.pyramid[idx]!) + pyramidValue(c) === 13) return true;
+      }
+    }
+  }
+
+  return false;
 }
 

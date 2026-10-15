@@ -241,7 +241,11 @@ export function Scoundrel({ onExit, onHeist, banner }: {
       <div className="sc-bar">
         <button
           className="sc-icon-btn"
-          onClick={onExit}
+          onClick={() => {
+            click();
+            buzz("tap");
+            onExit();
+          }}
           title="Exit"
           aria-label="Exit"
         >
@@ -274,6 +278,8 @@ export function Scoundrel({ onExit, onHeist, banner }: {
         <button
           className={`sc-icon-btn ${armed ? "armed" : ""}`}
           onClick={() => {
+            click();
+            buzz("tap");
             if (armed) void deal();
             else {
               setArmed(true);
@@ -281,7 +287,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
             }
           }}
           title={armed ? "Deal new dungeon?" : "New Dungeon"}
-          aria-label="New Dungeon"
+          aria-label={armed ? "Confirm deal new dungeon" : "New Dungeon"}
         >
           {armed ? <span className="sc-sure">NEW?</span> : "↻"}
         </button>
@@ -373,6 +379,15 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                       <div
                         className={`sc-card ${red ? "red" : ""}`}
                         onClick={(e) => onCardClick(idx, card, e)}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`${badgeLabel}, ${RANKS[rank]} of ${SUITS[suit]}`}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            onCardClick(idx, card, e as any);
+                          }
+                        }}
                       >
                         <div className={`sc-card-badge ${kind}`}>{badgeLabel}</div>
 
@@ -407,6 +422,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                 className="sc-action-btn flee"
                 onClick={onFlee}
                 disabled={!k.canFlee || k.cardsResolvedInRoom > 0 || k.dungeon.length === 0 || k.room.filter((c) => c !== null).length < 4}
+                aria-label="Run away / Flee room"
                 title={
                   !k.canFlee
                     ? "Cannot flee twice in a row"
@@ -446,6 +462,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                     <button
                       className="sc-choice-btn primary"
                       disabled={!canUseWeapon}
+                      aria-label={`Use weapon with power ${weapon?.power ?? 0}`}
                       onClick={() => {
                         cardSound();
                         buzz("bump");
@@ -471,6 +488,7 @@ export function Scoundrel({ onExit, onHeist, banner }: {
 
                     <button
                       className="sc-choice-btn"
+                      aria-label={`Fight barehanded, take ${val} damage`}
                       onClick={() => {
                         cardSound();
                         buzz("bump");
@@ -490,7 +508,15 @@ export function Scoundrel({ onExit, onHeist, banner }: {
                     </button>
                   </div>
 
-                  <button className="sc-choice-cancel" onClick={() => setCombatChoice(null)}>
+                  <button
+                    className="sc-choice-cancel"
+                    onClick={() => {
+                      click();
+                      buzz("tap");
+                      setCombatChoice(null);
+                    }}
+                    aria-label="Cancel combat choice"
+                  >
                     Cancel
                   </button>
                 </>
@@ -532,12 +558,35 @@ export function Scoundrel({ onExit, onHeist, banner }: {
             </div>
             <div className="sc-result-btns">
               {hist.length > 1 && (
-                <button className="sc-result-btn secondary" onClick={onUndo}>
+                <button
+                  className="sc-result-btn secondary"
+                  onClick={onUndo}
+                  aria-label="Undo move"
+                >
                   UNDO MOVE
                 </button>
               )}
-              <button className="sc-result-btn" onClick={() => void deal()}>
+              <button
+                className="sc-result-btn"
+                onClick={() => {
+                  cardSound();
+                  buzz("tap");
+                  void deal();
+                }}
+                aria-label="Try dungeon again"
+              >
                 TRY AGAIN
+              </button>
+              <button
+                className="sc-result-btn secondary"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onExit();
+                }}
+                aria-label="Back to Lobby"
+              >
+                LOBBY
               </button>
             </div>
           </div>
@@ -556,9 +605,43 @@ export function Scoundrel({ onExit, onHeist, banner }: {
             <div className="sc-result-sub">
               You survived the entire dungeon! Final score: <b>{k.hp} HP remaining</b>.
             </div>
-            <button className="sc-result-btn" onClick={() => void deal()}>
-              ENTER AGAIN
-            </button>
+            <div className="sc-result-btns">
+              {onHeist && (
+                <button
+                  className="sc-result-btn"
+                  onClick={() => {
+                    click();
+                    buzz("tap");
+                    onHeist();
+                  }}
+                  aria-label="Play Heist"
+                >
+                  HEIST
+                </button>
+              )}
+              <button
+                className="sc-result-btn secondary"
+                onClick={() => {
+                  cardSound();
+                  buzz("tap");
+                  void deal();
+                }}
+                aria-label="Enter dungeon again"
+              >
+                ENTER AGAIN
+              </button>
+              <button
+                className="sc-result-btn secondary"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onExit();
+                }}
+                aria-label="Back to Lobby"
+              >
+                LOBBY
+              </button>
+            </div>
           </div>
         </motion.div>
       )}

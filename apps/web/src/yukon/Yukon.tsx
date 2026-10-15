@@ -433,7 +433,7 @@ export function Yukon({ onExit, onHeist, banner }: {
       <div className="yk-bar">
         <button
           className="yk-icon-btn"
-          onClick={onExit}
+          onClick={() => { click(); buzz("tap"); onExit(); }}
           title="Exit"
           aria-label="Exit"
         >
@@ -476,6 +476,8 @@ export function Yukon({ onExit, onHeist, banner }: {
         <button
           className={`yk-icon-btn ${armed ? "armed" : ""}`}
           onClick={() => {
+            click();
+            buzz("tap");
             if (armed) void deal();
             else {
               setArmed(true);
@@ -528,6 +530,9 @@ export function Yukon({ onExit, onHeist, banner }: {
                     height: b.ch,
                   }}
                   onClick={(e) => onFoundationClick(suit, e)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${SUITS[suit]} foundation pile (${pile.length} cards)`}
                 >
                   {topCard !== null ? (
                     (() => {
@@ -581,6 +586,9 @@ export function Yukon({ onExit, onHeist, banner }: {
                         height: b.ch,
                       }}
                       onClick={(e) => onEmptyColClick(colIdx, e)}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Empty column ${colIdx + 1}, Kings can be placed here`}
                     >
                       K
                     </div>
@@ -705,8 +713,11 @@ export function Yukon({ onExit, onHeist, banner }: {
             <div className="yk-win-sub">
               You cleared all 4 foundations in <b>{moves.length} moves</b> and <b>{timeStr}</b>.
             </div>
-            <button className="yk-win-btn" onClick={() => void deal()}>
+            <button className="yk-win-btn" onClick={() => { cardSound(); buzz("tap"); void deal(); }}>
               PLAY AGAIN
+            </button>
+            <button className="yk-win-btn secondary" style={{ marginTop: 8 }} onClick={() => { click(); buzz("tap"); onExit(); }}>
+              LOBBY
             </button>
           </div>
         </motion.div>

@@ -142,6 +142,7 @@ export function ErsMultiplayer({
   const handleCreateRoom = useCallback(() => {
     if (!client) return;
     click();
+    buzz("tap");
     client.ersCreate();
     setMode("room");
   }, [client]);
@@ -149,6 +150,7 @@ export function ErsMultiplayer({
   const handleJoinRoom = useCallback((codeToJoin: string) => {
     if (!client || !codeToJoin.trim()) return;
     click();
+    buzz("tap");
     client.ersJoin(codeToJoin.trim().toUpperCase());
     setMode("room");
   }, [client]);
@@ -156,6 +158,7 @@ export function ErsMultiplayer({
   const handleFlip = useCallback(() => {
     if (!client || !room || room.turn !== seat || room.status !== "playing") return;
     cardSound();
+    buzz("tap");
     client.ersPlay();
   }, [client, room, seat]);
 
@@ -171,12 +174,14 @@ export function ErsMultiplayer({
   const handleRematch = useCallback(() => {
     if (!client) return;
     click();
+    buzz("tap");
     client.ersRematch();
   }, [client]);
 
   const handleCopyCode = useCallback(() => {
     if (!room?.code) return;
     click();
+    buzz("tap");
     void navigator.clipboard?.writeText(room.code);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -200,10 +205,12 @@ export function ErsMultiplayer({
             className="ers-icon-btn"
             onClick={() => {
               click();
+              buzz("tap");
               if (client) client.ersLeave();
               onExit();
             }}
             title="Leave table"
+            aria-label="Leave table"
           >
             <Icon d="M15 19l-7-7 7-7" />
           </button>
@@ -226,9 +233,11 @@ export function ErsMultiplayer({
             className="ers-icon-btn"
             onClick={() => {
               click();
+              buzz("tap");
               setShowRules(true);
             }}
             title="Rules & Slap conditions"
+            aria-label="Rules & Slap conditions"
           >
             <Icon d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2a2 2 0 011-3.73A2.5 2.5 0 0013 7a2.5 2.5 0 00-5 0h2a.5.5 0 011 0c0 .83-.67 1.5-1.5 1.5S8 9.17 8 10h2a1 1 0 001-1 1 1 0 012 0c0 .55-.45 1-1 1v3z" />
           </button>
@@ -276,6 +285,15 @@ export function ErsMultiplayer({
             <div
               className="ers-pot-container"
               onClick={handleSlap}
+              role="button"
+              tabIndex={0}
+              aria-label="Slap center pot"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSlap();
+                }
+              }}
               title="Tap anywhere in pot to SLAP!"
             >
               {/* Stacked top cards in pot */}
@@ -371,6 +389,7 @@ export function ErsMultiplayer({
                 className={`ers-flip-btn ${isMyTurn ? "your-turn" : ""}`}
                 onClick={handleFlip}
                 disabled={!isMyTurn || myCount === 0}
+                aria-label="Flip card"
               >
                 <span>FLIP CARD</span>
               </button>
@@ -379,6 +398,7 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-slap-btn"
                 onClick={handleSlap}
+                aria-label="Slap pot"
               >
                 SLAP!
               </button>
@@ -401,6 +421,7 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-btn-primary"
                 onClick={handleCopyCode}
+                aria-label="Copy room code"
               >
                 {copied ? "COPIED TO CLIPBOARD!" : "COPY ROOM CODE"}
               </button>
@@ -413,10 +434,13 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-btn-secondary"
                 onClick={() => {
+                  click();
+                  buzz("tap");
                   if (client) client.ersLeave();
                   setRoom(null);
                   setMode("lobby");
                 }}
+                aria-label="Cancel and return to lobby"
               >
                 Cancel / Return to Lobby
               </button>
@@ -438,6 +462,7 @@ export function ErsMultiplayer({
                 className="ers-btn-primary"
                 onClick={handleCreateRoom}
                 disabled={!connected}
+                aria-label="Create new table"
               >
                 CREATE NEW TABLE
               </button>
@@ -461,6 +486,7 @@ export function ErsMultiplayer({
                 className="ers-btn-secondary"
                 onClick={() => handleJoinRoom(joinCodeInput)}
                 disabled={!connected || !joinCodeInput.trim()}
+                aria-label="Join table with code"
               >
                 JOIN TABLE
               </button>
@@ -469,7 +495,12 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-btn-secondary"
                 style={{ marginTop: 8 }}
-                onClick={onExit}
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onExit();
+                }}
+                aria-label="Back to Solitaire and Solo games"
               >
                 Back to Solitaire & Solo
               </button>
@@ -526,6 +557,7 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-btn-primary"
                 onClick={handleRematch}
+                aria-label="Request rematch"
               >
                 REQUEST REMATCH
               </button>
@@ -534,9 +566,12 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-btn-secondary"
                 onClick={() => {
+                  click();
+                  buzz("tap");
                   if (client) client.ersLeave();
                   onExit();
                 }}
+                aria-label="Exit to Menu"
               >
                 Exit to Menu
               </button>
@@ -590,7 +625,12 @@ export function ErsMultiplayer({
               <button
                 type="button"
                 className="ers-rules-close-btn"
-                onClick={() => setShowRules(false)}
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  setShowRules(false);
+                }}
+                aria-label="Close rules"
               >
                 GOT IT
               </button>

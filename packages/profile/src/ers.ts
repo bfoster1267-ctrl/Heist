@@ -337,7 +337,7 @@ export function ersPay(
 ) {
   const g = ersGain(paid, t);
   const before = paidXp ?? tallyErsXp(paid ?? { cardsCaptured: 0, slaps: 0, faceChallengesWon: 0, won: false });
-  const pot = Math.max(0, tallyErsXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallyErsXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return {
     gained: g.gained,
     paid: g.paid,

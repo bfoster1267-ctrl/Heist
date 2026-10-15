@@ -256,6 +256,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
 
   const toggleRules = (id: string) => {
     click();
+    buzz("tap");
     setOpenRules((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
@@ -320,7 +321,15 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
               8 single-player card games & roguelike challenges. Instant action, anytime.
             </p>
           </div>
-          <button className="arcade-close-btn" onClick={onClose} aria-label="Close Arcade Hub">
+          <button
+            className="arcade-close-btn"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onClose();
+            }}
+            aria-label="Close Arcade Hub"
+          >
             ✕
           </button>
         </div>
@@ -332,6 +341,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
               className={`arcade-tab-btn ${tab === "all" ? "active" : ""}`}
               onClick={() => {
                 click();
+                buzz("tap");
                 setTab("all");
               }}
               role="tab"
@@ -343,6 +353,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
               className={`arcade-tab-btn ${tab === "solitaire" ? "active" : ""}`}
               onClick={() => {
                 click();
+                buzz("tap");
                 setTab("solitaire");
               }}
               role="tab"
@@ -354,6 +365,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
               className={`arcade-tab-btn ${tab === "action" ? "active" : ""}`}
               onClick={() => {
                 click();
+                buzz("tap");
                 setTab("action");
               }}
               role="tab"
@@ -443,6 +455,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
                     className={`arcade-how-to-toggle ${isOpen ? "open" : ""}`}
                     onClick={() => toggleRules(game.id)}
                     aria-expanded={isOpen}
+                    aria-label={`How to play and rules for ${game.title}`}
                   >
                     <span>How to play & Rules</span>
                     <span className="arrow" aria-hidden>▼</span>
@@ -472,6 +485,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
                       className="arcade-link-btn"
                       onClick={() => copyGameLink(game)}
                       title={`Direct link: ${game.path} (Click to copy)`}
+                      aria-label={`Copy direct link for ${game.title}`}
                     >
                       <span className="chain-icon" aria-hidden>🔗</span>
                       <span>{isCopied ? "Link Copied!" : game.path}</span>
@@ -485,6 +499,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame }: ArcadeHubProps)
                         buzz("tap");
                         onSelectGame(game.id);
                       }}
+                      aria-label={`${isCurrent ? "Resume" : "Play"} ${game.title}`}
                     >
                       {isCurrent ? "RESUME" : "PLAY"}
                     </button>

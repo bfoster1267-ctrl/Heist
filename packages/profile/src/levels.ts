@@ -29,7 +29,7 @@ export interface LevelInfo {
 
 export function levelInfo(xp: number): LevelInfo {
   let level = 1;
-  let left = Math.max(0, Math.floor(xp));
+  let left = Math.max(0, Math.floor(Number.isFinite(xp) ? xp : 0));
   while (level < MAX_LEVEL && left >= xpToNext(level)) {
     left -= xpToNext(level);
     level++;

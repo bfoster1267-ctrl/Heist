@@ -271,6 +271,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
     setHint(null);
     lastAct.current = Date.now();
     click();
+    buzz("tap");
   };
   const showHint = () => {
     if (!k || done) return;
@@ -280,12 +281,15 @@ export function Solitaire({ onExit, onHeist, banner }: {
     // a hint costs the deal 1 XP
     setDrain((d) => Math.min(d + 1, tallyXp(best.current)));
     click();
+    buzz("tap");
     window.setTimeout(() => setHint((x) => (x === h ? null : x)), 1800);
   };
   const newDeal = () => {
     // mid-game, the first tap asks to be sure
     if (moves.length && !done && !armed) {
       setArmed(true);
+      click();
+      buzz("tap");
       window.setTimeout(() => setArmed(false), 2500);
       return;
     }
@@ -432,7 +436,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
       <div className="sol-board" ref={board}>
       {banner && <div className="sol-banner">{banner}</div>}
       <div className="sol-bar" style={{ height: 52 }}>
-        <button className="sol-icon-btn" onClick={onExit} aria-label="Back to the lobby">
+        <button className="sol-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
           <Icon d="M15 5 8 12l7 7" />
         </button>
         <div className="sol-hud">
@@ -461,7 +465,13 @@ export function Solitaire({ onExit, onHeist, banner }: {
       </div>
 
       {/* empty spots */}
-      <button className={"sol-slot sol-stock" + (hint?.pile === "s" && !k.stock.length ? " hinted" : "")} style={{ left: colX(0), top: rowY, width: b.cw, height: b.ch }} onClick={draw} aria-label={k.stock.length ? "Draw a card" : "Turn the waste over"}>
+      <button
+        className={"sol-slot sol-stock" + (hint?.pile === "s" && !k.stock.length ? " hinted" : "")}
+        style={{ left: colX(0), top: rowY, width: b.cw, height: b.ch }}
+        onClick={draw}
+        disabled={dealAt !== 0 || done || (!k.stock.length && !k.waste.length)}
+        aria-label={k.stock.length ? "Draw a card" : k.waste.length ? "Turn the waste over" : "Stock and waste are empty"}
+      >
         {!k.stock.length && <Icon d="M4 4v6h6M5.5 15a7 7 0 1 0 1-8L4 10" />}
       </button>
       {[0, 1, 2, 3].map((s) => (
@@ -540,7 +550,7 @@ export function Solitaire({ onExit, onHeist, banner }: {
             <button className="btn primary" onClick={() => void deal()}>
               New deal
             </button>
-            <button className="sol-stuck-x" onClick={() => setStuckSeen(hist.length)} aria-label="Keep playing">
+            <button className="sol-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label="Keep playing">
               ✕
             </button>
           </motion.div>
@@ -566,11 +576,11 @@ export function Solitaire({ onExit, onHeist, banner }: {
                 Deal again
               </button>
               {onHeist && (
-                <button className="btn big sol-heist" onClick={onHeist}>
+                <button className="btn big sol-heist" onClick={() => { click(); buzz("tap"); onHeist(); }}>
                   Heist
                 </button>
               )}
-              <button className="btn ghost" onClick={onExit}>
+              <button className="btn ghost" onClick={() => { click(); buzz("tap"); onExit(); }}>
                 Lobby
               </button>
             </motion.div>

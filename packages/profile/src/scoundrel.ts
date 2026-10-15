@@ -310,7 +310,7 @@ export function scoundrelPay(
 ) {
   const g = scoundrelGain(paid, t);
   const before = paidXp ?? tallyScoundrelXp(paid ?? { monstersSlayed: 0, roomsCleared: 0, hpLeft: 0, won: false });
-  const pot = Math.max(0, tallyScoundrelXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallyScoundrelXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return {
     gained: g.gained,
     paid: g.paid,

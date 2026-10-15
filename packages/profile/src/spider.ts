@@ -188,7 +188,7 @@ export function applySpider(state: SpiderState, move: SpiderMove): SpiderState {
   if (move.kind === "deal") {
     if (state.stock.length < 10) return state;
     // Standard Spider allows deal as long as stock has cards
-    const nextTableau = state.tableau.map((col) => [...col]);
+    const nextTableau = state.tableau.map((col) => col.map((c) => ({ ...c })));
     const nextStock = [...state.stock];
 
     for (let c = 0; c < 10; c++) {
@@ -215,7 +215,7 @@ export function applySpider(state: SpiderState, move: SpiderMove): SpiderState {
     const { fromCol, cardIndex, toCol } = move;
     if (!canMoveSpider(state, fromCol, cardIndex, toCol)) return state;
 
-    const nextTableau = state.tableau.map((col) => [...col]);
+    const nextTableau = state.tableau.map((col) => col.map((c) => ({ ...c })));
     const moving = nextTableau[fromCol].splice(cardIndex);
     nextTableau[toCol].push(...moving);
 
@@ -238,6 +238,100 @@ export function applySpider(state: SpiderState, move: SpiderMove): SpiderState {
   }
 
   return state;
+}
+
+/** Find a recommended move for Spider Solitaire */
+export function findSpiderHint(state: SpiderState): SpiderMove | null {
+  if (state.won) return null;
+
+  // 1. Move a completed sequence or build same-suit sequence that reveals a down card
+  for (let fromCol = 0; fromCol < 10; fromCol++) {
+    const col = state.tableau[fromCol];
+    if (col.length === 0) continue;
+    for (let i = 0; i < col.length; i++) {
+      if (!col[i].up) continue;
+      if (!isValidSpiderSequence(col, i)) continue;
+      for (let toCol = 0; toCol < 10; toCol++) {
+        if (fromCol === toCol) continue;
+        if (!canMoveSpider(state, fromCol, i, toCol)) continue;
+        const dest = state.tableau[toCol];
+        if (dest.length > 0 && cardSuit(dest[dest.length - 1].card) === cardSuit(col[i].card)) {
+          return { kind: "move", fromCol, cardIndex: i, toCol };
+        }
+      }
+    }
+  }
+
+  // 2. Any other move that reveals a face-down card
+  for (let fromCol = 0; fromCol < 10; fromCol++) {
+    const col = state.tableau[fromCol];
+    if (col.length === 0) continue;
+    const firstUp = col.findIndex((c) => c.up);
+    if (firstUp > 0 && isValidSpiderSequence(col, firstUp)) {
+      for (let toCol = 0; toCol < 10; toCol++) {
+        if (canMoveSpider(state, fromCol, firstUp, toCol)) {
+          return { kind: "move", fromCol, cardIndex: firstUp, toCol };
+        }
+      }
+    }
+  }
+
+  // 3. Any legal tableau move onto a non-empty column
+  for (let fromCol = 0; fromCol < 10; fromCol++) {
+    const col = state.tableau[fromCol];
+    for (let i = 0; i < col.length; i++) {
+      if (!col[i].up) continue;
+      if (!isValidSpiderSequence(col, i)) continue;
+      for (let toCol = 0; toCol < 10; toCol++) {
+        if (state.tableau[toCol].length > 0 && canMoveSpider(state, fromCol, i, toCol)) {
+          return { kind: "move", fromCol, cardIndex: i, toCol };
+        }
+      }
+    }
+  }
+
+  // 4. Move to empty column (if it clears cards from a column with down cards or breaks a mixed stack)
+  for (let fromCol = 0; fromCol < 10; fromCol++) {
+    const col = state.tableau[fromCol];
+    const firstUp = col.findIndex((c) => c.up);
+    for (let i = Math.max(0, firstUp); i < col.length; i++) {
+      if (!col[i].up) continue;
+      if (!isValidSpiderSequence(col, i)) continue;
+      for (let toCol = 0; toCol < 10; toCol++) {
+        if (state.tableau[toCol].length === 0 && canMoveSpider(state, fromCol, i, toCol)) {
+          if (i > 0 || col.some((c) => !c.up)) {
+            return { kind: "move", fromCol, cardIndex: i, toCol };
+          }
+        }
+      }
+    }
+  }
+
+  // 5. Deal from stock if available
+  if (canDealSpider(state)) {
+    return { kind: "deal" };
+  }
+
+  return null;
+}
+
+/** Check if any legal move is available in Spider Solitaire */
+export function spiderHasMoves(state: SpiderState): boolean {
+  if (state.won) return false;
+  if (canDealSpider(state)) return true;
+
+  for (let fromCol = 0; fromCol < 10; fromCol++) {
+    const col = state.tableau[fromCol];
+    for (let i = 0; i < col.length; i++) {
+      if (!col[i].up) continue;
+      if (!isValidSpiderSequence(col, i)) continue;
+      for (let toCol = 0; toCol < 10; toCol++) {
+        if (canMoveSpider(state, fromCol, i, toCol)) return true;
+      }
+    }
+  }
+
+  return false;
 }
 
 export interface SpiderTally {
@@ -296,7 +390,7 @@ export function spiderPay(
 ) {
   const g = spiderGain(paid, t);
   const before = paidXp ?? tallySpiderXp(paid ?? { completedRuns: 0, moves: 0, won: false });
-  const pot = Math.max(0, tallySpiderXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallySpiderXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return {
     gained: g.gained,
     paid: g.paid,

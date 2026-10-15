@@ -14,6 +14,8 @@ import { onlineSource } from "./useOnlineTable";
 import { dismissAlertsAsk, shouldAskForAlerts, turnOnAlerts, useAlertState } from "../alerts";
 import { Solitaire } from "../solitaire/Solitaire";
 import { ARCADE_GAMES, type ArcadeGameId } from "../arcade/ArcadeHub";
+import { buzz } from "../haptics";
+import { card as cardSound, click } from "../sound";
 import "../arcade/arcade.css";
 import "./online.css";
 
@@ -143,7 +145,15 @@ export function OnlineLobby({
       {!room && (
         // the way out sits top-left, where every other screen keeps it (you stay in line: a bar on the
         // main lobby says so and brings you back)
-        <button className="acct-back online-back" onClick={onExit}>
+        <button
+          className="acct-back online-back"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onExit();
+          }}
+          aria-label="Back to main lobby"
+        >
           <span aria-hidden>←</span> Lobby
         </button>
       )}
@@ -258,10 +268,13 @@ function Pick({
             className="btn gold big"
             disabled={!online}
             onClick={() => {
+              click();
+              buzz("tap");
               sess.client.join(back);
               forgetTable();
               setBack(null);
             }}
+            aria-label={`Return to your table ${back}`}
           >
             Back to your table ({back})
           </button>
@@ -277,7 +290,16 @@ function Pick({
               autoCapitalize="characters"
               onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ""))}
             />
-            <button className="btn primary" disabled={!online || code.length !== 5} onClick={() => sess.client.join(code)}>
+            <button
+              className="btn primary"
+              disabled={!online || code.length !== 5}
+              onClick={() => {
+                click();
+                buzz("tap");
+                sess.client.join(code);
+              }}
+              aria-label="Join table"
+            >
               Join
             </button>
           </div>
@@ -287,7 +309,17 @@ function Pick({
           {sess.rooms.length ? (
             <div className="open-tables">
               {sess.rooms.map((r) => (
-                <button key={r.code} className="open-table" disabled={chips < r.stakes} onClick={() => sess.client.join(r.code)}>
+                <button
+                  key={r.code}
+                  className="open-table"
+                  disabled={chips < r.stakes}
+                  onClick={() => {
+                    click();
+                    buzz("tap");
+                    sess.client.join(r.code);
+                  }}
+                  aria-label={`Join table ${r.code}, ${r.players} players, buy-in ${r.stakes.toLocaleString()}`}
+                >
                   <b>{r.players} players</b>
                   <span>Buy-in {r.stakes.toLocaleString()}</span>
                   <span className="dim">
@@ -303,10 +335,28 @@ function Pick({
       </div>
       <div className="lobby-col">
         <div className="seg mode-seg" role="tablist" aria-label="Game mode">
-          <button role="tab" aria-selected={!ranked} className={!ranked ? "on" : ""} onClick={() => setMode("casual")}>
+          <button
+            role="tab"
+            aria-selected={!ranked}
+            className={!ranked ? "on" : ""}
+            onClick={() => {
+              click();
+              buzz("tap");
+              setMode("casual");
+            }}
+          >
             Casual
           </button>
-          <button role="tab" aria-selected={ranked} className={ranked ? "on" : ""} onClick={() => setMode("ranked")}>
+          <button
+            role="tab"
+            aria-selected={ranked}
+            className={ranked ? "on" : ""}
+            onClick={() => {
+              click();
+              buzz("tap");
+              setMode("ranked");
+            }}
+          >
             Ranked{locked ? " 🔒" : ""}
           </button>
         </div>
@@ -328,7 +378,16 @@ function Pick({
             <span>Start a table</span>
             <div className="seg">
               {[3, 4, 5, 6].map((n) => (
-                <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
+                <button
+                  key={n}
+                  className={players === n ? "on" : ""}
+                  onClick={() => {
+                    click();
+                    buzz("tap");
+                    setPlayers(n);
+                  }}
+                  aria-label={`${n} players`}
+                >
                   {n}
                 </button>
               ))}
@@ -337,7 +396,17 @@ function Pick({
         )}
         <div className="stakes-grid">
           {STAKES.map((st, i) => (
-            <button key={st.name} className={"stake" + (stake === i ? " on" : "")} disabled={chips < st.buyIn} onClick={() => setStake(i)}>
+            <button
+              key={st.name}
+              className={"stake" + (stake === i ? " on" : "")}
+              disabled={chips < st.buyIn}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setStake(i);
+              }}
+              aria-label={`${st.name} stake, buy-in ${st.buyIn.toLocaleString()}`}
+            >
               <span className="stake-name">{st.name}</span>
               <span className="stake-buy">Buy-in {st.buyIn.toLocaleString()}</span>
             </button>
@@ -345,10 +414,26 @@ function Pick({
         </div>
         {!ranked && (
           <div className="seg">
-            <button className={isPrivate ? "on" : ""} onClick={() => setPrivate(true)}>
+            <button
+              className={isPrivate ? "on" : ""}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setPrivate(true);
+              }}
+              aria-label="Friends only table"
+            >
               Friends only
             </button>
-            <button className={!isPrivate ? "on" : ""} onClick={() => setPrivate(false)}>
+            <button
+              className={!isPrivate ? "on" : ""}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setPrivate(false);
+              }}
+              aria-label="Open to anyone table"
+            >
               Open to anyone
             </button>
           </div>
@@ -362,16 +447,43 @@ function Pick({
           />
         ) : ranked ? (
           <div className="start-row">
-            <button className="btn gold huge" disabled={!online || !!locked || chips < buyIn} onClick={() => sess.client.queue(RANKED_PLAYERS, buyIn, true)}>
+            <button
+              className="btn gold huge"
+              disabled={!online || !!locked || chips < buyIn}
+              onClick={() => {
+                cardSound();
+                buzz("tap");
+                sess.client.queue(RANKED_PLAYERS, buyIn, true);
+              }}
+              aria-label="Play Ranked queue"
+            >
               Play Ranked
             </button>
           </div>
         ) : (
           <div className="start-row">
-            <button className="btn gold huge" disabled={!online || chips < buyIn} onClick={() => sess.client.queue(players, buyIn)}>
+            <button
+              className="btn gold huge"
+              disabled={!online || chips < buyIn}
+              onClick={() => {
+                cardSound();
+                buzz("tap");
+                sess.client.queue(players, buyIn);
+              }}
+              aria-label="Play now queue"
+            >
               Play now
             </button>
-            <button className="btn primary huge" disabled={!online || chips < buyIn} onClick={() => sess.client.create({ players, stakes: buyIn, isPrivate })}>
+            <button
+              className="btn primary huge"
+              disabled={!online || chips < buyIn}
+              onClick={() => {
+                cardSound();
+                buzz("tap");
+                sess.client.create({ players, stakes: buyIn, isPrivate });
+              }}
+              aria-label="Start a table"
+            >
               Start a table
             </button>
           </div>
@@ -404,14 +516,25 @@ function AlertsAsk() {
           className="btn gold small"
           disabled={busy}
           onClick={async () => {
+            click();
+            buzz("tap");
             setBusy(true);
             await turnOnAlerts();
             setBusy(false);
           }}
+          aria-label="Turn on turn alerts"
         >
           Turn on
         </button>
-        <button className="btn ghost small" onClick={dismissAlertsAsk}>
+        <button
+          className="btn ghost small"
+          onClick={() => {
+            click();
+            buzz("tap");
+            dismissAlertsAsk();
+          }}
+          aria-label="Dismiss turn alerts"
+        >
           Not now
         </button>
       </div>
@@ -488,7 +611,15 @@ function QueueStrip({
     <div className="queue-strip" role="status">
       <span className="queue-strip-dot" aria-hidden />
       {onOpen ? (
-        <button className="queue-strip-go" onClick={onOpen} aria-label="You're in line for a table. Back to the queue">
+        <button
+          className="queue-strip-go"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onOpen();
+          }}
+          aria-label="You're in line for a table. Back to the queue"
+        >
           {words}
           <span className="queue-strip-back">
             In line <span aria-hidden>›</span>
@@ -504,6 +635,8 @@ function QueueStrip({
             className={`queue-switcher-toggle ${switcherOpen ? "active" : ""}`}
             onClick={(e) => {
               e.stopPropagation();
+              click();
+              buzz("tap");
               setSwitcherOpen((o) => !o);
             }}
             aria-label="Switch solo arcade game while in queue"
@@ -534,9 +667,12 @@ function QueueStrip({
                     type="button"
                     className={`queue-switcher-item ${isCurrent ? "active" : ""}`}
                     onClick={() => {
+                      cardSound();
+                      buzz("tap");
                       setSwitcherOpen(false);
                       onSwitchGame?.(g.id);
                     }}
+                    aria-label={`Switch to ${g.title}`}
                   >
                     <span className={`queue-switcher-item-badge ${c1.red ? "red" : ""}`}>
                       {c1.isSymbol ? c1.rank : `${c1.rank}${c1.suit}`}
@@ -555,9 +691,12 @@ function QueueStrip({
                     type="button"
                     className="queue-switcher-hub-btn"
                     onClick={() => {
+                      click();
+                      buzz("tap");
                       setSwitcherOpen(false);
                       onOpenArcade();
                     }}
+                    aria-label="Browse All in Arcade Hub"
                   >
                     <span>Browse All in Arcade Hub ⇗</span>
                   </button>
@@ -567,7 +706,15 @@ function QueueStrip({
           )}
         </div>
       )}
-      <button className="queue-strip-x" onClick={() => sess.client.unqueue()} aria-label="Leave the queue">
+      <button
+        className="queue-strip-x"
+        onClick={() => {
+          click();
+          buzz("tap");
+          sess.client.unqueue();
+        }}
+        aria-label="Leave the queue"
+      >
         ✕
       </button>
     </div>
@@ -648,15 +795,40 @@ function QueueCard({
       <div className="fine">
         {q.ranked ? "No bots in Ranked: the table deals when six are in line." : left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}
       </div>
-      <button className="btn primary" onClick={() => (onArcade ? onArcade("solitaire") : onSolitaire())}>
+      <button
+        className="btn primary"
+        onClick={() => {
+          cardSound();
+          buzz("tap");
+          if (onArcade) onArcade("solitaire");
+          else onSolitaire();
+        }}
+        aria-label="Play Solitaire while you wait"
+      >
         Play Solitaire while you wait
       </button>
       {onOpenArcade && (
-        <button className="btn ghost" onClick={onOpenArcade}>
+        <button
+          className="btn ghost"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onOpenArcade();
+          }}
+          aria-label="Browse Solo Arcade"
+        >
           Browse Solo Arcade (8 Games)
         </button>
       )}
-      <button className="btn ghost" onClick={() => sess.client.unqueue()}>
+      <button
+        className="btn ghost"
+        onClick={() => {
+          click();
+          buzz("tap");
+          sess.client.unqueue();
+        }}
+        aria-label="Cancel queue"
+      >
         Cancel
       </button>
       <AlertsAsk />
@@ -715,14 +887,30 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
         <div className="room-code">{room.code}</div>
         {/* friends get a notification that opens the app at this table; a texted link is for everyone else */}
         <InviteFriends code={room.code} seated={room.seats.map((s) => s.userId)} onText={share} />
-        <button className="btn gold big" onClick={share}>
+        <button
+          className="btn gold big"
+          onClick={() => {
+            click();
+            buzz("tap");
+            void share();
+          }}
+          aria-label="Text an invite link"
+        >
           {copied ? "Link copied" : "Text an invite link"}
         </button>
         <div className="fine">
           {room.players} players · Buy-in {room.stakes.toLocaleString()} · {room.isPrivate ? "Friends only" : "Open to anyone"}
         </div>
         {sess.seat === null && <div className="fine">You're watching this table.</div>}
-        <button className="btn ghost" onClick={onLeave}>
+        <button
+          className="btn ghost"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onLeave();
+          }}
+          aria-label="Leave table"
+        >
           Leave table
         </button>
       </div>
@@ -743,7 +931,16 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
                 >
                   <CrewBadge color={s.seat} size={28} />
                   <input className="seat-name-input" value={draft} maxLength={20} placeholder="Your name" autoFocus aria-label="Your name" onChange={(e) => setDraft(e.target.value)} />
-                  <button className="btn gold small" type="submit" disabled={!draft.trim()}>
+                  <button
+                    className="btn gold small"
+                    type="submit"
+                    disabled={!draft.trim()}
+                    onClick={() => {
+                      click();
+                      buzz("tap");
+                    }}
+                    aria-label="Save name"
+                  >
                     Save
                   </button>
                 </form>
@@ -752,7 +949,10 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
                   key={s.seat}
                   className="room-seat me"
                   title="Change your name"
+                  aria-label="Change your name"
                   onClick={() => {
+                    click();
+                    buzz("tap");
                     setDraft(s.name);
                     setEditing(true);
                   }}
@@ -775,7 +975,15 @@ function RoomView({ sess, onLeave }: { sess: OnlineSession; onLeave: () => void 
           {editing && <div className="fine">Pick the name everyone at the table will see.</div>}
         </div>
         {host ? (
-          <button className="btn primary huge" onClick={() => sess.client.start()}>
+          <button
+            className="btn primary huge"
+            onClick={() => {
+              cardSound(4);
+              buzz("tap");
+              sess.client.start();
+            }}
+            aria-label="Deal cards"
+          >
             Deal{humans < room.players ? ` (bots fill ${room.players - humans})` : ""}
           </button>
         ) : (
@@ -860,7 +1068,15 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
       {mine?.autopilot && room.status === "playing" && (
         <div className="online-banner autopilot">
           A bot is playing for you.
-          <button className="btn primary small" onClick={() => sess.client.autopilot(false)}>
+          <button
+            className="btn primary small"
+            onClick={() => {
+              click();
+              buzz("tap");
+              sess.client.autopilot(false);
+            }}
+            aria-label="Resume control from bot"
+          >
             I'm back
           </button>
         </div>

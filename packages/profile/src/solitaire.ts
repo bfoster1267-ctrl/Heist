@@ -152,6 +152,22 @@ export function tapMove(k: Klondike, from: "w" | `t${number}` | `f${number}`, de
   return null;
 }
 
+/** Check if any legal move is available in Klondike Solitaire */
+export function solHasMoves(k: Klondike): boolean {
+  if (solWon(k)) return false;
+  if (autoMove(k) !== null) return true;
+  if (k.stock.length > 0) return true;
+  if (k.waste.length > 0) return true;
+  for (let i = 0; i < 7; i++) {
+    const col = k.cols[i];
+    if (!col.up.length) continue;
+    for (let depth = 1; depth <= col.up.length; depth++) {
+      if (tapMove(k, `t${i}`, depth) !== null) return true;
+    }
+  }
+  return false;
+}
+
 /** Replay a game's moves from its seed; throws on an illegal move. */
 export function replaySol(seed: number, moves: readonly unknown[]): Klondike {
   let k = dealKlondike(seed);
@@ -220,6 +236,6 @@ export const SOL_IDLE_S = 5;
 export function solPay(paid: SolTally | undefined, paidXp: number | undefined, t: SolTally, drain: number) {
   const g = solGain(paid, t);
   const before = paidXp ?? tallyXp(paid ?? { moves: 0, aces: 0, stacks: 0, won: false });
-  const pot = Math.max(0, tallyXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallyXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return { gained: g.gained, paid: g.paid, paidXp: Math.max(before, pot), xp: Math.max(0, pot - before) };
 }

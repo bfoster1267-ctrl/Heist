@@ -222,7 +222,7 @@ export function yukonPay(
 ) {
   const g = yukonGain(paid, t);
   const before = paidXp ?? tallyYukonXp(paid ?? { foundations: 0, unturned: 0, moves: 0, won: false });
-  const pot = Math.max(0, tallyYukonXp(g.paid) - Math.max(0, drain));
+  const pot = Math.max(0, tallyYukonXp(g.paid) - Math.max(0, Number.isFinite(drain) ? drain : 0));
   return {
     gained: g.gained,
     paid: g.paid,
@@ -300,4 +300,10 @@ export function findYukonHint(s: YukonState): YukonHint | null {
   }
 
   return null;
+}
+
+/** Check if any legal move is available in Yukon Solitaire */
+export function yukonHasMoves(s: YukonState): boolean {
+  if (yukonWon(s)) return false;
+  return findYukonHint(s) !== null;
 }

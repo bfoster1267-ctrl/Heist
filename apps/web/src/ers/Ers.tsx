@@ -279,8 +279,9 @@ export function Ers({ onExit, onHeist, banner }: {
           <button
             type="button"
             className="ers-icon-btn"
-            onClick={() => { click(); onExit(); }}
+            onClick={() => { click(); buzz("tap"); onExit(); }}
             title="Leave ERS"
+            aria-label="Back to the lobby"
           >
             <Icon d="M15 19l-7-7 7-7" />
           </button>
@@ -295,8 +296,9 @@ export function Ers({ onExit, onHeist, banner }: {
           <button
             type="button"
             className="ers-icon-btn"
-            onClick={() => { click(); setShowRules(true); }}
+            onClick={() => { click(); buzz("tap"); setShowRules(true); }}
             title="Rules & Slap conditions"
+            aria-label="Rules & Slap conditions"
           >
             <Icon d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2a2 2 0 011-3.73A2.5 2.5 0 0013 7a2.5 2.5 0 00-5 0h2a.5.5 0 011 0c0 .83-.67 1.5-1.5 1.5S8 9.17 8 10h2a1 1 0 001-1 1 1 0 012 0c0 .55-.45 1-1 1v3z" />
           </button>
@@ -305,8 +307,9 @@ export function Ers({ onExit, onHeist, banner }: {
             type="button"
             className="ers-icon-btn"
             style={{ width: "auto", padding: "0 10px", fontSize: 13, fontFamily: "var(--cond)", fontWeight: 800, color: "var(--gold)" }}
-            onClick={() => { click(); setPvp(true); }}
+            onClick={() => { click(); buzz("tap"); setPvp(true); }}
             title="Play 2-Player Real-time PvP Duel"
+            aria-label="Play 2-Player Real-time PvP Duel"
           >
             ⚔️ 2P DUEL
           </button>
@@ -316,6 +319,7 @@ export function Ers({ onExit, onHeist, banner }: {
             className={`ers-icon-btn ${armed ? "armed" : ""}`}
             onClick={() => {
               click();
+              buzz("tap");
               if (armed) {
                 setArmed(false);
                 void deal();
@@ -325,6 +329,7 @@ export function Ers({ onExit, onHeist, banner }: {
               }
             }}
             title={armed ? "Confirm new deal" : "New deal"}
+            aria-label="New deal"
           >
             {armed ? <span className="ers-sure">NEW?</span> : <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />}
           </button>
@@ -358,7 +363,19 @@ export function Ers({ onExit, onHeist, banner }: {
               </div>
             )}
 
-            <div className="ers-pot-container" onClick={handleSlap}>
+            <div
+              className="ers-pot-container"
+              onClick={handleSlap}
+              role="button"
+              tabIndex={0}
+              aria-label="Slap center pot"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleSlap();
+                }
+              }}
+            >
               {/* Overlapping card underneath for realistic depth */}
               {underCard !== null && (
                 <div
@@ -413,6 +430,15 @@ export function Ers({ onExit, onHeist, banner }: {
             <div
               style={{ position: "relative", width: 90, height: 128, cursor: "pointer" }}
               onClick={handleFlip}
+              role="button"
+              tabIndex={0}
+              aria-label="Flip card from your deck"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  handleFlip();
+                }
+              }}
             >
               {p0Count > 0 && (
                 <div
@@ -436,6 +462,7 @@ export function Ers({ onExit, onHeist, banner }: {
                 className={`ers-flip-btn ${state?.turn === 0 ? "your-turn" : ""}`}
                 onClick={handleFlip}
                 disabled={done || state?.turn !== 0}
+                aria-label="Flip card"
               >
                 <span>FLIP CARD</span>
                 <span style={{ fontSize: 18 }}>🎴</span>
@@ -446,6 +473,7 @@ export function Ers({ onExit, onHeist, banner }: {
                 className="ers-slap-btn"
                 onClick={handleSlap}
                 disabled={done}
+                aria-label="Slap pot"
               >
                 ⚡ SLAP! ⚡
               </button>
@@ -500,7 +528,12 @@ export function Ers({ onExit, onHeist, banner }: {
             <button
               type="button"
               className="ers-rules-close-btn"
-              onClick={() => setShowRules(false)}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setShowRules(false);
+              }}
+              aria-label="Close rules"
             >
               GOT IT
             </button>

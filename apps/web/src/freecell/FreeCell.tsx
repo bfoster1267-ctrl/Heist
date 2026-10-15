@@ -240,6 +240,7 @@ export function FreeCell({ onExit, onHeist, banner }: {
     setHint(null);
     lastAct.current = Date.now();
     click();
+    buzz("tap");
   };
 
   const showHint = () => {
@@ -249,12 +250,15 @@ export function FreeCell({ onExit, onHeist, banner }: {
     setHint(h);
     setDrain((d) => Math.min(d + 1, tallyFcXp(best.current)));
     click();
+    buzz("tap");
     window.setTimeout(() => setHint((x) => (x === h ? null : x)), 1800);
   };
 
   const newDeal = () => {
     if (moves.length && !done && !armed) {
       setArmed(true);
+      click();
+      buzz("tap");
       window.setTimeout(() => setArmed(false), 2500);
       return;
     }
@@ -425,7 +429,7 @@ export function FreeCell({ onExit, onHeist, banner }: {
       <div className="fc-board" ref={board}>
         {banner && <div className="fc-banner">{banner}</div>}
         <div className="fc-bar" style={{ height: 52 }}>
-          <button className="fc-icon-btn" onClick={onExit} aria-label="Back to the lobby">
+          <button className="fc-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="fc-hud">
@@ -538,7 +542,7 @@ export function FreeCell({ onExit, onHeist, banner }: {
               <button className="btn primary" onClick={() => void deal()}>
                 New deal
               </button>
-              <button className="fc-stuck-x" onClick={() => setStuckSeen(hist.length)} aria-label="Keep playing">
+              <button className="fc-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label="Keep playing">
                 ✕
               </button>
             </motion.div>
@@ -565,11 +569,11 @@ export function FreeCell({ onExit, onHeist, banner }: {
                 Deal again
               </button>
               {onHeist && (
-                <button className="btn big fc-heist" onClick={onHeist}>
+                <button className="btn big fc-heist" onClick={() => { click(); buzz("tap"); onHeist(); }}>
                   Heist
                 </button>
               )}
-              <button className="btn ghost" onClick={onExit}>
+              <button className="btn ghost" onClick={() => { click(); buzz("tap"); onExit(); }}>
                 Lobby
               </button>
             </motion.div>

@@ -404,7 +404,7 @@ export function settleSolitaire(
     { label: "Solitaire solved", xp: gained.won ? SOL_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
   const room = Math.max(0, SOLITAIRE_DAY_XP - s.xp);
   if (total > room) lines = [{ label: "Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
@@ -472,7 +472,7 @@ export function settleFreeCell(
     { label: "FreeCell solved", xp: gained.won ? FC_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
   const room = Math.max(0, FREECELL_DAY_XP - fc.xp);
   if (total > room) lines = [{ label: "FreeCell (daily XP limit reached)", xp: room, coins: 0 }];
@@ -544,7 +544,7 @@ export function settleTriPeaks(
   if (hasStreak5) lines.push({ label: "5-card combo streak", xp: TP_XP.streak5, coins: 0 });
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
   const room = Math.max(0, TRIPEAKS_DAY_XP - tp.xp);
   if (total > room) lines = [{ label: "TriPeaks (daily XP limit reached)", xp: room, coins: 0 }];
@@ -613,7 +613,7 @@ export function settleErs(
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
   const room = Math.max(0, ERS_DAY_XP - ers.xp);
   if (total > room) lines = [{ label: "Egyptian Rat Screw (daily XP limit reached)", xp: room, coins: 0 }];
@@ -680,7 +680,7 @@ export function settleSpider(
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
   const room = Math.max(0, SPIDER_DAY_XP - sp.xp);
   if (total > room) lines = [{ label: "Spider Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
@@ -748,7 +748,7 @@ export function settlePyramid(
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
   const room = Math.max(0, PYRAMID_DAY_XP - pyr.xp);
   if (total > room) lines = [{ label: "Pyramid Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
@@ -814,7 +814,7 @@ export function settleYukon(
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
   const room = Math.max(0, YUKON_DAY_XP - yk.xp);
   if (total > room) lines = [{ label: "Yukon Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
@@ -880,7 +880,7 @@ export function settleScoundrel(
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
-  const total = Math.max(0, Math.min(earned, pay));
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
   if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
   const room = Math.max(0, SCOUNDREL_DAY_XP - sc.xp);
   if (total > room) lines = [{ label: "Scoundrel (daily XP limit reached)", xp: room, coins: 0 }];

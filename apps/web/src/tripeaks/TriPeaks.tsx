@@ -197,6 +197,7 @@ export function TriPeaks({ onExit, onHeist, banner }: {
     setHint(null);
     lastAct.current = Date.now();
     click();
+    buzz("tap");
   };
 
   const showHint = () => {
@@ -213,12 +214,15 @@ export function TriPeaks({ onExit, onHeist, banner }: {
     setHint(h);
     setDrain((d) => Math.min(d + 1, tallyTpXp(best.current)));
     click();
+    buzz("tap");
     window.setTimeout(() => setHint(null), 1800);
   };
 
   const newDeal = () => {
     if (moves.length && !done && !armed) {
       setArmed(true);
+      click();
+      buzz("tap");
       window.setTimeout(() => setArmed(false), 2500);
       return;
     }
@@ -282,7 +286,11 @@ export function TriPeaks({ onExit, onHeist, banner }: {
   };
 
   const drawStock = () => {
-    if (done || k.stock.length === 0) return;
+    if (done) return;
+    if (k.stock.length === 0) {
+      nope("stock");
+      return;
+    }
     play("d");
   };
 
@@ -300,7 +308,7 @@ export function TriPeaks({ onExit, onHeist, banner }: {
       <div className="tp-board" ref={board}>
         {banner && <div className="tp-banner">{banner}</div>}
         <div className="tp-bar" style={{ height: 52 }}>
-          <button className="tp-icon-btn" onClick={onExit} aria-label="Back to the lobby">
+          <button className="tp-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="tp-hud">
@@ -370,6 +378,15 @@ export function TriPeaks({ onExit, onHeist, banner }: {
           className={"tp-slot stock" + (shake === "stock" ? " hinted" : "")}
           style={{ left: colX(3), top: bottomY, width: b.cw, height: b.ch }}
           onClick={drawStock}
+          role="button"
+          tabIndex={0}
+          aria-label={k.stock.length > 0 ? `Draw card (${k.stock.length} left)` : "Stock empty"}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              drawStock();
+            }
+          }}
         >
           {k.stock.length > 0 ? (
             <div className="tp-card back" style={{ width: b.cw, height: b.ch }}>
@@ -442,7 +459,7 @@ export function TriPeaks({ onExit, onHeist, banner }: {
               <button className="btn primary" onClick={() => void deal()}>
                 New deal
               </button>
-              <button className="tp-stuck-x" onClick={() => setStuckSeen(hist.length)} aria-label="Keep playing">
+              <button className="tp-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label="Keep playing">
                 ✕
               </button>
             </motion.div>
@@ -469,11 +486,11 @@ export function TriPeaks({ onExit, onHeist, banner }: {
                 Deal again
               </button>
               {onHeist && (
-                <button className="btn big tp-heist" onClick={onHeist}>
+                <button className="btn big tp-heist" onClick={() => { click(); buzz("tap"); onHeist(); }}>
                   Heist
                 </button>
               )}
-              <button className="btn ghost" onClick={onExit}>
+              <button className="btn ghost" onClick={() => { click(); buzz("tap"); onExit(); }}>
                 Lobby
               </button>
             </motion.div>

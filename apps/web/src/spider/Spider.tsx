@@ -149,7 +149,18 @@ export function Spider({ onExit, onHeist, banner }: {
 
   // Stock deal
   const handleDealStock = useCallback(() => {
-    if (!k || !canDealSpider(k)) return;
+    if (!k || k.won) return;
+    if (k.stock.length === 0) {
+      buzz("tap");
+      return;
+    }
+    if (!canDealSpider(k)) {
+      buzz("bump");
+      const id = ++floatId.current;
+      setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 0, tag: "NO EMPTY COLUMNS TO DEAL!" }]);
+      setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1200);
+      return;
+    }
     cardSound();
     buzz("tap");
     const next = applySpider(k, { kind: "deal" });
@@ -162,6 +173,7 @@ export function Spider({ onExit, onHeist, banner }: {
   // Find legal hint
   const handleHint = useCallback(() => {
     if (!k || k.won) return;
+    click();
     // Scan all columns
     for (let from = 0; from < 10; from++) {
       const sourceCol = k.tableau[from];
@@ -182,18 +194,19 @@ export function Spider({ onExit, onHeist, banner }: {
         }
       }
     }
+    buzz("tap");
   }, [k]);
 
   // Undo move
   const handleUndo = useCallback(() => {
-    if (hist.length <= 1) return;
+    if (hist.length <= 1 || done) return;
     click();
     buzz("tap");
     setHist((h) => h.slice(0, -1));
     setMoves((m) => m.slice(0, -1));
     setSelected(null);
     setHint(null);
-  }, [hist]);
+  }, [hist, done]);
 
   // Column or Card click
   const handleCardClick = useCallback((colIdx: number, cardIdx: number) => {
@@ -305,8 +318,9 @@ export function Spider({ onExit, onHeist, banner }: {
           <button
             type="button"
             className="spider-icon-btn"
-            onClick={() => { click(); onExit(); }}
+            onClick={() => { click(); buzz("tap"); onExit(); }}
             title="Leave Spider"
+            aria-label="Back to the lobby"
           >
             <Icon d="M15 19l-7-7 7-7" />
           </button>
@@ -322,7 +336,9 @@ export function Spider({ onExit, onHeist, banner }: {
             type="button"
             className="spider-icon-btn"
             onClick={handleHint}
+            disabled={done}
             title="Show hint"
+            aria-label="Hint"
           >
             <Icon d="M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7zm-2 18a1 1 0 001 1h2a1 1 0 001-1v-1h-4v1z" />
           </button>
@@ -331,8 +347,9 @@ export function Spider({ onExit, onHeist, banner }: {
             type="button"
             className="spider-icon-btn"
             onClick={handleUndo}
-            disabled={hist.length <= 1}
+            disabled={hist.length <= 1 || done}
             title="Undo last move"
+            aria-label="Undo"
           >
             <Icon d="M3 10h10a5 5 0 015 5v2m-15-7l4-4m-4 4l4 4" />
           </button>
@@ -342,6 +359,7 @@ export function Spider({ onExit, onHeist, banner }: {
             className={`spider-icon-btn ${armed ? "armed" : ""}`}
             onClick={() => {
               click();
+              buzz("tap");
               if (armed) {
                 setArmed(false);
                 void deal(mode);
@@ -351,6 +369,7 @@ export function Spider({ onExit, onHeist, banner }: {
               }
             }}
             title={armed ? "Confirm new deal" : "New deal"}
+            aria-label="New deal"
           >
             {armed ? <span className="spider-sure">NEW?</span> : <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />}
           </button>
@@ -376,7 +395,19 @@ export function Spider({ onExit, onHeist, banner }: {
           </div>
 
           {/* Stock pile */}
-          <div className="spider-stock-zone" onClick={handleDealStock}>
+          <div
+            className="spider-stock-zone"
+            onClick={handleDealStock}
+            role="button"
+            tabIndex={dealsLeft > 0 ? 0 : -1}
+            aria-label={dealsLeft > 0 ? `Deal cards (${dealsLeft} deals remaining)` : "No deals remaining"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                handleDealStock();
+              }
+            }}
+          >
             <span className="spider-stock-count">{dealsLeft} DEALS</span>
             <div
               style={{
@@ -468,9 +499,32 @@ export function Spider({ onExit, onHeist, banner }: {
         </div>
       ))}
 
-      {/* Win Cascade */}
+      {/* Win Cascade & Dialog */}
       {k?.won && (
-        <WinCascade from={() => ({ x: window.innerWidth / 2 - b.cw / 2, y: 120 })} cw={b.cw} ch={b.ch} />
+        <>
+          <WinCascade from={() => ({ x: window.innerWidth / 2 - b.cw / 2, y: 120 })} cw={b.cw} ch={b.ch} />
+          <div className="spider-win-overlay">
+            <div className="spider-win-card">
+              <div className="spider-win-kicker">CLEAN RUN</div>
+              <div className="spider-win-title">SPIDER SOLVED!</div>
+              <div className="spider-win-stats">
+                <span><b>{moves.length}</b> moves</span>
+                <span><b>8/8</b> runs cleared</span>
+              </div>
+              <button className="btn primary big" onClick={() => { cardSound(4); buzz("tap"); void deal(mode); }} autoFocus>
+                Deal again
+              </button>
+              {onHeist && (
+                <button className="btn big" onClick={() => { click(); buzz("tap"); onHeist(); }}>
+                  Heist
+                </button>
+              )}
+              <button className="btn ghost" onClick={() => { click(); buzz("tap"); onExit(); }}>
+                Lobby
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Online queue timer banner */}
