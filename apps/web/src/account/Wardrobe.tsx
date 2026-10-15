@@ -11,7 +11,7 @@ import {
   type EquipSlot,
 } from "@heist/profile";
 import { useState } from "react";
-import { THEMES, setPrefs, usePrefs } from "../prefs";
+import { THEMES, setPrefs, usePrefs, type Theme } from "../prefs";
 import type { Me } from "./backend";
 import { Avatar, Stars } from "./bits";
 import { Cigar, Preview, RarityBadge } from "./items";
@@ -32,6 +32,30 @@ const CATEGORIES = [
 ] as const;
 
 type CategoryId = (typeof CATEGORIES)[number]["id"];
+
+const THEME_METAS: Record<Theme, { name: string; main: string; edge: string; rail: string; rarity: "rare" | "epic" | "legendary" }> = {
+  classic: {
+    name: "Classic Casino Felt",
+    main: "#187a50",
+    edge: "#083822",
+    rail: "#5b3a1e",
+    rarity: "rare",
+  },
+  vault: {
+    name: "The Vault Steel Felt",
+    main: "#3a4656",
+    edge: "#161c26",
+    rail: "#8d939c",
+    rarity: "epic",
+  },
+  neon: {
+    name: "Neon Vegas Cyber Felt",
+    main: "#3b1670",
+    edge: "#10072a",
+    rail: "#ff3fb4",
+    rarity: "legendary",
+  },
+};
 
 const SLOTS: [EquipSlot, string, "shop" | "season"][] = [
   ["felt", "Table Felt", "shop"],
@@ -54,10 +78,16 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
   const [previewLook, setPreviewLook] = useState<Record<EquipSlot, string>>(() => ({
     ...p.equipped,
   }));
+  const [previewTheme, setPreviewTheme] = useState<Theme | null>(null);
 
-  const isPreviewing = Object.entries(previewLook).some(
+  const isHouseFeltPreviewed = previewLook.felt === "felt.classic";
+  const activePreviewTheme: Theme | null = previewTheme ?? (isHouseFeltPreviewed ? prefs.theme : null);
+
+  const isThemePreviewing = previewTheme !== null && (previewTheme !== prefs.theme || p.equipped.felt !== "felt.classic");
+  const isCosmeticPreviewing = Object.entries(previewLook).some(
     ([slot, id]) => p.equipped[slot as EquipSlot] !== id,
   );
+  const isPreviewing = isThemePreviewing || isCosmeticPreviewing;
 
   const wear = async (id: string, slot?: EquipSlot) => {
     click();
@@ -67,7 +97,29 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
     await act((b) => b.equip(id));
     if (slot) {
       setPreviewLook((prev) => ({ ...prev, [slot]: id }));
+      if (slot === "felt") {
+        setPreviewTheme(null);
+      }
     }
+    setBusy(null);
+  };
+
+  const previewClassicTheme = (themeId: Theme) => {
+    cardSound();
+    buzz("tap");
+    setPreviewTheme(themeId);
+    setPreviewLook((prev) => ({ ...prev, felt: "felt.classic" }));
+  };
+
+  const wearClassicTheme = async (themeId: Theme) => {
+    click();
+    buzz("win");
+    winSound();
+    setBusy(`theme-${themeId}`);
+    setPrefs({ theme: themeId });
+    await act((b) => b.equip("felt.classic"));
+    setPreviewTheme(null);
+    setPreviewLook((prev) => ({ ...prev, felt: "felt.classic" }));
     setBusy(null);
   };
 
@@ -75,6 +127,9 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
     if (c.slot in DEFAULT_EQUIPPED) {
       cardSound();
       buzz("tap");
+      if (c.slot === "felt") {
+        setPreviewTheme(null);
+      }
       setPreviewLook((prev) => ({ ...prev, [c.slot as EquipSlot]: c.id }));
     }
   };
@@ -83,6 +138,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
     click();
     buzz("tap");
     setPreviewLook({ ...p.equipped });
+    setPreviewTheme(null);
   };
 
   const collected = (slot: "emote" | "drink") =>
@@ -97,8 +153,15 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
   const previewedTitle = cosmetic(previewLook.title);
   const previewedCigar = cosmetic(previewLook.cigar);
 
-  // Felt background color style
-  const [feltMain, feltEdge] = previewedFelt?.colors ?? ["#1f6b45", "#0b3322"];
+  // Felt details: either classic theme or custom cosmetic felt
+  const currentThemeMeta = isHouseFeltPreviewed && activePreviewTheme ? THEME_METAS[activePreviewTheme] : null;
+
+  const feltMain = currentThemeMeta ? currentThemeMeta.main : (previewedFelt?.colors?.[0] ?? "#1f6b45");
+  const feltEdge = currentThemeMeta ? currentThemeMeta.edge : (previewedFelt?.colors?.[1] ?? "#0b3322");
+  const feltRail = currentThemeMeta ? currentThemeMeta.rail : "rgba(255, 215, 0, 0.4)";
+  const feltDisplayName = currentThemeMeta ? currentThemeMeta.name : (previewedFelt?.name ?? "Table Felt");
+  const feltThemeClass = currentThemeMeta && activePreviewTheme ? ` theme-${activePreviewTheme}` : "";
+
   const [backMain, backAccent] = previewedBack?.colors ?? ["#232832", "#e7b53c"];
 
   return (
@@ -155,9 +218,10 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
 
           {/* Right: Table Felt & 3D Perspective Card Fan */}
           <div
-            className="fitting-table-pedestal"
+            className={`fitting-table-pedestal${feltThemeClass}`}
             style={{
               background: `radial-gradient(ellipse at 50% 45%, ${feltMain}, ${feltEdge})`,
+              borderColor: feltRail,
             }}
           >
             <div className="fitting-deck-fan">
@@ -185,7 +249,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
               </div>
             </div>
             <span className="fitting-felt-label">
-              {previewedFelt?.name ?? "Table Felt"} · {previewedBack?.name ?? "Cards"}
+              {feltDisplayName} · {previewedBack?.name ?? "Cards"}
             </span>
           </div>
         </div>
@@ -219,21 +283,38 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
           <h3>Casino Classic Felts</h3>
           <div className="acct-items">
             {THEMES.map((t) => {
-              const on = prefs.theme === t.id;
+              const meta = THEME_METAS[t.id];
+              const on = p.equipped.felt === "felt.classic" && prefs.theme === t.id;
+              const isPreview = activePreviewTheme === t.id && (previewTheme !== null || (isHouseFeltPreviewed && !on));
+
               return (
-                <div key={t.id} className={"acct-item" + (on ? " on" : "")} data-rarity="common">
-                  <div className="acct-prev acct-prev-felt" style={{ background: t.felt, borderColor: t.rail }} />
-                  <div className="acct-item-name">{t.name}</div>
-                  <RarityBadge rarity="common" />
+                <div
+                  key={t.id}
+                  className={"acct-item" + (on ? " on" : "") + (isPreview ? " previewing-card" : "")}
+                  data-rarity={meta.rarity}
+                  onClick={() => previewClassicTheme(t.id)}
+                  style={{ cursor: "pointer" }}
+                >
+                  <div
+                    className={`acct-prev acct-prev-felt theme-card-preview theme-card-${t.id}`}
+                    style={{
+                      background: `radial-gradient(ellipse at 50% 45%, ${meta.main} 0%, ${meta.edge} 100%)`,
+                      borderColor: meta.rail,
+                    }}
+                  >
+                    <span className="theme-card-watermark">HEIST</span>
+                  </div>
+                  <div className="acct-item-name">{meta.name}</div>
+                  <RarityBadge rarity={meta.rarity} />
                   {on ? (
-                    <div className="acct-item-tag">Wearing</div>
+                    <div className="acct-item-tag">Equipped</div>
                   ) : (
                     <button
                       className="btn small gold"
-                      onClick={() => {
-                        click();
-                        buzz("tap");
-                        setPrefs({ theme: t.id });
+                      disabled={busy === `theme-${t.id}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void wearClassicTheme(t.id);
                       }}
                     >
                       Wear
@@ -260,11 +341,12 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
       }).map(([slot, label, from]) => {
         const house = DEFAULT_EQUIPPED[slot];
         const mine = ALL_COSMETICS.filter((c) => c.slot === slot && c.id !== house && owns(p, c.id));
-        const list: Cosmetic[] = [...ALL_COSMETICS.filter((c) => c.id === house), ...mine];
+        const list: Cosmetic[] = slot === "felt" ? mine : [...ALL_COSMETICS.filter((c) => c.id === house), ...mine];
+        const sectionTitle = slot === "felt" ? "Collector's Felts" : label;
 
         return (
           <section key={slot}>
-            <h3>{label}</h3>
+            <h3>{sectionTitle}</h3>
             <div className="acct-items">
               {list.map((c) => {
                 const on = p.equipped[slot] === c.id;
