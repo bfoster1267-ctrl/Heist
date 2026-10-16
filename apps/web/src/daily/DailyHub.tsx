@@ -38,6 +38,8 @@ export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
   yukon: { title: "Yukon", icon: "🐺" },
   ers: { title: "Egyptian Rat Screw", icon: "⚡" },
   scoundrel: { title: "Scoundrel", icon: "🗡️" },
+  minesweeper: { title: "Minesweeper", icon: "💣" },
+  sudoku: { title: "Sudoku", icon: "🔢" },
 };
 
 export interface DailyHubProps {

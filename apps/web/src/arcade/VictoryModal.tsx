@@ -34,6 +34,8 @@ const DAILY_LABELS: Record<string, string> = {
   yukon: "Yukon",
   ers: "Egyptian Rat Screw",
   scoundrel: "Scoundrel",
+  minesweeper: "Minesweeper",
+  sudoku: "Sudoku",
 };
 
 export interface VictoryModalProps {

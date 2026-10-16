@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, settleMinesweeper, minesPay, tallyMines, isMinesLevel, MINES_DAILY_LEVEL, type MinesTally, type MinesLevel, settleSudoku, sudokuPay, tallySudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, getDailySeed, todayUtc, type SudokuTally, type SudokuLevel, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -194,6 +194,16 @@ export interface Backend {
   scoundrelFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Scoundrel game's moves so far */
   scoundrelBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Minesweeper board (the daily deal is always the daily board); paid from the clicks replayed from the seed */
+  minesweeperStart(seed?: number, isDaily?: boolean, level?: MinesLevel): Promise<{ gameId: string; seed: number; level: MinesLevel }>;
+  minesweeperFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Minesweeper board's clicks so far */
+  minesweeperBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Sudoku (the daily deal is always the daily level); paid from the entries replayed against the seed's solution */
+  sudokuStart(seed?: number, isDaily?: boolean, level?: SudokuLevel): Promise<{ gameId: string; seed: number; level: SudokuLevel }>;
+  sudokuFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Sudoku's entries so far */
+  sudokuBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -581,6 +591,66 @@ export class BrowserBackend implements Backend {
     return { me: this.view(), reward: r.reward };
   }
 
+  private minesweeperState: { gameId: string; seed: number; level: MinesLevel; isDaily?: boolean; paid?: MinesTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
+  async minesweeperStart(seed?: number, isDaily = false, level?: MinesLevel) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    const daily = isDaily && s === getDailySeed("minesweeper", todayUtc());
+    const lv: MinesLevel = daily ? MINES_DAILY_LEVEL : isMinesLevel(level) ? level : "beginner";
+    this.minesweeperState = { gameId: `l_${s}`, seed: s, level: lv, isDaily: daily, startedAt: Date.now() };
+    return { gameId: this.minesweeperState.gameId, seed: s, level: lv };
+  }
+  async minesweeperFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.minesweeperBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async minesweeperBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.minesweeperState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyMines(g.seed, g.level, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = minesPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
+    if (t.won) this.minesweeperState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleMinesweeper(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private sudokuState: { gameId: string; seed: number; level: SudokuLevel; isDaily?: boolean; paid?: SudokuTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
+  async sudokuStart(seed?: number, isDaily = false, level?: SudokuLevel) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    const daily = isDaily && s === getDailySeed("sudoku", todayUtc());
+    const lv: SudokuLevel = daily ? SUDOKU_DAILY_LEVEL : isSudokuLevel(level) ? level : "easy";
+    this.sudokuState = { gameId: `l_${s}`, seed: s, level: lv, isDaily: daily, startedAt: Date.now() };
+    return { gameId: this.sudokuState.gameId, seed: s, level: lv };
+  }
+  async sudokuFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.sudokuBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async sudokuBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.sudokuState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallySudoku(g.seed, g.level, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = sudokuPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
+    if (t.won) this.sudokuState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleSudoku(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
   async soloFinish(gameId: string, answers: unknown[]) {
     const g = this.save.solo;
     if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
@@ -888,6 +958,24 @@ export class ServerBackend implements Backend {
   }
   scoundrelBank(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/scoundrel/bank", { gameId, moves, drain });
+  }
+  minesweeperStart(seed?: number, isDaily?: boolean, level?: MinesLevel) {
+    return this.call<{ gameId: string; seed: number; level: MinesLevel }>("/api/minesweeper/start", { seed, isDaily, level });
+  }
+  minesweeperFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/minesweeper/finish", { gameId, moves, drain });
+  }
+  minesweeperBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/minesweeper/bank", { gameId, moves, drain });
+  }
+  sudokuStart(seed?: number, isDaily?: boolean, level?: SudokuLevel) {
+    return this.call<{ gameId: string; seed: number; level: SudokuLevel }>("/api/sudoku/start", { seed, isDaily, level });
+  }
+  sudokuFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/sudoku/finish", { gameId, moves, drain });
+  }
+  sudokuBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/sudoku/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

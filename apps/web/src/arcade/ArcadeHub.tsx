@@ -14,9 +14,11 @@ export type ArcadeGameId =
   | "pyramid"
   | "yukon"
   | "ers"
-  | "scoundrel";
+  | "scoundrel"
+  | "minesweeper"
+  | "sudoku";
 
-export type ArcadeCategory = "all" | "solitaire" | "action";
+export type ArcadeCategory = "all" | "solitaire" | "action" | "puzzle";
 export type ArcadeDifficulty = "Casual" | "Medium" | "Expert";
 
 export interface ArcadeGame {
@@ -24,7 +26,7 @@ export interface ArcadeGame {
   title: string;
   subtitle: string;
   tagline: string;
-  category: "solitaire" | "action";
+  category: "solitaire" | "action" | "puzzle";
   difficulty: ArcadeDifficulty;
   tags: string[];
   deckInfo: string;
@@ -234,6 +236,54 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       tip: "Fight low-rank monsters (2-4) barehanded to preserve your high-value weapon durability for dragons (J, Q, K).",
     },
   },
+  {
+    id: "minesweeper",
+    title: "Minesweeper",
+    subtitle: "Crack the Minefield",
+    tagline: "The logic classic, vault edition: read the numbers, flag the mines, crack the safe.",
+    category: "puzzle",
+    difficulty: "Medium",
+    tags: ["Logic", "3 Boards", "Safe First Click", "Chording"],
+    deckInfo: "Beginner 9x9 · Intermediate 16x16 · Expert 16x30",
+    path: "/minesweeper",
+    art: {
+      cards: [
+        { rank: "💣", suit: "", red: false, isSymbol: true },
+        { rank: "🚩", suit: "", red: true, isSymbol: true },
+      ],
+      badge: "Logic",
+    },
+    rules: {
+      overview: "Classic Minesweeper on three boards: Beginner (10 mines), Intermediate (40) and Expert (99). Your first click is always safe.",
+      goal: "Open every cell that doesn't hide a mine.",
+      keyRule: "A number shows how many of its 8 neighbours are mines. Long-press (or flag mode, or right-click) to flag. Tap a number whose mines are all flagged to open the rest around it.",
+      tip: "Look for 1-2-1 and 1-2-2-1 patterns along walls of opened cells: they tell you exactly where the mines sit without guessing.",
+    },
+  },
+  {
+    id: "sudoku",
+    title: "Sudoku",
+    subtitle: "The Combination Lock",
+    tagline: "Unique-solution puzzles from Easy to Expert, graded by the techniques they take.",
+    category: "puzzle",
+    difficulty: "Medium",
+    tags: ["Logic", "Pencil Marks", "4 Levels", "Hints"],
+    deckInfo: "9x9 grid · Easy, Medium, Hard, Expert",
+    path: "/sudoku",
+    art: {
+      cards: [
+        { rank: "9", suit: "", red: false, isSymbol: true },
+        { rank: "🔐", suit: "", red: true, isSymbol: true },
+      ],
+      badge: "Puzzle",
+    },
+    rules: {
+      overview: "Fill the grid so every row, column and 3x3 box holds 1 to 9 exactly once. Every puzzle has exactly one solution.",
+      goal: "Complete the grid with fewer than 3 mistakes.",
+      keyRule: "A wrong digit counts as a mistake, and three mistakes end the puzzle. Pencil marks are free, and correct digits lock in place.",
+      tip: "Scan each box for the one cell a digit can go (hidden singles) before reaching for pencil marks.",
+    },
+  },
 ];
 
 export interface ArcadeHubProps {
@@ -292,6 +342,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
     return ARCADE_GAMES.filter((game) => {
       if (tab === "solitaire" && game.category !== "solitaire") return false;
       if (tab === "action" && game.category !== "action") return false;
+      if (tab === "puzzle" && game.category !== "puzzle") return false;
 
       if (!search.trim()) return true;
       const q = search.toLowerCase();
@@ -312,6 +363,10 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
     () => ARCADE_GAMES.filter((g) => g.category === "action").length,
     [],
   );
+  const puzzleCount = useMemo(
+    () => ARCADE_GAMES.filter((g) => g.category === "puzzle").length,
+    [],
+  );
 
   return createPortal(
     <div className="arcade-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Solo Arcade Hub">
@@ -328,7 +383,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               CASINO <span>ARCADE HUB</span>
             </h2>
             <p className="arcade-tagline">
-              8 single-player card games & roguelike challenges. Instant action, anytime.
+              {ARCADE_GAMES.length} single-player card games, roguelikes & logic puzzles. Instant action, anytime.
             </p>
           </div>
           <button
@@ -388,6 +443,18 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               aria-selected={tab === "action"}
             >
               Roguelike & Fast Action <span className="arcade-tab-count">{actionCount}</span>
+            </button>
+            <button
+              className={`arcade-tab-btn ${tab === "puzzle" ? "active" : ""}`}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setTab("puzzle");
+              }}
+              role="tab"
+              aria-selected={tab === "puzzle"}
+            >
+              Logic Puzzles <span className="arcade-tab-count">{puzzleCount}</span>
             </button>
           </div>
 

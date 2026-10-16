@@ -103,6 +103,8 @@ export function getDailyLeaderboard(
     yukon: 128,
     ers: 68,
     scoundrel: 142,
+    minesweeper: 150,
+    sudoku: 420,
   };
 
   const seedOffset = (seed % 17) - 8;
@@ -222,6 +224,8 @@ export interface FriendChallengePayload {
   time?: string;
   moves?: number;
   score?: number;
+  /** the board size or puzzle level, for games where the seed alone isn't the whole deal */
+  level?: string;
 }
 
 export function createFriendChallengeUrl({
@@ -230,6 +234,7 @@ export function createFriendChallengeUrl({
   time,
   moves,
   score,
+  level,
 }: FriendChallengePayload): string {
   const origin = typeof window !== "undefined" ? window.location.origin : "https://playheist.net";
   const u = new URL(`${origin}/${game}`);
@@ -237,6 +242,7 @@ export function createFriendChallengeUrl({
   if (time) u.searchParams.set("ctime", time);
   if (moves !== undefined) u.searchParams.set("cmoves", String(moves));
   if (score !== undefined) u.searchParams.set("cscore", String(score));
+  if (level && /^[a-z]{1,16}$/.test(level)) u.searchParams.set("level", level);
   return u.toString();
 }
 

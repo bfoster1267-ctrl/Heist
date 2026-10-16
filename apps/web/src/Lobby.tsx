@@ -58,6 +58,8 @@ export function Lobby({
   onPyramid,
   onYukon,
   onScoundrel,
+  onMinesweeper,
+  onSudoku,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -92,6 +94,10 @@ export function Lobby({
   onYukon?: () => void;
   /** open Scoundrel */
   onScoundrel?: () => void;
+  /** open Minesweeper */
+  onMinesweeper?: () => void;
+  /** open Sudoku */
+  onSudoku?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -231,11 +237,11 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
-          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel) && (
+          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onMinesweeper || onSudoku) && (
             <Mode
               icon="cards"
               label="Solo Arcade"
-              sub="8 Card Games · Solitaire & Roguelike"
+              sub="10 Games · Solitaire, Roguelike & Puzzles"
               onClick={() => setGames(true)}
             />
           )}
@@ -342,6 +348,12 @@ export function Lobby({
                   break;
                 case "scoundrel":
                   onScoundrel?.();
+                  break;
+                case "minesweeper":
+                  onMinesweeper?.();
+                  break;
+                case "sudoku":
+                  onSudoku?.();
                   break;
               }
             }}
