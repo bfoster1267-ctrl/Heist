@@ -82,6 +82,9 @@ const prune = () =>
 setTimeout(prune, 10 * 60_000).unref();
 setInterval(prune, 6 * 60 * 60_000).unref();
 
+// a stray rejected promise is logged, not fatal: a restart drops every table on the server
+process.on("unhandledRejection", (e) => log("unhandled rejection", { err: String(e instanceof Error ? e.stack ?? e : e) }));
+
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, async () => {
     log("shutting down");

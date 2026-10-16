@@ -567,7 +567,9 @@ export class ErsRooms {
     return this.byCode.size;
   }
 
-  create(opts: { isPrivate?: boolean; seed?: number } = {}): ErsRoom {
+  /** A new room, or null when the server already holds its limit of ERS rooms. */
+  create(opts: { isPrivate?: boolean; seed?: number } = {}): ErsRoom | null {
+    if (this.byCode.size >= (this.limits.maxRooms ?? 1000)) return null;
     let code = "";
     do {
       code = generateErsCode();

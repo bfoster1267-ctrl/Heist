@@ -165,10 +165,15 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").repl
 export function pageHtml(html: string, path: string, params?: URLSearchParams): string {
   let page = PAGES[path];
   if (!page) return html;
-  const challenge = params?.get("challenge");
+  // shared challenge links put these in the title: accept only a deal number, a m:ss time and a move count
+  const pick = (k: string, re: RegExp) => {
+    const v = params?.get(k);
+    return v && re.test(v) ? v : null;
+  };
+  const challenge = pick("challenge", /^\d{1,10}$/);
   if (challenge) {
-    const ctime = params?.get("ctime");
-    const cmoves = params?.get("cmoves");
+    const ctime = pick("ctime", /^\d{1,2}:\d{2}$/);
+    const cmoves = pick("cmoves", /^\d{1,4}$/);
     const rawGame = path === "/" ? "Heist" : page.title.split(":")[0];
     const metrics = [ctime ? `${ctime}` : null, cmoves ? `${cmoves} moves` : null].filter(Boolean).join(" · ");
     const challengeTitle = `Challenge: Beat My ${ctime ? `${ctime} ` : ""}Score on ${rawGame}!`;
@@ -304,10 +309,10 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`;
 
   const withHead = /<!-- app:start/.test(html)
-    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, head + "\n")
-    : html.replace(/<title>[\s\S]*?<\/title>/, head);
+    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, () => head + "\n")
+    : html.replace(/<title>[\s\S]*?<\/title>/, () => head);
 
-  return withHead.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);
+  return withHead.replace(/<div id="root">[\s\S]*?<\/div>/, () => `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);
 }
 
 export const ROBOTS = `User-agent: *

@@ -24,12 +24,14 @@ const TYPES: Record<string, string> = {
 export async function serveStatic(dir: string, req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
   let urlObj: URL;
+  let path: string;
   try {
     urlObj = new URL(req.url ?? "/", "http://x");
+    // a malformed escape (like /%E0%A4%A) throws here; outside the try it took the whole server down
+    path = decodeURIComponent(urlObj.pathname);
   } catch {
     return false;
   }
-  const path = decodeURIComponent(urlObj.pathname);
   if (path.startsWith("/api/") || path === "/ws") return false;
   if (path === "/robots.txt" || path === "/sitemap.xml") {
     const robots = path === "/robots.txt";
