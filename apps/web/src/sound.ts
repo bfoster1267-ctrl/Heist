@@ -495,6 +495,34 @@ export const click = () => {
   if (!once("click", 30)) return;
   tock(0, 0.55);
 };
+/**
+ * The menus' tap: softer and shorter than `click`, a fingertip on a lacquered button. A rounded sine
+ * that dips a few cents, and a breath of felt under it, kept mostly dry so a run of taps stays tidy.
+ * It shares `click`'s debounce, so a button that also plays `click` itself sounds once.
+ */
+export const tap = () => {
+  const a = ac();
+  if (!a || !once("click", 40)) return;
+  const t = a.currentTime;
+  const o = out(a, rnd(0.2, 0.24), 0.06, rnd(-0.08, 0.08));
+  const f = rnd(1040, 1120);
+  const s = a.createOscillator();
+  s.type = "sine";
+  s.frequency.setValueAtTime(f, t);
+  s.frequency.exponentialRampToValueAtTime(f * 0.82, t + 0.04);
+  const e = a.createGain();
+  env(e.gain, t, 0.3, 0.002, 0.045);
+  s.connect(e).connect(o);
+  s.start(t);
+  s.stop(t + 0.07);
+  const n = hiss(a, t, 0.02);
+  const lp = a.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 2200;
+  const e2 = a.createGain();
+  env(e2.gain, t, 0.18, 0.001, 0.016);
+  n.connect(lp).connect(e2).connect(o);
+};
 /** A soft pop for a chat bubble. */
 export const pop = () => {
   const a = ac();

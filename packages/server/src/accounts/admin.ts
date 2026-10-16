@@ -61,7 +61,12 @@ export interface AccountRow {
   arcadeGames: number;
   /** total games across all modes (heist + arcade) */
   totalGames: number;
+  /** where they came from: "cg" for CrazyGames, null for playheist.net and everything else */
+  source: string | null;
 }
+
+/** Where an account came from: what the app said at sign-up, or a CrazyGames login added later. */
+export const sourceOfAccount = (a: Account): string | null => a.source ?? (a.logins.some((l) => l.provider === "crazygames") ? "cg" : null);
 
 /** Accounts grouped into people. */
 export interface People {
@@ -308,6 +313,7 @@ export class AdminService {
       gamesPlayed,
       arcadeGames: arcadeWins,
       totalGames,
+      source: sourceOfAccount(a),
     };
   }
 
@@ -429,6 +435,12 @@ export class AdminService {
         adLandings: adLandingsToday,
         active: seenBy(now - DAY),
       },
+      // players who came through the CrazyGames portal (robots and your own accounts left out)
+      crazyGames: (() => {
+        const cg = everyone.filter((a) => sourceOfAccount(a) === "cg");
+        const seen = (since: number) => cg.filter((a) => (this.log.lastSeen(a.id) ?? a.createdAt) >= since).length;
+        return { players: cg.length, newToday: cg.filter((a) => a.createdAt >= now - DAY).length, activeToday: seen(now - DAY), activeWeek: seen(now - 7 * DAY) };
+      })(),
       daily: days.map((d) => ({ day: d, signups: signups[d], people: newPeople[d], games: games[d], active: active.get(d)!.size })),
       today: [...kinds].sort((x, y) => y[1] - x[1]).map(([kind, count]) => ({ kind, count })),
       newest: [...others].sort((x, y) => y.createdAt - x.createdAt).slice(0, 8).map((a) => this.row(a, ppl)),
@@ -601,6 +613,10 @@ export class AdminService {
       else if (game === "arcade") rows = rows.filter((r) => r.gamesPlayed.some((g) => g !== "heist_solo" && g !== "heist_online"));
       else rows = rows.filter((r) => r.gamesPlayed.includes(game));
     }
+    // where they came from: "cg" (CrazyGames) or "web" (everywhere else)
+    const source = q.get("source");
+    if (source === "cg") rows = rows.filter((r) => r.source === "cg");
+    else if (source === "web") rows = rows.filter((r) => r.source !== "cg");
     const tag = (q.get("tag") ?? "").trim().toLowerCase();
     if (tag) rows = rows.filter((r) => r.tags.some((t) => t.toLowerCase() === tag));
     if (text) rows = rows.filter((r) => r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text || r.tags.some((t) => t.toLowerCase() === text));

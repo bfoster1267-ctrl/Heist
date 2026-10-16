@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { originAllowed } from "../src/accounts/api";
 import { OAuth } from "../src/accounts/oauth";
 import { AccountService } from "../src/accounts/service";
 import { FileAccountStore } from "../src/accounts/store";
@@ -81,6 +82,45 @@ describe("accounts", () => {
     await expect(svc.oauthSignIn("google", idToken({ sub: "g-1", exp: 1000 }), undefined)).rejects.toThrow(/expired/);
     await expect(svc.oauthSignIn("google", idToken({ sub: "g-1", aud: "someone-else" }), undefined)).rejects.toThrow(/different app/);
     await expect(svc.oauthSignIn("apple", idToken({ sub: "g-1" }), undefined)).rejects.toThrow(/set up/);
+  });
+
+  it("signs CrazyGames players into a guest account by their CrazyGames user token", async () => {
+    const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
+    const cgFetch = async (url: string) => ({ ok: true, json: async () => (url.includes("crazygames") ? { publicKey: pem } : {}) });
+    const svc = new AccountService({ secret: "s", verifier: new OAuth({}, cgFetch) });
+    const cgToken = (claims: Record<string, unknown>, key = privateKey) => {
+      const head = b64({ alg: "RS256", typ: "JWT" });
+      const body = b64({ userId: "cg-42", gameId: "heist", username: "CoolCat", exp: Math.floor(Date.now() / 1000) + 3600, ...claims });
+      return `${head}.${body}.${sign("RSA-SHA256", Buffer.from(`${head}.${body}`), key).toString("base64url")}`;
+    };
+    // the guest already playing on this device keeps its progress and takes the CrazyGames login
+    const g = await svc.guest(undefined, "", "cg");
+    const a = await svc.crazyGames(cgToken({}), g.token);
+    expect(a.me.id).toBe(g.me.id);
+    expect(a.me.guest).toBe(true);
+    expect(a.me.logins).toEqual(["crazygames"]);
+    expect(a.me.name).toBe("CoolCat");
+    // the same CrazyGames user on another device lands on the same account
+    expect((await svc.crazyGames(cgToken({}))).me.id).toBe(g.me.id);
+    // a different CrazyGames user on that device gets an account of their own
+    const b = await svc.crazyGames(cgToken({ userId: "cg-7", username: "Other" }), a.token);
+    expect(b.me.id).not.toBe(g.me.id);
+    expect((await svc.store.get(b.me.id))?.source).toBe("cg");
+    expect(await svc.rankedLocked(g.me.id)).not.toMatch(/Sign in/);
+    const other = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
+    await expect(svc.crazyGames(cgToken({}, other))).rejects.toThrow(/signature/);
+    await expect(svc.crazyGames(cgToken({ exp: 1000 }))).rejects.toThrow(/expired/);
+    await expect(svc.crazyGames("nope")).rejects.toThrow(/Malformed/);
+  });
+
+  it("allows exact origins and wildcard subdomains", () => {
+    const allowed = ["https://playheist.net", "https://*.crazygames.com"];
+    expect(originAllowed([], "https://anything.example")).toBe(true);
+    expect(originAllowed(allowed, "https://playheist.net")).toBe(true);
+    expect(originAllowed(allowed, "https://heist.game-files.crazygames.com")).toBe(true);
+    expect(originAllowed(allowed, "https://crazygames.com.evil.example")).toBe(false);
+    expect(originAllowed(allowed, "https://evilcrazygames.com")).toBe(false);
+    expect(originAllowed(allowed, "http://games.crazygames.com")).toBe(false);
   });
 
   it("changes an email account's password only with the current one", async () => {

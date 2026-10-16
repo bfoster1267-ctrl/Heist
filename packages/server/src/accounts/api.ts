@@ -58,6 +58,25 @@ const deviceOf = (req: IncomingMessage) => {
 };
 
 /** "POST /api/shop/buy" -> "shop.buy" */
+/**
+ * ALLOWED_ORIGINS entries are exact origins, or a wildcard for a site's subdomains: "https://*.crazygames.com"
+ * lets in the CrazyGames build, which their portal serves from its own subdomains.
+ */
+export function originAllowed(allowed: readonly string[] | undefined, origin: string): boolean {
+  if (!allowed?.length) return true;
+  let u: URL;
+  try {
+    u = new URL(origin);
+  } catch {
+    return false;
+  }
+  return allowed.some((a) => {
+    if (a === origin) return true;
+    const m = a.match(/^(https?:)\/\/\*\.([^/:]+)$/);
+    return !!m && u.protocol === m[1] && !u.port && u.hostname.endsWith("." + m[2]);
+  });
+}
+
 const kindOf = (key: string) => {
   if (key === "GET /api/players/:id") return "view.player";
   if (key === "GET /api/leaderboard") return "view.leaderboard";
@@ -279,7 +298,8 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       providers: [...svc.oauth.providers(), "email", ...(svc.devLogins ? ["dev"] : [])],
       ...svc.oauth.publicConfig(),
     }),
-    "POST /api/auth/guest": async (b) => svc.guest(b.token, b.name),
+    "POST /api/auth/guest": async (b) => svc.guest(b.token, b.name, b.src),
+    "POST /api/auth/crazygames": async (b, t) => svc.crazyGames(b.credential, t),
     "POST /api/auth/register": async (b, t) => svc.register(b.email, b.password, b.name, t),
     "POST /api/auth/login": async (b) => svc.login(b.email, b.password),
     "POST /api/auth/oauth": async (b, t) => svc.oauthSignIn(b.provider, b.credential, b.name, t),
@@ -508,7 +528,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
   function cors(req: IncomingMessage, res: ServerResponse): boolean {
     const origin = req.headers.origin;
     if (origin) {
-      if (o.allowedOrigins?.length && !o.allowedOrigins.includes(origin)) return false;
+      if (!originAllowed(o.allowedOrigins, origin)) return false;
       res.setHeader("access-control-allow-origin", origin);
       res.setHeader("vary", "origin");
       res.setHeader("access-control-allow-headers", "authorization, content-type, x-heist-device");

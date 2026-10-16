@@ -239,9 +239,41 @@ export class AccountService {
     };
   }
 
-  async guest(token: unknown, name: unknown) {
-    const a = (await this.fromToken(token)) ?? (await this.create(typeof name === "string" ? name : "", true));
+  async guest(token: unknown, name: unknown, source?: unknown) {
+    const a = (await this.fromToken(token)) ?? (await this.create(typeof name === "string" ? name : "", true, [], source === "cg" ? { source: "cg" } : {}));
     return this.session(a);
+  }
+
+  /**
+   * Playing on CrazyGames while signed in to their site: their user token picks the Heist account. The
+   * first time, the account already playing on this device takes the CrazyGames login (keeping its
+   * progress), or a new guest is made for it. A guest stays a guest: no Heist sign-in is ever asked for
+   * there, and the same CrazyGames user lands on the same account on any device.
+   */
+  async crazyGames(credential: unknown, current?: unknown) {
+    let v;
+    try {
+      v = await this.oauth.verifyCrazyGames(credential);
+    } catch (e) {
+      if (e instanceof OAuthError) throw new ApiError(401, e.message);
+      throw e;
+    }
+    const login: Login = { provider: "crazygames", subject: v.subject };
+    const existing = await this.store.byLogin(login);
+    if (existing) return this.session(existing);
+    const cur = await this.fromToken(current);
+    // the account already playing on this device takes the login (a Heist sign-in made on CrazyGames
+    // stays signed in); one tied to another CrazyGames user is someone else's (a shared computer)
+    if (cur && !cur.logins.some((l) => l.provider === "crazygames")) {
+      const a = await this.update(cur.id, (a) => {
+        a.logins.push(login);
+        if (!a.source) a.source = "cg";
+        if (v.name && (a.name.startsWith("Guest") || a.name === "Player")) a.name = cleanName(v.name, a.name);
+        return a;
+      });
+      return this.session(a);
+    }
+    return this.session(await this.create(v.name ?? "", true, [login], { source: "cg" }));
   }
 
   /**
@@ -494,7 +526,8 @@ export class AccountService {
   /** Why this player can't queue for Ranked yet (null: they can). */
   async rankedLocked(userId: string): Promise<string | null> {
     const a = await this.store.get(userId);
-    if (!a || a.guest) return "Sign in to play Ranked";
+    // a CrazyGames login counts as signed in (their players never see Heist's own sign-in)
+    if (!a || (a.guest && !a.logins.some((l) => l.provider === "crazygames"))) return "Sign in to play Ranked";
     const lv = level(upgrade(a.progress));
     return lv >= RANKED_LEVEL ? null : `Ranked unlocks at level ${RANKED_LEVEL} (you're level ${lv})`;
   }

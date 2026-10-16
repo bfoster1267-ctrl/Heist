@@ -9,7 +9,7 @@ import type { BotLevel } from "@heist/engine";
 import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally } from "@heist/profile";
 import type { PushSub } from "../push";
 
-export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
+export type Provider = "email" | "apple" | "google" | "facebook" | "dev" | "crazygames";
 
 export interface Login {
   provider: Provider;
@@ -76,6 +76,8 @@ export interface Account {
   feedback?: Feedback;
   /** friends, and friend requests either way (see social.ts) */
   friends?: FriendLinks;
+  /** where the player first came from, when the app could tell ("cg": the CrazyGames portal) */
+  source?: string;
 }
 
 export interface FriendLinks {

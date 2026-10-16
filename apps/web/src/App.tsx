@@ -25,6 +25,7 @@ import { Scoundrel } from "./scoundrel/Scoundrel";
 import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
 import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
+import { menuTaps } from "./menuTap";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
 
@@ -447,6 +448,10 @@ function Game() {
         : "Lobby";
     trackScreen(screen);
   }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, dailyHubOpen, arcadeHubOpen]);
+  // a soft tap on the menus' buttons (the lobby and the sheets over it); never on a game screen, which
+  // has its own sounds, nor online, where the lobby and table already play theirs
+  const inMenu = !!profile || (!table && online === null && !sol && !fc && !tp && !spider && !pyramid && !ers && !yukon && !scoundrel);
+  useEffect(() => (inMenu ? menuTaps() : undefined), [inMenu]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);

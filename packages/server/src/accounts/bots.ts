@@ -21,6 +21,8 @@ export function sourceOf(ref: string | undefined, ua: string | undefined): strin
   try {
     const host = new URL(ref).hostname.replace(/^www\.|^old\.|^new\.|^m\./, "");
     if (host === "playheist.net" || host.endsWith(".playheist.net")) return null;
+    // the CrazyGames portal and the subdomains it serves the game from
+    if (host === "crazygames.com" || host.endsWith(".crazygames.com")) return "CrazyGames";
     return host === "out.reddit.com" || host === "redd.it" ? "reddit.com" : host;
   } catch {
     return null;
