@@ -97,6 +97,7 @@ export function TriPeaks({
   const k = hist[hist.length - 1];
   const reduce = reducedMotion();
   const [stuckSeen, setStuckSeen] = useState(-1);
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
 
   const tally = useMemo(() => {
     if (!game) return null;
@@ -349,6 +350,8 @@ export function TriPeaks({
                   </motion.b>
                 </>
               )}
+              {" "}<span className="tp-dot">·</span>{" "}
+              <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
             </span>
           </div>
           <button className="tp-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">

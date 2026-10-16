@@ -115,6 +115,7 @@ export function FreeCell({
   }, [dealAt]);
 
   const [stuckSeen, setStuckSeen] = useState(-1);
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
 
   const tally = useMemo(() => {
     if (!game) return null;
@@ -223,6 +224,26 @@ export function FreeCell({
     },
     [k],
   );
+
+  const autoComplete = useCallback(() => {
+    if (!k || done || fcWon(k)) return;
+    click();
+    buzz("tap");
+    let curr = k;
+    const newMoves: string[] = [];
+    const newHist = [...hist];
+    while (!fcWon(curr)) {
+      const m = autoMoveFc(curr);
+      if (!m) break;
+      const next = applyFc(curr, m);
+      if (!next) break;
+      curr = next;
+      newMoves.push(m);
+      newHist.push(curr);
+    }
+    setMoves((prev) => [...prev, ...newMoves]);
+    setHist(newHist);
+  }, [k, done, hist]);
 
   // Auto-solve when cascades are sorted or cards can be safely banked
   useEffect(() => {
@@ -470,6 +491,8 @@ export function FreeCell({
                   </motion.b>
                 </>
               )}
+              {" "}<span className="fc-dot">·</span>{" "}
+              <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
             </span>
           </div>
           <button className="fc-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">
@@ -482,6 +505,12 @@ export function FreeCell({
             {armed ? <span className="fc-sure">New?</span> : <Icon d="M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 12.4 2M18.5 9A7 7 0 0 0 6.1 7" />}
           </button>
         </div>
+
+        {k && !done && !fcWon(k) && fcSolved(k) && (
+          <button className="fc-autocomplete-btn" onClick={autoComplete}>
+            ⚡ Auto Complete
+          </button>
+        )}
 
         {/* 4 Free Cell slots (left cols 0..3) */}
         {[0, 1, 2, 3].map((i) => (

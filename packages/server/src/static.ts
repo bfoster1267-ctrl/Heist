@@ -23,12 +23,13 @@ const TYPES: Record<string, string> = {
 
 export async function serveStatic(dir: string, req: IncomingMessage, res: ServerResponse): Promise<boolean> {
   if (req.method !== "GET" && req.method !== "HEAD") return false;
-  let path: string;
+  let urlObj: URL;
   try {
-    path = decodeURIComponent(new URL(req.url ?? "/", "http://x").pathname);
+    urlObj = new URL(req.url ?? "/", "http://x");
   } catch {
     return false;
   }
+  const path = decodeURIComponent(urlObj.pathname);
   if (path.startsWith("/api/") || path === "/ws") return false;
   if (path === "/robots.txt" || path === "/sitemap.xml") {
     const robots = path === "/robots.txt";
@@ -55,7 +56,7 @@ export async function serveStatic(dir: string, req: IncomingMessage, res: Server
   let body: Buffer | string | null = await readFile(file).catch(() => null);
   if (!body) return false;
   const name = file.slice(root.length);
-  if (name === sep + "index.html") body = pageHtml(body.toString("utf8"), path === "/index.html" ? "/" : path);
+  if (name === sep + "index.html") body = pageHtml(body.toString("utf8"), path === "/index.html" ? "/" : path, urlObj.searchParams);
   // hashed build files never change; the page, manifest and service worker must always be fresh
   const immutable = name.startsWith(sep + "assets" + sep);
   res.writeHead(200, {

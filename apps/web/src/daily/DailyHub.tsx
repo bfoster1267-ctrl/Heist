@@ -27,7 +27,7 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import "./daily.css";
-import { shareDailyResult } from "./shareHelpers";
+import { getDailyBest, getDailyLeaderboard, shareDailyResult } from "./shareHelpers";
 
 export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
   solitaire: { title: "Klondike Solitaire", icon: "♠" },
@@ -114,6 +114,12 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
   const featuredGame = getFeaturedDailyGame();
   const featuredChallenge = getDailyChallenge(featuredGame, today);
   const featuredCompleted = Boolean(progress?.daily?.completed?.[`${today}:${featuredGame}`]);
+
+  const userDailyBest = useMemo(() => getDailyBest(featuredGame, today), [featuredGame, today]);
+  const leaderboard = useMemo(
+    () => getDailyLeaderboard(featuredGame, featuredChallenge.seed, userDailyBest),
+    [featuredGame, featuredChallenge.seed, userDailyBest]
+  );
 
   // Next milestone calculation
   const nextMilestoneDays = [3, 7, 14, 30].find((m) => m > streak) ?? 30;
@@ -290,6 +296,47 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
               {featuredCompleted ? "COMPLETED ✅" : "PLAY DEAL"}
             </button>
           </div>
+        </div>
+
+        {/* Today's Speed Benchmarks & Top Solvers */}
+        <div className="daily-leaderboard-card">
+          <div className="daily-leaderboard-header">
+            <div className="daily-leaderboard-title">
+              <span>⚡</span> TODAY'S SPEED BENCHMARKS ({GAME_LABELS[featuredGame].title})
+            </div>
+            <div className="daily-speed-badge">Speed XP Active</div>
+          </div>
+
+          <div className="daily-leaderboard-list">
+            {leaderboard.entries.map((entry) => (
+              <div
+                key={entry.name}
+                className={`daily-leaderboard-row ${entry.isUser ? "user-row" : ""}`}
+              >
+                <div className="daily-solver-left">
+                  <span className="daily-solver-rank">{entry.medal}</span>
+                  <span className="daily-solver-name">{entry.name}</span>
+                </div>
+                <div className="daily-solver-right">
+                  <span className="daily-solver-time">⏱️ {entry.time}</span>
+                  <span className="daily-solver-xp">+{entry.bonusXp} XP</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {leaderboard.userRank === null ? (
+            <div className="daily-leaderboard-hint">
+              <span>💡</span> Beat <strong>{leaderboard.entries[2]?.time ?? "2:30"}</strong> to take a podium spot &amp; claim top speed bonus XP!
+            </div>
+          ) : (
+            <div className={`daily-leaderboard-hint ${leaderboard.userRank <= 3 ? "podium-win" : ""}`}>
+              <span>{leaderboard.userRank <= 3 ? "🎉" : "👤"}</span>{" "}
+              {leaderboard.userRank <= 3
+                ? `You're currently ranked #${leaderboard.userRank} on today's speed board!`
+                : `You're currently ranked #${leaderboard.userRank}. Beat ${leaderboard.entries[2]?.time} for a podium spot!`}
+            </div>
+          )}
         </div>
 
 

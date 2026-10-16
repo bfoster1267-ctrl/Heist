@@ -77,6 +77,7 @@ export function Ers({
   const [showRules, setShowRules] = useState(false);
   const [armed, setArmed] = useState(false);
   const [done, setDone] = useState(false);
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
   const [floats, setFloats] = useState<Float[]>([]);
   const floatId = useRef(0);
   const best = useRef(NOTHING);
@@ -334,7 +335,7 @@ export function Ers({
               <span className="arcade-trust-pill">✓ Free · No Ads</span>
             </span>
             <span className="ers-hud-stats">
-              DAILY CAP: <span className="ers-hud-val">{room} XP ROOM</span>
+              DAILY CAP: <span className="ers-hud-val">{room} XP ROOM</span> • <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
             </span>
           </div>
 

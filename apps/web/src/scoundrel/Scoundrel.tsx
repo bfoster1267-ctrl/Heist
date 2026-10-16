@@ -66,6 +66,7 @@ export function Scoundrel({
   const board = useRef<HTMLDivElement>(null);
   const k = hist[hist.length - 1];
   const reduce = reducedMotion();
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
 
   const tally = useMemo(() => {
     if (!game) return null;
@@ -288,6 +289,8 @@ export function Scoundrel({
             <span>Monsters: <b>{k?.monstersSlayed ?? 0}</b></span>
             <span className="sc-dot">•</span>
             <b className="sc-xp">+{currentXp} XP</b>
+            <span className="sc-dot">•</span>
+            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
           </div>
         </div>
 

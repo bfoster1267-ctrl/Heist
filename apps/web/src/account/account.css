@@ -2283,3 +2283,23 @@
   margin-left: 6px;
   line-height: 1.2;
 }
+
+/* Visitor Optimization: Streak teaser pill */
+.arcade-streak-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: var(--cond, -apple-system, sans-serif);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: #fbbf24;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 1px 6px;
+  border-radius: 9999px;
+  vertical-align: middle;
+  margin-left: 5px;
+  line-height: 1.2;
+}

@@ -140,6 +140,7 @@ export function Solitaire({
     return () => clearInterval(t);
   }, [dealAt]);
   const [stuckSeen, setStuckSeen] = useState(-1);
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
 
   // what this deal has earned so far (the most it has ever reached: undoing doesn't take XP back, and
   // redoing doesn't pay twice), and what the server has paid for
@@ -497,6 +498,8 @@ export function Solitaire({
                 </motion.b>
               </>
             )}
+            {" "}<span className="sol-dot">·</span>{" "}
+            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
           </span>
         </div>
         <button className="sol-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">

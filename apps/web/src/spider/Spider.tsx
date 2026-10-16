@@ -81,6 +81,7 @@ export function Spider({
   const b = useSpiderBoard();
 
   const k = hist[hist.length - 1];
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
 
   const best = useRef(NOTHING);
   const banked = useRef(0);
@@ -355,7 +356,7 @@ export function Spider({
               <span className="arcade-trust-pill">✓ Free · No Ads</span>
             </span>
             <span className="spider-hud-stats">
-              {mode} SUIT • RUNS: <span className="spider-hud-val">{completed}/8</span> • <span className="spider-hud-val">{room} XP ROOM</span>
+              {mode} SUIT • RUNS: <span className="spider-hud-val">{completed}/8</span> • <span className="spider-hud-val">{room} XP ROOM</span> • <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
             </span>
           </div>
 

@@ -162,9 +162,23 @@ const PAGES: Record<string, Page> = {
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 
 /** The app page with this path's title, description, schema, and crawlable text, or unchanged for other paths. */
-export function pageHtml(html: string, path: string): string {
-  const page = PAGES[path];
+export function pageHtml(html: string, path: string, params?: URLSearchParams): string {
+  let page = PAGES[path];
   if (!page) return html;
+  const challenge = params?.get("challenge");
+  if (challenge) {
+    const ctime = params?.get("ctime");
+    const cmoves = params?.get("cmoves");
+    const rawGame = path === "/" ? "Heist" : page.title.split(":")[0];
+    const metrics = [ctime ? `${ctime}` : null, cmoves ? `${cmoves} moves` : null].filter(Boolean).join(" · ");
+    const challengeTitle = `Challenge: Beat My ${ctime ? `${ctime} ` : ""}Score on ${rawGame}!`;
+    const challengeDesc = `Can you beat my ${metrics ? `${metrics} record` : "score"} on ${rawGame} deal #${challenge}? Play the exact same cards free with no ads on Heist.`;
+    page = {
+      ...page,
+      title: challengeTitle,
+      description: challengeDesc,
+    };
+  }
   const url = SITE + (path === "/" ? "" : path);
   const isMain = path === "/";
   const isHub = path === "/card-games" || path === "/arcade";

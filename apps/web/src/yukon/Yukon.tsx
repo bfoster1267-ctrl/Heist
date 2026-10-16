@@ -91,6 +91,7 @@ export function Yukon({
   const board = useRef<HTMLDivElement>(null);
   const k = hist[hist.length - 1];
   const reduce = reducedMotion();
+  const streak = me?.progress ? getDailyStreak(me.progress, Date.now()) : 0;
 
   const tally = useMemo(() => {
     if (!game) return null;
@@ -476,6 +477,8 @@ export function Yukon({
             <span>Moves: <b>{moves.length}</b></span>
             <span className="yk-dot">•</span>
             <b className="yk-xp">+{currentXp} XP</b>
+            <span className="yk-dot">•</span>
+            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
           </div>
         </div>
 

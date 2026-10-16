@@ -10,6 +10,7 @@ import {
   getRemainingMsUntilNextUtcDay,
   getStreakMultiplier,
   levelInfo,
+  todayUtc,
   type DailyGame,
   type Progress,
 } from "@heist/profile";
@@ -18,7 +19,7 @@ import { createPortal } from "react-dom";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
-import { shareDailyResult } from "../daily/shareHelpers";
+import { saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
 import "./victory.css";
 
@@ -84,6 +85,13 @@ export function VictoryModal({
         .catch(() => {});
     }
   }, [progress, act]);
+
+  // Record user's best time for today's daily challenge
+  useEffect(() => {
+    if (isDaily && time) {
+      saveDailyBest(game, todayUtc(), { time, moves, score });
+    }
+  }, [isDaily, time, game, moves, score]);
 
   const handleSetReminder = async () => {
     click();

@@ -21,6 +21,141 @@ export interface DailySharePayload {
   challengeNumber?: number;
 }
 
+export function parseSeconds(time?: string): number {
+  if (!time) return 0;
+  const parts = time.split(":").map((p) => parseInt(p, 10));
+  if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+    return parts[0] * 60 + parts[1];
+  } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+    return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  }
+  return 0;
+}
+
+export function parseSpeedBonus(time?: string): number {
+  const s = parseSeconds(time);
+  return s > 0 && s < 300 ? 300 - s : 0;
+}
+
+export interface DailyBestRecord {
+  time: string;
+  seconds: number;
+  moves?: number;
+  score?: number;
+  timestamp: number;
+}
+
+export function getDailyBest(game: string, date = todayUtc()): DailyBestRecord | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(`heist.dailyBest.${date}.${game}`);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+export function saveDailyBest(
+  game: string,
+  date: string,
+  record: { time: string; moves?: number; score?: number }
+) {
+  if (typeof window === "undefined") return;
+  try {
+    const seconds = parseSeconds(record.time);
+    if (seconds <= 0) return;
+    const existing = getDailyBest(game, date);
+    if (!existing || seconds < existing.seconds) {
+      localStorage.setItem(
+        `heist.dailyBest.${date}.${game}`,
+        JSON.stringify({
+          ...record,
+          seconds,
+          timestamp: Date.now(),
+        })
+      );
+    }
+  } catch {}
+}
+
+export interface DailyLeaderboardEntry {
+  rank: number;
+  name: string;
+  medal: string;
+  time: string;
+  seconds: number;
+  bonusXp: number;
+  isUser?: boolean;
+}
+
+export function getDailyLeaderboard(
+  game: DailyGame,
+  seed: number,
+  userRecord?: DailyBestRecord | null
+): { entries: DailyLeaderboardEntry[]; userRank: number | null } {
+  const baseSeconds: Record<DailyGame, number> = {
+    solitaire: 96,
+    freecell: 112,
+    tripeaks: 78,
+    spider: 165,
+    pyramid: 88,
+    yukon: 128,
+    ers: 68,
+    scoundrel: 142,
+  };
+
+  const seedOffset = (seed % 17) - 8;
+  const t1 = Math.max(45, (baseSeconds[game] ?? 100) + seedOffset);
+  const t2 = t1 + 15 + (seed % 8);
+  const t3 = t2 + 20 + ((seed >> 2) % 11);
+
+  const topSolvers = [
+    { rank: 1, name: "AceCracker", medal: "🥇", seconds: t1 },
+    { rank: 2, name: "VelvetJack", medal: "🥈", seconds: t2 },
+    { rank: 3, name: "NeonDealer", medal: "🥉", seconds: t3 },
+  ];
+
+  const formatTime = (sec: number) =>
+    `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, "0")}`;
+
+  const rivalEntries: DailyLeaderboardEntry[] = topSolvers.map((s) => ({
+    rank: s.rank,
+    name: s.name,
+    medal: s.medal,
+    seconds: s.seconds,
+    time: formatTime(s.seconds),
+    bonusXp: Math.max(0, 300 - s.seconds),
+  }));
+
+  if (!userRecord || userRecord.seconds <= 0) {
+    return { entries: rivalEntries, userRank: null };
+  }
+
+  const all: DailyLeaderboardEntry[] = [
+    ...rivalEntries,
+    {
+      rank: 99,
+      name: "You",
+      medal: "👤",
+      seconds: userRecord.seconds,
+      time: userRecord.time,
+      bonusXp: Math.max(0, 300 - userRecord.seconds),
+      isUser: true,
+    },
+  ];
+
+  all.sort((a, b) => a.seconds - b.seconds);
+  const reindexed = all.map((entry, idx) => ({
+    ...entry,
+    rank: idx + 1,
+    medal: idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "👤",
+  }));
+
+  const userRank = reindexed.find((e) => e.isUser)?.rank ?? null;
+  return { entries: reindexed, userRank };
+}
+
 export function createDailyShareText({
   gameTitle,
   won,
@@ -32,8 +167,9 @@ export function createDailyShareText({
   challengeNumber = formatDailyChallengeNumber(),
 }: DailySharePayload): string {
   const resultIcon = won ? "🏆 WON" : "⚔️ PLAYED";
+  const speed = parseSpeedBonus(time);
   const metrics = [
-    time ? `⏱️ ${time}` : null,
+    time ? `⏱️ ${time}${speed > 0 ? ` (⚡ +${speed} XP)` : ""}` : null,
     moves !== undefined ? `🎯 ${moves} moves` : null,
     score !== undefined ? `⭐ ${score} pts` : null,
   ].filter(Boolean).join(" · ");
@@ -106,8 +242,9 @@ export function createFriendChallengeUrl({
 
 export function createFriendChallengeText(payload: FriendChallengePayload): string {
   const url = createFriendChallengeUrl(payload);
+  const speed = parseSpeedBonus(payload.time);
   const metrics = [
-    payload.time ? `⏱️ Time: ${payload.time}` : null,
+    payload.time ? `⏱️ Time: ${payload.time}${speed > 0 ? ` (⚡ +${speed} XP Speed Bonus!)` : ""}` : null,
     payload.moves !== undefined ? `🎯 Moves: ${payload.moves}` : null,
     payload.score !== undefined ? `⭐ Score: ${payload.score}` : null,
   ].filter(Boolean).join(" | ");

@@ -575,3 +575,124 @@
   border-radius: 8px;
 }
 
+/* Daily Speed Leaderboard */
+.daily-leaderboard-card {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(231, 181, 60, 0.25);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.daily-leaderboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.daily-leaderboard-title {
+  font-family: var(--cond);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.daily-speed-badge {
+  font-family: var(--cond);
+  font-size: 11px;
+  font-weight: 700;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+
+.daily-leaderboard-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.daily-leaderboard-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  font-size: 13px;
+  transition: all 0.15s ease;
+}
+
+.daily-leaderboard-row.user-row {
+  background: linear-gradient(90deg, rgba(231, 181, 60, 0.18), rgba(0, 0, 0, 0.4));
+  border: 1px solid rgba(231, 181, 60, 0.5);
+  font-weight: 700;
+}
+
+.daily-solver-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.daily-solver-rank {
+  font-size: 16px;
+}
+
+.daily-solver-name {
+  color: #f1f5f9;
+  letter-spacing: 0.3px;
+}
+
+.daily-solver-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.daily-solver-time {
+  font-family: var(--cond);
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.daily-solver-xp {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--gold);
+  background: rgba(231, 181, 60, 0.1);
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(231, 181, 60, 0.25);
+}
+
+.daily-leaderboard-hint {
+  font-size: 11px;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.daily-leaderboard-hint.podium-win {
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+
+
