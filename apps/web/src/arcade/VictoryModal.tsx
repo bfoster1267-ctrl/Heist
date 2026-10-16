@@ -23,6 +23,7 @@ import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
 import { saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
+import { appUrl, onCrazyGames } from "../crazygames";
 import "./victory.css";
 
 const DAILY_LABELS: Record<string, string> = {
@@ -220,7 +221,7 @@ export function VictoryModal({
     );
   };
 
-  const showPwaPrompt = !isStandalone() && !pwaDismissed;
+  const showPwaPrompt = !isStandalone() && !pwaDismissed && !onCrazyGames;
 
   const dismissPwa = () => {
     setPwaDismissed(true);
@@ -404,7 +405,7 @@ export function VictoryModal({
                 click();
                 buzz("tap");
                 // dailyGame + seed opens today's own deal; ?daily alone opened the Daily Hub over a random deal
-                window.location.href = `/${nextDailyGame}?dailyGame=1&seed=${getDailySeed(nextDailyGame)}`;
+                window.location.href = appUrl(`/${nextDailyGame}?dailyGame=1&seed=${getDailySeed(nextDailyGame)}`);
               }}
               autoFocus
             >

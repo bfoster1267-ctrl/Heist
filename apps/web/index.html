@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0d10" />
     
+    <!-- web:start (playheist.net only: tags, search text and links the CrazyGames build leaves out) -->
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18515793903"></script>
     <script>
@@ -128,6 +129,7 @@
       ]
     }
     </script>
+    <!-- web:end -->
 
     <!-- app:start (home-screen app; left out of the single-file build) -->
     <link rel="manifest" href="./manifest.webmanifest" />
@@ -164,6 +166,7 @@
   </head>
   <body>
     <div id="root">
+      <!-- web:start -->
       <main class="ssr-fallback">
         <h1>Heist — Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</h1>
         <p>Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid.</p>
@@ -185,6 +188,7 @@
           </ul>
         </nav>
       </main>
+      <!-- web:end -->
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

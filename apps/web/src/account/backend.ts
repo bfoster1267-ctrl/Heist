@@ -8,6 +8,7 @@ import {
   botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
+import { crazyGamesLinked, crazyGamesSource, crazyGamesToken } from "../crazygames";
 import { deviceId } from "../device";
 
 export interface Me {
@@ -792,6 +793,21 @@ export class ServerBackend implements Backend {
   }
 
   async me(): Promise<Me> {
+    const me = await this.sessionMe();
+    // On CrazyGames, signed in there: their account picks the Heist account (linking this one the first
+    // time), so the player never meets Heist's own sign-in and keeps their progress on any device
+    const cg = await crazyGamesToken();
+    if (!cg) return me;
+    try {
+      const r = this.signedIn(await this.call("/api/auth/crazygames", { credential: cg }));
+      crazyGamesLinked();
+      return r;
+    } catch {
+      return me;
+    }
+  }
+
+  private async sessionMe(): Promise<Me> {
     if (this.session) {
       // Only a 401 (expired, or signed out everywhere) drops the session for a guest. A blip while the
       // server restarts after a deploy must not swap a signed-in player's token for a fresh guest.
@@ -808,7 +824,8 @@ export class ServerBackend implements Backend {
     }
     // the page that linked here (a Reddit post, a search) tells the owner where new players come from
     const ref = typeof document === "undefined" ? "" : document.referrer.slice(0, 300);
-    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "", ref }));
+    // src: "cg" for a player who came through CrazyGames (the admin panel counts them)
+    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "", ref, src: crazyGamesSource() }));
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {

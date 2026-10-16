@@ -1,5 +1,6 @@
 // Home-screen app plumbing: offline service worker, no pinch zoom, safe areas, screen wake lock.
 import { useEffect } from "react";
+import { onCrazyGames } from "./crazygames";
 
 export const isIOS = () => /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
@@ -10,7 +11,8 @@ export const isStandalone = () =>
 export function installAppShell() {
   document.documentElement.classList.toggle("standalone", isStandalone());
 
-  if (import.meta.env.PROD && import.meta.env.MODE !== "single" && "serviceWorker" in navigator) {
+  // not on CrazyGames: the game is a file on their storage there, not an app to install
+  if (import.meta.env.PROD && import.meta.env.MODE !== "single" && !onCrazyGames && "serviceWorker" in navigator) {
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("./sw.js").catch(() => {
         /* offline play just won't be available */

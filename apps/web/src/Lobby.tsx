@@ -8,6 +8,7 @@ import { Rules } from "./table/Rules";
 import { Settings } from "./table/Settings";
 import { createPortal } from "react-dom";
 import { isIOS, isStandalone } from "./appShell";
+import { onCrazyGames } from "./crazygames";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 import { ArcadeHub } from "./arcade/ArcadeHub";
@@ -590,7 +591,7 @@ function InstallHint() {
   });
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (hidden || isStandalone() || location.protocol === "file:" || !isMobileDevice()) return null;
+  if (hidden || onCrazyGames || isStandalone() || location.protocol === "file:" || !isMobileDevice()) return null;
 
   const close = () => {
     setHidden(true);

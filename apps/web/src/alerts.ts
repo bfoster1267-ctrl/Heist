@@ -4,6 +4,7 @@
 // at a moment it makes sense (waiting for a table), never on first load.
 import { useEffect, useReducer } from "react";
 import { isIOS, isStandalone } from "./appShell";
+import { onCrazyGames } from "./crazygames";
 import { serverUrl } from "./online/session";
 
 export type AlertState =
@@ -46,7 +47,8 @@ function canPush() {
 let serverReady = false;
 
 export function alertState(): AlertState {
-  if (!serverReady) return "unsupported";
+  // CrazyGames: no notification prompts on their portal
+  if (!serverReady || onCrazyGames) return "unsupported";
   if (!canPush()) return isIOS() && !isStandalone() ? "needs-install" : "unsupported";
   if (Notification.permission === "denied") return "blocked";
   return Notification.permission === "granted" && read(PREF) === "1" ? "on" : "off";

@@ -309,7 +309,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`;
 
   const withHead = /<!-- app:start/.test(html)
-    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, () => head + "\n")
+    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=(?:<!-- web:end -->\s*)?<!-- app:start)/, () => head + "\n")
     : html.replace(/<title>[\s\S]*?<\/title>/, () => head);
 
   return withHead.replace(/<div id="root">[\s\S]*?<\/div>/, () => `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);

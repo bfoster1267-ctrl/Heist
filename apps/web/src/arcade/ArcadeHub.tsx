@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Progress } from "@heist/profile";
+import { shareUrl } from "../crazygames";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import { ChallengeBanner } from "../daily/ChallengeBanner";
@@ -265,8 +266,8 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
   };
 
   const copyGameLink = async (game: ArcadeGame) => {
-    const origin = window.location.origin;
-    const url = `${origin}${game.path}`;
+    // on CrazyGames, their invite link to the game on their portal (see crazygames.ts)
+    const url = shareUrl(game.path);
     buzz("tap");
     click();
     try {
