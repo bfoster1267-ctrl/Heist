@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
-import { card as cardSound, click, win as winSound } from "../sound";
+import { card as cardSound, cardSlam, click, foundationChime, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
@@ -192,21 +192,21 @@ export function Solitaire({
     return () => document.removeEventListener("visibilitychange", away);
   }, [bank]);
 
-  const deal = useCallback(async () => {
+  const deal = useCallback(async (seedOverride?: number) => {
     await bank(true);
     best.current = NOTHING;
     banked.current = 0;
     drainRef.current = 0;
     setDrain(0);
     setFloats([]);
-    const firstSeed = initialDeal.current ? initialSeed : undefined;
-    const dailyFlag = initialDeal.current ? isDaily : false;
+    const seedToUse = seedOverride ?? (initialDeal.current ? initialSeed : undefined);
+    const dailyFlag = initialDeal.current ? isDaily : Boolean(seedOverride && isDaily);
     initialDeal.current = false;
-    const g = backend ? await backend.solitaireStart(firstSeed, dailyFlag).catch(() => null) : null;
+    const g = backend ? await backend.solitaireStart(seedToUse, dailyFlag).catch(() => null) : null;
     dayLeft.current = meNow.current ? solitaireRoom(meNow.current.progress, Date.now()) : SOLITAIRE_DAY_XP;
     maxedShown.current = false;
     // offline (or no server): still playable, it just can't pay XP
-    const next = g ?? { gameId: null, seed: firstSeed ?? Math.floor(Math.random() * 2 ** 31) };
+    const next = g ?? { gameId: null, seed: seedToUse ?? Math.floor(Math.random() * 2 ** 31) };
     setGame(next);
     setHist([dealKlondike(next.seed)]);
     setMoves([]);
@@ -244,7 +244,15 @@ export function Solitaire({
       setHint(null);
       lastAct.current = Date.now();
       if (m.endsWith(">f")) {
-        click();
+        let rank = 1;
+        for (let s = 0; s < 4; s++) {
+          if (n.found[s].length > k.found[s].length) {
+            const card = n.found[s][n.found[s].length - 1];
+            rank = (card % 13) + 1;
+            break;
+          }
+        }
+        foundationChime(rank);
         buzz("bump");
       } else {
         cardSound(1);
@@ -257,8 +265,8 @@ export function Solitaire({
 
   const autoComplete = useCallback(() => {
     if (!k || done || solWon(k)) return;
-    click();
-    buzz("tap");
+    cardSlam();
+    buzz("bump");
     let curr = k;
     const newMoves: string[] = [];
     const newHist = [...hist];
@@ -601,6 +609,9 @@ export function Solitaire({
             <span className="sol-stuck-title">No moves left</span>
             <button className="btn" onClick={undo}>
               Undo
+            </button>
+            <button className="btn gold" onClick={() => void deal(game?.seed)}>
+              ↺ Retry Deal
             </button>
             <button className="btn primary" onClick={() => void deal()}>
               New deal

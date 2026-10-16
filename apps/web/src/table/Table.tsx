@@ -6,7 +6,7 @@ import { useWakeLock } from "../appShell";
 import { useIsland } from "../island";
 import { buzz } from "../haptics";
 import { getPrefs, reducedMotion, usePrefs } from "../prefs";
-import { chipRun, shuffle as shuffleSound } from "../sound";
+import { cardSlam, chipRun, shuffle as shuffleSound } from "../sound";
 import { BANNER, HUMAN as LOCAL_SEAT, useTable, type HistoryEntry, type TableSettings, type TableSource } from "../useTable";
 import { ActionPanel, handSelect } from "./ActionPanel";
 import { useLook } from "../account/useAccount";
@@ -288,7 +288,10 @@ export function Table({
   }, [t.shown?.key]);
 
   useEffect(() => {
-    if (ev && SHAKE.has(ev.t) && !reduce) void shake.start({ x: [0, -7, 6, -4, 3, 0], transition: { duration: 0.4 } });
+    if (ev && SHAKE.has(ev.t) && !reduce) {
+      cardSlam();
+      void shake.start({ x: [0, -7, 6, -4, 3, 0], transition: { duration: 0.4 } });
+    }
   }, [t.shown?.key, ev, reduce, shake]);
 
   // Keyboard: S skip, L log, M mute via settings, Esc closes panels.

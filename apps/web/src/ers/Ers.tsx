@@ -14,7 +14,7 @@ import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
-import { card as cardSound, click, win as winSound } from "../sound";
+import { card as cardSound, cardSlam, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { VictoryModal } from "../arcade/VictoryModal";
@@ -265,6 +265,7 @@ export function Ers({
         clearTimeout(slapTimer.current);
         slapTimer.current = null;
       }
+      cardSlam();
       winSound();
       buzz("win");
       const potCount = state.pot.length;

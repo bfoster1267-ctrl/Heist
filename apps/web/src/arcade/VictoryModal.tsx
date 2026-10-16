@@ -3,6 +3,7 @@
 // XP fill bar, daily quest progress, Wordle-style score sharing, and home screen retention hooks.
 
 import {
+  DAILY_GAMES,
   formatCountdown,
   formatDailyChallengeNumber,
   getDailyQuests,
@@ -14,7 +15,7 @@ import {
   type DailyGame,
   type Progress,
 } from "@heist/profile";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
@@ -22,6 +23,17 @@ import { click, chipRun, win } from "../sound";
 import { saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
 import "./victory.css";
+
+const DAILY_LABELS: Record<string, string> = {
+  solitaire: "Klondike Solitaire",
+  freecell: "FreeCell",
+  spider: "Spider Solitaire",
+  tripeaks: "TriPeaks",
+  pyramid: "Pyramid",
+  yukon: "Yukon",
+  ers: "Egyptian Rat Screw",
+  scoundrel: "Scoundrel",
+};
 
 export interface VictoryModalProps {
   game: DailyGame | string;
@@ -137,6 +149,27 @@ export function VictoryModal({
 
   // Today's Quests
   const questsSummary = progress ? getDailyQuests(progress) : null;
+
+  // Next uncompleted daily challenge for immediate quick-queue
+  const today = todayUtc();
+  const nextDailyGame = useMemo(() => {
+    if (!isDaily || !progress) return null;
+    const completed = progress.daily?.completed ?? {};
+    const currentIndex = DAILY_GAMES.indexOf(game as DailyGame);
+    for (let i = 1; i <= DAILY_GAMES.length; i++) {
+      const idx = (currentIndex + i) % DAILY_GAMES.length;
+      const g = DAILY_GAMES[idx];
+      if (!completed[`${today}:${g}`]) {
+        return g;
+      }
+    }
+    return null;
+  }, [isDaily, progress, game, today]);
+
+  const dailyCompletedCount = useMemo(() => {
+    if (!progress?.daily?.completed) return 0;
+    return DAILY_GAMES.filter((g) => Boolean(progress.daily?.completed?.[`${today}:${g}`])).length;
+  }, [progress, today]);
 
   // Play fanfare and chip clinks on mount
   useEffect(() => {
@@ -362,18 +395,46 @@ export function VictoryModal({
 
         {/* Main Action Buttons */}
         <div className="vic-actions">
-          <button
-            type="button"
-            className="vic-btn-deal"
-            onClick={() => {
-              click();
-              buzz("tap");
-              onDealAgain();
-            }}
-            autoFocus
-          >
-            PLAY NEXT DEAL 🃏
-          </button>
+          {isDaily && nextDailyGame ? (
+            <button
+              type="button"
+              className="vic-btn-deal vic-btn-next-daily"
+              onClick={() => {
+                click();
+                buzz("tap");
+                window.location.href = `/${nextDailyGame}?daily=1`;
+              }}
+              autoFocus
+            >
+              NEXT DAILY DEAL: {DAILY_LABELS[nextDailyGame] ?? nextDailyGame.toUpperCase()} ({dailyCompletedCount}/8) ➔
+            </button>
+          ) : isDaily && !nextDailyGame ? (
+            <button
+              type="button"
+              className="vic-btn-deal"
+              onClick={() => {
+                click();
+                buzz("tap");
+                onDealAgain();
+              }}
+              autoFocus
+            >
+              ALL 8 DEALS CRACKED! REPLAY ↺
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="vic-btn-deal"
+              onClick={() => {
+                click();
+                buzz("tap");
+                onDealAgain();
+              }}
+              autoFocus
+            >
+              PLAY NEXT DEAL 🃏
+            </button>
+          )}
 
           <button
             type="button"
@@ -384,6 +445,19 @@ export function VictoryModal({
           </button>
 
           <div className="vic-sub-actions">
+            {isDaily && (
+              <button
+                type="button"
+                className="vic-btn-sub"
+                onClick={() => {
+                  click();
+                  buzz("tap");
+                  onDealAgain();
+                }}
+              >
+                ↺ Replay Deal
+              </button>
+            )}
             {onChallengeFriend && (
               <button
                 type="button"

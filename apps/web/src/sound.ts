@@ -563,6 +563,27 @@ export const levelUp = () => {
   brush(0, 0.25, 0.06);
 };
 
+/** Harmonic chime for moving cards to foundation: pitch rises harmonically with card rank (Ace to King). */
+const FOUNDATION_SCALE = [65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86];
+export const foundationChime = (rank = 1) => {
+  const idx = Math.max(0, Math.min(12, Math.round(rank) - 1));
+  const note = FOUNDATION_SCALE[idx];
+  bell(note, 0, 0.45, 0.08);
+  keys(note, 0, 0.5, 0.07);
+  if (rank >= 13) {
+    // King completes the foundation stack!
+    chord([72, 76, 79, 84, 86], 0.05, 1.4, 0.06, 0.02);
+    bell(86, 0.05, 1.2, 0.12);
+  }
+};
+
+/** Deep tactile impact for big moves, slaps, table wins, and auto-completes. */
+export const cardSlam = () => {
+  boom(0, 0.45);
+  snap(0, 0.85);
+  snap(0.035, 0.5);
+};
+
 // ---- game events ----------------------------------------------------------------------------------------
 
 /** Which side `seat` is on in the current job, if any. */
