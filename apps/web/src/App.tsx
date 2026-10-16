@@ -22,6 +22,8 @@ import { Spider } from "./spider/Spider";
 import { Pyramid } from "./pyramid/Pyramid";
 import { Yukon } from "./yukon/Yukon";
 import { Scoundrel } from "./scoundrel/Scoundrel";
+import { Hearts } from "./hearts/Hearts";
+import { Spades } from "./spades/Spades";
 import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
 import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
@@ -239,6 +241,44 @@ function Game() {
       /* fine without */
     }
   }, []);
+  // Hearts vs the crew: from the lobby, or straight in at playheist.net/hearts
+  const [hearts, setHeartsState] = useState(() => {
+    const on = location.pathname === "/hearts";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setHearts = useCallback((on: boolean) => {
+    setHeartsState(on);
+    try {
+      history.replaceState(null, "", on ? "/hearts" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Spades vs the crew: from the lobby, or straight in at playheist.net/spades
+  const [spades, setSpadesState] = useState(() => {
+    const on = location.pathname === "/spades";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setSpades = useCallback((on: boolean) => {
+    setSpadesState(on);
+    try {
+      history.replaceState(null, "", on ? "/spades" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
   // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
   const [tour, setTourState] = useState<TourStep | null>(savedTour);
   const setTour = useCallback((t: TourStep | null) => {
@@ -270,8 +310,10 @@ function Game() {
       setPyramid(id === "pyramid");
       setYukon(id === "yukon");
       setScoundrel(id === "scoundrel");
+      setHearts(id === "hearts");
+      setSpades(id === "spades");
     },
-    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel],
+    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel, setHearts, setSpades],
   );
   const activeSoloGame: ArcadeGameId | null =
     sol ? "solitaire"
@@ -282,6 +324,8 @@ function Game() {
     : pyramid ? "pyramid"
     : yukon ? "yukon"
     : scoundrel ? "scoundrel"
+    : hearts ? "hearts"
+    : spades ? "spades"
     : null;
   const [arcadeHubOpen, setArcadeHubOpenState] = useState(() => {
     try {
@@ -440,13 +484,17 @@ function Game() {
         ? "Yukon Solitaire"
         : scoundrel
         ? "Scoundrel"
+        : hearts
+        ? "Hearts"
+        : spades
+        ? "Spades"
         : dailyHubOpen
         ? "Daily Challenge Hub"
         : arcadeHubOpen
         ? "Card Games Hub"
         : "Lobby";
     trackScreen(screen);
-  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, dailyHubOpen, arcadeHubOpen]);
+  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, hearts, spades, dailyHubOpen, arcadeHubOpen]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);
@@ -817,6 +865,62 @@ function Game() {
       </>
     );
 
+  if (hearts && !table)
+    return (
+      <>
+        <Hearts
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setHearts(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="hearts" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setHearts(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
+  if (spades && !table)
+    return (
+      <>
+        <Spades
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          challengerTime={gameConfig.challengerTime}
+          challengerMoves={gameConfig.challengerMoves}
+          challengerScore={gameConfig.challengerScore}
+          onExit={() => {
+            setSpades(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="spades" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setSpades(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -840,6 +944,8 @@ function Game() {
             onPyramid={() => setPyramid(true)}
             onYukon={() => setYukon(true)}
             onScoundrel={() => setScoundrel(true)}
+            onHearts={() => setHearts(true)}
+            onSpades={() => setSpades(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

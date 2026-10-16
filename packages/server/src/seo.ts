@@ -25,7 +25,7 @@ const PAGES: Record<string, Page> = {
 <h2>Play Card Games With Friends Online</h2>
 <p>Gather your crew for 3 to 6-player real-time matches. Pull jobs, split loot, and bluff your way to the top with poker hands and secret deals. Create private tables with friends or join quick matchmaking.</p>
 <h2>Daily Solitaire &amp; Solo Card Arcade</h2>
-<p>Enjoy daily seeded challenges with global streak multipliers and Wordle-style score cards across 8 complete card games:</p>
+<p>Enjoy daily seeded challenges with global streak multipliers and Wordle-style score cards across 10 complete card games:</p>
 <ul>
   <li><a href="/solitaire">Klondike Solitaire (Draw 1 &amp; Draw 3)</a></li>
   <li><a href="/tripeaks">TriPeaks Solitaire Challenge</a></li>
@@ -35,19 +35,21 @@ const PAGES: Record<string, Page> = {
   <li><a href="/spider">Spider Solitaire</a></li>
   <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
   <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
+  <li><a href="/hearts">Hearts vs Bots</a></li>
+  <li><a href="/spades">Spades with a Bot Partner</a></li>
   <li><a href="/card-games">All Free Card Games Hub</a></li>
   <li><a href="/blog/best-free-online-card-games">10 Best Free Online Card Games Guide</a></li>
 </ul>`,
   },
   "/card-games": {
-    title: "Best Free Online Card Games: Play 9 Browser Card Games Free",
+    title: "Best Free Online Card Games: Play 11 Browser Card Games Free",
     description:
-      "Play the best free online card games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, and Heist. 100% free, no ads.",
+      "Play the best free online card games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Hearts, Spades, and Heist. 100% free, no ads.",
     keywords:
       "best free online card games, free online card games, browser card games, play card games online no download, solitaire online, freecell online, multiplayer card game",
     text: `<h1>Best Free Online Card Games: Play in Browser (No Ads, No Download)</h1>
-<p>Play 9 of the best free online card games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, or multiplayer bluffing games with friends.</p>
-<h2>All 9 Free Online Card Games</h2>
+<p>Play 11 of the best free online card games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, trick-taking classics, or multiplayer bluffing games with friends.</p>
+<h2>All 11 Free Online Card Games</h2>
 <ul>
   <li><a href="/solitaire"><strong>Klondike Solitaire</strong></a> — Classic 7-column Solitaire with Draw 1 &amp; Draw 3, unlimited undo, smart hints, and daily streak challenges.</li>
   <li><a href="/freecell"><strong>FreeCell Solitaire</strong></a> — 100% open information strategy with 4 reserve cells. Virtually every deal is solvable.</li>
@@ -57,18 +59,20 @@ const PAGES: Record<string, Page> = {
   <li><a href="/yukon"><strong>Yukon Solitaire</strong></a> — Tactical freedom: move any group of face-up cards regardless of sequence.</li>
   <li><a href="/ers"><strong>Egyptian Rat Screw (ERS)</strong></a> — High-reflex slap card game. Face-card penalty face-offs, doubles, and live 1v1 PvP duels.</li>
   <li><a href="/scoundrel"><strong>Scoundrel Dungeon Roguelike</strong></a> — Zach Gage &amp; Kurt Bieg's 52-card tabletop dungeon crawler with weapons, monsters, and health potions.</li>
+  <li><a href="/hearts"><strong>Hearts</strong></a> — The classic 4-player trick-taker against three bots: pass three, dodge every heart and the Queen of Spades, or shoot the moon.</li>
+  <li><a href="/spades"><strong>Spades</strong></a> — Partnership bidding with a bot partner: bid your tricks, go Nil, mind your bags. Full game to 500 or a quick game to 250.</li>
   <li><a href="/"><strong>Heist Multiplayer</strong></a> — 3 to 6-player social deduction and poker bluffing battle. Pull jobs with your crew or double-cross for the pot.</li>
 </ul>
 <p>Read our full ranking and strategy guide: <a href="/blog/best-free-online-card-games">The 10 Best Free Online Card Games in 2026</a>.</p>`,
   },
   "/arcade": {
-    title: "Card Game Arcade: Play 9 Free Card Games Online in Browser",
+    title: "Card Game Arcade: Play 11 Free Card Games Online in Browser",
     description:
-      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, and Heist free with daily streak challenges.",
+      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Hearts, Spades, and Heist free with daily streak challenges.",
     keywords:
       "card game arcade, free online card games, browser card games, daily solitaire arcade",
     text: `<h1>Heist Card Game Arcade</h1>
-<p>Explore 9 complete card games in your browser. Single-player brainteasers, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
+<p>Explore 11 complete card games in your browser. Single-player brainteasers, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
 <ul>
   <li><a href="/solitaire">Klondike Solitaire</a></li>
   <li><a href="/freecell">FreeCell</a></li>
@@ -78,6 +82,8 @@ const PAGES: Record<string, Page> = {
   <li><a href="/yukon">Yukon</a></li>
   <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
   <li><a href="/scoundrel">Scoundrel</a></li>
+  <li><a href="/hearts">Hearts</a></li>
+  <li><a href="/spades">Spades</a></li>
   <li><a href="/">Heist Multiplayer</a></li>
 </ul>`,
   },
@@ -156,6 +162,39 @@ const PAGES: Record<string, Page> = {
     text: `<h1>Scoundrel: Dungeon Roguelike Card Game</h1>
 <p>Zach Gage and Kurt Bieg's brilliant dungeon crawler played with standard playing cards. Weapons, monsters, and health management in your browser.</p>
 <p>Try our other games: <a href="/">Heist Multiplayer</a> · <a href="/solitaire">Solitaire</a></p>`,
+  },
+  "/hearts": {
+    title: "Hearts: Play Free Hearts Card Game Online vs Bots, No Download",
+    description:
+      "Play classic Hearts free in your browser against three crafty bots. Pass three cards, dodge the hearts and the Queen of Spades, or shoot the moon. No download, no ads.",
+    keywords: "hearts card game online, play hearts free, hearts vs computer, hearts no download, shoot the moon card game, queen of spades game",
+    text: `<h1>Free Hearts Card Game Online</h1>
+<p>The four-player trick-taking classic, free in your browser on phone or computer. Play against Lou, Duchess and Nails, three bots that track voids, duck the Queen of Spades and dump points on you when they can.</p>
+<h2>How to play Hearts</h2>
+<ul>
+  <li>Each hand, pass three cards left, right, across, then hold.</li>
+  <li>The 2 of clubs leads. Follow suit if you can; no points on the first trick.</li>
+  <li>Every heart is 1 point and the Queen of Spades is 13. Hearts can't be led until one has been played.</li>
+  <li>Take all 26 points to shoot the moon: everyone else gets 26 instead.</li>
+  <li>When someone reaches 100, the lowest score wins.</li>
+</ul>
+<p>Try our other games: <a href="/spades">Spades</a> · <a href="/">Heist Multiplayer</a> · <a href="/solitaire">Solitaire</a></p>`,
+  },
+  "/spades": {
+    title: "Spades: Play Free Spades Card Game Online With a Partner, No Download",
+    description:
+      "Play Spades free in your browser with a bot partner against two bot opponents. Bid your tricks, go Nil, watch your bags. Full game to 500 or quick game to 250.",
+    keywords: "spades card game online, play spades free, spades vs computer, spades with partner, spades nil bid, spades no download",
+    text: `<h1>Free Spades Card Game Online</h1>
+<p>Partnership Spades, free in your browser. You and Ledger sit across from each other against Lou and Duchess. Your partner covers your Nil, cashes winners and ducks when the bags pile up.</p>
+<h2>How to play Spades</h2>
+<ul>
+  <li>Everyone bids the tricks they expect to take. A bid of zero is Nil: +100 if you take no tricks, -100 if you take one.</li>
+  <li>Spades are always trump and can't be led until one has been played.</li>
+  <li>Make your team's bid for 10 points a trick; each extra trick is a bag worth 1. Every 10 bags cost 100 points.</li>
+  <li>First team to 500 wins, or 250 in a quick game.</li>
+</ul>
+<p>Try our other games: <a href="/hearts">Hearts</a> · <a href="/">Heist Multiplayer</a> · <a href="/solitaire">Solitaire</a></p>`,
   },
 };
 
@@ -256,7 +295,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                   name: "What single-player card games are included on playheist.net?",
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: "The Heist Solo Arcade includes 8 complete card games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), and the Scoundrel dungeon roguelike, complete with daily global seeds and Wordle-style score sharing.",
+                    text: "The Heist Solo Arcade includes 10 complete card games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Hearts and Spades, complete with daily global seeds and Wordle-style score sharing.",
                   },
                 },
               ],
@@ -271,7 +310,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
               name: "Best Free Online Card Games",
               description: page.description,
               itemListOrder: "https://schema.org/ItemListOrderAscending",
-              numberOfItems: 9,
+              numberOfItems: 11,
               itemListElement: [
                 { "@type": "ListItem", position: 1, name: "Heist Multiplayer", url: `${SITE}/` },
                 { "@type": "ListItem", position: 2, name: "Klondike Solitaire", url: `${SITE}/solitaire` },
@@ -282,6 +321,8 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                 { "@type": "ListItem", position: 7, name: "Yukon Solitaire", url: `${SITE}/yukon` },
                 { "@type": "ListItem", position: 8, name: "Egyptian Rat Screw (ERS)", url: `${SITE}/ers` },
                 { "@type": "ListItem", position: 9, name: "Scoundrel Dungeon Roguelike", url: `${SITE}/scoundrel` },
+                { "@type": "ListItem", position: 10, name: "Hearts", url: `${SITE}/hearts` },
+                { "@type": "ListItem", position: 11, name: "Spades", url: `${SITE}/spades` },
               ],
             },
           ]

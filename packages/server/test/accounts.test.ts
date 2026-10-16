@@ -1,5 +1,8 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { FIRST_HAND, SOL_XP, STAGES, botLevelsFor, createSoloGame, dealKlondike, type SoloSetup } from "@heist/profile";
+import {
+  FIRST_HAND, SOL_XP, STAGES, advanceHearts, advanceSpades, applyHearts, applySpades, botLevelsFor, createSoloGame, dealHearts, dealKlondike, dealSpades,
+  heartsPickCard, heartsPickPass, spadesBidMove, spadesPickBid, spadesPickCard, tallyHearts, tallyHeartsXp, tallySpades, tallySpadesXp, type SoloSetup,
+} from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -163,6 +166,49 @@ describe("accounts", () => {
     expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d"], false, 2)).reward?.xp).toBe(1);
     expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d", "d"], false, 0)).reward?.xp).toBe(1);
     expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d", "d"], false, "lots")).reward).toBeNull();
+  });
+
+  it("replays a whole Hearts game (bots too) before paying, and closes it once it's over", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Hearts");
+    const acct = () => svc.require(token);
+    const g = await svc.heartsStart(await acct());
+    let st = advanceHearts(dealHearts(g.seed));
+    const moves: unknown[] = [];
+    while (st.phase !== "over") {
+      const m = st.phase === "pass" ? heartsPickPass(st.t.hands[0]) : heartsPickCard(st);
+      moves.push(m);
+      st = advanceHearts(applyHearts(st, m)!);
+    }
+    const t = tallyHearts(g.seed, moves);
+    // a made-up win is turned away; banking what really happened pays it (capped for the day) and ends the game
+    if (!t.won) await expect(svc.heartsBank(await acct(), g.gameId, moves, true)).rejects.toThrow(/isn't won/);
+    const r = await svc.heartsBank(await acct(), g.gameId, moves, t.won);
+    expect(r.reward?.xp).toBe(Math.min(500, tallyHeartsXp(t)));
+    await expect(svc.heartsBank(await acct(), g.gameId, moves)).rejects.toThrow(/isn't running/);
+    // forged plays stop the replay: nothing is paid for them
+    const h = await svc.heartsStart(await acct());
+    expect((await svc.heartsBank(await acct(), h.gameId, [[0, 1, 2], 7, 8, 9])).reward).toBeNull();
+  });
+
+  it("plays Spades to 250 for a quick game and replays every bid and card", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Spades");
+    const acct = () => svc.require(token);
+    const g = await svc.spadesStart(await acct(), undefined, false, true);
+    expect(g.target).toBe(250);
+    expect((await svc.spadesStart(await acct())).target).toBe(500);
+    const q = await svc.spadesStart(await acct(), 1234, false, true);
+    let st = advanceSpades(dealSpades(q.seed, q.target));
+    const moves: unknown[] = [];
+    while (st.phase !== "over") {
+      const m = st.phase === "bid" ? spadesBidMove(spadesPickBid(st, 0)) : spadesPickCard(st);
+      moves.push(m);
+      st = advanceSpades(applySpades(st, m)!);
+    }
+    const t = tallySpades(q.seed, moves, 250);
+    const r = await svc.spadesBank(await acct(), q.gameId, moves, t.won);
+    expect(r.reward?.xp).toBe(Math.min(500, tallySpadesXp(t)));
   });
 
   it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {

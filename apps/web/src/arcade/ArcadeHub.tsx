@@ -14,9 +14,11 @@ export type ArcadeGameId =
   | "pyramid"
   | "yukon"
   | "ers"
-  | "scoundrel";
+  | "scoundrel"
+  | "hearts"
+  | "spades";
 
-export type ArcadeCategory = "all" | "solitaire" | "action";
+export type ArcadeCategory = "all" | "solitaire" | "action" | "tricks";
 export type ArcadeDifficulty = "Casual" | "Medium" | "Expert";
 
 export interface ArcadeGame {
@@ -24,7 +26,7 @@ export interface ArcadeGame {
   title: string;
   subtitle: string;
   tagline: string;
-  category: "solitaire" | "action";
+  category: "solitaire" | "action" | "tricks";
   difficulty: ArcadeDifficulty;
   tags: string[];
   deckInfo: string;
@@ -234,6 +236,54 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       tip: "Fight low-rank monsters (2-4) barehanded to preserve your high-value weapon durability for dragons (J, Q, K).",
     },
   },
+  {
+    id: "hearts",
+    title: "Hearts",
+    subtitle: "Dodge the Queen vs the Crew",
+    tagline: "The classic trick-taker against Lou, Duchess and Nails: duck the hearts, dump the Q♠, or shoot the moon.",
+    category: "tricks",
+    difficulty: "Medium",
+    tags: ["4 Players", "vs Bots", "Shoot the Moon", "Passing"],
+    deckInfo: "Standard 52-card deck, 4 hands of 13",
+    path: "/hearts",
+    art: {
+      cards: [
+        { rank: "Q", suit: "♠", red: false },
+        { rank: "A", suit: "♥", red: true },
+      ],
+      badge: "Trick-Taking",
+    },
+    rules: {
+      overview: "Four players, 13 tricks a hand. Pass 3 cards left, right, across, then hold. The 2♣ leads; follow suit if you can.",
+      goal: "Have the lowest score when someone reaches 100.",
+      keyRule: "Every heart is 1 point and the Queen of Spades is 13. Hearts can't be led until one's been played. Take all 26 and you shoot the moon: everyone else gets 26.",
+      tip: "Pass away the A♠ and K♠ if you're short in spades, and void a suit early so you can dump points.",
+    },
+  },
+  {
+    id: "spades",
+    title: "Spades",
+    subtitle: "Partners · Bid & Bags",
+    tagline: "Team up with Ledger against Lou and Duchess: bid your tricks, go Nil, and watch those bags.",
+    category: "tricks",
+    difficulty: "Medium",
+    tags: ["Partners", "Bidding", "Nil", "Quick Game 250"],
+    deckInfo: "Standard 52-card deck, spades always trump",
+    path: "/spades",
+    art: {
+      cards: [
+        { rank: "A", suit: "♠", red: false },
+        { rank: "K", suit: "♦", red: true },
+      ],
+      badge: "Partners",
+    },
+    rules: {
+      overview: "You and your bot partner (across) against two of the crew. Everyone bids the tricks they'll take; spades are trump.",
+      goal: "First team to 500 points wins (250 in a quick game).",
+      keyRule: "Make your team's bid for 10 a trick; each extra trick is a bag, and 10 bags cost 100. Nil scores 100 if you take no tricks.",
+      tip: "Count your sure winners when you bid, and cover a Nil partner by playing over their high cards.",
+    },
+  },
 ];
 
 export interface ArcadeHubProps {
@@ -292,6 +342,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
     return ARCADE_GAMES.filter((game) => {
       if (tab === "solitaire" && game.category !== "solitaire") return false;
       if (tab === "action" && game.category !== "action") return false;
+      if (tab === "tricks" && game.category !== "tricks") return false;
 
       if (!search.trim()) return true;
       const q = search.toLowerCase();
@@ -312,6 +363,10 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
     () => ARCADE_GAMES.filter((g) => g.category === "action").length,
     [],
   );
+  const tricksCount = useMemo(
+    () => ARCADE_GAMES.filter((g) => g.category === "tricks").length,
+    [],
+  );
 
   return createPortal(
     <div className="arcade-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Solo Arcade Hub">
@@ -328,7 +383,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               CASINO <span>ARCADE HUB</span>
             </h2>
             <p className="arcade-tagline">
-              8 single-player card games & roguelike challenges. Instant action, anytime.
+              {ARCADE_GAMES.length} single-player card games: solitaire, roguelikes and trick-takers. Instant action, anytime.
             </p>
           </div>
           <button
@@ -388,6 +443,18 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               aria-selected={tab === "action"}
             >
               Roguelike & Fast Action <span className="arcade-tab-count">{actionCount}</span>
+            </button>
+            <button
+              className={`arcade-tab-btn ${tab === "tricks" ? "active" : ""}`}
+              onClick={() => {
+                click();
+                buzz("tap");
+                setTab("tricks");
+              }}
+              role="tab"
+              aria-selected={tab === "tricks"}
+            >
+              Trick-Taking <span className="arcade-tab-count">{tricksCount}</span>
             </button>
           </div>
 

@@ -124,7 +124,7 @@ export function usePoll(load: () => void, ms: number, on = true) {
 /** Families of activity, for filters and badge colors. Prefixes match the server's kinds. */
 export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open"] },
-  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel."] },
+  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel.", "hearts.", "spades."] },
   { id: "solitaire", label: "Klondike Solitaire", kinds: ["solitaire."] },
   { id: "freecell", label: "FreeCell", kinds: ["freecell."] },
   { id: "spider", label: "Spider Solitaire", kinds: ["spider."] },
@@ -133,6 +133,8 @@ export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "ers", label: "Egyptian Rat Screw", kinds: ["ers."] },
   { id: "yukon", label: "Yukon", kinds: ["yukon."] },
   { id: "scoundrel", label: "Scoundrel", kinds: ["scoundrel."] },
+  { id: "hearts", label: "Hearts", kinds: ["hearts."] },
+  { id: "spades", label: "Spades", kinds: ["spades."] },
   { id: "heist_solo", label: "Heist Solo", kinds: ["solo.", "game.solo"] },
   { id: "tables", label: "Heist Online Tables", kinds: ["table.", "online.", "game.online"] },
   { id: "money", label: "Shop, packs & chips", kinds: ["shop.", "season.", "chips.", "prestige", "solo.drink"] },
@@ -191,6 +193,12 @@ const LABELS: Record<string, string> = {
   "scoundrel.start": "Started Scoundrel",
   "scoundrel.bank": "Banked Scoundrel moves",
   "scoundrel.finish": "Won Scoundrel",
+  "hearts.start": "Started Hearts",
+  "hearts.bank": "Banked Hearts hands",
+  "hearts.finish": "Won Hearts",
+  "spades.start": "Started Spades",
+  "spades.bank": "Banked Spades hands",
+  "spades.finish": "Won Spades",
   "online.connect": "Connected to online play",
   "online.disconnect": "Disconnected",
   "table.create": "Opened a table",
@@ -289,7 +297,10 @@ export function detailOf(e: ActivityEvent): string {
     case "ers.start":
     case "yukon.start":
     case "scoundrel.start":
+    case "hearts.start":
       return d.isDaily ? "Daily challenge deal" : "Standard deal";
+    case "spades.start":
+      return d.isDaily ? "Daily challenge deal (to 250)" : d.quick ? "Quick game (to 250)" : "Full game (to 500)";
     case "solitaire.finish":
     case "freecell.finish":
     case "spider.finish":
@@ -298,6 +309,8 @@ export function detailOf(e: ActivityEvent): string {
     case "ers.finish":
     case "yukon.finish":
     case "scoundrel.finish":
+    case "hearts.finish":
+    case "spades.finish":
       return [d.moves ? `${d.moves} moves` : "Won", d.reward ? `+${d.reward.xp} XP` : ""].filter(Boolean).join(" · ");
     case "solitaire.bank":
     case "freecell.bank":
@@ -307,6 +320,8 @@ export function detailOf(e: ActivityEvent): string {
     case "ers.bank":
     case "yukon.bank":
     case "scoundrel.bank":
+    case "hearts.bank":
+    case "spades.bank":
       return d.moves ? `${d.moves} moves banked` : "";
     case "table.chat":
     case "dm.send":

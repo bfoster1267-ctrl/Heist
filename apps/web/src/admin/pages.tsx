@@ -159,6 +159,8 @@ const WIDGETS: Widget[] = [
         ["ers", "Egyptian Rat Screw"],
         ["yukon", "Yukon Solitaire"],
         ["scoundrel", "Scoundrel"],
+        ["hearts", "Hearts"],
+        ["spades", "Spades"],
         ["heist_solo", "Heist (Solo)"],
         ["heist_online", "Heist (Online)"],
       ];
@@ -491,6 +493,8 @@ export function Players({ s, onAuth, query }: PageProps) {
           <option value="ers">Egyptian Rat Screw</option>
           <option value="yukon">Yukon Solitaire</option>
           <option value="scoundrel">Scoundrel</option>
+          <option value="hearts">Hearts</option>
+          <option value="spades">Spades</option>
           <option value="heist_solo">Heist Solo</option>
           <option value="heist_online">Heist Online</option>
         </select>
@@ -545,6 +549,8 @@ const GAME_LABELS: Record<string, string> = {
   ers: "⚡ ERS",
   yukon: "❄ Yukon",
   scoundrel: "🗡 Scoundrel",
+  hearts: "♥ Hearts",
+  spades: "♠ Spades",
   heist_solo: "Heist Solo",
   heist_online: "Heist PvP",
 };
@@ -675,7 +681,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         <div className="card">
           <div className="card-head">
             <h3>Recent games</h3>
-            <Link to={`/activity?user=${a.id}&kinds=game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.`}>All games →</Link>
+            <Link to={`/activity?user=${a.id}&kinds=game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,hearts.,spades.`}>All games →</Link>
           </div>
           <GameList s={s} onAuth={onAuth} userId={a.id} />
         </div>
@@ -729,7 +735,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
   );
 }
 
-const ALL_GAMES_KINDS = "game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.";
+const ALL_GAMES_KINDS = "game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,hearts.,spades.";
 
 function GameList({ s, onAuth, userId }: { s: Session; onAuth: (e: unknown) => void; userId: string }) {
   const l = useAdmin<{ events: ActivityEvent[] }>(s, `/activity?user=${userId}&kinds=${ALL_GAMES_KINDS}&limit=12`, onAuth);

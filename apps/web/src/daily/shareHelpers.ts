@@ -103,6 +103,8 @@ export function getDailyLeaderboard(
     yukon: 128,
     ers: 68,
     scoundrel: 142,
+    hearts: 720,
+    spades: 540,
   };
 
   const seedOffset = (seed % 17) - 8;
