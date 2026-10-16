@@ -25,7 +25,7 @@ const PAGES: Record<string, Page> = {
 <h2>Play Card Games With Friends Online</h2>
 <p>Gather your crew for 3 to 6-player real-time matches. Pull jobs, split loot, and bluff your way to the top with poker hands and secret deals. Create private tables with friends or join quick matchmaking.</p>
 <h2>Daily Solitaire &amp; Solo Card Arcade</h2>
-<p>Enjoy daily seeded challenges with global streak multipliers and Wordle-style score cards across 10 complete solo games:</p>
+<p>Enjoy daily seeded challenges with global streak multipliers and Wordle-style score cards across 11 complete solo games:</p>
 <ul>
   <li><a href="/solitaire">Klondike Solitaire (Draw 1 &amp; Draw 3)</a></li>
   <li><a href="/tripeaks">TriPeaks Solitaire Challenge</a></li>
@@ -37,19 +37,20 @@ const PAGES: Record<string, Page> = {
   <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
   <li><a href="/minesweeper">Minesweeper</a></li>
   <li><a href="/sudoku">Sudoku</a></li>
+  <li><a href="/checkers">Checkers vs Bot</a></li>
   <li><a href="/card-games">All Free Card Games Hub</a></li>
   <li><a href="/blog/best-free-online-card-games">10 Best Free Online Card Games Guide</a></li>
 </ul>`,
   },
   "/card-games": {
-    title: "Best Free Online Card Games: Play 11 Browser Games Free",
+    title: "Best Free Online Card Games: Play 12 Browser Games Free",
     description:
-      "Play the best free online card and puzzle games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Minesweeper, Sudoku, and Heist. 100% free, no ads.",
+      "Play the best free online card and puzzle games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Checkers, Minesweeper, Sudoku, and Heist. 100% free, no ads.",
     keywords:
       "best free online card games, free online card games, browser card games, play card games online no download, solitaire online, freecell online, multiplayer card game",
     text: `<h1>Best Free Online Card Games: Play in Browser (No Ads, No Download)</h1>
-<p>Play 11 of the best free online card and puzzle games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, logic puzzles, or multiplayer bluffing games with friends.</p>
-<h2>All 11 Free Online Games</h2>
+<p>Play 12 of the best free online card, board and puzzle games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, logic puzzles, or multiplayer bluffing games with friends.</p>
+<h2>All 12 Free Online Games</h2>
 <ul>
   <li><a href="/solitaire"><strong>Klondike Solitaire</strong></a> — Classic 7-column Solitaire with Draw 1 &amp; Draw 3, unlimited undo, smart hints, and daily streak challenges.</li>
   <li><a href="/freecell"><strong>FreeCell Solitaire</strong></a> — 100% open information strategy with 4 reserve cells. Virtually every deal is solvable.</li>
@@ -61,18 +62,19 @@ const PAGES: Record<string, Page> = {
   <li><a href="/scoundrel"><strong>Scoundrel Dungeon Roguelike</strong></a> — Zach Gage &amp; Kurt Bieg's 52-card tabletop dungeon crawler with weapons, monsters, and health potions.</li>
   <li><a href="/minesweeper"><strong>Minesweeper</strong></a> — The classic mine-clearing logic puzzle: Beginner, Intermediate and Expert boards, a safe first click, flags and chording.</li>
   <li><a href="/sudoku"><strong>Sudoku</strong></a> — Unique-solution 9x9 puzzles from Easy to Expert with pencil marks, hints, undo and a three-mistake limit.</li>
+  <li><a href="/checkers"><strong>Checkers vs Bot</strong></a> — Classic American checkers with forced jumps, multi-jumps and kings against a Rookie, Pro or Boss bot.</li>
   <li><a href="/"><strong>Heist Multiplayer</strong></a> — 3 to 6-player social deduction and poker bluffing battle. Pull jobs with your crew or double-cross for the pot.</li>
 </ul>
 <p>Read our full ranking and strategy guide: <a href="/blog/best-free-online-card-games">The 10 Best Free Online Card Games in 2026</a>.</p>`,
   },
   "/arcade": {
-    title: "Card Game Arcade: Play 11 Free Games Online in Browser",
+    title: "Card Game Arcade: Play 12 Free Games Online in Browser",
     description:
-      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Minesweeper, Sudoku, and Heist free with daily streak challenges.",
+      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Checkers, Minesweeper, Sudoku, and Heist free with daily streak challenges.",
     keywords:
       "card game arcade, free online card games, browser card games, daily solitaire arcade",
     text: `<h1>Heist Card Game Arcade</h1>
-<p>Explore 11 complete games in your browser. Single-player card games and logic puzzles, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
+<p>Explore 12 complete games in your browser. Single-player card games, board games and logic puzzles, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
 <ul>
   <li><a href="/solitaire">Klondike Solitaire</a></li>
   <li><a href="/freecell">FreeCell</a></li>
@@ -84,6 +86,7 @@ const PAGES: Record<string, Page> = {
   <li><a href="/scoundrel">Scoundrel</a></li>
   <li><a href="/minesweeper">Minesweeper</a></li>
   <li><a href="/sudoku">Sudoku</a></li>
+  <li><a href="/checkers">Checkers</a></li>
   <li><a href="/">Heist Multiplayer</a></li>
 </ul>`,
   },
@@ -189,6 +192,16 @@ const PAGES: Record<string, Page> = {
 <ul><li>Easy, Medium, Hard and Expert puzzles, each with a unique solution</li><li>Pencil marks, number pad, erase, undo and hints</li><li>Highlights for the same digit, row, column and box</li><li>A shared daily Sudoku with streaks</li></ul>
 <p>Try our other games: <a href="/minesweeper">Minesweeper</a> · <a href="/solitaire">Solitaire</a> · <a href="/">Heist Multiplayer</a></p>`,
   },
+  "/checkers": {
+    title: "Checkers vs Computer: Play Free Online Checkers, No Download",
+    description:
+      "Play free American checkers against the computer in your browser. Rookie, Pro and Boss bots, forced jumps, multi-jumps, kings, hints and undo. No download, no sign-up.",
+    keywords: "checkers online free, checkers vs computer, play checkers against bot, draughts online, american checkers browser",
+    text: `<h1>Free Checkers vs Computer</h1>
+<p>Play classic American checkers (English draughts) on an 8x8 board against a house bot. Pick Rookie, Pro or Boss: the Boss reads many moves ahead. Jumps are forced, multi-jumps chain, and a chip that reaches the far row is crowned king.</p>
+<p>Draws come after 40 moves each without a capture, or when a position repeats three times. Take on the daily Pro bot to keep your streak going.</p>
+<p>Try our other games: <a href="/">Heist Multiplayer</a> · <a href="/solitaire">Solitaire</a></p>`,
+  },
 };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -256,7 +269,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                   name: "What is a good free online card game to play with friends in a browser?",
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: "Heist (https://playheist.net) is a premier free online multiplayer card game playable instantly in any web browser without downloads or registration. Players can create private rooms or jump into quick matchmaking to run heist contracts, bluff rivals with poker hands, and double-cross their crew. It also includes 10 solo games like Solitaire, TriPeaks, FreeCell, Minesweeper and Sudoku with daily shared challenges.",
+                    text: "Heist (https://playheist.net) is a premier free online multiplayer card game playable instantly in any web browser without downloads or registration. Players can create private rooms or jump into quick matchmaking to run heist contracts, bluff rivals with poker hands, and double-cross their crew. It also includes 11 solo games like Solitaire, TriPeaks, FreeCell, Checkers, Minesweeper and Sudoku with daily shared challenges.",
                   },
                 },
                 {
@@ -288,7 +301,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                   name: "What single-player card games are included on playheist.net?",
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: "The Heist Solo Arcade includes 10 complete solo games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Minesweeper (Beginner, Intermediate and Expert) and Sudoku (Easy to Expert), complete with daily global seeds and Wordle-style score sharing.",
+                    text: "The Heist Solo Arcade includes 11 complete solo games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Checkers against a Rookie, Pro or Boss bot, Minesweeper (Beginner, Intermediate and Expert) and Sudoku (Easy to Expert), complete with daily global seeds and Wordle-style score sharing.",
                   },
                 },
               ],
@@ -303,7 +316,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
               name: "Best Free Online Card Games",
               description: page.description,
               itemListOrder: "https://schema.org/ItemListOrderAscending",
-              numberOfItems: 11,
+              numberOfItems: 12,
               itemListElement: [
                 { "@type": "ListItem", position: 1, name: "Heist Multiplayer", url: `${SITE}/` },
                 { "@type": "ListItem", position: 2, name: "Klondike Solitaire", url: `${SITE}/solitaire` },
@@ -316,6 +329,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                 { "@type": "ListItem", position: 9, name: "Scoundrel Dungeon Roguelike", url: `${SITE}/scoundrel` },
                 { "@type": "ListItem", position: 10, name: "Minesweeper", url: `${SITE}/minesweeper` },
                 { "@type": "ListItem", position: 11, name: "Sudoku", url: `${SITE}/sudoku` },
+                { "@type": "ListItem", position: 12, name: "Checkers vs Bot", url: `${SITE}/checkers` },
               ],
             },
           ]
@@ -343,7 +357,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`;
 
   const withHead = /<!-- app:start/.test(html)
-    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, () => head + "\n")
+    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=(?:<!-- web:end -->\s*)?<!-- app:start)/, () => head + "\n")
     : html.replace(/<title>[\s\S]*?<\/title>/, () => head);
 
   return withHead.replace(/<div id="root">[\s\S]*?<\/div>/, () => `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);

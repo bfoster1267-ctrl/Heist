@@ -124,7 +124,7 @@ export function usePoll(load: () => void, ms: number, on = true) {
 /** Families of activity, for filters and badge colors. Prefixes match the server's kinds. */
 export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open"] },
-  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel.", "minesweeper.", "sudoku."] },
+  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel.", "checkers.", "minesweeper.", "sudoku."] },
   { id: "solitaire", label: "Klondike Solitaire", kinds: ["solitaire."] },
   { id: "freecell", label: "FreeCell", kinds: ["freecell."] },
   { id: "spider", label: "Spider Solitaire", kinds: ["spider."] },
@@ -135,6 +135,7 @@ export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "scoundrel", label: "Scoundrel", kinds: ["scoundrel."] },
   { id: "minesweeper", label: "Minesweeper", kinds: ["minesweeper."] },
   { id: "sudoku", label: "Sudoku", kinds: ["sudoku."] },
+  { id: "checkers", label: "Checkers", kinds: ["checkers."] },
   { id: "heist_solo", label: "Heist Solo", kinds: ["solo.", "game.solo"] },
   { id: "tables", label: "Heist Online Tables", kinds: ["table.", "online.", "game.online"] },
   { id: "money", label: "Shop, packs & chips", kinds: ["shop.", "season.", "chips.", "prestige", "solo.drink"] },
@@ -199,6 +200,9 @@ const LABELS: Record<string, string> = {
   "sudoku.start": "Started Sudoku",
   "sudoku.bank": "Banked Sudoku entries",
   "sudoku.finish": "Solved Sudoku",
+  "checkers.start": "Started Checkers vs bot",
+  "checkers.bank": "Banked Checkers captures",
+  "checkers.finish": "Finished Checkers vs bot",
   "online.connect": "Connected to online play",
   "online.disconnect": "Disconnected",
   "table.create": "Opened a table",
@@ -323,6 +327,11 @@ export function detailOf(e: ActivityEvent): string {
     case "minesweeper.bank":
     case "sudoku.bank":
       return d.moves ? `${d.moves} moves banked` : "";
+    case "checkers.start":
+      return [d.isDaily ? "Daily challenge" : "", typeof d.level === "string" ? `${d.level} bot` : "Rookie bot"].filter(Boolean).join(" · ");
+    case "checkers.finish":
+    case "checkers.bank":
+      return [d.moves ? `${d.moves} moves` : "", d.reward ? `+${d.reward.xp} XP` : ""].filter(Boolean).join(" · ");
     case "table.chat":
     case "dm.send":
     case "lounge.say":

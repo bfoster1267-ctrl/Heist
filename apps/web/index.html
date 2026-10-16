@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0d10" />
     
+    <!-- web:start (playheist.net only: tags, search text and links the CrazyGames build leaves out) -->
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18515793903"></script>
     <script>
@@ -58,7 +59,7 @@
           "name": "Heist",
           "alternateName": ["Heist Card Game", "PlayHeist", "Heist Multiplayer Card Game", "Heist Solitaire Arcade"],
           "url": "https://playheist.net/",
-          "description": "Heist is a free browser-based multiplayer bluffing card game and solo arcade suite featuring daily seeded challenges for Klondike Solitaire, FreeCell, TriPeaks, Pyramid, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), Scoundrel, Minesweeper, and Sudoku.",
+          "description": "Heist is a free browser-based multiplayer bluffing card game and solo arcade suite featuring daily seeded challenges for Klondike Solitaire, FreeCell, TriPeaks, Pyramid, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), Scoundrel, Checkers vs bot, Minesweeper, and Sudoku.",
           "inLanguage": "en",
           "genre": ["Card Game", "Multiplayer", "Bluffing", "Strategy", "Solitaire", "Roguelike"],
           "gamePlatform": ["Web Browser", "Mobile Browser", "iOS", "Android", "macOS", "Windows"],
@@ -120,7 +121,7 @@
               "name": "What single-player card games are included on playheist.net?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "The Heist Solo Arcade includes 10 complete solo games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Minesweeper (Beginner, Intermediate and Expert) and Sudoku (Easy to Expert), complete with daily global seeds and Wordle-style score sharing."
+                "text": "The Heist Solo Arcade includes 11 complete solo games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Checkers against a Rookie, Pro or Boss bot, Minesweeper (Beginner, Intermediate and Expert) and Sudoku (Easy to Expert), complete with daily global seeds and Wordle-style score sharing."
               }
             }
           ]
@@ -128,6 +129,7 @@
       ]
     }
     </script>
+    <!-- web:end -->
 
     <!-- app:start (home-screen app; left out of the single-file build) -->
     <link rel="manifest" href="./manifest.webmanifest" />
@@ -164,6 +166,7 @@
   </head>
   <body>
     <div id="root">
+      <!-- web:start -->
       <main class="ssr-fallback">
         <h1>Heist — Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</h1>
         <p>Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid.</p>
@@ -183,10 +186,12 @@
             <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
             <li><a href="/minesweeper">Minesweeper</a></li>
             <li><a href="/sudoku">Sudoku</a></li>
+            <li><a href="/checkers">Checkers vs Bot</a></li>
             <li><a href="/blog">Strategy &amp; Guides Blog</a></li>
           </ul>
         </nav>
       </main>
+      <!-- web:end -->
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

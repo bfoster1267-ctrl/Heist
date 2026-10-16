@@ -6,10 +6,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
-import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally, MinesTally, MinesLevel, SudokuTally, SudokuLevel } from "@heist/profile";
+import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally, CheckersTally, CheckersLevel, MinesTally, MinesLevel, SudokuTally, SudokuLevel } from "@heist/profile";
 import type { PushSub } from "../push";
 
-export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
+export type Provider = "email" | "apple" | "google" | "facebook" | "dev" | "crazygames";
 
 export interface Login {
   provider: Provider;
@@ -68,6 +68,8 @@ export interface Account {
   minesweeper?: { gameId: string; seed: number; level: MinesLevel; startedAt: number; isDaily?: boolean; paid?: MinesTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Sudoku puzzle in progress (seed and level rebuild the exact puzzle) */
   sudoku?: { gameId: string; seed: number; level: SudokuLevel; startedAt: number; isDaily?: boolean; paid?: SudokuTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Checkers game in progress; `plies` is the last replay (both sides), so the next one only searches new bot replies */
+  checkers?: { gameId: string; seed: number; level: CheckersLevel; startedAt: number; isDaily?: boolean; paid?: CheckersTally; paidXp?: number; drain?: number; counted?: number; plies?: number[][] } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */
@@ -80,6 +82,8 @@ export interface Account {
   feedback?: Feedback;
   /** friends, and friend requests either way (see social.ts) */
   friends?: FriendLinks;
+  /** where the player first came from, when the app could tell ("cg": the CrazyGames portal) */
+  source?: string;
 }
 
 export interface FriendLinks {

@@ -2,7 +2,8 @@
 //   PORT            port to listen on (default 8787)
 //   DATA_DIR        where game logs go (default ./data); unfinished games are rebuilt from here on start
 //   TOKEN_SECRET    signs guest tokens; set it in production so players keep their seats across restarts
-//   ALLOWED_ORIGINS comma-separated browser origins allowed to connect (default: any)
+//   ALLOWED_ORIGINS comma-separated browser origins allowed to connect (default: any); "https://*.crazygames.com"
+//                   allows every subdomain (the CrazyGames build, see docs/CRAZYGAMES.md)
 //   COMPRESSION     set to 0 to turn off WebSocket compression
 //   TURN_GRACE_MS   how long a dropped player's decision waits before a bot answers (default 20000)
 //   QUEUE_WAIT_MS   quick queue: how long the first in line waits before bots fill the table (default 120000)

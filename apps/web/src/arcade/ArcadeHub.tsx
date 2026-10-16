@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Progress } from "@heist/profile";
+import { shareUrl } from "../crazygames";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import { ChallengeBanner } from "../daily/ChallengeBanner";
@@ -15,6 +16,7 @@ export type ArcadeGameId =
   | "yukon"
   | "ers"
   | "scoundrel"
+  | "checkers"
   | "minesweeper"
   | "sudoku";
 
@@ -284,6 +286,30 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       tip: "Scan each box for the one cell a digit can go (hidden singles) before reaching for pencil marks.",
     },
   },
+  {
+    id: "checkers",
+    title: "Checkers",
+    subtitle: "Duel the House Bot",
+    tagline: "Casino-noir checkers with poker-chip pieces: outjump the Rookie, the Pro and the Boss.",
+    category: "action",
+    difficulty: "Medium",
+    tags: ["Vs Bot", "3 Difficulties", "Strategy", "Kings"],
+    deckInfo: "8x8 board, 12 chips a side",
+    path: "/checkers",
+    art: {
+      cards: [
+        { rank: "⛀", suit: "", red: true, isSymbol: true },
+        { rank: "♛", suit: "", red: false, isSymbol: true },
+      ],
+      badge: "Vs Bot",
+    },
+    rules: {
+      overview: "Classic American checkers on an 8x8 board against a house bot at Rookie, Pro or Boss strength.",
+      goal: "Capture every bot chip, or leave it with no legal move.",
+      keyRule: "Chips move diagonally forward; jumps are forced and chain into multi-jumps. Reach the far row to crown a king that moves both ways. 40 moves each without a capture, or a position seen three times, is a draw.",
+      tip: "Keep your back row home as long as you can: it stops the bot crowning kings behind your lines.",
+    },
+  },
 ];
 
 export interface ArcadeHubProps {
@@ -315,8 +341,8 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
   };
 
   const copyGameLink = async (game: ArcadeGame) => {
-    const origin = window.location.origin;
-    const url = `${origin}${game.path}`;
+    // on CrazyGames, their invite link to the game on their portal (see crazygames.ts)
+    const url = shareUrl(game.path);
     buzz("tap");
     click();
     try {

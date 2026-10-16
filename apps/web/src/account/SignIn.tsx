@@ -3,6 +3,7 @@
 // everything they've earned so far.
 
 import { useState } from "react";
+import { crazyGamesAccounts, crazyGamesSignIn } from "../crazygames";
 import { useAccount } from "./useAccount";
 
 declare global {
@@ -31,7 +32,7 @@ function script(src: string): Promise<void> {
 }
 
 export function SignIn() {
-  const { backend, act } = useAccount();
+  const { backend, act, me } = useAccount();
   const cfg = backend?.config;
   const has = (p: string) => !!cfg?.providers.includes(p);
   const [mode, setMode] = useState<"register" | "login">("register");
@@ -102,6 +103,23 @@ export function SignIn() {
     <div className="acct-signin">
       <h3>Save your career to an account</h3>
       <div className="dim">Keep your level, coins, items and stats on every device. Everything you've earned as a guest comes with you.</div>
+      {/* on CrazyGames their own account does it: the portal's sign-in, linked to this guest by the server */}
+      {crazyGamesAccounts() &&
+        (me?.logins.includes("crazygames") ? (
+          <div className="dim">Your CrazyGames account keeps your career: sign in there on any device to pick it up.</div>
+        ) : (
+          <div className="acct-provider-row">
+            <button
+              className="acct-provider"
+              disabled={busy}
+              onClick={async () => {
+                if (await crazyGamesSignIn()) void act((b) => b.me());
+              }}
+            >
+              Sign in with CrazyGames
+            </button>
+          </div>
+        ))}
       {(has("apple") || has("google") || has("facebook")) && (
         <div className="acct-provider-row">
           {has("apple") && (

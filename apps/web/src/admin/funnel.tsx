@@ -64,6 +64,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
             <option value="scoundrel">Scoundrel</option>
             <option value="minesweeper">Minesweeper</option>
             <option value="sudoku">Sudoku</option>
+            <option value="checkers">Checkers</option>
             <option value="heist">Heist (Solo & Online)</option>
           </select>
           {RANGES.map(([k, label]) => (

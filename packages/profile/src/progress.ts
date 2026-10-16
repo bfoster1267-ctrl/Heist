@@ -17,6 +17,7 @@ import { YUKON_XP, tallyYukonXp, type YukonTally, YUKON_DAY_XP } from "./yukon";
 import { SCOUNDREL_XP, tallyScoundrelXp, type ScoundrelTally, SCOUNDREL_DAY_XP } from "./scoundrel";
 import { MINES_LEVELS, MINES_XP, tallyMinesXp, type MinesTally, MINES_DAY_XP } from "./minesweeper";
 import { SUDOKU_LEVELS, SUDOKU_XP, tallySudokuXp, type SudokuTally, SUDOKU_DAY_XP } from "./sudoku";
+import { CHECKERS_XP, tallyCheckersXp, type CheckersTally, CHECKERS_DAY_XP } from "./checkers";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -87,6 +88,8 @@ export interface Progress {
   minesweeper?: { won: number; day: string | null; xp: number };
   /** Sudoku: puzzles solved, and XP paid today (UTC day) toward the daily ceiling */
   sudoku?: { won: number; day: string | null; xp: number };
+  /** Checkers vs bot: games won, and XP paid today (UTC day) toward the daily ceiling */
+  checkers?: { won: number; day: string | null; xp: number };
   /** Daily challenge and streak tracking across solo games */
   daily?: DailyProgress;
 }
@@ -107,6 +110,7 @@ export function newProgress(): Progress {
     scoundrel: { won: 0, day: null, xp: 0 },
     minesweeper: { won: 0, day: null, xp: 0 },
     sudoku: { won: 0, day: null, xp: 0 },
+    checkers: { won: 0, day: null, xp: 0 },
     daily: newDailyProgress(),
   };
 }
@@ -289,7 +293,7 @@ function applyDailyBonus(
 }
 
 /**
- * Record a completed daily challenge for any of the 8 solo games.
+ * Record a completed daily challenge for any of the daily solo games.
  * Grants daily challenge bonus XP, streak multipliers, and streak milestone bonuses.
  */
 export function settleDailyChallenge(
@@ -1159,6 +1163,77 @@ export function settleSudoku(
   };
 }
 
+/** Checkers XP still to be earned today. */
+export const checkersRoom = (p: Progress, at: number) =>
+  Math.max(0, CHECKERS_DAY_XP - (p.checkers?.day === day(at) ? p.checkers?.xp ?? 0 : 0));
+
+const CHECKERS_NAMES = { rookie: "Rookie", pro: "Pro", boss: "Boss" } as const;
+
+/**
+ * Pay for Checkers play checked by replaying your moves against the same bot.
+ * No speed bonus here: a quick win over the bot is already paid by its level.
+ */
+export function settleCheckers(
+  prev: Progress,
+  at: number,
+  gained: CheckersTally,
+  pay = tallyCheckersXp(gained),
+  isDaily = false
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const ck = { ...(p.checkers ?? { won: 0, day: null, xp: 0 }), xp: p.checkers?.xp ?? 0 };
+  if (ck.day !== today) Object.assign(ck, { day: today, xp: 0 });
+  if (gained.won) ck.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const bot = CHECKERS_NAMES[gained.level] ?? "Rookie";
+  let lines: RewardLine[] = [
+    { label: plural(gained.captures, "piece captured", "pieces captured"), xp: gained.captures * CHECKERS_XP.capture, coins: 0 },
+    { label: `Beat the ${bot} bot`, xp: gained.won ? CHECKERS_XP.win[gained.level] ?? 0 : 0, coins: 0 },
+    { label: `Drew the ${bot} bot`, xp: gained.drawn ? CHECKERS_XP.draw[gained.level] ?? 0 : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
+  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  const room = Math.max(0, CHECKERS_DAY_XP - ck.xp);
+  if (total > room) lines = [{ label: "Checkers (daily XP limit reached)", xp: room, coins: 0 }];
+  ck.xp += Math.min(total, room);
+  const regularSeason = Math.min(total, room);
+  p.checkers = ck;
+
+  const challenge = getDailyChallenge("checkers", today);
+  const dailyResult = isDaily ? applyDailyBonus(p, "checkers", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
+  if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
+
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = lines.reduce((t, l) => t + l.coins, 0);
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+      ...(dailyResult.daily ? { daily: dailyResult.daily } : {}),
+    },
+  };
+}
+
 /** Add one game's rookie mistakes to the player's tally. */
 export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
   return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
@@ -1260,6 +1335,7 @@ export function upgrade(p: Partial<Progress>): Progress {
     scoundrel: { ...(base.scoundrel ?? { won: 0, day: null, xp: 0 }), ...p.scoundrel },
     minesweeper: { ...(base.minesweeper ?? { won: 0, day: null, xp: 0 }), ...p.minesweeper },
     sudoku: { ...(base.sudoku ?? { won: 0, day: null, xp: 0 }), ...p.sudoku },
+    checkers: { ...(base.checkers ?? { won: 0, day: null, xp: 0 }), ...p.checkers },
     daily: p.daily
       ? {
           ...base.daily,

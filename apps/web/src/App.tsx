@@ -24,9 +24,12 @@ import { Yukon } from "./yukon/Yukon";
 import { Scoundrel } from "./scoundrel/Scoundrel";
 import { Minesweeper } from "./minesweeper/Minesweeper";
 import { Sudoku } from "./sudoku/Sudoku";
+import { Checkers } from "./checkers/Checkers";
 import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
 import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
+import { crazyGamesLoaded, onCrazyGames, onCrazyGamesSignIn, startPath, useCrazyGamesChatOff, useCrazyGamesPlay } from "./crazygames";
+import { menuTaps } from "./menuTap";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
 
@@ -74,7 +77,7 @@ function Game() {
   const [firstReward, setFirstReward] = useState<Reward | null>(null);
   // Solitaire: from the lobby, or straight in at playheist.net/solitaire (its own link to share)
   const [sol, setSolState] = useState(() => {
-    const on = location.pathname === "/solitaire";
+    const on = startPath() === "/solitaire";
     try {
       // someone who came for Solitaire isn't dropped into the Heist lesson when they head to the lobby
       if (on) localStorage.setItem("heist.welcomed", "1");
@@ -94,7 +97,7 @@ function Game() {
   }, []);
   // FreeCell: from the lobby, or straight in at playheist.net/freecell (its own link to share)
   const [fc, setFcState] = useState(() => {
-    const on = location.pathname === "/freecell";
+    const on = startPath() === "/freecell";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -113,7 +116,7 @@ function Game() {
   }, []);
   // TriPeaks: from the lobby, or straight in at playheist.net/tripeaks (its own link to share)
   const [tp, setTpState] = useState(() => {
-    const on = location.pathname === "/tripeaks";
+    const on = startPath() === "/tripeaks";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -134,7 +137,7 @@ function Game() {
   const [ersPvp, setErsPvp] = useState(() => {
     try {
       const p = new URLSearchParams(location.search);
-      return p.has("join") || p.has("joinErs") || p.has("pvp") || location.pathname === "/ers/pvp";
+      return p.has("join") || p.has("joinErs") || p.has("pvp") || startPath() === "/ers/pvp";
     } catch {
       return false;
     }
@@ -147,7 +150,7 @@ function Game() {
     } catch {
       /* fine without */
     }
-    const on = location.pathname === "/ers" || location.pathname.startsWith("/ers") || hasErsJoin;
+    const on = startPath() === "/ers" || startPath().startsWith("/ers") || hasErsJoin;
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -167,7 +170,7 @@ function Game() {
   }, []);
   // Spider Solitaire: from the lobby, or straight in at playheist.net/spider
   const [spider, setSpiderState] = useState(() => {
-    const on = location.pathname === "/spider";
+    const on = startPath() === "/spider";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -186,7 +189,7 @@ function Game() {
   }, []);
   // Pyramid Solitaire: from the lobby, or straight in at playheist.net/pyramid
   const [pyramid, setPyramidState] = useState(() => {
-    const on = location.pathname === "/pyramid";
+    const on = startPath() === "/pyramid";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -205,7 +208,7 @@ function Game() {
   }, []);
   // Yukon Solitaire: from the lobby, or straight in at playheist.net/yukon
   const [yukon, setYukonState] = useState(() => {
-    const on = location.pathname === "/yukon";
+    const on = startPath() === "/yukon";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -224,7 +227,7 @@ function Game() {
   }, []);
   // Scoundrel: from the lobby, or straight in at playheist.net/scoundrel
   const [scoundrel, setScoundrelState] = useState(() => {
-    const on = location.pathname === "/scoundrel";
+    const on = startPath() === "/scoundrel";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -243,7 +246,7 @@ function Game() {
   }, []);
   // Minesweeper: from the lobby, or straight in at playheist.net/minesweeper
   const [minesweeper, setMinesweeperState] = useState(() => {
-    const on = location.pathname === "/minesweeper";
+    const on = startPath() === "/minesweeper";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -262,7 +265,7 @@ function Game() {
   }, []);
   // Sudoku: from the lobby, or straight in at playheist.net/sudoku
   const [sudoku, setSudokuState] = useState(() => {
-    const on = location.pathname === "/sudoku";
+    const on = startPath() === "/sudoku";
     try {
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
@@ -274,6 +277,25 @@ function Game() {
     setSudokuState(on);
     try {
       history.replaceState(null, "", on ? "/sudoku" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Checkers vs bot: from the lobby, or straight in at playheist.net/checkers
+  const [checkers, setCheckersState] = useState(() => {
+    const on = startPath() === "/checkers";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setCheckers = useCallback((on: boolean) => {
+    setCheckersState(on);
+    try {
+      history.replaceState(null, "", on ? "/checkers" + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
       /* fine without */
@@ -312,8 +334,9 @@ function Game() {
       setScoundrel(id === "scoundrel");
       setMinesweeper(id === "minesweeper");
       setSudoku(id === "sudoku");
+      setCheckers(id === "checkers");
     },
-    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel, setMinesweeper, setSudoku],
+    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel, setCheckers, setMinesweeper, setSudoku],
   );
   const activeSoloGame: ArcadeGameId | null =
     sol ? "solitaire"
@@ -326,10 +349,11 @@ function Game() {
     : scoundrel ? "scoundrel"
     : minesweeper ? "minesweeper"
     : sudoku ? "sudoku"
+    : checkers ? "checkers"
     : null;
   const [arcadeHubOpen, setArcadeHubOpenState] = useState(() => {
     try {
-      const p = location.pathname;
+      const p = startPath();
       const isHubPath = p === "/arcade" || p === "/card-games" || p === "/games";
       if (isHubPath) localStorage.setItem("heist.welcomed", "1");
       return isHubPath || new URLSearchParams(location.search).has("arcade");
@@ -343,7 +367,7 @@ function Game() {
       if (on) {
         history.replaceState(null, "", "/card-games" + location.search);
         localStorage.setItem("heist.welcomed", "1");
-      } else if (location.pathname === "/arcade" || location.pathname === "/card-games" || location.pathname === "/games") {
+      } else if (startPath() === "/arcade" || startPath() === "/card-games" || startPath() === "/games") {
         history.replaceState(null, "", "/" + location.search);
       }
     } catch {
@@ -488,13 +512,27 @@ function Game() {
         ? "Minesweeper"
         : sudoku
         ? "Sudoku"
+        : checkers
+        ? "Checkers"
         : dailyHubOpen
         ? "Daily Challenge Hub"
         : arcadeHubOpen
         ? "Card Games Hub"
         : "Lobby";
     trackScreen(screen);
-  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, minesweeper, sudoku, dailyHubOpen, arcadeHubOpen]);
+  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, checkers, minesweeper, sudoku, dailyHubOpen, arcadeHubOpen]);
+  // a soft tap on the menus' buttons (the lobby and the sheets over it); never on a game screen, which
+  // has its own sounds, nor online, where the lobby and table already play theirs
+  const inMenu = !!profile || (!table && online === null && !sol && !fc && !tp && !spider && !pyramid && !ers && !yukon && !scoundrel && !checkers && !minesweeper && !sudoku);
+  useEffect(() => (inMenu ? menuTaps() : undefined), [inMenu]);
+  // CrazyGames (does nothing elsewhere): loading ends with the account, gameplay is a table or solo game
+  // (online tables tell it from OnlineLobby), and signing in to CrazyGames mid-visit links that account
+  useEffect(() => {
+    if (me) crazyGamesLoaded();
+  }, [me]);
+  useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel || checkers || minesweeper || sudoku));
+  useEffect(() => onCrazyGamesSignIn(() => void act((b) => b.me())), [act]);
+  const chatOff = useCrazyGamesChatOff();
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);
@@ -921,6 +959,31 @@ function Game() {
       </>
     );
 
+  if (checkers && !table)
+    return (
+      <>
+        <Checkers
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          onExit={() => {
+            setCheckers(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="checkers" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setCheckers(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -935,7 +998,7 @@ function Game() {
             onOnline={(n) => enter(() => setOnline(n))}
             onOpen={setProfile}
             onSignIn={() => setProfile("account")}
-            onSave={me.guest ? () => setProfile("account") : undefined}
+            onSave={me.guest && !onCrazyGames ? () => setProfile("account") : undefined}
             onSolitaire={() => setSol(true)}
             onFreeCell={() => setFc(true)}
             onTriPeaks={() => setTp(true)}
@@ -946,6 +1009,7 @@ function Game() {
             onScoundrel={() => setScoundrel(true)}
             onMinesweeper={() => setMinesweeper(true)}
             onSudoku={() => setSudoku(true)}
+            onCheckers={() => setCheckers(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}
@@ -958,7 +1022,7 @@ function Game() {
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
-          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour ? <Lounge friends={friendsSlot} /> : null}
+          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour && !chatOff ? <Lounge friends={friendsSlot} /> : null}
           {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
         </>
       ) : (
@@ -1019,7 +1083,8 @@ function Game() {
           Keep going →
         </button>
       )}
-      <Rewards onSave={() => setProfile("account")} />
+      {/* no "save your progress" sign-in nudge on CrazyGames: their own account keeps it */}
+      <Rewards onSave={onCrazyGames ? undefined : () => setProfile("account")} />
       <InviteToast busy={!!table} />
       <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
       {error && (

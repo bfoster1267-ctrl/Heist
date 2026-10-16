@@ -12,17 +12,15 @@ import type { ErsRoomView, ErsStats } from "@heist/server/protocol";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { InviteFriends } from "../account/Friends";
 import { useAccount } from "../account/useAccount";
+import { shareUrl } from "../crazygames";
 import { buzz } from "../haptics";
 import { serverUrl } from "../online/session";
 import { card as cardSound, click, win as winSound } from "../sound";
 import "./ers.css";
 
 export function ersInviteLink(code: string) {
-  const u = new URL(location.href);
-  u.pathname = "/ers";
-  u.search = `?join=${code}`;
-  u.hash = "";
-  return u.toString();
+  // on CrazyGames, their invite link to the game on their portal (see crazygames.ts)
+  return shareUrl(`/ers?join=${code}`);
 }
 
 const SUITS = ["♠", "♥", "♦", "♣"];

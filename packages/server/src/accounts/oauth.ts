@@ -29,10 +29,18 @@ const JWKS: Record<"google" | "apple", { url: string; issuers: string[] }> = {
 };
 const KEY_CACHE_MS = 60 * 60_000;
 
+/**
+ * CrazyGames accounts (the portal's own sign-in, see docs/CRAZYGAMES.md): the game asks their SDK for a
+ * user token, an RS256 JWT signed with the key published here, carrying the player's CrazyGames userId
+ * and username. Nothing to switch on: any token their key signed is good.
+ */
+export const CRAZYGAMES_KEY_URL = "https://sdk.crazygames.com/publicKey.json";
+
 export class OAuthError extends Error {}
 
 export class OAuth {
   private keys = new Map<string, { at: number; keys: (JsonWebKey & { kid?: string })[] }>();
+  private cgKey: { at: number; pem: string } | null = null;
 
   constructor(
     private cfg: OAuthConfig,
@@ -107,6 +115,46 @@ export class OAuth {
     if (typeof claims.exp !== "number" || claims.exp < now - 60) throw new OAuthError("Sign-in token expired");
     if (typeof claims.sub !== "string" || !claims.sub) throw new OAuthError("Sign-in token has no user");
     return claims;
+  }
+
+  private async crazyGamesKey(refresh = false) {
+    // a forced refetch at most once a minute, so forged tokens can't make us hammer their server
+    const age = this.cgKey ? this.now() - this.cgKey.at : Infinity;
+    if (this.cgKey && (refresh ? age < 60_000 : age < KEY_CACHE_MS)) return this.cgKey.pem;
+    const r = await this.fetchFn(CRAZYGAMES_KEY_URL);
+    const pem = r.ok ? ((await r.json()) as { publicKey?: unknown }).publicKey : undefined;
+    if (typeof pem !== "string" || !pem.includes("PUBLIC KEY")) throw new OAuthError("Couldn't reach CrazyGames to check the sign-in");
+    this.cgKey = { at: this.now(), pem };
+    return pem;
+  }
+
+  /** A CrazyGames user token: their userId is the subject, their username the name. */
+  async verifyCrazyGames(token: unknown): Promise<Verified> {
+    if (typeof token !== "string" || token.length > 8192) throw new OAuthError("Missing sign-in token");
+    const parts = token.split(".");
+    if (parts.length !== 3) throw new OAuthError("Malformed sign-in token");
+    let header: { alg?: string };
+    let claims: Record<string, unknown>;
+    try {
+      header = JSON.parse(Buffer.from(parts[0], "base64url").toString());
+      claims = JSON.parse(Buffer.from(parts[1], "base64url").toString());
+    } catch {
+      throw new OAuthError("Malformed sign-in token");
+    }
+    if (header.alg !== "RS256") throw new OAuthError("Unexpected token signature");
+    const check = (pem: string) => {
+      try {
+        return verify("RSA-SHA256", Buffer.from(`${parts[0]}.${parts[1]}`), createPublicKey(pem), Buffer.from(parts[2], "base64url"));
+      } catch {
+        return false;
+      }
+    };
+    // they can change the key: one refetch before calling a token forged
+    if (!check(await this.crazyGamesKey()) && !check(await this.crazyGamesKey(true))) throw new OAuthError("Sign-in token signature is wrong");
+    if (typeof claims.exp === "number" && claims.exp < this.now() / 1000 - 60) throw new OAuthError("Sign-in token expired");
+    const id = claims.userId ?? claims.sub;
+    if ((typeof id !== "string" && typeof id !== "number") || id === "") throw new OAuthError("Sign-in token has no user");
+    return { subject: String(id), name: typeof claims.username === "string" ? claims.username : undefined };
   }
 
   private async verifyFacebook(accessToken: string): Promise<Verified> {

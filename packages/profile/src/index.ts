@@ -23,3 +23,4 @@ export * from "./scoundrel";
 export * from "./minesweeper";
 export * from "./sudoku";
 export * from "./daily";
+export * from "./checkers";

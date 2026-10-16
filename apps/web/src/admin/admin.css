@@ -1114,6 +1114,11 @@ h4 {
   background: rgba(90, 169, 230, 0.2);
   color: #a9d3f5;
 }
+/* came through the CrazyGames portal */
+.badge.cg {
+  background: rgba(43, 179, 162, 0.2);
+  color: #8fe3d6;
+}
 
 /* ---------------------------------------------------------------- server */
 .grid-2 {
