@@ -326,7 +326,8 @@ function Game() {
       const p = new URLSearchParams(location.search);
       const seedStr = p.get("challenge") ?? p.get("seed");
       const seed = seedStr ? parseInt(seedStr, 10) : undefined;
-      const isDaily = p.has("dailyGame") || p.has("daily");
+      // a daily deal needs its seed in the link (?dailyGame=1&seed=…); ?daily on its own just opens the Daily Hub
+      const isDaily = p.has("dailyGame") && seed !== undefined && !Number.isNaN(seed);
       const challengerTime = p.get("ctime");
       const challengerMoves = p.has("cmoves") ? parseInt(p.get("cmoves")!, 10) : null;
       const challengerScore = p.has("cscore") ? parseInt(p.get("cscore")!, 10) : null;

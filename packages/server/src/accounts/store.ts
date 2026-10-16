@@ -49,21 +49,21 @@ export interface Account {
   /** the vs-bots game in progress (its buy-in is already paid) */
   solo: SoloGame | null;
   /** the Solitaire deal in progress (the server keeps the seed, to replay the moves of a win) */
-  solitaire?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; /** what the deal's moves have been paid for so far */ paid?: SolTally; /** XP paid so far, and what stalling and hints drained off it (see solPay) */ paidXp?: number; drain?: number } | null;
+  solitaire?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; /** what the deal's moves have been paid for so far */ paid?: SolTally; /** XP paid so far, and what stalling and hints drained off it (see solPay) */ paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the FreeCell deal in progress */
-  freecell?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number } | null;
+  freecell?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the TriPeaks deal in progress */
-  tripeaks?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number } | null;
+  tripeaks?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Egyptian Rat Screw game in progress */
-  ers?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number } | null;
+  ers?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Spider Solitaire deal in progress */
-  spider?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number } | null;
+  spider?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Pyramid Solitaire deal in progress */
-  pyramid?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number } | null;
+  pyramid?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Yukon Solitaire deal in progress */
-  yukon?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number } | null;
+  yukon?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Scoundrel game in progress */
-  scoundrel?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null;
+  scoundrel?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */

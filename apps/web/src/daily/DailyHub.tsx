@@ -302,7 +302,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
         <div className="daily-leaderboard-card">
           <div className="daily-leaderboard-header">
             <div className="daily-leaderboard-title">
-              <span>⚡</span> TODAY'S SPEED BENCHMARKS ({GAME_LABELS[featuredGame].title})
+              <span>⚡</span> TODAY'S PAR TIMES ({GAME_LABELS[featuredGame].title})
             </div>
             <div className="daily-speed-badge">Speed XP Active</div>
           </div>
@@ -315,7 +315,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
               >
                 <div className="daily-solver-left">
                   <span className="daily-solver-rank">{entry.medal}</span>
-                  <span className="daily-solver-name">{entry.name}</span>
+                  <span className="daily-solver-name">{entry.isUser ? "Your best" : entry.name}</span>
                 </div>
                 <div className="daily-solver-right">
                   <span className="daily-solver-time">⏱️ {entry.time}</span>
@@ -325,18 +325,27 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
             ))}
           </div>
 
-          {leaderboard.userRank === null ? (
-            <div className="daily-leaderboard-hint">
-              <span>💡</span> Beat <strong>{leaderboard.entries[2]?.time ?? "2:30"}</strong> to take a podium spot &amp; claim top speed bonus XP!
-            </div>
-          ) : (
-            <div className={`daily-leaderboard-hint ${leaderboard.userRank <= 3 ? "podium-win" : ""}`}>
-              <span>{leaderboard.userRank <= 3 ? "🎉" : "👤"}</span>{" "}
-              {leaderboard.userRank <= 3
-                ? `You're currently ranked #${leaderboard.userRank} on today's speed board!`
-                : `You're currently ranked #${leaderboard.userRank}. Beat ${leaderboard.entries[2]?.time} for a podium spot!`}
-            </div>
-          )}
+          {(() => {
+            const pars = leaderboard.entries.filter((e) => !e.isUser);
+            const mine = leaderboard.entries.find((e) => e.isUser);
+            const beaten = mine ? pars.find((e) => mine.seconds <= e.seconds) : undefined;
+            if (!mine)
+              return (
+                <div className="daily-leaderboard-hint">
+                  <span>💡</span> Beat <strong>{pars[0]?.time ?? "1:30"}</strong> for Gold par and the most speed bonus XP!
+                </div>
+              );
+            return (
+              <div className={`daily-leaderboard-hint ${beaten ? "podium-win" : ""}`}>
+                <span>{beaten ? beaten.medal : "👤"}</span>{" "}
+                {beaten === pars[0]
+                  ? "You beat Gold par today!"
+                  : beaten
+                    ? `You beat ${beaten.name}. Beat ${pars[0]?.time} for Gold!`
+                    : `Your best is ${mine.time}. Beat ${pars[2]?.time} for Bronze par!`}
+              </div>
+            );
+          })()}
         </div>
 
 

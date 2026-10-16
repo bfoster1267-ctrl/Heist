@@ -3,6 +3,7 @@
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
 import type { Progress } from "./progress";
+import { levelInfo, levelUpCoins, MAX_LEVEL, xpForLevel } from "./levels";
 
 export const DAILY_GAMES = [
   "solitaire",
@@ -163,8 +164,9 @@ function hashString(str: string, seed = 0x811c9dc5): number {
  */
 export function getDailySeed(game: string, dateStr?: string): number {
   const date = dateStr ?? todayUtc();
-  const seed = hashString(`heist-daily-seed:v1:${game.toLowerCase()}:${date}`);
-  // Ensure non-zero positive integer
+  // 31 bits: the game server only accepts seeds up to 2^31 - 1, and quietly dealt a random game for
+  // bigger ones (so on most days, most daily deals weren't the daily). Seeds already under that are unchanged.
+  const seed = hashString(`heist-daily-seed:v1:${game.toLowerCase()}:${date}`) & 0x7fffffff;
   return seed || 1;
 }
 
@@ -641,9 +643,13 @@ export function claimDailyVault(
   const existing = p.daily.quests[today] ?? { moves: 0, xp: 0, challengeDone: false, vaultClaimed: false };
   existing.vaultClaimed = true;
   p.daily.quests[today] = existing;
-  p.coins += DAILY_VAULT_COINS;
-  p.xp += DAILY_VAULT_XP;
-  return { progress: p, success: true, coins: DAILY_VAULT_COINS, xp: DAILY_VAULT_XP };
+  // like any other reward: XP stops at the top level, and a level reached here pays its level-up coins
+  const before = levelInfo(p.xp).level;
+  p.xp = Math.min(xpForLevel(MAX_LEVEL), p.xp + DAILY_VAULT_XP);
+  let coins = DAILY_VAULT_COINS;
+  for (let l = before + 1; l <= levelInfo(p.xp).level; l++) coins += levelUpCoins(l);
+  p.coins += coins;
+  return { progress: p, success: true, coins, xp: DAILY_VAULT_XP };
 }
 
 export const WELCOME_GIFT_COINS = 250;

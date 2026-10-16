@@ -78,7 +78,8 @@ describe("Daily Seed Generator", () => {
       for (const game of DAILY_GAMES) {
         const seed = getDailySeed(game, dateStr);
         expect(seed).toBeGreaterThan(0);
-        expect(seed).toBeLessThanOrEqual(0xffffffff);
+        // the server only deals seeds up to 2^31 - 1; a bigger daily seed got a random deal instead
+        expect(seed).toBeLessThanOrEqual(2 ** 31 - 1);
         allSeeds.add(seed);
       }
     }
@@ -522,9 +523,11 @@ describe("Daily Quest Trio & Loot Vault", () => {
     // Claim loot vault
     const claim = claimDailyVault(p, today);
     expect(claim.success).toBe(true);
-    expect(claim.coins).toBe(100);
+    // 100 coins, plus the level-up coins for any level the 250 XP reaches
+    expect(claim.coins).toBeGreaterThanOrEqual(100);
     expect(claim.xp).toBe(250);
-    expect(claim.progress.coins).toBe(p.coins + 100);
+    expect(claim.progress.coins).toBe(p.coins + claim.coins);
+    expect(claim.progress.xp).toBe(p.xp + 250);
   });
 });
 
