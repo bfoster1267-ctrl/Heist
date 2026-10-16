@@ -390,11 +390,12 @@ export function TriPeaks({
                 zIndex: 10 + r * 5,
                 fontSize: Math.round(b.cw * 0.3),
               }}
+              initial={false}
               animate={{
                 rotate: shake === key ? [0, -6, 6, -4, 0] : 0,
-                rotateY: isUp ? 0 : 180,
+                rotateY: isUp ? [90, 0] : 0,
               }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
               onClick={() => tapTableau(i)}
             >
               {isUp ? <Face c={c} /> : <Back />}

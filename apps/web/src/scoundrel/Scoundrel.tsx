@@ -561,9 +561,10 @@ export function Scoundrel({
           <motion.div
             key={f.id}
             className="sc-float"
-            initial={{ opacity: 0, y: f.y + 10, x: f.x, scale: 0.8 }}
-            animate={{ opacity: 1, y: f.y - 30, x: f.x, scale: 1.15 }}
-            exit={{ opacity: 0, y: f.y - 60, scale: 0.9 }}
+            style={{ left: f.x, top: f.y }}
+            initial={{ opacity: 0, y: 8, x: "-50%", scale: 0.85 }}
+            animate={{ opacity: 1, y: -32, x: "-50%", scale: 1.12 }}
+            exit={{ opacity: 0, y: -56, x: "-50%", scale: 0.95 }}
             transition={{ duration: 0.85, ease: "easeOut" }}
           >
             <span>+{f.xp} XP</span>

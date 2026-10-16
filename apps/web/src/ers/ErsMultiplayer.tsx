@@ -781,9 +781,16 @@ function CardFace({ card }: { card: PlayingCard }) {
         <span className="ers-corner-rank">{RANKS[r]}</span>
         <span className="ers-corner-suit">{SUITS[s]}</span>
       </div>
-      <div className={`ers-center-suit ${red ? "ers-red" : "ers-black"}`}>
-        {SUITS[s]}
-      </div>
+      {r >= 11 && r <= 13 ? (
+        <div className={`ers-court ${red ? "ers-red" : "ers-black"}`}>
+          <b>{RANKS[r]}</b>
+          <i>{SUITS[s]}</i>
+        </div>
+      ) : (
+        <div className={`ers-center-suit ${red ? "ers-red" : "ers-black"}`}>
+          {SUITS[s]}
+        </div>
+      )}
       <div
         className={`ers-corner ${red ? "ers-red" : "ers-black"}`}
         style={{ transform: "rotate(180deg)", alignSelf: "flex-end" }}

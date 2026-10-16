@@ -447,7 +447,9 @@ export function Spider({
             >
               {dealsLeft > 0 ? (
                 <div className="spider-card face-down" style={{ width: b.cw, height: b.ch }}>
-                  <span className="spider-back-mark">H</span>
+                  <span className="spider-back-frame">
+                    <span className="spider-back-mark">H</span>
+                  </span>
                 </div>
               ) : (
                 <div
@@ -509,7 +511,9 @@ export function Spider({
                       {item.up ? (
                         <SpiderCardFace card={item.card} />
                       ) : (
-                        <span className="spider-back-mark">H</span>
+                        <span className="spider-back-frame">
+                          <span className="spider-back-mark">H</span>
+                        </span>
                       )}
                     </div>
                   );
@@ -576,13 +580,16 @@ function SpiderCardFace({ card }: { card: PlayingCard }) {
         <span className="spider-corner-rank">{RANKS[r]}</span>
         <span className="spider-corner-suit">{SUITS[s]}</span>
       </div>
-      <div className={`spider-center-suit ${red ? "spider-red" : "spider-black"}`}>
-        {SUITS[s]}
-      </div>
-      <div className={`spider-corner ${red ? "spider-red" : "spider-black"}`} style={{ transform: "rotate(180deg)", alignSelf: "flex-end" }}>
-        <span className="spider-corner-rank">{RANKS[r]}</span>
-        <span className="spider-corner-suit">{SUITS[s]}</span>
-      </div>
+      {r >= 11 && r <= 13 ? (
+        <div className={`spider-court ${red ? "spider-red" : "spider-black"}`}>
+          <b>{RANKS[r]}</b>
+          <i>{SUITS[s]}</i>
+        </div>
+      ) : (
+        <div className={`spider-center-suit ${red ? "spider-red" : "spider-black"}`}>
+          {SUITS[s]}
+        </div>
+      )}
     </>
   );
 }
