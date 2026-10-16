@@ -1,0 +1,859 @@
+/* The trick-taking table (Hearts, Spades): the Heist felt with a gold rail, ivory cards, oxblood backs,
+   crew seat plates round the table, and a fanned hand at the bottom. Wardrobe felt and backs carry over. */
+
+.tt {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 40%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 42%, var(--felt) 0%, var(--felt2) 65%, #041d13 100%);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.tt-rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.65), inset 0 0 0 1px rgba(231, 181, 60, 0.18);
+}
+/* the oval table rail under the trick */
+.tt-oval {
+  position: absolute;
+  pointer-events: none;
+  border-radius: 50%;
+  border: 2px solid rgba(231, 181, 60, 0.16);
+  box-shadow: 0 0 0 10px rgba(0, 0, 0, 0.08), inset 0 0 50px rgba(0, 0, 0, 0.25), 0 0 40px rgba(231, 181, 60, 0.05);
+  background: radial-gradient(ellipse, rgba(255, 255, 255, 0.035), transparent 70%);
+}
+.tt-oval::after {
+  content: attr(data-mark);
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--title);
+  font-size: 34px;
+  letter-spacing: 8px;
+  color: rgba(255, 255, 255, 0.045);
+}
+
+/* everything inside the safe area, below the bar */
+.tt-stage {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 52px);
+  left: env(safe-area-inset-left);
+  right: env(safe-area-inset-right);
+  bottom: max(env(safe-area-inset-bottom), 4px);
+}
+
+/* ---------------------------------------------------------------- top bar */
+.tt-bar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - 12px - env(safe-area-inset-left) - env(safe-area-inset-right), 760px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 600;
+}
+.tt-icon-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.35);
+  background: linear-gradient(180deg, rgba(28, 31, 38, 0.92), rgba(12, 14, 18, 0.92));
+  color: var(--gold2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.2s;
+}
+.tt-icon-btn:active {
+  transform: scale(0.92);
+}
+.tt-icon-btn:disabled {
+  opacity: 0.35;
+}
+.tt-icon-btn.armed {
+  width: 56px;
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+}
+.tt-sure {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 14px;
+}
+.tt-hud {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.25);
+  background: rgba(8, 10, 13, 0.55);
+  line-height: 1.05;
+  overflow: hidden;
+}
+.tt-hud-name {
+  font-family: var(--title);
+  font-size: 15px;
+  letter-spacing: 3px;
+  color: var(--gold);
+  white-space: nowrap;
+}
+.tt-hud-stats {
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  color: rgba(242, 232, 211, 0.72);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.tt-hud-stats b {
+  color: var(--paper);
+  font-variant-numeric: tabular-nums;
+}
+.tt-hud-stats .xp {
+  color: var(--gold);
+}
+.tt-dot {
+  margin: 0 4px;
+  color: var(--gold);
+}
+@media (max-width: 380px) {
+  .tt-hud .arcade-trust-pill {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------------- cards */
+.tt-card {
+  position: relative;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #fffdf6 0%, #f6eedb 55%, #eadfc4 100%);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 3px 6px rgba(0, 0, 0, 0.4);
+  color: #17191d;
+  font-family: var(--cond);
+  font-weight: 700;
+  line-height: 1;
+  overflow: hidden;
+}
+.tt-card.red {
+  color: #c0301b;
+}
+.tt-corner {
+  position: absolute;
+  top: 0.14em;
+  left: 0.16em;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 1.05em;
+}
+.tt-rank {
+  font-size: 1em;
+  letter-spacing: -0.05em;
+}
+.tt-suit {
+  font-size: 0.82em;
+  margin-top: 0.02em;
+}
+.tt-pip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 14%;
+  text-align: center;
+  font-size: 1.7em;
+}
+.tt-pip.ace {
+  font-size: 2.3em;
+  bottom: 9%;
+  filter: drop-shadow(0 1px 0 rgba(0, 0, 0, 0.15));
+}
+.tt-court {
+  position: absolute;
+  left: 32%;
+  right: 9%;
+  top: 22%;
+  bottom: 9%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1.5px solid #c99a2e;
+  background: linear-gradient(180deg, rgba(231, 181, 60, 0.18), rgba(231, 181, 60, 0.04));
+  box-shadow: inset 0 0 0 2px rgba(255, 253, 246, 0.9), inset 0 0 0 3px rgba(201, 154, 46, 0.5);
+}
+.tt-court b {
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 1.35em;
+  line-height: 0.9;
+}
+.tt-court i {
+  font-style: normal;
+  font-size: 0.8em;
+}
+.tt-card.fresh {
+  animation: tt-land 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+@keyframes tt-land {
+  0% {
+    box-shadow: 0 0 0 2px var(--gold2), 0 0 24px rgba(246, 215, 122, 0.9);
+  }
+  100% {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 3px 6px rgba(0, 0, 0, 0.4);
+  }
+}
+.tt-back {
+  background: linear-gradient(160deg, #8a2229, #4a0e14 70%, #350a0e);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.45), 0 2px 4px rgba(0, 0, 0, 0.35);
+}
+.tt-back-frame {
+  position: absolute;
+  inset: 3px;
+  border-radius: 5px;
+  border: 1px solid rgba(231, 181, 60, 0.65);
+  background:
+    repeating-linear-gradient(45deg, rgba(231, 181, 60, 0.09) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgba(231, 181, 60, 0.09) 0 2px, transparent 2px 7px);
+  display: grid;
+  place-items: center;
+}
+.tt-back-mark {
+  width: 1.5em;
+  height: 1.5em;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(231, 181, 60, 0.75);
+  background: radial-gradient(circle, #5a1218, #2c070a);
+  font-family: var(--title);
+  font-size: 12px;
+  color: var(--gold);
+}
+.tt-mini .tt-back-frame {
+  inset: 1.5px;
+  border-radius: 3px;
+}
+.tt-mini .tt-back-mark {
+  display: none;
+}
+.tt-mini {
+  position: absolute;
+  border-radius: 3px;
+}
+
+/* the player's Wardrobe: felt and card back */
+[data-felt="custom"] .tt {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 40%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--cfelt) 85%, #ffffff 8%) 0%, var(--cfelt2) 65%, color-mix(in srgb, var(--cfelt2) 70%, #000000) 100%);
+}
+[data-back="red"] .tt-back {
+  background: repeating-linear-gradient(45deg, var(--back) 0 6px, color-mix(in srgb, var(--back) 82%, #ffffff) 6px 12px);
+}
+[data-back="stripes"] .tt-back {
+  background: repeating-linear-gradient(90deg, var(--back) 0 5px, color-mix(in srgb, var(--back) 70%, var(--back2)) 5px 7px);
+}
+[data-back="diamonds"] .tt-back {
+  background:
+    repeating-linear-gradient(45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    repeating-linear-gradient(-45deg, transparent 0 7px, color-mix(in srgb, var(--back2) 35%, transparent) 7px 8px),
+    var(--back);
+}
+[data-back="noir"] .tt-back {
+  background: radial-gradient(circle at 50% 50%, #262626, var(--back) 70%);
+}
+[data-back="gold"] .tt-back {
+  background: linear-gradient(135deg, var(--back), var(--back2) 45%, var(--back) 55%, var(--back2));
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .tt-back-frame {
+  border-color: color-mix(in srgb, var(--back2) 75%, transparent);
+  background: none;
+}
+:is([data-back="red"], [data-back="stripes"], [data-back="diamonds"], [data-back="noir"], [data-back="gold"]) .tt-back-mark {
+  border-color: var(--back2);
+  background: radial-gradient(circle, color-mix(in srgb, var(--back) 80%, #000000), color-mix(in srgb, var(--back) 55%, #000000));
+  color: var(--back2);
+}
+
+/* ---------------------------------------------------------------- seats */
+.tt-seat {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+}
+.tt-plate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid rgba(231, 181, 60, 0.3);
+  background: linear-gradient(180deg, rgba(24, 27, 33, 0.92), rgba(10, 12, 15, 0.92));
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  transition: box-shadow 0.3s, border-color 0.3s;
+}
+.tt-seat.active .tt-plate {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 2px rgba(231, 181, 60, 0.45), 0 0 22px rgba(231, 181, 60, 0.45), 0 6px 18px rgba(0, 0, 0, 0.45);
+  animation: tt-turn 1.4s ease-in-out infinite;
+}
+@keyframes tt-turn {
+  50% {
+    box-shadow: 0 0 0 2px rgba(246, 215, 122, 0.7), 0 0 30px rgba(246, 215, 122, 0.6), 0 6px 18px rgba(0, 0, 0, 0.45);
+  }
+}
+.tt-seat.mate .tt-plate {
+  border-color: rgba(120, 200, 150, 0.55);
+}
+.tt-avatar {
+  position: relative;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #3a3f4b, #16181d);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  font-family: var(--title);
+  font-size: 18px;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.tt-dealer {
+  position: absolute;
+  right: -5px;
+  bottom: -4px;
+  width: 15px;
+  height: 15px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fff6d8, #e7b53c);
+  color: #2a1d05;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 9px;
+  text-shadow: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+.tt-plate-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  min-width: 0;
+}
+.tt-name {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--paper);
+  white-space: nowrap;
+}
+.tt-role {
+  font-family: var(--cond);
+  font-size: 10.5px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: rgba(231, 181, 60, 0.75);
+  white-space: nowrap;
+}
+.tt-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-left: 7px;
+  border-left: 1px solid rgba(231, 181, 60, 0.2);
+  line-height: 1;
+}
+.tt-score b {
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 21px;
+  color: var(--gold2);
+  font-variant-numeric: tabular-nums;
+}
+.tt-score small {
+  font-family: var(--cond);
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(242, 232, 211, 0.75);
+  white-space: nowrap;
+}
+/* upright phones: the side seats stack */
+.tt-seat.vertical .tt-plate {
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 6px;
+  border-radius: 16px;
+}
+.tt-seat.vertical .tt-score {
+  padding-left: 0;
+  border-left: none;
+  border-top: 1px solid rgba(231, 181, 60, 0.2);
+  padding-top: 2px;
+}
+.tt-seat.vertical .tt-name {
+  font-size: 12.5px;
+}
+.tt-minifan {
+  position: relative;
+  height: 26px;
+  width: 1px;
+  margin-bottom: 2px;
+}
+.tt-minifan .tt-mini {
+  left: -8px;
+  top: 0;
+}
+.tt-north .tt-minifan {
+  order: 2;
+  margin: 2px 0 0;
+}
+.tt-bubble {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  translate: -50% 0;
+  max-width: 180px;
+  width: max-content;
+  padding: 6px 10px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fffdf6, #efe3c6);
+  color: #1d1a14;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1.15;
+  text-align: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  z-index: 80;
+}
+.tt-bubble::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  translate: -50% 0;
+  border: 6px solid transparent;
+  border-top-color: #efe3c6;
+}
+.tt-north .tt-bubble {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+.tt-north .tt-bubble::after {
+  top: auto;
+  bottom: 100%;
+  border-top-color: transparent;
+  border-bottom-color: #fffdf6;
+}
+
+/* ---------------------------------------------------------------- trick + hand */
+.tt-trick {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 30;
+}
+.tt-trick-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  will-change: transform;
+}
+.tt-trick-card .tt-card {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(255, 255, 255, 0.7), 0 8px 16px rgba(0, 0, 0, 0.45);
+}
+.tt-hand {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+}
+.tt-hand-card {
+  position: absolute;
+  left: 0;
+  top: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  border-radius: 8px;
+  cursor: pointer;
+  pointer-events: auto;
+  transform-origin: 50% 120%;
+  -webkit-tap-highlight-color: transparent;
+}
+.tt-hand-card .tt-card {
+  transition: filter 0.2s, box-shadow 0.2s;
+}
+.tt-hand-card.dim .tt-card {
+  filter: brightness(0.6) saturate(0.7);
+}
+.tt-hand-card.dim {
+  cursor: default;
+}
+.tt-hand-card.selected .tt-card {
+  box-shadow: 0 0 0 2px var(--gold), 0 0 18px rgba(231, 181, 60, 0.75), 0 10px 20px rgba(0, 0, 0, 0.5);
+}
+.tt-hand-card.hinted .tt-card {
+  animation: tt-hint 0.9s ease-in-out infinite;
+}
+@keyframes tt-hint {
+  50% {
+    box-shadow: 0 0 0 2px var(--gold2), 0 0 26px rgba(246, 215, 122, 1);
+  }
+}
+.tt-hand-card.new .tt-card {
+  box-shadow: 0 0 0 2px rgba(120, 210, 160, 0.9), 0 0 14px rgba(120, 210, 160, 0.6), 0 3px 6px rgba(0, 0, 0, 0.4);
+}
+.tt-new-tag {
+  position: absolute;
+  top: -8px;
+  right: 2px;
+  padding: 1px 5px;
+  border-radius: 6px;
+  background: #3fae74;
+  color: #fff;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 9.5px;
+  letter-spacing: 0.8px;
+}
+
+/* the prompt above the hand: pass three, your lead, bid */
+.tt-prompt {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(231, 181, 60, 0.4);
+  background: rgba(8, 10, 13, 0.82);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.45);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--paper);
+  white-space: nowrap;
+}
+.tt-prompt.solo {
+  padding: 7px 14px;
+}
+
+/* ---------------------------------------------------------------- buttons + panels */
+.tt-btn {
+  border: 1px solid rgba(231, 181, 60, 0.4);
+  border-radius: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(180deg, rgba(36, 40, 48, 0.95), rgba(16, 18, 22, 0.95));
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.2s;
+}
+.tt-btn:active {
+  transform: scale(0.96);
+}
+.tt-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.tt-btn.primary {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+  box-shadow: 0 6px 18px rgba(231, 181, 60, 0.3);
+}
+.tt-btn.small {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 999px;
+}
+.tt-panel-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top) + 12px) calc(env(safe-area-inset-right) + 12px) calc(env(safe-area-inset-bottom) + 12px) calc(env(safe-area-inset-left) + 12px);
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.78));
+}
+.tt-panel {
+  position: relative;
+  width: min(100%, 400px);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 18px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, #1f232b, #0f1115);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.7), 0 0 40px rgba(231, 181, 60, 0.18);
+  text-align: center;
+  color: var(--paper);
+}
+.tt-panel.wide {
+  width: min(100%, 520px);
+}
+.tt-panel-kicker {
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 4px;
+  color: rgba(242, 232, 211, 0.6);
+}
+.tt-panel-title {
+  font-family: var(--title);
+  font-size: 40px;
+  letter-spacing: 3px;
+  line-height: 0.95;
+  background: linear-gradient(180deg, var(--gold2), var(--gold) 55%, #a8781a);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.tt-panel-title.lost {
+  background: linear-gradient(180deg, #ffb3a1, #d0533a 60%, #8a2a18);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.tt-panel-sub {
+  font-family: var(--cond);
+  font-size: 15px;
+  color: rgba(242, 232, 211, 0.8);
+}
+.tt-panel-btns {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.tt-panel-btns .tt-btn {
+  flex: 1;
+  min-width: 120px;
+}
+.tt-rules {
+  margin: 0;
+  padding: 0 0 0 18px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: var(--cond);
+  font-size: 15px;
+  line-height: 1.25;
+  color: rgba(242, 232, 211, 0.9);
+}
+.tt-rules b {
+  color: var(--gold2);
+}
+
+/* the score sheet */
+.tt-sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--cond);
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.tt-sheet th {
+  padding: 4px 4px 6px;
+  font-weight: 800;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--gold2);
+  border-bottom: 1px solid rgba(231, 181, 60, 0.35);
+}
+.tt-sheet td {
+  padding: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: rgba(242, 232, 211, 0.85);
+}
+.tt-sheet td:first-child,
+.tt-sheet th:first-child {
+  text-align: left;
+  color: rgba(242, 232, 211, 0.5);
+}
+.tt-sheet tr.latest td {
+  background: rgba(231, 181, 60, 0.08);
+  color: var(--paper);
+}
+.tt-sheet tr.total td {
+  border-bottom: none;
+  border-top: 1px solid rgba(231, 181, 60, 0.45);
+  font-family: var(--title);
+  font-size: 22px;
+  color: var(--gold2);
+}
+.tt-sheet .lead {
+  color: #8fe0a8 !important;
+}
+.tt-sheet .bad {
+  color: #ff8f7a !important;
+}
+.tt-sheet-wrap {
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+/* the bidding box */
+.tt-bids {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.tt-bid {
+  height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(231, 181, 60, 0.3);
+  background: linear-gradient(180deg, rgba(36, 40, 48, 0.95), rgba(16, 18, 22, 0.95));
+  color: var(--paper);
+  font-family: var(--title);
+  font-size: 22px;
+  cursor: pointer;
+}
+.tt-bid.nil {
+  font-size: 15px;
+  font-family: var(--cond);
+  font-weight: 800;
+  color: #ffb3a1;
+}
+.tt-bid.suggest {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 14px rgba(231, 181, 60, 0.45);
+}
+.tt-bid.on {
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+}
+.tt-modes {
+  display: grid;
+  gap: 8px;
+}
+.tt-mode {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(231, 181, 60, 0.35);
+  background: linear-gradient(180deg, rgba(36, 40, 48, 0.95), rgba(16, 18, 22, 0.95));
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+}
+.tt-mode b {
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 24px;
+  letter-spacing: 1.5px;
+  color: var(--gold2);
+}
+.tt-mode span {
+  font-family: var(--cond);
+  font-size: 14px;
+  color: rgba(242, 232, 211, 0.75);
+}
+.tt-mode.on {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 1px var(--gold), 0 0 18px rgba(231, 181, 60, 0.3);
+}
+
+/* floating XP */
+.tt-float {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 650;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 20px;
+  color: var(--gold);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85);
+  white-space: nowrap;
+}
+.tt-float small {
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: #fff;
+  opacity: 0.9;
+}
+
+/* the queue banner sits under the bar */
+.tt-banner {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 52px);
+  left: 0;
+  right: 0;
+  z-index: 590;
+  display: flex;
+  justify-content: center;
+}
+
+/* a short hint chip for whose lead it is, what broke */
+.tt-toast {
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 45;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(231, 181, 60, 0.3);
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 12.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: rgba(242, 232, 211, 0.85);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.tt-toast.warn {
+  border-color: rgba(255, 143, 122, 0.6);
+  color: #ffd2c8;
+  background: rgba(60, 10, 6, 0.75);
+}

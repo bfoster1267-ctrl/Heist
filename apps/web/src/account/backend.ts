@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, settleHearts, heartsPay, tallyHearts, type HeartsTally, settleSpades, spadesPay, tallySpades, spadesTarget, type SpadesTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -194,6 +194,18 @@ export interface Backend {
   scoundrelFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Scoundrel game's moves so far */
   scoundrelBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Hearts game vs three bots; only the player's own passes and plays are sent, the bots replay from the seed */
+  heartsStart(seed?: number, isDaily?: boolean): Promise<{ gameId: string; seed: number }>;
+  /** a won Hearts game */
+  heartsFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Hearts game's hands so far (and close it out once it's over, won or lost) */
+  heartsBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** deal a Spades game with a bot partner, to 500 or (quick, and the daily) 250 */
+  spadesStart(seed?: number, isDaily?: boolean, quick?: boolean): Promise<{ gameId: string; seed: number; target: number }>;
+  /** a won Spades game */
+  spadesFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
+  /** pay a Spades game's hands so far (and close it out once it's over, won or lost) */
+  spadesBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -581,6 +593,61 @@ export class BrowserBackend implements Backend {
     return { me: this.view(), reward: r.reward };
   }
 
+  private heartsState: { gameId: string; seed: number; isDaily?: boolean; paid?: HeartsTally; paidXp?: number; drain?: number } | null = null;
+  async heartsStart(seed?: number, isDaily = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    this.heartsState = { gameId: `l_${s}`, seed: s, isDaily };
+    return { gameId: this.heartsState.gameId, seed: s };
+  }
+  async heartsFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.heartsBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async heartsBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.heartsState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallyHearts(g.seed, moves);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = heartsPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.over) this.heartsState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleHearts(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private spadesState: { gameId: string; seed: number; target: number; isDaily?: boolean; paid?: SpadesTally; paidXp?: number; drain?: number } | null = null;
+  async spadesStart(seed?: number, isDaily = false, quick = false) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    const target = spadesTarget(isDaily || quick);
+    this.spadesState = { gameId: `l_${s}`, seed: s, target, isDaily };
+    return { gameId: this.spadesState.gameId, seed: s, target };
+  }
+  async spadesFinish(gameId: string, moves: unknown[], drain: number) {
+    const r = await this.spadesBank(gameId, moves, drain, true);
+    return { me: r.me, reward: r.reward! };
+  }
+  async spadesBank(gameId: string, moves: unknown[], drain: number, finish = false) {
+    const g = this.spadesState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const t = tallySpades(g.seed, moves, g.target);
+    if (finish && !t.won) throw new BackendError("That game isn't won yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = spadesPay(g.paid, g.paidXp, t, g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (t.over) this.spadesState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleSpades(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
   async soloFinish(gameId: string, answers: unknown[]) {
     const g = this.save.solo;
     if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
@@ -888,6 +955,24 @@ export class ServerBackend implements Backend {
   }
   scoundrelBank(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/scoundrel/bank", { gameId, moves, drain });
+  }
+  heartsStart(seed?: number, isDaily?: boolean) {
+    return this.call<{ gameId: string; seed: number }>("/api/hearts/start", { seed, isDaily });
+  }
+  heartsFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/hearts/finish", { gameId, moves, drain });
+  }
+  heartsBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/hearts/bank", { gameId, moves, drain });
+  }
+  spadesStart(seed?: number, isDaily?: boolean, quick?: boolean) {
+    return this.call<{ gameId: string; seed: number; target: number }>("/api/spades/start", { seed, isDaily, quick });
+  }
+  spadesFinish(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward }>("/api/spades/finish", { gameId, moves, drain });
+  }
+  spadesBank(gameId: string, moves: unknown[], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/spades/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;
