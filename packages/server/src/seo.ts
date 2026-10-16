@@ -25,7 +25,7 @@ const PAGES: Record<string, Page> = {
 <h2>Play Card Games With Friends Online</h2>
 <p>Gather your crew for 3 to 6-player real-time matches. Pull jobs, split loot, and bluff your way to the top with poker hands and secret deals. Create private tables with friends or join quick matchmaking.</p>
 <h2>Daily Solitaire &amp; Solo Card Arcade</h2>
-<p>Enjoy daily seeded challenges with global streak multipliers and Wordle-style score cards across 8 complete card games:</p>
+<p>Enjoy daily seeded challenges with global streak multipliers and Wordle-style score cards across 10 complete solo games:</p>
 <ul>
   <li><a href="/solitaire">Klondike Solitaire (Draw 1 &amp; Draw 3)</a></li>
   <li><a href="/tripeaks">TriPeaks Solitaire Challenge</a></li>
@@ -35,19 +35,21 @@ const PAGES: Record<string, Page> = {
   <li><a href="/spider">Spider Solitaire</a></li>
   <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
   <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
+  <li><a href="/minesweeper">Minesweeper</a></li>
+  <li><a href="/sudoku">Sudoku</a></li>
   <li><a href="/card-games">All Free Card Games Hub</a></li>
   <li><a href="/blog/best-free-online-card-games">10 Best Free Online Card Games Guide</a></li>
 </ul>`,
   },
   "/card-games": {
-    title: "Best Free Online Card Games: Play 9 Browser Card Games Free",
+    title: "Best Free Online Card Games: Play 11 Browser Games Free",
     description:
-      "Play the best free online card games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, and Heist. 100% free, no ads.",
+      "Play the best free online card and puzzle games in your browser. Klondike Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Minesweeper, Sudoku, and Heist. 100% free, no ads.",
     keywords:
       "best free online card games, free online card games, browser card games, play card games online no download, solitaire online, freecell online, multiplayer card game",
     text: `<h1>Best Free Online Card Games: Play in Browser (No Ads, No Download)</h1>
-<p>Play 9 of the best free online card games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, or multiplayer bluffing games with friends.</p>
-<h2>All 9 Free Online Card Games</h2>
+<p>Play 11 of the best free online card and puzzle games right in your web browser. Zero downloads, zero video ads, and no sign-up required. Choose from single-player solitaire classics, high-speed card slaps, dungeon roguelikes, logic puzzles, or multiplayer bluffing games with friends.</p>
+<h2>All 11 Free Online Games</h2>
 <ul>
   <li><a href="/solitaire"><strong>Klondike Solitaire</strong></a> — Classic 7-column Solitaire with Draw 1 &amp; Draw 3, unlimited undo, smart hints, and daily streak challenges.</li>
   <li><a href="/freecell"><strong>FreeCell Solitaire</strong></a> — 100% open information strategy with 4 reserve cells. Virtually every deal is solvable.</li>
@@ -57,18 +59,20 @@ const PAGES: Record<string, Page> = {
   <li><a href="/yukon"><strong>Yukon Solitaire</strong></a> — Tactical freedom: move any group of face-up cards regardless of sequence.</li>
   <li><a href="/ers"><strong>Egyptian Rat Screw (ERS)</strong></a> — High-reflex slap card game. Face-card penalty face-offs, doubles, and live 1v1 PvP duels.</li>
   <li><a href="/scoundrel"><strong>Scoundrel Dungeon Roguelike</strong></a> — Zach Gage &amp; Kurt Bieg's 52-card tabletop dungeon crawler with weapons, monsters, and health potions.</li>
+  <li><a href="/minesweeper"><strong>Minesweeper</strong></a> — The classic mine-clearing logic puzzle: Beginner, Intermediate and Expert boards, a safe first click, flags and chording.</li>
+  <li><a href="/sudoku"><strong>Sudoku</strong></a> — Unique-solution 9x9 puzzles from Easy to Expert with pencil marks, hints, undo and a three-mistake limit.</li>
   <li><a href="/"><strong>Heist Multiplayer</strong></a> — 3 to 6-player social deduction and poker bluffing battle. Pull jobs with your crew or double-cross for the pot.</li>
 </ul>
 <p>Read our full ranking and strategy guide: <a href="/blog/best-free-online-card-games">The 10 Best Free Online Card Games in 2026</a>.</p>`,
   },
   "/arcade": {
-    title: "Card Game Arcade: Play 9 Free Card Games Online in Browser",
+    title: "Card Game Arcade: Play 11 Free Games Online in Browser",
     description:
-      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, and Heist free with daily streak challenges.",
+      "Explore the Heist Card Game Arcade. Play Solitaire, FreeCell, Spider, TriPeaks, Pyramid, Yukon, ERS, Scoundrel, Minesweeper, Sudoku, and Heist free with daily streak challenges.",
     keywords:
       "card game arcade, free online card games, browser card games, daily solitaire arcade",
     text: `<h1>Heist Card Game Arcade</h1>
-<p>Explore 9 complete card games in your browser. Single-player brainteasers, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
+<p>Explore 11 complete games in your browser. Single-player card games and logic puzzles, reflex slap battles, and multiplayer poker bluffing. Free, no download, no ads.</p>
 <ul>
   <li><a href="/solitaire">Klondike Solitaire</a></li>
   <li><a href="/freecell">FreeCell</a></li>
@@ -78,6 +82,8 @@ const PAGES: Record<string, Page> = {
   <li><a href="/yukon">Yukon</a></li>
   <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
   <li><a href="/scoundrel">Scoundrel</a></li>
+  <li><a href="/minesweeper">Minesweeper</a></li>
+  <li><a href="/sudoku">Sudoku</a></li>
   <li><a href="/">Heist Multiplayer</a></li>
 </ul>`,
   },
@@ -157,6 +163,32 @@ const PAGES: Record<string, Page> = {
 <p>Zach Gage and Kurt Bieg's brilliant dungeon crawler played with standard playing cards. Weapons, monsters, and health management in your browser.</p>
 <p>Try our other games: <a href="/">Heist Multiplayer</a> · <a href="/solitaire">Solitaire</a></p>`,
   },
+  "/minesweeper": {
+    title: "Minesweeper: Play Classic Minesweeper Online Free",
+    description:
+      "Play classic Minesweeper free in your browser. Beginner, Intermediate and Expert boards, a guaranteed safe first click, flags, chording and a daily minefield. No download.",
+    keywords: "minesweeper online, play minesweeper free, classic minesweeper browser, minesweeper expert, daily minesweeper",
+    text: `<h1>Free Online Minesweeper</h1>
+<p>Clear the minefield without setting off a single mine. Play the classic logic puzzle free on your phone, tablet or computer: no download, no sign-up, no ads.</p>
+<h2>How to play Minesweeper</h2>
+<p>Tap a cell to open it. A number tells you how many of its eight neighbours hide a mine. Flag the cells you know are mines (long-press, right-click, or switch to flag mode), and tap a number whose mines are all flagged to open every cell around it at once (chording). Open every safe cell to win. Your first click is always safe and always opens an area.</p>
+<h2>Features</h2>
+<ul><li>Beginner 9x9 (10 mines), Intermediate 16x16 (40 mines) and Expert 16x30 (99 mines)</li><li>Safe first click, flag mode for touch screens, long-press to flag</li><li>Chording, timer and mine counter</li><li>A shared daily minefield with streaks</li></ul>
+<p>Try our other games: <a href="/sudoku">Sudoku</a> · <a href="/solitaire">Solitaire</a> · <a href="/">Heist Multiplayer</a></p>`,
+  },
+  "/sudoku": {
+    title: "Sudoku: Play Free Sudoku Puzzles Online, Easy to Expert",
+    description:
+      "Play free Sudoku in your browser. Unique-solution puzzles from Easy to Expert, pencil marks, hints, undo, highlights and a daily puzzle. No download, no ads.",
+    keywords: "sudoku online, free sudoku, daily sudoku, expert sudoku, sudoku with pencil marks",
+    text: `<h1>Free Online Sudoku</h1>
+<p>Fill the 9x9 grid so every row, column and 3x3 box holds the digits 1 to 9 exactly once. Every puzzle has exactly one solution, and is graded by the techniques it takes to solve.</p>
+<h2>How to play Sudoku</h2>
+<p>Pick a cell and tap a digit. Use pencil marks to note the candidates for a cell. The same digit, row, column and box light up as you play. Three mistakes and the puzzle is lost, so think before you place. Stuck? Take a hint, or undo your last entry.</p>
+<h2>Features</h2>
+<ul><li>Easy, Medium, Hard and Expert puzzles, each with a unique solution</li><li>Pencil marks, number pad, erase, undo and hints</li><li>Highlights for the same digit, row, column and box</li><li>A shared daily Sudoku with streaks</li></ul>
+<p>Try our other games: <a href="/minesweeper">Minesweeper</a> · <a href="/solitaire">Solitaire</a> · <a href="/">Heist Multiplayer</a></p>`,
+  },
 };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
@@ -224,7 +256,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                   name: "What is a good free online card game to play with friends in a browser?",
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: "Heist (https://playheist.net) is a premier free online multiplayer card game playable instantly in any web browser without downloads or registration. Players can create private rooms or jump into quick matchmaking to run heist contracts, bluff rivals with poker hands, and double-cross their crew. It also includes 8 solo games like Solitaire, TriPeaks, and FreeCell with daily shared challenges.",
+                    text: "Heist (https://playheist.net) is a premier free online multiplayer card game playable instantly in any web browser without downloads or registration. Players can create private rooms or jump into quick matchmaking to run heist contracts, bluff rivals with poker hands, and double-cross their crew. It also includes 10 solo games like Solitaire, TriPeaks, FreeCell, Minesweeper and Sudoku with daily shared challenges.",
                   },
                 },
                 {
@@ -256,7 +288,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                   name: "What single-player card games are included on playheist.net?",
                   acceptedAnswer: {
                     "@type": "Answer",
-                    text: "The Heist Solo Arcade includes 8 complete card games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), and the Scoundrel dungeon roguelike, complete with daily global seeds and Wordle-style score sharing.",
+                    text: "The Heist Solo Arcade includes 10 complete solo games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Minesweeper (Beginner, Intermediate and Expert) and Sudoku (Easy to Expert), complete with daily global seeds and Wordle-style score sharing.",
                   },
                 },
               ],
@@ -271,7 +303,7 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
               name: "Best Free Online Card Games",
               description: page.description,
               itemListOrder: "https://schema.org/ItemListOrderAscending",
-              numberOfItems: 9,
+              numberOfItems: 11,
               itemListElement: [
                 { "@type": "ListItem", position: 1, name: "Heist Multiplayer", url: `${SITE}/` },
                 { "@type": "ListItem", position: 2, name: "Klondike Solitaire", url: `${SITE}/solitaire` },
@@ -282,6 +314,8 @@ export function pageHtml(html: string, path: string, params?: URLSearchParams): 
                 { "@type": "ListItem", position: 7, name: "Yukon Solitaire", url: `${SITE}/yukon` },
                 { "@type": "ListItem", position: 8, name: "Egyptian Rat Screw (ERS)", url: `${SITE}/ers` },
                 { "@type": "ListItem", position: 9, name: "Scoundrel Dungeon Roguelike", url: `${SITE}/scoundrel` },
+                { "@type": "ListItem", position: 10, name: "Minesweeper", url: `${SITE}/minesweeper` },
+                { "@type": "ListItem", position: 11, name: "Sudoku", url: `${SITE}/sudoku` },
               ],
             },
           ]

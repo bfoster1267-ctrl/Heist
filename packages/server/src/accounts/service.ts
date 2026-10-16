@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, tallyMines, minesPay, settleMinesweeper, isMinesLevel, MINES_DAILY_LEVEL, tallySudoku, sudokuPay, settleSudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -141,8 +141,9 @@ export class AccountService {
   untouched(a: Account): boolean {
     const p = a.progress;
     const arcadeWins = (p.solitaire?.won ?? 0) + (p.freecell?.won ?? 0) + (p.tripeaks?.won ?? 0) + (p.ers?.won ?? 0)
-      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0);
-    const hasArcadeGame = Boolean(a.solitaire || a.freecell || a.tripeaks || a.spider || a.pyramid || a.ers || a.yukon || a.scoundrel);
+      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0)
+      + (p.minesweeper?.won ?? 0) + (p.sudoku?.won ?? 0);
+    const hasArcadeGame = Boolean(a.solitaire || a.freecell || a.tripeaks || a.spider || a.pyramid || a.ers || a.yukon || a.scoundrel || a.minesweeper || a.sudoku);
     return a.guest && !a.played && !a.solo && !hasArcadeGame && !a.crm && !a.feedback && p.stats.games === 0 && (p.coachGames ?? 0) === 0 && (p.campaign ?? 0) === 0
       && !p.ranked && arcadeWins === 0 && !this.activity.played().has(a.id);
   }
@@ -929,6 +930,94 @@ export class AccountService {
         return { me: this.me(x), reward: null };
       }
       const r = settleScoundrel(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Minesweeper board. The daily deal is always played on the daily board size. */
+  minesweeperStart(a: Account, seed?: unknown, isDaily?: unknown, level?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      const daily = this.isDailyDeal("minesweeper", s, isDaily);
+      const lv = daily ? MINES_DAILY_LEVEL : isMinesLevel(level) ? level : "beginner";
+      x.minesweeper = { gameId: `ms_${randomBytes(6).toString("base64url")}`, seed: s, level: lv, isDaily: daily, startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.minesweeper.gameId, seed: x.minesweeper.seed, level: lv };
+    });
+  }
+
+  /** Pay for the Minesweeper board so far: the server lays the field from the seed and replays the clicks. */
+  minesweeperBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.minesweeper;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallyMines(g.seed, g.level, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = minesPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (t.won) x.minesweeper = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      const r = settleMinesweeper(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Sudoku puzzle. The daily deal is always the daily level. */
+  sudokuStart(a: Account, seed?: unknown, isDaily?: unknown, level?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      const daily = this.isDailyDeal("sudoku", s, isDaily);
+      const lv = daily ? SUDOKU_DAILY_LEVEL : isSudokuLevel(level) ? level : "easy";
+      x.sudoku = { gameId: `su_${randomBytes(6).toString("base64url")}`, seed: s, level: lv, isDaily: daily, startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.sudoku.gameId, seed: x.sudoku.seed, level: lv };
+    });
+  }
+
+  /** Pay for the Sudoku so far: the server rebuilds the puzzle from the seed and replays the entries against its solution. */
+  sudokuBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.sudoku;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallySudoku(g.seed, g.level, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = sudokuPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (t.won) x.sudoku = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      const r = settleSudoku(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
       this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };

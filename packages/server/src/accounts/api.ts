@@ -17,7 +17,7 @@ const BODY_LIMIT = 16 * 1024;
 /** a finished solo game posts every answer the player gave */
 const SOLO_BODY_LIMIT = 512 * 1024;
 /** routes that carry a whole game's moves: every arcade game's bank and finish, and a vs-bots game's finish */
-const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel)\/(bank|finish))$/;
+const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel|minesweeper|sudoku)\/(bank|finish))$/;
 /** sign-in attempts per address per window */
 const AUTH_TRIES = 20;
 const AUTH_WINDOW_MS = 10 * 60_000;
@@ -324,6 +324,12 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/scoundrel/start": async (b, t) => svc.scoundrelStart(await me(t), b.seed, b.isDaily),
     "POST /api/scoundrel/finish": async (b, t) => svc.scoundrelBank(await me(t), b.gameId, b.moves, true, b.drain),
     "POST /api/scoundrel/bank": async (b, t) => svc.scoundrelBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/minesweeper/start": async (b, t) => svc.minesweeperStart(await me(t), b.seed, b.isDaily, b.level),
+    "POST /api/minesweeper/finish": async (b, t) => svc.minesweeperBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/minesweeper/bank": async (b, t) => svc.minesweeperBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/sudoku/start": async (b, t) => svc.sudokuStart(await me(t), b.seed, b.isDaily, b.level),
+    "POST /api/sudoku/finish": async (b, t) => svc.sudokuBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/sudoku/bank": async (b, t) => svc.sudokuBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;

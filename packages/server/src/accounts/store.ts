@@ -6,7 +6,7 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
-import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally } from "@heist/profile";
+import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally, MinesTally, MinesLevel, SudokuTally, SudokuLevel } from "@heist/profile";
 import type { PushSub } from "../push";
 
 export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
@@ -64,6 +64,10 @@ export interface Account {
   yukon?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Scoundrel game in progress */
   scoundrel?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Minesweeper board in progress (its level fixes the board size the field is laid on) */
+  minesweeper?: { gameId: string; seed: number; level: MinesLevel; startedAt: number; isDaily?: boolean; paid?: MinesTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Sudoku puzzle in progress (seed and level rebuild the exact puzzle) */
+  sudoku?: { gameId: string; seed: number; level: SudokuLevel; startedAt: number; isDaily?: boolean; paid?: SudokuTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */

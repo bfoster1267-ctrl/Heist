@@ -277,6 +277,8 @@ export class AdminService {
     if ((p.ers?.won ?? 0) > 0 || a.ers) playedTypes.add("ers");
     if ((p.yukon?.won ?? 0) > 0 || a.yukon) playedTypes.add("yukon");
     if ((p.scoundrel?.won ?? 0) > 0 || a.scoundrel) playedTypes.add("scoundrel");
+    if ((p.minesweeper?.won ?? 0) > 0 || a.minesweeper) playedTypes.add("minesweeper");
+    if ((p.sudoku?.won ?? 0) > 0 || a.sudoku) playedTypes.add("sudoku");
 
     for (const e of this.log.window()) {
       if (e.userId !== a.id) continue;
@@ -288,12 +290,15 @@ export class AdminService {
       else if (e.kind.startsWith("ers.")) playedTypes.add("ers");
       else if (e.kind.startsWith("yukon.")) playedTypes.add("yukon");
       else if (e.kind.startsWith("scoundrel.")) playedTypes.add("scoundrel");
+      else if (e.kind.startsWith("minesweeper.")) playedTypes.add("minesweeper");
+      else if (e.kind.startsWith("sudoku.")) playedTypes.add("sudoku");
       else if (e.kind === "game.online" || e.kind.startsWith("table.")) playedTypes.add("heist_online");
       else if (e.kind === "game.solo" || e.kind.startsWith("solo.")) playedTypes.add("heist_solo");
     }
 
     const arcadeWins = (p.solitaire?.won ?? 0) + (p.freecell?.won ?? 0) + (p.tripeaks?.won ?? 0) + (p.ers?.won ?? 0)
-      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0);
+      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0)
+      + (p.minesweeper?.won ?? 0) + (p.sudoku?.won ?? 0);
     const gamesPlayed = [...playedTypes];
     const totalGames = p.stats.games + arcadeWins;
 
@@ -357,7 +362,7 @@ export class AdminService {
     const sum = (f: (a: Account) => number) => everyone.reduce((s, a) => s + f(a), 0);
     const guests = all.filter((a) => a.guest);
     const gamesByType: Record<string, number> = {
-      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, heist_solo: 0, heist_online: 0,
+      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, minesweeper: 0, sudoku: 0, heist_solo: 0, heist_online: 0,
     };
     for (const a of everyone) {
       const p = upgrade(a.progress);
@@ -369,10 +374,12 @@ export class AdminService {
       gamesByType.ers += p.ers?.won ?? 0;
       gamesByType.yukon += p.yukon?.won ?? 0;
       gamesByType.scoundrel += p.scoundrel?.won ?? 0;
+      gamesByType.minesweeper += p.minesweeper?.won ?? 0;
+      gamesByType.sudoku += p.sudoku?.won ?? 0;
       gamesByType.heist_solo += p.stats.games;
     }
     const gamesTodayByType: Record<string, number> = {
-      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, heist_solo: 0, heist_online: 0,
+      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, minesweeper: 0, sudoku: 0, heist_solo: 0, heist_online: 0,
     };
     let adLandingsToday = 0;
     let visitorsTodayCount = 0;
@@ -397,6 +404,8 @@ export class AdminService {
       else if (e.kind.startsWith("ers.")) gamesTodayByType.ers++;
       else if (e.kind.startsWith("yukon.")) gamesTodayByType.yukon++;
       else if (e.kind.startsWith("scoundrel.")) gamesTodayByType.scoundrel++;
+      else if (e.kind.startsWith("minesweeper.")) gamesTodayByType.minesweeper++;
+      else if (e.kind.startsWith("sudoku.")) gamesTodayByType.sudoku++;
     }
 
     const arcadeTotalWins = Object.entries(gamesByType).filter(([k]) => !k.startsWith("heist")).reduce((s, [, v]) => s + v, 0);
