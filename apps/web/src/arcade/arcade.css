@@ -147,41 +147,31 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border-radius: 12px;
-  border: 1px solid rgba(212, 175, 55, 0.6);
-  background: linear-gradient(135deg, rgba(120, 32, 37, 0.7) 0%, rgba(20, 16, 24, 0.9) 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.45);
+  background: linear-gradient(180deg, #252834 0%, #171922 100%);
   color: #fff;
   font-family: var(--cond, "Barlow Condensed", sans-serif);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.8px;
   text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 0 0 16px rgba(212, 175, 55, 0.25), 0 2px 8px rgba(0, 0, 0, 0.5);
-  animation: arcade-btn-glow 2.5s ease-in-out infinite alternate;
-  transition: all 0.18s ease;
-}
-
-@keyframes arcade-btn-glow {
-  0% {
-    box-shadow: 0 0 10px rgba(212, 175, 55, 0.2), 0 2px 8px rgba(0, 0, 0, 0.5);
-    border-color: rgba(212, 175, 55, 0.4);
-  }
-  100% {
-    box-shadow: 0 0 20px rgba(212, 175, 55, 0.5), 0 2px 12px rgba(0, 0, 0, 0.6);
-    border-color: #f5d77f;
-  }
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  transition: all 0.16s ease;
 }
 
 .arcade-back-lobby-btn:hover {
-  background: linear-gradient(135deg, rgba(140, 38, 44, 0.9) 0%, rgba(30, 24, 36, 0.95) 100%);
+  background: linear-gradient(180deg, #323746 0%, #1f222e 100%);
   border-color: #f5d77f;
-  transform: translateY(-1px) scale(1.02);
   color: #f5d77f;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 235, 180, 0.2);
+  transform: translateY(-1px);
 }
 
 .arcade-back-arrow {
-  font-size: 16px;
+  font-size: 15px;
+  color: #d4af37;
   transition: transform 0.16s ease;
 }
 

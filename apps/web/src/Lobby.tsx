@@ -195,7 +195,7 @@ export function Lobby({
             <>
               <button
                 type="button"
-                className="btn lobby-big lobby-coach-glow"
+                className="btn primary lobby-big"
                 onClick={coach}
               >
                 {t("lobby.learn_heist")}
@@ -204,9 +204,8 @@ export function Lobby({
 
               <button
                 type="button"
-                className="btn primary lobby-big"
+                className="btn lobby-big"
                 onClick={() => setGames(true)}
-                style={{ background: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)", marginTop: "0.6rem" }}
               >
                 {t("lobby.play_solo_hub")}
                 <span className="lobby-sub">{t("lobby.play_solo_hub_sub")}</span>
@@ -243,8 +242,11 @@ export function Lobby({
             className="lobby-save-nudge"
             onClick={onSave}
           >
-            <span className="lobby-save-nudge-badge">{t("lobby.save_progress_nudge")}</span>
-            <span className="lobby-save-nudge-sub">{t("lobby.save_progress_sub")}</span>
+            <div className="lobby-save-nudge-left">
+              <span className="lobby-save-nudge-badge">{t("lobby.save_progress_nudge")}</span>
+              <span className="lobby-save-nudge-sub">{t("lobby.save_progress_sub")}</span>
+            </div>
+            <span className="lobby-save-nudge-arrow">➔</span>
           </button>
         )}
             </>
