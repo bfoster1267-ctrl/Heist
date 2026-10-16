@@ -9,5 +9,6 @@ import coach from "./coach";
 import board from "./board";
 import rules from "./rules";
 import account from "./account";
+import profile from "./profile";
 
-export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account] as const;
+export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile] as const;
