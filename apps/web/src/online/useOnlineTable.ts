@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { sfx, yourTurn } from "../sound";
 import { HOLD, footholds, type FlightHook, type HistoryEntry, type Shown, type TableSettings, type TableSource } from "../useTable";
 import type { OnlineSession } from "./session";
+import { tEn, tSay } from "../i18n";
 
 /** Frames waiting when the table opens beyond this many are fast-forwarded (joining a game in progress). */
 const CATCH_UP = 12;
@@ -41,13 +42,13 @@ export function onlineSource(sess: OnlineSession) {
     };
 
     const record = (f: Frame) =>
-      history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
+      history.current.push({ turn: f.state.turn, ev: f.ev, msg: tSay(f.say, f.msg), fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
 
     const show = useCallback((f: Frame) => {
-      const s: Shown = { state: f.state, msg: f.msg, ev: f.ev, key: ++counter.current };
+      const s: Shown = { state: f.state, msg: tSay(f.say, f.msg), ev: f.ev, key: ++counter.current };
       shownRef.current = s;
       setShown(s);
-      setLog((l) => [...l.slice(-80), { msg: f.msg, key: s.key }]);
+      setLog((l) => [...l.slice(-80), { msg: tSay(f.say, f.msg), key: s.key }]);
     }, []);
 
     const pump = useCallback(() => {
@@ -91,10 +92,10 @@ export function onlineSource(sess: OnlineSession) {
       queue.current = [];
       setAsk(null);
       if (feed.base) {
-        const s: Shown = { state: feed.base.state, msg: feed.base.log.at(-1) ?? "", ev: null, key: ++counter.current };
+        const s: Shown = { state: feed.base.state, msg: tEn(feed.base.log.at(-1) ?? ""), ev: null, key: ++counter.current };
         shownRef.current = s;
         setShown(s);
-        setLog(feed.base.log.map((msg) => ({ msg, key: ++counter.current })));
+        setLog(feed.base.log.map((msg) => ({ msg: tEn(msg), key: ++counter.current })));
       } else {
         shownRef.current = null;
         setShown(null);
@@ -104,9 +105,9 @@ export function onlineSource(sess: OnlineSession) {
       if (frames.length > CATCH_UP) {
         const skipped = frames.slice(0, frames.length - 3);
         skipped.forEach(record);
-        setLog(skipped.slice(-60).map((f) => ({ msg: f.msg, key: ++counter.current })));
+        setLog(skipped.slice(-60).map((f) => ({ msg: tSay(f.say, f.msg), key: ++counter.current })));
         const last = skipped[skipped.length - 1];
-        const s: Shown = { state: last.state, msg: last.msg, ev: last.ev, key: ++counter.current };
+        const s: Shown = { state: last.state, msg: tSay(last.say, last.msg), ev: last.ev, key: ++counter.current };
         shownRef.current = s;
         setShown(s);
         frames = frames.slice(-3);
@@ -152,7 +153,7 @@ export function onlineSource(sess: OnlineSession) {
       rest.forEach(record);
       const last = rest[rest.length - 1];
       if (last) {
-        const s: Shown = { state: last.state, msg: last.msg, ev: last.ev, key: ++counter.current };
+        const s: Shown = { state: last.state, msg: tSay(last.say, last.msg), ev: last.ev, key: ++counter.current };
         shownRef.current = s;
         setShown(s);
       } else pending?.();

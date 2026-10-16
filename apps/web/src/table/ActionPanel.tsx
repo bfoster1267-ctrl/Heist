@@ -1,4 +1,4 @@
-import { HOME_TURF, ROLES, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
+import { HOME_TURF, isFighter, jobBases, type Answer, type Ask, type GameState, type Side } from "@heist/engine";
 import { motion, useIsPresent } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { buzz } from "../haptics";
@@ -6,6 +6,8 @@ import { click } from "../sound";
 import { panelRoom } from "./layout";
 import { pressable } from "./Seat";
 import { CardFace, Crew, RoleCard } from "./pieces";
+import { t as tr, tNodes } from "../i18n";
+import { cardName, roleName } from "../i18n/data";
 
 /** Which hand cards the current ask lets you select, and how many. */
 export function handSelect(ask: Ask | null, s: GameState, seat: number): { max: number; allow: (id: number) => boolean } | null {
@@ -20,11 +22,11 @@ export function handSelect(ask: Ask | null, s: GameState, seat: number): { max: 
 function Stepper({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (v: number) => void }) {
   return (
     <span className="stepper">
-      <button aria-label="Fewer" disabled={value <= min} onClick={() => onChange(value - 1)}>
+      <button aria-label={tr("act.fewer")} disabled={value <= min} onClick={() => onChange(value - 1)}>
         −
       </button>
       <span className="stepper-v" aria-live="polite">{value}</span>
-      <button aria-label="More" disabled={value >= max} onClick={() => onChange(value + 1)}>
+      <button aria-label={tr("act.more")} disabled={value >= max} onClick={() => onChange(value + 1)}>
         +
       </button>
     </span>
@@ -119,7 +121,8 @@ export function ActionPanel({
   const odds = j && j.kind === "hit" ? jobBases(s, j) : null;
   const oddsLine = odds && j ? (
     <div className="odds">
-      Boss side <b>{odds.b}</b> vs Mark side <b>{odds.m}</b> <span className="dim">(crew{j.kind === "hit" ? `, home turf +${s.players[j.boss].role === "mastermind" ? 2 : HOME_TURF}` : ""}) plus the cards</span>
+      {tNodes("act.odds", { b: <b>{odds.b}</b>, m: <b>{odds.m}</b> })}{" "}
+      <span className="dim">{j.kind === "hit" ? tr("act.oddsCrewTurf", { n: s.players[j.boss].role === "mastermind" ? 2 : HOME_TURF }) : tr("act.oddsCrew")}</span>
     </div>
   ) : null;
 
@@ -127,14 +130,14 @@ export function ActionPanel({
   let body: React.ReactNode = null;
   switch (ask.kind) {
     case "keepRole":
-      title = "Pick your Role";
+      title = tr("act.pickRole");
       body = (
         <div className="role-pick">
           {ask.options.map((r, i) => (
             <motion.button
               key={r}
               className="role-card"
-              aria-label={`Keep ${ROLES.find((x) => x.id === r)!.name}`}
+              aria-label={tr("act.keepRole", { role: roleName(r) })}
               initial={{ rotateY: 90, y: 20 }}
               animate={{ rotateY: 0, y: 0 }}
               transition={{ delay: 0.15 + i * 0.15, type: "spring", stiffness: 200, damping: 20 }}
@@ -153,94 +156,94 @@ export function ActionPanel({
       );
       break;
     case "wildcard":
-      title = "Wildcard: swap Roles?";
+      title = tr("act.wildcard");
       body = (
         <div className="btns wrap">
           {ask.targets.map((t) => (
             <Btn key={t} onClick={() => answer({ kind: "wildcard", target: t })}>
-              Take {name(t)}'s {ROLES.find((r) => r.id === s.players[t].role)?.name}
+              {tr("act.takeRole", { name: name(t), role: roleName(s.players[t].role) })}
             </Btn>
           ))}
           <Btn kind="ghost" onClick={() => answer({ kind: "wildcard", target: null })}>
-            Not now
+            {tr("act.notNow")}
           </Btn>
         </div>
       );
       break;
     case "fence":
-      title = "Fence: pay $2 for a discarded card?";
+      title = tr("act.fence");
       body = (
         <>
           <div className="pick-row">
             {[...s.discard].reverse().slice(0, 12).map((c) => (
-              <span key={c.id} className="clickable" {...pressable(() => answer({ kind: "fence", cardId: c.id }), `Buy ${cardLabel(c)}`)}>
+              <span key={c.id} className="clickable" {...pressable(() => answer({ kind: "fence", cardId: c.id }), tr("act.buy", { card: cardName(c) }))}>
                 <CardFace card={c} size="sm" />
               </span>
             ))}
           </div>
           <div className="btns">
             <Btn kind="ghost" onClick={() => answer({ kind: "fence", cardId: null })}>
-              Skip
+              {tr("act.skip")}
             </Btn>
           </div>
         </>
       );
       break;
     case "bank":
-      title = `Bank up to ${ask.max} card${ask.max > 1 ? "s" : ""}`;
+      title = tr("act.bankTitle", { count: ask.max });
       body = (
         <>
-          <div className="hint">Tap cards in your hand. Banked cards are your cash (no change given). Keep a Score or Fixer to fight with.</div>
+          <div className="hint">{tr("act.bankHint")}</div>
           <div className="btns">
             <Btn kind="primary" onClick={() => answer({ kind: "bank", cardIds: sel })} disabled={!sel.length}>
-              Bank {sel.length || ""} (${P.hand.filter((c) => sel.includes(c.id)).reduce((a, c) => a + c.cash, 0)})
+              {tr("act.bank", { n: sel.length || "", cash: P.hand.filter((c) => sel.includes(c.id)).reduce((a, c) => a + c.cash, 0) })}
             </Btn>
             <Btn kind="ghost" onClick={() => answer({ kind: "bank", cardIds: [] })}>
-              Skip
+              {tr("act.skip")}
             </Btn>
           </div>
         </>
       );
       break;
     case "hire":
-      title = `Hire crew ($${ask.cost} each)`;
+      title = tr("act.hireTitle", { cost: ask.cost });
       body = (
         <div className="btns">
           {Array.from({ length: ask.max + 1 }, (_, k) => (
             <Btn key={k} kind={k ? "primary" : "ghost"} onClick={() => answer({ kind: "hire", count: k })}>
-              {k ? `Hire ${k}` : "None"}
+              {k ? tr("act.hire", { n: k }) : tr("act.none")}
             </Btn>
           ))}
         </div>
       );
       break;
     case "action": {
-      title = "Your move";
+      title = tr("act.yourMove");
       // Short buttons: the rival's crew shape and the hideout's number, so the panel stays clear of the seats
       const where = (p: number, h: number, inThere = false) => (
         <span className="move-target">
           <Crew color={color(p)} size={22} />
           <span className="ho-num">{h + 1}</span>
-          {inThere && <span className="ho-in">in</span>}
+          {inThere && <span className="ho-in">{tr("act.in")}</span>}
         </span>
       );
       body = (
         <div className="move-grid">
           <div className="btns">
             {ask.canHit && (
-              <Btn kind="primary big" label={P.role === "mastermind" ? "Hit (pick the Mark)" : "Hit (flip for the Mark)"} onClick={() => answer({ kind: "action", choice: "hit" })}>
-                Hit
+              <Btn kind="primary big" label={P.role === "mastermind" ? tr("act.hitPick") : tr("act.hitFlip")} onClick={() => answer({ kind: "action", choice: "hit" })}>
+                {tr("act.hit")}
               </Btn>
             )}
             <Btn kind="ghost" onClick={() => answer({ kind: "action", choice: "pass" })}>
-              Lay low
+              {tr("act.layLow")}
             </Btn>
           </div>
           {ask.busts.length > 0 && (
             <div className="btns wrap">
-              <span className="lbl">Bust</span>
+              <span className="lbl">{tr("act.bust")}</span>
               {ask.busts.map((b) => (
-                <Btn key={`b${b.hideout}-${b.rival}`} kind="danger target" label={`Bust ${name(b.rival)} out of hideout ${b.hideout + 1}`} onClick={() => answer({ kind: "action", choice: "bust", hideout: b.hideout, rival: b.rival })}>
+                <Btn key={`b${b.hideout}-${b.rival}`} kind="danger target" label={tr("act.bustAria", { name: name(b.rival), h: b.hideout + 1 })} onClick={() => answer({ kind: "action", choice: "bust", hideout: b.hideout, rival: b.rival })}>
                   {where(b.rival, b.hideout)}
                 </Btn>
               ))}
@@ -248,11 +251,11 @@ export function ActionPanel({
           )}
           {ask.wanted.length > 0 && (
             <div className="btns wrap">
-              <span className="lbl">Wanted</span>
+              <span className="lbl">{tr("act.wanted")}</span>
               {ask.wanted.map((w) => {
                 const inThere = s.players[w.mark].hideouts[w.hideout][seat] > 0;
                 return (
-                  <Btn key={`w${w.mark}-${w.hideout}`} kind="warn target" label={`Wanted: hit ${name(w.mark)}'s hideout ${w.hideout + 1}${inThere ? " (you're already in)" : ""}`} onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
+                  <Btn key={`w${w.mark}-${w.hideout}`} kind="warn target" label={tr("act.wantedAria", { name: name(w.mark), h: w.hideout + 1 }) + (inThere ? tr("act.alreadyInParen") : "")} onClick={() => answer({ kind: "action", choice: "wanted", mark: w.mark, hideout: w.hideout })}>
                     {where(w.mark, w.hideout, inThere)}
                   </Btn>
                 );
@@ -261,7 +264,7 @@ export function ActionPanel({
           )}
           {ask.wanted.length > 0 && (
             <div className="hint">
-              <Crew color={color(ask.wanted[0].leader)} size={14} /> {name(ask.wanted[0].leader)} leads. Hit their crew.
+              <Crew color={color(ask.wanted[0].leader)} size={14} /> {tr("act.leads", { name: name(ask.wanted[0].leader) })}
             </div>
           )}
         </div>
@@ -269,10 +272,10 @@ export function ActionPanel({
       break;
     }
     case "pickMark":
-      title = ask.why === "mastermind" ? "Mastermind: pick the Mark" : "Nobody's color. Pick the Mark";
+      title = ask.why === "mastermind" ? tr("act.pickMarkMastermind") : tr("act.pickMarkNobody");
       body = (
         <>
-          <div className="hint">Tap a rival at the table.</div>
+          <div className="hint">{tr("act.tapRival")}</div>
           <div className="btns wrap">
             {ask.rivals.map((r) => (
               <Btn key={r} onClick={() => answer({ kind: "pickMark", mark: r })}>
@@ -284,7 +287,7 @@ export function ActionPanel({
       );
       break;
     case "pickHideout":
-      title = `Pick ${name(ask.mark)}'s hideout to hit`;
+      title = tr("act.pickHideout", { name: name(ask.mark) });
       body = (
         <>
           <div className="btns hideout-picks">
@@ -294,15 +297,15 @@ export function ActionPanel({
               return (
                 <Btn key={i} kind="hideout-pick" onClick={() => answer({ kind: "pickHideout", hideout: i })}>
                   <span>
-                    Hideout {i + 1} · {h[ask.mark]} guard{h[ask.mark] === 1 ? "" : "s"}
+                    {tr("act.hideoutGuards", { h: i + 1, count: h[ask.mark] })}
                   </span>
                   <span className="hp-others">
                     {others.length === 0
-                      ? "no Footholds"
+                      ? tr("act.noFootholds")
                       : others.map(({ k, seat }) => (
                           <span key={seat} className="hp-other">
                             <Crew color={s.players[seat].color} size={14} />
-                            {seat === me ? "You" : s.players[seat].name}
+                            {seat === me ? tr("act.you") : s.players[seat].name}
                             {k > 1 ? ` ×${k}` : ""}
                           </span>
                         ))}
@@ -311,94 +314,94 @@ export function ActionPanel({
               );
             })}
           </div>
-          {s.players[ask.mark].hideouts.some((h) => h[me] > 0) && <div className="hint">Winning where you already have crew gets you no new Foothold.</div>}
+          {s.players[ask.mark].hideouts.some((h) => h[me] > 0) && <div className="hint">{tr("act.noNewFoothold")}</div>}
         </>
       );
       break;
     case "send":
-      title = "Send your crew";
+      title = tr("act.sendTitle");
       body = (
         <>
           {oddsLine}
           <div className="btns">
             <Stepper value={n} min={1} max={ask.max} onChange={setN} />
             <Btn kind="primary" onClick={() => answer({ kind: "send", count: n })}>
-              Send {n}
+              {tr("act.send", { n })}
             </Btn>
           </div>
           <div className="hint">
             {alreadyIn
-              ? "You already have a Foothold in this hideout, so a win adds none: all your crew come home. Lose and they all go to the Pen."
-              : "Win: 1 of your crew stays in this hideout as a Foothold and the rest come home. Lose: they all go to the Pen."}
+              ? tr("act.sendHintIn")
+              : tr("act.sendHint")}
           </div>
         </>
       );
       break;
     case "join":
-      title = "Join the job?";
+      title = tr("act.joinTitle");
       body = (
         <>
           {oddsLine}
-          {alreadyIn && <div className="already-in">You already have crew in this hideout. Backing the Boss can't win you a new Foothold here.</div>}
+          {alreadyIn && <div className="already-in">{tr("act.alreadyInJoin")}</div>}
           {ask.split ? (
             <div className="btns wrap">
-              <span className="lbl">Boss{alreadyIn ? " (you're already in)" : ""}</span>
+              <span className="lbl">{tr("act.boss")}{alreadyIn ? tr("act.alreadyInParen") : ""}</span>
               <Stepper value={n} min={0} max={ask.max - n2} onChange={setN} />
-              <span className="lbl">Mark</span>
+              <span className="lbl">{tr("act.mark")}</span>
               <Stepper value={n2} min={0} max={ask.max - n} onChange={setN2} />
               <Btn kind="primary" onClick={() => answer({ kind: "join", B: n, M: n2 })}>
-                Join
+                {tr("act.join")}
               </Btn>
               <Btn kind="ghost" onClick={() => answer({ kind: "join", B: 0, M: 0 })}>
-                Stay out
+                {tr("act.stayOut")}
               </Btn>
             </div>
           ) : (
             <div className="btns wrap">
               <Stepper value={n} min={1} max={ask.max} onChange={setN} />
               <Btn kind="gold" onClick={() => answer({ kind: "join", B: n, M: 0 })}>
-                Back the Boss{alreadyIn ? " (you're already in)" : ""}
+                {tr("act.backBoss")}{alreadyIn ? tr("act.alreadyInParen") : ""}
               </Btn>
               <Btn kind="danger" onClick={() => answer({ kind: "join", B: 0, M: n })}>
-                Defend the Mark
+                {tr("act.defendMark")}
               </Btn>
               <Btn kind="ghost" onClick={() => answer({ kind: "join", B: 0, M: 0 })}>
-                Stay out
+                {tr("act.stayOut")}
               </Btn>
             </div>
           )}
           <div className="hint">
             {alreadyIn
-              ? "Boss side wins: you already have a Foothold here, so your crew all come home. Mark holds: defenders bank a Cut."
-              : "Boss side wins: you leave 1 crew as a Foothold. Mark holds: defenders bank a Cut."}
+              ? tr("act.joinHintIn")
+              : tr("act.joinHint")}
           </div>
         </>
       );
       break;
     case "doubleCross":
-      title = "Play Double-Cross?";
+      title = tr("act.doubleTitle");
       body = (
         <div className="btns wrap">
           {ask.targets.map((t) => (
             <Btn key={t} kind="danger" onClick={() => answer({ kind: "doubleCross", target: t })}>
-              Flip {name(t)} to the other side
+              {tr("act.flip", { name: name(t) })}
             </Btn>
           ))}
           <Btn kind="ghost" onClick={() => answer({ kind: "doubleCross", target: null })}>
-            Hold it
+            {tr("act.holdIt")}
           </Btn>
         </div>
       );
       break;
     case "bet": {
-      title = "Side bet";
+      title = tr("act.betTitle");
       const pick = sel.length ? P.bank.find((c) => c.id === sel[0]) : P.bank.reduce((m, c) => (c.cash < m.cash ? c : m), P.bank[0]);
       body = (
         <>
           {oddsLine}
           <div className="pick-row">
             {P.bank.map((c) => (
-              <span key={c.id} className={"clickable" + (pick && pick.id === c.id ? " picked" : "")} {...pressable(() => setSel([c.id]), `Bet $${c.cash}`)}>
+              <span key={c.id} className={"clickable" + (pick && pick.id === c.id ? " picked" : "")} {...pressable(() => setSel([c.id]), tr("act.betAria", { n: c.cash }))}>
                 <CardFace card={c} size="xs" />
               </span>
             ))}
@@ -406,20 +409,20 @@ export function ActionPanel({
           <div className="btns">
             {(["B", "M"] as Side[]).map((sd) => (
               <Btn key={sd} kind={sd === "B" ? "gold" : "danger"} onClick={() => answer({ kind: "bet", side: sd, cardId: pick!.id })}>
-                ${pick?.cash} on the {sd === "B" ? "Boss" : "Mark"}
+                {tr(sd === "B" ? "act.betBoss" : "act.betMark", { n: pick?.cash })}
               </Btn>
             ))}
             <Btn kind="ghost" onClick={() => answer({ kind: "bet", side: null })}>
-              No bet
+              {tr("act.noBet")}
             </Btn>
           </div>
-          <div className="hint">Right: your card comes back and you bank the top Job card. Wrong: you lose it.</div>
+          <div className="hint">{tr("act.betHint")}</div>
         </>
       );
       break;
     }
     case "hackerCall":
-      title = "Hacker: call a number";
+      title = tr("act.hacker");
       body = (
         <div className="btns wrap">
           {ask.numbers.map((k) => (
@@ -431,16 +434,16 @@ export function ActionPanel({
       );
       break;
     case "showdown": {
-      title = ask.as === "bust" || ask.as === "rival" ? "Bust: lay a card face down" : "Showdown: lay a card face down";
+      title = ask.as === "bust" || ask.as === "rival" ? tr("act.showdownBust") : tr("act.showdown");
       const c = P.hand.find((x) => x.id === sel[0]);
       body = (
         <>
           {oddsLine}
-          {(ask.as === "bust" || ask.as === "rival") && <div className="hint">Card plus your crew in that hideout. A Fixer counts as 0 here.</div>}
-          {ask.as !== "bust" && ask.as !== "rival" && <div className="hint">Score vs Score: higher total wins, tie to the Mark. A Score beats a Fixer. Fixer vs Fixer: make a deal.</div>}
+          {(ask.as === "bust" || ask.as === "rival") && <div className="hint">{tr("act.bustHint")}</div>}
+          {ask.as !== "bust" && ask.as !== "rival" && <div className="hint">{tr("act.showdownHint")}</div>}
           <div className="btns">
             <Btn kind="primary big" disabled={!c} onClick={() => answer({ kind: "showdown", cardId: c!.id })}>
-              {c ? `Lay down ${cardLabel(c)}` : "Tap a Score or Fixer"}
+              {c ? tr("act.layDown", { card: cardName(c) }) : tr("act.tapFighter")}
             </Btn>
           </div>
         </>
@@ -448,7 +451,7 @@ export function ActionPanel({
       break;
     }
     case "forger":
-      title = "Forger: change your Score?";
+      title = tr("act.forger");
       body = (
         <div className="btns wrap">
           {ask.numbers.map((k) => (
@@ -457,86 +460,87 @@ export function ActionPanel({
             </Btn>
           ))}
           <Btn kind="ghost" onClick={() => answer({ kind: "forger", n: null })}>
-            Keep it
+            {tr("act.keepIt")}
           </Btn>
         </div>
       );
       break;
     case "backup":
-      title = "Play Backup (+3)?";
+      title = tr("act.backupTitle");
       body = (
         <>
           {j && (
             <div className="odds">
-              Boss <b>{j.bTotal}</b> vs Mark <b>{j.mTotal}</b> <span className="dim">(tie goes to the Mark)</span>
+              {tr("act.backupOdds", { b: j.bTotal, m: j.mTotal })} <span className="dim">{tr("act.tieMark")}</span>
             </div>
           )}
           <div className="btns">
             <Btn kind="gold" onClick={() => answer({ kind: "backup", side: "B" })}>
-              +3 Boss
+              {tr("act.plusBoss")}
             </Btn>
             <Btn kind="danger" onClick={() => answer({ kind: "backup", side: "M" })}>
-              +3 Mark
+              {tr("act.plusMark")}
             </Btn>
             <Btn kind="ghost" onClick={() => answer({ kind: "backup", side: null })}>
-              Hold
+              {tr("act.hold")}
             </Btn>
           </div>
         </>
       );
       break;
     case "dealOffer":
-      title = "Fixer vs Fixer: offer a deal";
+      title = tr("act.dealOfferTitle");
       body = (
         <>
           <div className="btns wrap">
             <Btn kind="primary" onClick={() => answer({ kind: "dealOffer", offer: "foothold" })}>
-              I pay $3, I leave 1 crew
+              {tr("act.dealFoothold")}
             </Btn>
-            <Btn onClick={() => answer({ kind: "dealOffer", offer: "walk" })}>We both walk away</Btn>
+            <Btn onClick={() => answer({ kind: "dealOffer", offer: "walk" })}>{tr("act.dealWalk")}</Btn>
             <Btn kind="ghost" onClick={() => answer({ kind: "dealOffer", offer: null })}>
-              No deal
+              {tr("act.noDeal")}
             </Btn>
           </div>
-          <div className="hint">No deal: you and the Mark each send 2 crew to the Pen.</div>
+          <div className="hint">{tr("act.noDealHint")}</div>
         </>
       );
       break;
     case "dealAccept":
-      title = `${j ? name(j.boss) : "The Boss"} offers a deal`;
+      title = tr("act.dealFrom", { name: j ? name(j.boss) : tr("act.theBoss") });
       body = (
         <>
-          <div className="odds">{ask.offer === "foothold" ? "They pay you $3 and leave 1 crew in your hideout." : "Everyone walks away. Nothing lost."}</div>
+          <div className="odds">{ask.offer === "foothold" ? tr("act.dealTermsFoothold") : tr("act.dealTermsWalk")}</div>
           <div className="btns">
             <Btn kind="primary" onClick={() => answer({ kind: "dealAccept", accept: true })}>
-              Deal
+              {tr("act.deal")}
             </Btn>
             <Btn kind="danger" onClick={() => answer({ kind: "dealAccept", accept: false })}>
-              No deal (2 crew each to the Pen)
+              {tr("act.noDealPen")}
             </Btn>
           </div>
         </>
       );
       break;
     case "again":
-      title = "You won. Hit again?";
+      title = tr("act.againTitle");
       body = (
         <div className="btns">
           <Btn kind="primary" onClick={() => answer({ kind: "again", again: true })}>
-            Hit again
+            {tr("act.hitAgain")}
           </Btn>
           <Btn kind="ghost" onClick={() => answer({ kind: "again", again: false })}>
-            End turn
+            {tr("act.endTurn")}
           </Btn>
         </div>
       );
       break;
     case "discard":
-      title = `Discard ${ask.count} (hand limit 7)`;
+      title = tr("act.discardTitle", { n: ask.count });
       body = (
         <div className="btns">
           <Btn kind="primary" disabled={sel.length !== ask.count} onClick={() => answer({ kind: "discard", cardIds: sel })}>
-            Discard {sel.length}/{ask.count}
+            {tr("act.discard", { n: sel.length, total: ask.count })}
+
           </Btn>
         </div>
       );

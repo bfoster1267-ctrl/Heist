@@ -6,7 +6,7 @@
 //   tSay(frame.say, frame.msg)           -> a line the engine or server sent as a key + values
 //   tEn(reward.label)                    -> English text from a package, matched back to its template
 //   num(1234), date(at, {...})           -> Intl formatting in the active language
-import { useSyncExternalStore } from "react";
+import { Fragment, createElement, useSyncExternalStore, type ReactNode } from "react";
 import { pick, fill, type Say, type SayVar } from "@heist/engine";
 import { getPrefs, setPrefs, subscribePrefs, type Lang } from "../prefs";
 import { en, packageKeys } from "./en";
@@ -94,6 +94,17 @@ export function t(key: TKey, vars?: Vars): string {
   const locale = getLocale();
   const tpl = lookup(key, vars, locale);
   return tpl === undefined ? key : fill(tpl, fmtVars(vars, locale));
+}
+
+/**
+ * `t` where some {slots} are React nodes (a bold number, a link): returns a list to render as children.
+ *   tNodes("act.odds", { b: <b>{3}</b>, m: <b>{5}</b> })
+ */
+export function tNodes(key: TKey, nodes: Record<string, ReactNode>, vars?: Vars): ReactNode[] {
+  const locale = getLocale();
+  const tpl = lookup(key, vars, locale) ?? key;
+  const text = fill(tpl, fmtVars(vars, locale));
+  return text.split(/\{(\w+)\}/g).map((part, i) => (i % 2 ? createElement(Fragment, { key: i }, nodes[part] ?? `{${part}}`) : part));
 }
 
 /** `t` for a key built at runtime (a stage number, an item id): falls back to `fallback` when it's unknown. */

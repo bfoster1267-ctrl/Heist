@@ -3,5 +3,7 @@ import app from "./app";
 import common from "./common";
 import lobby from "./lobby";
 import settings from "./settings";
+import table from "./table";
+import actions from "./actions";
 
-export const AREAS = [common, settings, app, lobby] as const;
+export const AREAS = [common, settings, app, lobby, table, actions] as const;

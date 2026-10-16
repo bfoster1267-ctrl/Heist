@@ -1,4 +1,4 @@
-import { stage, type Reward } from "@heist/profile";
+import { type Reward } from "@heist/profile";
 import { CREWS, type Answer, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -26,10 +26,12 @@ import { Rules } from "./Rules";
 import { Settings } from "./Settings";
 import { Showdown } from "./Showdown";
 import { TooltipLayer } from "./Tooltip";
+import { list, t as tr } from "../i18n";
+import { crewName, lessonName, stageName } from "../i18n/data";
 
 const CHIP_COLORS = ["#c8372d", "#2f78c4", "#1d1f24", "#3a9a4a", "#8a4fbf"];
 
-const STEPS = ["Regroup", "Hit", "Crew up", "Showdown", "Payoff"];
+const STEPS = ["step.0", "step.1", "step.2", "step.3", "step.4"] as const;
 const STEP_OF: Partial<Record<string, number>> = {
   ...Object.fromEntries(["turn", "draw", "penReturn", "fence", "bank", "hire", "stuck"].map((k) => [k, 0])),
   ...Object.fromEntries(["flip", "mark", "target", "bust"].map((k) => [k, 1])),
@@ -41,11 +43,11 @@ const STEP_OF: Partial<Record<string, number>> = {
 /** Where we are in the Boss's turn: whose turn, then the five steps with the current one lit. */
 function TurnSteps({ who, step }: { who: string; step: number }) {
   return (
-    <div className="turn-steps" data-tip={"The Boss's turn, in order\nRegroup: draw, bank, hire. Hit: pick the Mark. Crew up: everyone picks a side. Showdown: cards flip. Payoff: winners and losers settle."}>
+    <div className="turn-steps" data-tip={tr("table.stepsTip")}>
       <span className="turn-who">{who}</span>
       {STEPS.map((x, i) => (
         <span key={x} className={"turn-step" + (i === step ? " on" : i < step ? " done" : "")}>
-          {x}
+          {tr(x)}
         </span>
       ))}
     </div>
@@ -54,22 +56,10 @@ function TurnSteps({ who, step }: { who: string; step: number }) {
 
 /** Events that shake the table a little. */
 /** what the coach says after a move that isn't a mistake */
-const CHEERS = ["Good move.", "Nice, that works.", "Solid choice.", "You're getting the hang of it.", "Smart play."];
+const CHEERS = ["table.cheer1", "table.cheer2", "table.cheer3", "table.cheer4", "table.cheer5"] as const;
 /** what the waiting line says while the coach plays a decision the lesson hasn't handed you yet */
-const COACH_DOES: Partial<Record<string, string>> = {
-  bank: "banking for you",
-  hire: "hiring for you",
-  action: "picking this turn's move",
-  pickMark: "picking the Mark",
-  pickHideout: "picking the hideout",
-  send: "sending your crew",
-  join: "picking your side",
-  discard: "tidying your hand",
-  again: "deciding whether to go again",
-  bet: "handling the side bet",
-  doubleCross: "handling Double-Cross",
-  backup: "handling Backup",
-};
+const COACH_DOES = new Set(["bank", "hire", "action", "pickMark", "pickHideout", "send", "join", "discard", "again", "bet", "doubleCross", "backup"]);
+const coachDoes = (kind: string) => (COACH_DOES.has(kind) ? tr(`coachDoes.${kind}` as "coachDoes.bank") : tr("coachDoes.other"));
 const SHAKE = new Set(["doubleCross", "hacked", "bustResult"]);
 
 export function Table({
@@ -91,7 +81,7 @@ export function Table({
   clean = false,
   tags,
   onName,
-  place = "At the table",
+  place,
   turnRef,
   firstReward,
 }: {
@@ -190,7 +180,7 @@ export function Table({
     const st = t.shown?.state;
     if (!st?.players[d.seat]?.bot) return;
     // A bot raises the glass, and sometimes sends one back to you (not online, where others wouldn't see it).
-    window.setTimeout(() => chat.say(d.seat, isVault(d.emoji) ? "Now THAT'S a drink. 🏦" : Math.random() < 0.5 ? "Cheers! 🥂" : "🥂"), isVault(d.emoji) ? 1800 : 300);
+    window.setTimeout(() => chat.say(d.seat, isVault(d.emoji) ? tr("table.vaultBot") : Math.random() < 0.5 ? tr("table.cheersBot") : "🥂"), isVault(d.emoji) ? 1800 : 300);
     if (!talk && d.from === HUMAN && Math.random() < 0.35) {
       const back = DRINKS[Math.floor(Math.random() * DRINKS.length)].emoji;
       window.setTimeout(() => drinks.send(d.seat, HUMAN, back), 2200);
@@ -204,7 +194,7 @@ export function Table({
   const paid = useRef(false);
   const shake = useAnimationControls();
   useWakeLock(!t.shown?.state.winners);
-  useIsland(t.shown?.state.winners ? "Game over" : t.ask && !watching ? "Your turn" : watching ? "Watching" : "Heist", place);
+  useIsland(t.shown?.state.winners ? tr("island.over") : t.ask && !watching ? tr("island.yourTurn") : watching ? tr("island.watching") : "Heist", place ?? tr("island.atTable"));
 
   const s = t.shown?.state;
   if (turnRef && s) turnRef.current = s.turn;
@@ -325,18 +315,18 @@ export function Table({
     return () => window.clearTimeout(id);
   }, [t.shown?.key, L, scale, prefs.textSize, s?.n]);
 
-  if (!s) return <div className="loading">Shuffling…</div>;
+  if (!s) return <div className="loading">{tr("table.shuffling")}</div>;
   const ask = walk ? null : t.ask;
   const coached = !!settings.coached && !watching && !coachOff;
   const idea = coached && ask && !autoAsk ? ideaFor(settings.lesson, s, ask, taught) : undefined;
   /** Every answer from this seat goes through here, so Coached play can catch a mistake first. */
   const play = (a: Answer) => {
-    if (idea) setTaught((x) => [...x, idea.title]);
+    if (idea) setTaught((x) => [...x, idea.title]); // titles are ids here (English), never shown
     if (coached && ask) {
       const id = checkMove(s, ask, a);
       if (id) return setHeld({ a, id });
       const best = t.game ? coachPick(t.game, ask) : null;
-      setCheer(best && JSON.stringify(best) === JSON.stringify(a) ? "Nice! That's exactly what I'd play." : CHEERS[Math.floor(Math.random() * CHEERS.length)]);
+      setCheer(best && JSON.stringify(best) === JSON.stringify(a) ? tr("table.cheerBest") : tr(CHEERS[Math.floor(Math.random() * CHEERS.length)]));
     }
     setHeld(null);
     setSel([]);
@@ -381,66 +371,66 @@ export function Table({
               </AnimatePresence>
             </div>
             <div className="sr-only" aria-live="polite">
-              {t.ask ? `Your move. ${t.shown!.msg}` : t.shown!.msg}
+              {t.ask ? tr("table.yourMove", { msg: t.shown!.msg }) : t.shown!.msg}
             </div>
 
             <div className="topbar left">
-              <button className="icon-btn labeled" onClick={onExit} aria-label="Leave table" data-tip="Leave table">
-                ←<span className="ib-k">Lobby</span>
+              <button className="icon-btn labeled" onClick={onExit} aria-label={tr("table.leave")} data-tip={tr("table.leave")}>
+                ←<span className="ib-k">{tr("table.lobby")}</span>
               </button>
               <div className="topbar-info">
                 <span className="stakes">
-                  {settings.stage ? `Stage ${settings.stage}: ${stage(settings.stage)?.name}` : settings.coached ? (lesson(settings.lesson) ? `Lesson ${lessonNo(settings.lesson)}: ${lesson(settings.lesson)!.name}` : "Coached play") : `Stakes ${settings.stakes.toLocaleString()}`} · {s.rules.rounds === 1 ? "One hand" : `First to ${s.target}`}
+                  {settings.stage ? tr("table.stage", { n: settings.stage, name: stageName(settings.stage) }) : settings.coached ? (lesson(settings.lesson) ? tr("table.lesson", { n: lessonNo(settings.lesson), name: lessonName(settings.lesson) }) : tr("table.coachedPlay")) : tr("table.stakes", { n: settings.stakes })} · {s.rules.rounds === 1 ? tr("table.oneHand") : tr("table.firstTo", { n: s.target })}
                 </span>
-                {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? "Your turn" : `${s.players[s.boss].name}'s turn`} step={stepRef.current} />}
+                {s.phase !== "setup" && !s.winners && <TurnSteps who={s.boss === HUMAN ? tr("table.yourTurn") : tr("table.theirTurn", { name: s.players[s.boss].name })} step={stepRef.current} />}
               </div>
             </div>
-            <div className="topbar right" role="toolbar" aria-label="Table controls">
+            <div className="topbar right" role="toolbar" aria-label={tr("table.controls")}>
               <button
                 className="icon-btn labeled"
-                aria-label={`Game speed ${t.speed}x. Tap to change.`}
-                data-tip="Game speed (1, 2, 4)"
+                aria-label={tr("table.speedAria", { n: t.speed })}
+                data-tip={tr("table.speedTip")}
                 onClick={() => t.setSpeed(t.speed === 1 ? 2 : t.speed === 2 ? 4 : 1)}
               >
-                {t.speed}x<span className="ib-k">Speed</span>
+                {t.speed}x<span className="ib-k">{tr("table.speed")}</span>
               </button>
-              <button className="icon-btn labeled" onClick={t.skip} aria-label="Skip to my next decision" data-tip="Skip to my next decision (S)">
-                ⏭<span className="ib-k">Skip</span>
+              <button className="icon-btn labeled" onClick={t.skip} aria-label={tr("table.skipAria")} data-tip={tr("table.skipTip")}>
+                ⏭<span className="ib-k">{tr("table.skip")}</span>
               </button>
               {!watching && (
-                <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label="Emotes, chat and drinks" data-tip="Emotes, chat and drinks">
-                  💬<span className="ib-k">Chat</span>
+                <button className={"icon-btn labeled" + (showChat ? " on" : "")} aria-pressed={showChat} onClick={() => setShowChat(!showChat)} aria-label={tr("table.chatAria")} data-tip={tr("table.chatAria")}>
+                  💬<span className="ib-k">{tr("table.chat")}</span>
                 </button>
               )}
-              <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label="Game log" data-tip="Game log (L)">
-                ☰<span className="ib-k">Log</span>
+              <button className={"icon-btn labeled" + (showLog ? " on" : "")} aria-pressed={showLog} onClick={() => setShowLog(!showLog)} aria-label={tr("table.logAria")} data-tip={tr("table.logTip")}>
+                ☰<span className="ib-k">{tr("table.log")}</span>
               </button>
-              <button className={"icon-btn labeled" + (showRules ? " on" : "")} aria-pressed={showRules} onClick={() => setShowRules(!showRules)} aria-label="How to play" data-tip="How to play">
-                ?<span className="ib-k">Rules</span>
+              <button className={"icon-btn labeled" + (showRules ? " on" : "")} aria-pressed={showRules} onClick={() => setShowRules(!showRules)} aria-label={tr("table.rulesAria")} data-tip={tr("table.rulesAria")}>
+                ?<span className="ib-k">{tr("table.rules")}</span>
               </button>
-              <button className={"icon-btn labeled" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label="Settings" data-tip="Sound, motion and tips">
-                ⚙<span className="ib-k">Settings</span>
+              <button className={"icon-btn labeled" + (showSettings ? " on" : "")} aria-pressed={showSettings} onClick={() => setShowSettings(!showSettings)} aria-label={tr("table.settingsAria")} data-tip={tr("table.settingsTip")}>
+                ⚙<span className="ib-k">{tr("table.settings")}</span>
               </button>
             </div>
 
             {/* center: deck, discard, pen, pot */}
-            <div className="deck" data-anchor="deck" data-tip={`Job deck · ${s.deckCount} cards\nRun-outs: ${s.reshuffles} of 3. The third one is Last Call.`}>
+            <div className="deck" data-anchor="deck" data-tip={tr("table.deckTip", { n: s.deckCount, r: s.reshuffles })}>
               <CardBack size="sm" />
-              <span className="pile-label">JOBS {s.deckCount}</span>
+              <span className="pile-label">{tr("table.jobs", { n: s.deckCount })}</span>
               <span className="runouts">
                 {Array.from({ length: 3 }, (_, i) => (
                   <span key={i} className={"runout" + (i < s.reshuffles ? " on" : "")} />
                 ))}
               </span>
             </div>
-            <div className="discard" data-anchor="discard" data-tip={`Discard pile · ${s.discard.length} cards\nShuffled back in when the Job deck runs out.`}>
+            <div className="discard" data-anchor="discard" data-tip={tr("table.discardTip", { n: s.discard.length })}>
               {discardTop ? <TableCard card={discardTop} size="sm" /> : <div className="card card-sm card-slot" />}
-              <span className="pile-label">DISCARD {s.discard.length}</span>
+              <span className="pile-label">{tr("table.discard", { n: s.discard.length })}</span>
             </div>
-            <div className="pen" data-anchor="pen" data-tip="The Pen\nCrew who lost a fight. One comes home at the start of each of their owner's turns.">
-              <span className="pile-label">THE PEN</span>
+            <div className="pen" data-anchor="pen" data-tip={tr("table.penTip")}>
+              <span className="pile-label">{tr("table.pen")}</span>
               <div className="pen-crew">
-                {penCrew.length === 0 && <span className="dim small">empty</span>}
+                {penCrew.length === 0 && <span className="dim small">{tr("table.empty")}</span>}
                 {penCrew.map((p) => (
                   <span key={p.seat} className="pen-entry">
                     <Crew color={p.color} size={16} />
@@ -449,11 +439,11 @@ export function Table({
                 ))}
               </div>
             </div>
-            <div className="pot" data-anchor="pot" data-tip={`The pot · ${pot.toLocaleString()} play chips\nEveryone's buy-in. The winner takes it all.`}>
+            <div className="pot" data-anchor="pot" data-tip={tr("table.potTip", { n: pot })}>
               <Chips amount={potShown} counting />
-              <span className="pile-label">POT</span>
+              <span className="pile-label">{tr("table.pot")}</span>
             </div>
-            {s.lastCall && <div className="lastcall-badge">LAST CALL</div>}
+            {s.lastCall && <div className="lastcall-badge">{tr("table.lastCall")}</div>}
 
             <JobZone s={s} />
 
@@ -488,7 +478,7 @@ export function Table({
             {!wide && (
               <div className="my-bank" data-anchor={`bank-${HUMAN}`}>
                 <div className="area-label">
-                  BANK{" "}
+                  {tr("table.bank")}{" "}
                   <b>
                     <CountUp value={me.bank.reduce((a, c) => a + c.cash, 0)} prefix="$" />
                   </b>
@@ -500,7 +490,7 @@ export function Table({
                 </div>
               </div>
             )}
-            <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label="Your hand" aria-hidden={watching || undefined}>
+            <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label={tr("table.yourHand")} aria-hidden={watching || undefined}>
               {me.hand.map((c, i) => {
                 const n = me.hand.length;
                 const off = i - (n - 1) / 2;
@@ -567,7 +557,7 @@ export function Table({
                   <span />
                   <span />
                 </span>
-                {autoAsk ? `Coach: ${COACH_DOES[autoAsk.kind] ?? "playing this one for you"}` : `${s.players[actor].name}'s move`}
+                {autoAsk ? tr("table.coachSays", { what: coachDoes(autoAsk.kind) }) : tr("table.theirMove", { name: s.players[actor].name })}
               </div>
             )}
           </LayoutGroup>
@@ -585,8 +575,8 @@ export function Table({
               >
                 <CardFace card={flipShow} size="lg" />
                 <div className="flip-caption" style={{ color: CREWS[flipShow.color].hex }}>
-                  {CREWS[flipShow.color].name}
-                  <span className="dim">{s.players.some((p) => p.color === flipShow.color) ? "" : " · nobody here"}</span>
+                  {crewName(flipShow.color)}
+                  <span className="dim">{s.players.some((p) => p.color === flipShow.color) ? "" : tr("table.nobodyHere")}</span>
                 </div>
               </motion.div>
             )}
@@ -622,8 +612,8 @@ export function Table({
 
           <AnimatePresence>
             {showLog && (
-              <motion.div className="log" initial={{ x: 320 }} animate={{ x: 0 }} exit={{ x: 320 }} role="log" aria-label="Game log">
-                <div className="log-title">Game log</div>
+              <motion.div className="log" initial={{ x: 320 }} animate={{ x: 0 }} exit={{ x: 320 }} role="log" aria-label={tr("table.logAria")}>
+                <div className="log-title">{tr("table.logAria")}</div>
                 <div className="log-body">
                   {[...t.log].reverse().map((l) => (
                     <div key={l.key} className="log-line">
@@ -663,12 +653,12 @@ function RotateHint() {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
   return (
-    <div className="rotate-hint" role="dialog" aria-label="Turn your phone">
+    <div className="rotate-hint" role="dialog" aria-label={tr("table.turnPhone")}>
       <div className="rotate-phone" aria-hidden />
-      <div className="rotate-title">Turn your phone sideways</div>
-      <div className="dim">The table needs the room.</div>
+      <div className="rotate-title">{tr("table.turnSideways")}</div>
+      <div className="dim">{tr("table.needsRoom")}</div>
       <button className="btn ghost small" onClick={() => setDismissed(true)}>
-        Play upright anyway
+        {tr("table.upright")}
       </button>
     </div>
   );
@@ -702,7 +692,7 @@ function GameOver({
   pot,
   history,
   onAgain,
-  againLabel = "Deal again",
+  againLabel = tr("table.dealAgain"),
   forfeit,
   oneGame,
   firstHand,
@@ -740,12 +730,12 @@ function GameOver({
           ) : (
             <>
               <div id="go-title" className="modal-title gold">
-                {won ? "NICE HAND" : "THAT'S A HAND"}
+                {won ? tr("table.niceHand") : tr("table.thatsAHand")}
               </div>
-              <div className="modal-sub">That's how every turn goes: pick a target, send crew, fight. Next, a quick look around.</div>
+              <div className="modal-sub">{tr("table.firstHandText")}</div>
               <div className="btns center">
                 <button className="btn primary big" onClick={onExit} autoFocus>
-                  Show me around
+                  {tr("table.showAround")}
                 </button>
               </div>
             </>
@@ -762,15 +752,17 @@ function GameOver({
         {/* The result and the buttons come first, so nothing needs scrolling to leave or deal again. */}
         <div className="go-side">
           <div id="go-title" className={"modal-title" + (won ? " gold" : "")}>
-            {won ? "YOU PULLED IT OFF" : forfeit ? "YOU WALKED OUT" : "THE JOB'S OVER"}
+            {won ? tr("table.won") : forfeit ? tr("table.walked") : tr("table.over")}
           </div>
           <div className="modal-sub">
-            {s.winners!.map((w) => s.players[w].name).join(" & ")} win{s.winners!.length > 1 ? "" : "s"} {s.endReason === "last_call" ? "at Last Call" : `with ${s.target} Footholds`}
+            {s.endReason === "last_call"
+              ? tr("table.winLastCall", { count: s.winners!.length, names: list(s.winners!.map((w) => s.players[w].name)) })
+              : tr("table.winFootholds", { count: s.winners!.length, names: list(s.winners!.map((w) => s.players[w].name)), n: s.target })}
           </div>
-          {forfeit && <div className="modal-sub">You weren't at the table when it ended, so this game counts as abandoned and your buy-in is lost.</div>}
+          {forfeit && <div className="modal-sub">{tr("table.forfeit")}</div>}
           {won && (
             <div className="modal-pot">
-              <Chips amount={share} counting /> <span>added to your chips</span>
+              <Chips amount={share} counting /> <span>{tr("table.addedChips")}</span>
             </div>
           )}
           <div className="btns center">
@@ -780,11 +772,12 @@ function GameOver({
               </button>
             ) : oneGame ? null : (
               <button className="btn big" disabled>
-                Waiting for the host to deal
+                {tr("table.waitHost")}
               </button>
             )}
             <button className={oneGame ? "btn primary big" : "btn ghost"} onClick={onExit} autoFocus={oneGame}>
-              {oneGame ? "Back to the lobby" : "Lobby"}
+              {oneGame ? tr("table.backLobby") : tr("table.lobby")}
+
             </button>
           </div>
         </div>

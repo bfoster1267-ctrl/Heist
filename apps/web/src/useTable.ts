@@ -6,6 +6,7 @@ import { createSoloGame } from "@heist/profile";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { sfx, yourTurn } from "./sound";
 import { trackTurn } from "./track";
+import { tSay } from "./i18n";
 
 export const HUMAN = 0;
 
@@ -100,7 +101,7 @@ export function useTable(settings: TableSettings) {
   coached.current = !!settings.coached;
   const record = (f: Frame) => {
     if (f.ev.t === "turn") trackTurn(f.state.turn + 1, coached.current);
-    history.current.push({ turn: f.state.turn, ev: f.ev, msg: f.msg, fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
+    history.current.push({ turn: f.state.turn, ev: f.ev, msg: tSay(f.say, f.msg), fh: footholds(f.state), boss: f.state.job?.boss ?? f.state.boss, mark: f.state.job?.mark ?? null });
   };
 
   const pump = useCallback(() => {
@@ -128,10 +129,10 @@ export function useTable(settings: TableSettings) {
     const flightMs = flightHook.current ? flightHook.current(f.ev, before, after) : 0;
     sfx(f.ev, HUMAN, after);
     const apply = () => {
-      const s: Shown = { state: after, msg: f.msg, ev: f.ev, key: ++counter.current };
+      const s: Shown = { state: after, msg: tSay(f.say, f.msg), ev: f.ev, key: ++counter.current };
       shownRef.current = s;
       setShown(s);
-      setLog((l) => [...l.slice(-80), { msg: f.msg, key: s.key }]);
+      setLog((l) => [...l.slice(-80), { msg: tSay(f.say, f.msg), key: s.key }]);
     };
     if (flightMs > 0) {
       // remembered so Skip can drop it: a late apply would put an older frame back over the skipped-to one
@@ -203,7 +204,7 @@ export function useTable(settings: TableSettings) {
     r.queue.forEach(record);
     r.queue = [];
     if (last) {
-      const s: Shown = { state: viewFor(last.state, HUMAN), msg: last.msg, ev: last.ev, key: ++counter.current };
+      const s: Shown = { state: viewFor(last.state, HUMAN), msg: tSay(last.say, last.msg), ev: last.ev, key: ++counter.current };
       shownRef.current = s;
       setShown(s);
     } else pending?.();
