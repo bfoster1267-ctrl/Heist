@@ -165,6 +165,105 @@
 }
 
 /* --------------------------------------------------------------------------
+   Heist Multiplayer Bridge Banner
+   -------------------------------------------------------------------------- */
+.arcade-heist-bridge {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 14px 20px 4px;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, rgba(120, 32, 37, 0.45) 0%, rgba(26, 17, 30, 0.75) 50%, rgba(212, 175, 55, 0.12) 100%);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 235, 180, 0.2);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.arcade-heist-bridge:hover {
+  border-color: #d4af37;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.55), 0 0 24px rgba(212, 175, 55, 0.25);
+  background: linear-gradient(135deg, rgba(140, 38, 44, 0.55) 0%, rgba(32, 21, 38, 0.85) 50%, rgba(212, 175, 55, 0.2) 100%);
+}
+
+.arcade-heist-bridge-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.arcade-heist-bridge-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--cond, "Barlow Condensed", sans-serif);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #f5d77f;
+}
+
+.arcade-heist-bridge-title {
+  font-family: var(--title, "Bebas Neue", Impact, sans-serif);
+  font-size: 20px;
+  letter-spacing: 1px;
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+.arcade-heist-bridge-desc {
+  font-family: var(--cond, "Barlow Condensed", sans-serif);
+  font-size: 13px;
+  color: rgba(242, 232, 211, 0.8);
+  line-height: 1.25;
+}
+
+.arcade-heist-bridge-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #d4af37 0%, #aa820a 100%);
+  color: #121319;
+  border: 1px solid #f5d77f;
+  border-radius: 10px;
+  font-family: var(--cond, "Barlow Condensed", sans-serif);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 12px rgba(212, 175, 55, 0.35);
+  transition: all 0.16s ease;
+}
+
+.arcade-heist-bridge-btn:hover {
+  background: linear-gradient(135deg, #f5d77f 0%, #d4af37 100%);
+  transform: scale(1.03);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5), 0 0 20px rgba(212, 175, 55, 0.5);
+}
+
+@media (max-width: 600px) {
+  .arcade-heist-bridge {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    margin: 10px 14px 4px;
+    padding: 12px 14px;
+  }
+  .arcade-heist-bridge-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Filter Tabs & Search Bar
    -------------------------------------------------------------------------- */
 .arcade-controls-bar {

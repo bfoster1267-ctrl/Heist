@@ -5,6 +5,7 @@ import { shareUrl } from "../crazygames";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import { ChallengeBanner } from "../daily/ChallengeBanner";
+import { t } from "../i18n";
 import "./arcade.css";
 
 export type ArcadeGameId =
@@ -402,14 +403,14 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
           <div className="arcade-title-group">
             <div className="arcade-badge-row">
               <span className="arcade-pill-badge">
-                <span className="sparkle">✦</span> Heist Solo Arcade
+                <span className="sparkle">✦</span> {t("arcade.badge")}
               </span>
             </div>
             <h2 className="arcade-title">
-              CASINO <span>ARCADE HUB</span>
+              {t("arcade.title_prefix")} <span>{t("arcade.title_suffix")}</span>
             </h2>
             <p className="arcade-tagline">
-              {ARCADE_GAMES.length} single-player card games, roguelikes & logic puzzles. Instant action, anytime.
+              {t("arcade.tagline")}
             </p>
           </div>
           <button
@@ -419,9 +420,46 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               buzz("tap");
               onClose();
             }}
-            aria-label="Close Arcade Hub"
+            aria-label={t("common.close")}
           >
             ✕
+          </button>
+        </div>
+
+        {/* Bridge to Multiplayer Heist */}
+        <div
+          className="arcade-heist-bridge"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onClose();
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Enter Multiplayer Heist"
+        >
+          <div className="arcade-heist-bridge-left">
+            <div className="arcade-heist-bridge-badge">
+              <span className="sparkle">🃏</span> {t("arcade.bridge_badge")}
+            </div>
+            <div className="arcade-heist-bridge-title">
+              {t("arcade.bridge_title")}
+            </div>
+            <div className="arcade-heist-bridge-desc">
+              {t("arcade.bridge_desc")}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="arcade-heist-bridge-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              click();
+              buzz("tap");
+              onClose();
+            }}
+          >
+            {t("arcade.bridge_btn")}
           </button>
         </div>
 
@@ -444,7 +482,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "all"}
             >
-              All Games <span className="arcade-tab-count">{ARCADE_GAMES.length}</span>
+              {t("arcade.tab_all")} <span className="arcade-tab-count">{ARCADE_GAMES.length}</span>
             </button>
             <button
               className={`arcade-tab-btn ${tab === "solitaire" ? "active" : ""}`}
@@ -456,7 +494,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "solitaire"}
             >
-              Solitaire <span className="arcade-tab-count">{solitaireCount}</span>
+              {t("arcade.tab_solitaire")} <span className="arcade-tab-count">{solitaireCount}</span>
             </button>
             <button
               className={`arcade-tab-btn ${tab === "action" ? "active" : ""}`}
@@ -468,7 +506,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "action"}
             >
-              Roguelike & Fast Action <span className="arcade-tab-count">{actionCount}</span>
+              {t("arcade.tab_action")} <span className="arcade-tab-count">{actionCount}</span>
             </button>
             <button
               className={`arcade-tab-btn ${tab === "puzzle" ? "active" : ""}`}
@@ -480,7 +518,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "puzzle"}
             >
-              Logic Puzzles <span className="arcade-tab-count">{puzzleCount}</span>
+              {t("arcade.tab_puzzle")} <span className="arcade-tab-count">{puzzleCount}</span>
             </button>
           </div>
 
@@ -489,7 +527,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
             <input
               type="text"
               className="arcade-search-input"
-              placeholder="Filter by name or mechanic..."
+              placeholder={t("arcade.filter_placeholder")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Filter arcade games"

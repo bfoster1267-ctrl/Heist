@@ -14,6 +14,7 @@ import { REFILL_TO, STAKES } from "./wallet";
 import { ArcadeHub } from "./arcade/ArcadeHub";
 import { ChallengeBanner } from "./daily/ChallengeBanner";
 import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal";
+import { t, useLanguage } from "./i18n";
 
 const FLOAT_POS = [
   { left: "6%", top: "12%" },
@@ -133,6 +134,7 @@ export function Lobby({
   const [settings, setSettings] = useState(false);
   const [options, setOptions] = useState(false);
   const prefs = usePrefs();
+  const [lang, setLang] = useLanguage();
   // the table you picked last time, or the best one you can still afford
   const table = chips >= STAKES[stake].buyIn ? stake : Math.max(0, STAKES.filter((st) => chips >= st.buyIn).length - 1);
   const broke = chips < STAKES[0].buyIn;
@@ -179,8 +181,17 @@ export function Lobby({
           </motion.span>
         ))}
       </div>
-      <button className="lobby-gear" onClick={() => setSettings(true)} aria-label="Settings">
+      <button className="lobby-gear" onClick={() => setSettings(true)} aria-label={t("settings.title")}>
         ⚙
+      </button>
+      <button
+        className="lobby-lang-btn"
+        onClick={() => setLang(lang === "en" ? "pt-BR" : "en")}
+        aria-label="Alternar idioma / Switch language"
+        title={lang === "en" ? "Mudar para Português (Brasil)" : "Switch to English"}
+      >
+        <span className="lobby-lang-flag">{lang === "en" ? "🇧🇷" : "🇺🇸"}</span>
+        <span className="lobby-lang-code">{lang === "en" ? "PT" : "EN"}</span>
       </button>
       <div className="logo lobby-topname" aria-hidden="true">
         HEIST
@@ -197,17 +208,17 @@ export function Lobby({
                 onClick={() => setGames(true)}
                 style={{ background: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)", marginBottom: "0.6rem" }}
               >
-                🃏 Play Solo Arcade &amp; Daily Deals
-                <span className="lobby-sub">Klondike Solitaire, FreeCell, Spider &amp; more. Instant play.</span>
+                {t("lobby.play_solo_hub")}
+                <span className="lobby-sub">{t("lobby.play_solo_hub_sub")}</span>
               </button>
 
               <button className="btn lobby-big" onClick={coach}>
-                🕵️ Learn Multiplayer Heist
-                <span className="lobby-sub">3-6 player bluffing game. One quick coached hand. Free.</span>
+                {t("lobby.learn_heist")}
+                <span className="lobby-sub">{t("lobby.learn_heist_sub")}</span>
               </button>
               {onSignIn && (
                 <button className="lobby-change" onClick={onSignIn}>
-                  I already have an account
+                  {t("lobby.have_account")}
                 </button>
               )}
             </>
@@ -215,19 +226,19 @@ export function Lobby({
             <>
         {broke ? (
           <button className="btn primary lobby-big" onClick={onRefill}>
-            Free chips
-            <span className="lobby-sub">Top up to {REFILL_TO.toLocaleString()} and play</span>
+            {t("lobby.free_chips")}
+            <span className="lobby-sub">{t("lobby.top_up")} ({REFILL_TO.toLocaleString()})</span>
           </button>
         ) : (
           <button className={"btn lobby-big" + (newbie ? "" : " primary")} onClick={() => go(table)}>
-            Quick Play
+            {t("lobby.quick_play")}
             <span className="lobby-sub">
-              {players} players · {STAKES[table].name} · buy-in {STAKES[table].buyIn.toLocaleString()}
+              {players} {t("table.players").toLowerCase()} · {STAKES[table].name} · {t("table.buy_in").toLowerCase()} {STAKES[table].buyIn.toLocaleString()}
             </span>
           </button>
         )}
         <button className="lobby-change" onClick={() => setOptions(true)}>
-          Change table
+          {t("lobby.change_table")}
         </button>
             </>
           )}
@@ -240,23 +251,23 @@ export function Lobby({
         )}
 
         <div className="lobby-modes">
-          <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
+          <Mode icon="online" label={t("lobby.play_online")} sub={newbie ? t("lobby.first_lesson_sub") : t("lobby.real_people")} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onCheckers || onMinesweeper || onSudoku) && (
             <Mode
               icon="cards"
-              label="Solo Arcade"
-              sub="11 Games · Solitaire, Checkers & Puzzles"
+              label={t("lobby.solo_arcade")}
+              sub={`11 ${t("arcade.tab_all")} · ${t("lobby.arcade_sub")}`}
               onClick={() => setGames(true)}
             />
           )}
-          <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
-          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
+          <Mode icon="map" label={t("lobby.campaign")} sub={newbie ? t("lobby.first_lesson_sub") : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
+          <Mode icon="book" label={t("lobby.how_to_play")} sub={newbie ? t("lobby.the_rules") : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : t("lobby.coach_rules")} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
         <InstallHint />
         <div className="fine">
-          Play money only ·{" "}
+          {t("lobby.play_money")} ·{" "}
           <a className="lobby-privacy" href="./privacy.html" target="_blank" rel="noreferrer">
-            Privacy
+            {t("lobby.privacy")}
           </a>
         </div>
       </motion.div>

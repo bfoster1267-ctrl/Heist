@@ -3526,6 +3526,38 @@ button:disabled {
   font-size: 28px;
   line-height: 1;
 }
+.lobby-lang-btn {
+  position: fixed;
+  z-index: 20;
+  top: calc(12px + env(safe-area-inset-top));
+  left: calc(70px + env(safe-area-inset-left));
+  height: 52px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(14, 16, 20, 0.92);
+  color: var(--paper);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--cond, "Barlow Condensed", sans-serif);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.lobby-lang-btn:hover {
+  border-color: var(--gold, #d4af37);
+  background: rgba(26, 28, 36, 0.96);
+  transform: translateY(-1px);
+}
+.lobby-lang-flag {
+  font-size: 18px;
+}
+.lobby-lang-code {
+  color: #f5d77f;
+}
 .lobby-sheet-back {
   position: fixed;
   inset: 0;
@@ -3660,6 +3692,12 @@ button:disabled {
     width: 44px;
     height: 44px;
     font-size: 24px;
+  }
+  .lobby-lang-btn {
+    left: calc(60px + env(safe-area-inset-left));
+    height: 44px;
+    padding: 0 9px;
+    font-size: 13px;
   }
   .lobby-sheet {
     gap: 10px;

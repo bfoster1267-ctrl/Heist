@@ -5,9 +5,11 @@ import { useState } from "react";
 import { setPrefs, usePrefs, type MotionPref } from "../prefs";
 import { chip, getMusicVolume, getVolume, isMuted, setMusicVolume, setMuted, setVolume } from "../sound";
 import { turnOffAlerts, turnOnAlerts, useAlertState } from "../alerts";
+import { t, useLanguage } from "../i18n";
 
 export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () => void }) {
   const prefs = usePrefs();
+  const [lang, setLang] = useLanguage();
   const [muted, setMute] = useState(isMuted());
   const [vol, setVol] = useState(getVolume());
   const [music, setMusic] = useState(getMusicVolume());
@@ -15,10 +17,32 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
   return (
     <motion.div className="settings" role="dialog" aria-label="Settings" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
       <div className="settings-head">
-        <span>Settings</span>
+        <span>{t("settings.title")}</span>
         <button className="icon-btn" onClick={onClose} aria-label="Close settings">
           ✕
         </button>
+      </div>
+
+      <div className="set-row">
+        <span>{t("settings.language")}</span>
+        <div className="seg small" role="radiogroup" aria-label="Language">
+          <button
+            role="radio"
+            aria-checked={lang === "en"}
+            className={lang === "en" ? "on" : ""}
+            onClick={() => setLang("en")}
+          >
+            🇺🇸 English
+          </button>
+          <button
+            role="radio"
+            aria-checked={lang === "pt-BR"}
+            className={lang === "pt-BR" ? "on" : ""}
+            onClick={() => setLang("pt-BR")}
+          >
+            🇧🇷 Português
+          </button>
+        </div>
       </div>
 
       <label className="set-row">
