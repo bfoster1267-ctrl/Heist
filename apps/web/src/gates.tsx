@@ -4,6 +4,7 @@
 // (see turn.ts), since Reddit's browser never rotates.
 import { useState } from "react";
 import { isIOS } from "./appShell";
+import { t } from "./i18n";
 
 /** The in-app browser Heist was opened in, or null for a real browser. */
 export function inAppBrowser(ua = navigator.userAgent): string | null {
@@ -43,26 +44,26 @@ export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => 
   // Android: an intent link hands the page to Chrome (or the default browser) straight from the app
   const intent = `intent://${location.host}${location.pathname}${location.search}#Intent;scheme=https;S.browser_fallback_url=${encodeURIComponent(url)};end`;
   return (
-    <div className="inapp" role="dialog" aria-label="Open Heist in your browser">
+    <div className="inapp" role="dialog" aria-label={t("gate.aria")}>
       <div className="logo">HEIST</div>
-      <div className="gate-title">Open in your browser</div>
-      <div className="gate-text">{app}'s built-in browser can't run Heist properly. It takes two taps to fix:</div>
+      <div className="gate-title">{t("gate.title")}</div>
+      <div className="gate-text">{t("gate.text", { app })}</div>
       {android ? (
         <a className="btn primary" href={intent}>
-          Open in Chrome
+          {t("gate.chrome")}
         </a>
       ) : (
         <ol className="inapp-steps">
           <li>
-            Tap <b>•••</b> {isIOS() ? "or the Share button " : ""}in the {app} corner.
+            {t("gate.tap")} <b>•••</b> {isIOS() ? t("gate.cornerShare", { app }) : t("gate.corner", { app })}
           </li>
           <li>
-            Pick <b>{isIOS() ? "Open in Safari" : "Open in browser"}</b>.
+            {t("gate.pick")} <b>{isIOS() ? t("gate.safari") : t("gate.browser")}</b>.
           </li>
         </ol>
       )}
       <button className="btn" onClick={copy}>
-        {copied ? "Link copied. Paste it in your browser" : "Copy the link"}
+        {copied ? t("gate.copied") : t("gate.copy")}
       </button>
       <button
         className="inapp-anyway"
@@ -75,7 +76,8 @@ export function OpenInBrowser({ app, onAnyway }: { app: string; onAnyway: () => 
           onAnyway();
         }}
       >
-        Already in your browser? Continue
+        {t("gate.anyway")}
+
       </button>
     </div>
   );

@@ -27,6 +27,7 @@ import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
+import { t, tEn } from "./i18n";
 
 export function App() {
   return (
@@ -531,22 +532,22 @@ function Game() {
   if (suspended)
     return (
       <div className="loading loading-failed">
-        <div>Account suspended</div>
-        <p>{suspended}</p>
-        <p>If you think this is a mistake, email support@playheist.net.</p>
+        <div>{t("app.suspended")}</div>
+        <p>{tEn(suspended)}</p>
+        <p>{t("app.suspendedHelp")}</p>
       </div>
     );
   if (!me)
     return failed ? (
       <div className="loading loading-failed">
-        <div>Can't reach the vault</div>
-        <p>The game server didn't answer, maybe it's restarting. Your account and chips are safe, and this page reconnects by itself when it's back.</p>
+        <div>{t("app.offline")}</div>
+        <p>{t("app.offlineText")}</p>
         <button className="btn primary big" onClick={() => location.reload()}>
-          Try again
+          {t("app.tryAgain")}
         </button>
       </div>
     ) : (
-      <div className="loading">Opening the vault…</div>
+      <div className="loading">{t("app.opening")}</div>
     );
   const chips = me.progress.chips;
   // free packs from the season pass waiting to be opened: a dot on the player card leads to them
@@ -863,7 +864,7 @@ function Game() {
           onGameOver={gameOver}
           buyDrink={buyDrink}
           mistakes={me.progress.mistakes}
-          place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
+          place={table.coached ? t("app.learning") : table.stage ? t("app.campaignStage", { n: table.stage }) : t("app.vsBots", { n: table.players })}
           turnRef={turnRef}
           firstReward={table.lesson === FIRST_HAND ? firstReward : null}
           onAgain={() => {
@@ -910,7 +911,7 @@ function Game() {
       </AnimatePresence>
       {profile && !table && tour === "next" && (
         <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
-          Keep going →
+          {t("app.keepGoing")}
         </button>
       )}
       <Rewards onSave={() => setProfile("account")} />
@@ -918,8 +919,9 @@ function Game() {
       <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
-          {error}
+          {tEn(error)}
         </div>
+
       )}
     </>
   );

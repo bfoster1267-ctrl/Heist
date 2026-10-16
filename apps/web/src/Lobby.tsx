@@ -1,7 +1,7 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt, type Progress } from "@heist/profile";
+import { LESSONS, STAGES, lessonNo, passTrack, seasonAt, type Progress } from "@heist/profile";
 import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
 import { Rules } from "./table/Rules";
@@ -13,6 +13,8 @@ import { REFILL_TO, STAKES } from "./wallet";
 import { ArcadeHub } from "./arcade/ArcadeHub";
 import { ChallengeBanner } from "./daily/ChallengeBanner";
 import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal";
+import { num, t } from "./i18n";
+import { cosName, lessonName } from "./i18n/data";
 
 const FLOAT_POS = [
   { left: "6%", top: "12%" },
@@ -169,7 +171,7 @@ export function Lobby({
           </motion.span>
         ))}
       </div>
-      <button className="lobby-gear" onClick={() => setSettings(true)} aria-label="Settings">
+      <button className="lobby-gear" onClick={() => setSettings(true)} aria-label={t("lobby.settings")}>
         ⚙
       </button>
       <div className="logo lobby-topname" aria-hidden="true">
@@ -187,17 +189,17 @@ export function Lobby({
                 onClick={() => setGames(true)}
                 style={{ background: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)", marginBottom: "0.6rem" }}
               >
-                🃏 Play Solo Arcade &amp; Daily Deals
-                <span className="lobby-sub">Klondike Solitaire, FreeCell, Spider &amp; more. Instant play.</span>
+                {t("lobby.arcadeBig")}
+                <span className="lobby-sub">{t("lobby.arcadeBigSub")}</span>
               </button>
 
               <button className="btn lobby-big" onClick={coach}>
-                🕵️ Learn Multiplayer Heist
-                <span className="lobby-sub">3-6 player bluffing game. One quick coached hand. Free.</span>
+                {t("lobby.learnBig")}
+                <span className="lobby-sub">{t("lobby.learnBigSub")}</span>
               </button>
               {onSignIn && (
                 <button className="lobby-change" onClick={onSignIn}>
-                  I already have an account
+                  {t("lobby.haveAccount")}
                 </button>
               )}
             </>
@@ -205,19 +207,17 @@ export function Lobby({
             <>
         {broke ? (
           <button className="btn primary lobby-big" onClick={onRefill}>
-            Free chips
-            <span className="lobby-sub">Top up to {REFILL_TO.toLocaleString()} and play</span>
+            {t("lobby.freeChips")}
+            <span className="lobby-sub">{t("lobby.topUp", { n: REFILL_TO })}</span>
           </button>
         ) : (
           <button className={"btn lobby-big" + (newbie ? "" : " primary")} onClick={() => go(table)}>
-            Quick Play
-            <span className="lobby-sub">
-              {players} players · {STAKES[table].name} · buy-in {STAKES[table].buyIn.toLocaleString()}
-            </span>
+            {t("lobby.quickPlay")}
+            <span className="lobby-sub">{t("lobby.quickSub", { players, table: STAKES[table].name, buyIn: STAKES[table].buyIn })}</span>
           </button>
         )}
         <button className="lobby-change" onClick={() => setOptions(true)}>
-          Change table
+          {t("lobby.changeTable")}
         </button>
             </>
           )}
@@ -230,36 +230,36 @@ export function Lobby({
         )}
 
         <div className="lobby-modes">
-          <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
+          <Mode icon="online" label={t("lobby.online")} sub={newbie ? t("lobby.afterLesson") : t("lobby.realPeople")} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel) && (
             <Mode
               icon="cards"
-              label="Solo Arcade"
-              sub="8 Card Games · Solitaire & Roguelike"
+              label={t("lobby.arcade")}
+              sub={t("lobby.arcadeSub")}
               onClick={() => setGames(true)}
             />
           )}
-          <Mode icon="map" label="Campaign" sub={newbie ? "After your first lesson" : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
-          <Mode icon="book" label="How to play" sub={newbie ? "The rules" : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : "Coach game or the rules"} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
+          <Mode icon="map" label={t("lobby.campaign")} sub={newbie ? t("lobby.afterLesson") : t("lobby.stages", { n: Math.min(cleared, STAGES.length), total: STAGES.length })} disabled={newbie} onClick={() => setCamp(true)} />
+          <Mode icon="book" label={t("lobby.howTo")} sub={newbie ? t("lobby.theRules") : nextLesson ? t("lobby.lessonNext", { n: lessonNo(nextLesson), total: LESSONS.length }) : t("lobby.coachOrRules")} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
         <InstallHint />
         <div className="fine">
-          Play money only ·{" "}
+          {t("lobby.playMoney")} ·{" "}
           <a className="lobby-privacy" href="./privacy.html" target="_blank" rel="noreferrer">
-            Privacy
+            {t("lobby.privacy")}
           </a>
         </div>
       </motion.div>
 
       <AnimatePresence>
         {options && (
-          <Sheet title="Your table" onClose={() => setOptions(false)}>
+          <Sheet title={t("lobby.yourTable")} onClose={() => setOptions(false)}>
             <label className="field">
-              <span>Your name</span>
+              <span>{t("lobby.yourName")}</span>
               <input value={name} maxLength={14} placeholder="Ace" onChange={(e) => setName(e.target.value)} />
             </label>
             <div className="field">
-              <span>Players</span>
+              <span>{t("lobby.players")}</span>
               <div className="seg">
                 {[3, 4, 5, 6].map((n) => (
                   <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
@@ -269,20 +269,20 @@ export function Lobby({
               </div>
             </div>
             <div className="field">
-              <span>Table</span>
+              <span>{t("lobby.table")}</span>
               <div className="stakes-grid">
                 {STAKES.map((st, i) => (
                   <button key={st.name} className={"stake" + (table === i ? " on" : "")} disabled={chips < st.buyIn} onClick={() => setStake(i)}>
                     <span className="stake-name">{st.name}</span>
-                    <span className="stake-buy">Buy-in {st.buyIn.toLocaleString()}</span>
-                    <span className="stake-pot">Pot {(st.buyIn * players).toLocaleString()}</span>
+                    <span className="stake-buy">{t("lobby.buyIn", { n: st.buyIn })}</span>
+                    <span className="stake-pot">{t("lobby.pot", { n: st.buyIn * players })}</span>
                   </button>
                 ))}
               </div>
             </div>
             {chips < REFILL_TO && !broke && (
               <button className="btn ghost" onClick={onRefill}>
-                Free refill to {REFILL_TO.toLocaleString()} chips
+                {t("lobby.refill", { n: REFILL_TO })}
               </button>
             )}
             <button
@@ -293,7 +293,7 @@ export function Lobby({
                 go(table);
               }}
             >
-              Deal me in
+              {t("lobby.dealIn")}
             </button>
           </Sheet>
         )}
@@ -351,7 +351,7 @@ export function Lobby({
       <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
       <AnimatePresence>
         {learn && (
-          <Sheet title="How to play" onClose={() => setLearn(false)}>
+          <Sheet title={t("lobby.howTo")} onClose={() => setLearn(false)}>
             <button
               className="btn primary lobby-big"
               onClick={() => {
@@ -359,8 +359,8 @@ export function Lobby({
                 coach();
               }}
             >
-              Play with a coach
-              <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A short game with tips on every move. Free."}</span>
+              {t("lobby.playCoach")}
+              <span className="lobby-sub">{nextLesson ? t("lobby.lessonLine", { n: lessonNo(nextLesson), total: LESSONS.length, name: lessonName(nextLesson) }) : t("lobby.shortCoachGame")}</span>
             </button>
             <button
               className="btn lobby-big"
@@ -369,7 +369,7 @@ export function Lobby({
                 setRules(true);
               }}
             >
-              Read the rules
+              {t("lobby.readRules")}
             </button>
           </Sheet>
         )}
@@ -424,14 +424,14 @@ function TourSpot({ onTap }: { onTap: () => void }) {
   const pad = 6;
   const below = r ? r.top < window.innerHeight / 2 : false;
   return createPortal(
-    <motion.div className="tour" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="Your stuff">
+    <motion.div className="tour" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label={t("lobby.yourStuff")}>
       {r && (
         <button
           className="tour-hole"
           data-track="tour-profile"
           style={{ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 }}
           onClick={onTap}
-          aria-label="Open your profile"
+          aria-label={t("lobby.openProfile")}
         />
       )}
       <motion.div
@@ -440,8 +440,8 @@ function TourSpot({ onTap }: { onTap: () => void }) {
         animate={{ y: 0, opacity: 1 }}
         style={r ? (below ? { top: r.bottom + 18 } : { bottom: window.innerHeight - r.top + 18 }) : undefined}
       >
-        <b>Your stuff lives here</b>
-        <span>The Season pass, your look, the shop and your stats. Tap your card to see the prize at the top of the pass.</span>
+        <b>{t("lobby.stuffHere")}</b>
+        <span>{t("lobby.stuffHereText")}</span>
       </motion.div>
     </motion.div>,
     document.body,
@@ -452,30 +452,30 @@ function TourSpot({ onTap }: { onTap: () => void }) {
 function firstPrize() {
   const s = seasonAt(Date.now());
   const first = s && passTrack(s)[0];
-  return first && first.kind === "item" ? cosmetic(first.id)?.name : undefined;
+  return first && first.kind === "item" ? cosName(first.id) : undefined;
 }
 
 /** The tour's last stop: more lessons with the coach, saving a guest's progress, or the lobby. */
 function TourNext({ nextLesson, onCoach, onSave, onLobby }: { nextLesson?: number; onCoach: () => void; onSave?: () => void; onLobby: () => void }) {
   const prize = firstPrize();
   return createPortal(
-    <motion.div className="welcome tour-next" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="What's next">
+    <motion.div className="welcome tour-next" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label={t("lobby.whatsNext")}>
       <div className="logo">HEIST</div>
-      <p className="welcome-q">You're all set. What's next?</p>
+      <p className="welcome-q">{t("lobby.allSet")}</p>
       <div className="welcome-choices">
         <button className="btn primary lobby-big" data-track="tour-coach" onClick={onCoach}>
-          Continue coaching
-          <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A game with tips on every move. Free."}</span>
+          {t("lobby.continueCoaching")}
+          <span className="lobby-sub">{nextLesson ? t("lobby.lessonLine", { n: lessonNo(nextLesson), total: LESSONS.length, name: lessonName(nextLesson) }) : t("lobby.coachGame")}</span>
         </button>
         {onSave && (
           <button className="btn lobby-big" data-track="tour-save" onClick={onSave}>
-            Save your progress
-            <span className="lobby-sub">{prize ? `Free. Keeps your XP and the ${prize} you just won.` : "Free. Keeps your XP and everything you've won."}</span>
+            {t("lobby.saveProgress")}
+            <span className="lobby-sub">{prize ? t("lobby.saveKeepsPrize", { prize }) : t("lobby.saveKeeps")}</span>
           </button>
         )}
       </div>
       <button className="lobby-change" data-track="tour-lobby" onClick={onLobby}>
-        Go to lobby
+        {t("lobby.goLobby")}
       </button>
     </motion.div>,
     document.body,
@@ -568,7 +568,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
       <motion.div className="lobby-sheet" role="dialog" aria-label={title} initial={{ y: 30 }} animate={{ y: 0 }} onClick={(e) => e.stopPropagation()}>
         <div className="lobby-sheet-head">
           <span>{title}</span>
-          <button className="x" onClick={onClose} aria-label="Close">
+          <button className="x" onClick={onClose} aria-label={t("lobby.close")}>
             ✕
           </button>
         </div>
@@ -605,7 +605,7 @@ function InstallHint() {
     <>
       <div className="install" role="note" onClick={() => setModalOpen(true)} style={{ cursor: "pointer" }}>
         <span>
-          <b>📱 Looks like you're playing on a mobile device!</b> Tap to install Heist for full-screen play.
+          <b>{t("lobby.mobile")}</b> {t("lobby.mobileText")}
         </span>
         <button
           type="button"
@@ -616,7 +616,7 @@ function InstallHint() {
           }}
           style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
         >
-          How to Install ➔
+          {t("lobby.howInstall")}
         </button>
         <button
           className="x"
@@ -624,7 +624,8 @@ function InstallHint() {
             e.stopPropagation();
             close();
           }}
-          aria-label="Hide"
+          aria-label={t("lobby.hide")}
+
         >
           ✕
         </button>
