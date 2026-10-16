@@ -1,13 +1,14 @@
 import type { Card, RoleId } from "./types";
+import { ENGINE_TEXT as T, type Say } from "./text";
 
 /** Six crews, each with a color and a shape (for color-blind players). Matches the printed cards. */
 export const CREWS = [
-  { id: "red", name: "Embers", hex: "#d6452b", shape: "circle" },
-  { id: "blue", name: "Tidewater", hex: "#2f78c4", shape: "square" },
-  { id: "green", name: "Verdant", hex: "#3a9a4a", shape: "triangle" },
-  { id: "yellow", name: "Gilded", hex: "#e2b928", shape: "diamond" },
-  { id: "purple", name: "Velvet", hex: "#8a4fbf", shape: "star" },
-  { id: "orange", name: "Rust", hex: "#ee8a2a", shape: "hexagon" },
+  { id: "red", name: T["crew.red"], hex: "#d6452b", shape: "circle" },
+  { id: "blue", name: T["crew.blue"], hex: "#2f78c4", shape: "square" },
+  { id: "green", name: T["crew.green"], hex: "#3a9a4a", shape: "triangle" },
+  { id: "yellow", name: T["crew.yellow"], hex: "#e2b928", shape: "diamond" },
+  { id: "purple", name: T["crew.purple"], hex: "#8a4fbf", shape: "star" },
+  { id: "orange", name: T["crew.orange"], hex: "#ee8a2a", shape: "hexagon" },
 ] as const;
 
 /** Score values in the 64-card v3 Job deck (44 Score cards). */
@@ -40,34 +41,30 @@ export function makeJobDeck(): Card[] {
 }
 
 export const ROLES: { id: RoleId; name: string; text: string }[] = [
-  { id: "muscle", name: "The Muscle", text: "As Boss or Mark: +1." },
-  { id: "getaway", name: "The Getaway Driver", text: "Take 2 crew out of the Pen each turn, not 1." },
-  { id: "safecracker", name: "The Safecracker", text: "Win as Boss: loot is $6, and the Mark sends 2 crew from another hideout to the Pen." },
-  { id: "mastermind", name: "The Mastermind", text: "As Boss, skip the flip and pick the Mark. Their home turf is only +2." },
-  { id: "forger", name: "The Forger", text: "Once per game, after the reveal: change your Score card to any number in the discard pile." },
-  { id: "pickpocket", name: "The Pickpocket", text: "Whenever loot is paid, bank the top Job card." },
-  { id: "inside_man", name: "The Inside Man", text: "Join both sides. Split your crew. Collect from the side that wins." },
-  { id: "bookie", name: "The Bookie", text: "Lost bets go to you. When a job you're not in ends, bank the top Job card." },
-  { id: "hacker", name: "The Hacker", text: "Boss or Mark only: before cards are picked, call a number. If your opponent's card shows it, you win outright." },
-  { id: "lookout", name: "The Lookout", text: "As Mark: +4." },
-  { id: "fence", name: "The Fence", text: "Once per turn: pay $2, take any card from the discard pile." },
-  { id: "double_agent", name: "The Double Agent", text: "Ally on the losing side? Switch at the reveal: your crew go home." },
-  { id: "wildcard", name: "The Wildcard", text: "Once per game, swap your Role with another player's." },
+  { id: "muscle", name: T["role.muscle.name"], text: T["role.muscle.text"] },
+  { id: "getaway", name: T["role.getaway.name"], text: T["role.getaway.text"] },
+  { id: "safecracker", name: T["role.safecracker.name"], text: T["role.safecracker.text"] },
+  { id: "mastermind", name: T["role.mastermind.name"], text: T["role.mastermind.text"] },
+  { id: "forger", name: T["role.forger.name"], text: T["role.forger.text"] },
+  { id: "pickpocket", name: T["role.pickpocket.name"], text: T["role.pickpocket.text"] },
+  { id: "inside_man", name: T["role.inside_man.name"], text: T["role.inside_man.text"] },
+  { id: "bookie", name: T["role.bookie.name"], text: T["role.bookie.text"] },
+  { id: "hacker", name: T["role.hacker.name"], text: T["role.hacker.text"] },
+  { id: "lookout", name: T["role.lookout.name"], text: T["role.lookout.text"] },
+  { id: "fence", name: T["role.fence.name"], text: T["role.fence.text"] },
+  { id: "double_agent", name: T["role.double_agent.name"], text: T["role.double_agent.text"] },
+  { id: "wildcard", name: T["role.wildcard.name"], text: T["role.wildcard.text"] },
 ];
 
-export const roleName = (r: RoleId | null) => (r ? ROLES.find((x) => x.id === r)!.name : "No role");
+export const roleName = (r: RoleId | null) => (r ? ROLES.find((x) => x.id === r)!.name : T["role.none"]);
+/** A Role's name as a Say, for text that gets translated. */
+export const roleSay = (r: RoleId | null): Say => ({ k: r ? `role.${r}.name` : "role.none" });
+
+/** A card's name as a Say ("Score 12", "Fixer"), for text that gets translated. */
+export const cardSay = (c: Card): Say => (c.kind === "S" ? { k: "card.S", v: { n: c.score } } : { k: `card.${c.kind}` });
 
 export function cardLabel(c: Card): string {
-  switch (c.kind) {
-    case "S":
-      return `Score ${c.score}`;
-    case "F":
-      return "Fixer";
-    case "B":
-      return "Backup";
-    case "X":
-      return "Double-Cross";
-  }
+  return c.kind === "S" ? T["card.S"].replace("{n}", String(c.score)) : T[`card.${c.kind}`];
 }
 
 export const isFighter = (c: Card) => c.kind === "S" || c.kind === "F";

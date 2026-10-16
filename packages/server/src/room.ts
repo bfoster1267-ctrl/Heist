@@ -699,7 +699,7 @@ function blankSeat(): Seat {
 }
 
 function seen(f: Frame, i: number, seat: number): SeenFrame {
-  return { i, ev: f.ev, msg: f.msg, state: frameView(f.state, seat) };
+  return { i, ev: f.ev, msg: f.msg, say: f.say, state: frameView(f.state, seat) };
 }
 
 const HIDDEN = { kind: "S", score: 0, cash: 0, color: -1 } as const;

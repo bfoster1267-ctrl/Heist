@@ -1,3 +1,4 @@
+import type { Say } from "./text";
 // Heist v3 rules engine types. Everything here is plain JSON so a server can send it to clients.
 
 export type CardKind = "S" | "F" | "B" | "X"; // Score, Fixer, Backup, Double-Cross
@@ -264,7 +265,10 @@ export type GameEvent =
 
 export interface Frame {
   ev: GameEvent;
+  /** the log line in English */
   msg: string;
+  /** the same line as a key and values, for clients that show it in another language */
+  say?: Say;
   state: GameState;
 }
 
