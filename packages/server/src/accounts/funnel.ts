@@ -70,6 +70,9 @@ interface Trail {
   online: boolean;
   back: boolean;
   signedUp: boolean;
+  arcadeStarted: boolean;
+  arcadeWon: boolean;
+  gameTypes: Set<string>;
 }
 
 const what = (e: ActivityEvent) => {
@@ -92,7 +95,7 @@ const median = (xs: number[]) => {
  * personOf: which person an account belongs to (several accounts can be one person).
  * People count when their first event falls in [from, to).
  */
-export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId: string) => string, from: number, to: number): Funnel {
+export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId: string) => string, from: number, to: number, gameFilter?: string): Funnel {
   const sorted = [...events].filter((e) => e.userId).sort((a, b) => a.at - b.at);
   const trails = new Map<string, Trail>();
   let turnsSince: number | null = null;
@@ -100,14 +103,19 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     const p = personOf(e.userId!);
     let t = trails.get(p);
     if (!t) {
-      t = { ids: new Set(), userId: e.userId!, name: e.name ?? "", first: e.at, last: e.at, lastWhat: what(e), newTap: false, lesson: false, toured: false, coachedGames: new Set(), turn: 0, finished: false, games: 0, online: false, back: false, signedUp: false };
+      t = {
+        ids: new Set(), userId: e.userId!, name: e.name ?? "", first: e.at, last: e.at, lastWhat: what(e),
+        newTap: false, lesson: false, toured: false, coachedGames: new Set(), turn: 0, finished: false,
+        games: 0, online: false, back: false, signedUp: false, arcadeStarted: false, arcadeWon: false,
+        gameTypes: new Set(),
+      };
       trails.set(p, t);
     }
     t.ids.add(e.userId!);
     if (e.name) t.name = e.name;
     t.last = e.at;
     // the API's own calls (config, /me) say little; taps, screens and game steps say where they were
-    if (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.")) t.lastWhat = what(e);
+    if (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel.")) t.lastWhat = what(e);
     if (e.at - t.first >= RETURN_AFTER) t.back = true;
     const d = (e.data ?? {}) as Record<string, unknown>;
     const ok = e.ok !== false;
@@ -123,34 +131,83 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
       case "solo.start":
         if (!ok) break;
         t.games++;
+        t.gameTypes.add("heist_solo");
         if (d.coached === true) {
           t.lesson = true;
           if (typeof d.gameId === "string") t.coachedGames.add(d.gameId);
         }
         break;
       case "game.solo":
+        t.gameTypes.add("heist_solo");
         if (d.coached === true && d.quit === false) t.finished = true;
         break;
       case "game.online":
         t.online = true;
+        t.gameTypes.add("heist_online");
         break;
       case "auth.register":
       case "auth.oauth":
         if (ok) t.signedUp = true;
         break;
+      case "solitaire.start":
+      case "freecell.start":
+      case "spider.start":
+      case "tripeaks.start":
+      case "pyramid.start":
+      case "ers.start":
+      case "yukon.start":
+      case "scoundrel.start":
+        if (!ok) break;
+        t.games++;
+        t.arcadeStarted = true;
+        t.gameTypes.add(e.kind.split(".")[0]);
+        break;
+      case "solitaire.finish":
+      case "freecell.finish":
+      case "spider.finish":
+      case "tripeaks.finish":
+      case "pyramid.finish":
+      case "ers.finish":
+      case "yukon.finish":
+      case "scoundrel.finish":
+        t.arcadeWon = true;
+        t.finished = true;
+        t.gameTypes.add(e.kind.split(".")[0]);
+        break;
+      case "solitaire.bank":
+      case "freecell.bank":
+      case "spider.bank":
+      case "tripeaks.bank":
+      case "pyramid.bank":
+      case "ers.bank":
+      case "yukon.bank":
+      case "scoundrel.bank":
+        t.arcadeStarted = true;
+        t.gameTypes.add(e.kind.split(".")[0]);
+        break;
     }
   }
 
-  const fresh = [...trails.entries()].filter(([, t]) => t.first >= from && t.first < to);
+  let fresh = [...trails.entries()].filter(([, t]) => t.first >= from && t.first < to);
+  if (gameFilter) {
+    if (gameFilter === "arcade") {
+      fresh = fresh.filter(([, t]) => t.arcadeStarted);
+    } else if (gameFilter === "heist") {
+      fresh = fresh.filter(([, t]) => t.lesson || t.online || t.coachedGames.size > 0);
+    } else if (gameFilter !== "all") {
+      fresh = fresh.filter(([, t]) => t.gameTypes.has(gameFilter));
+    }
+  }
+
   const maxTurn = Math.max(0, ...fresh.map(([, t]) => t.turn));
   const turns = TURNS.filter((n) => n <= maxTurn);
   const defs: { key: string; label: string; note: string; did: (t: Trail) => boolean }[] = [
     { key: "visit", label: "Opened the site", note: "any visit", did: () => true },
     // the welcome question went away 2026-10-11: new visitors now go straight into the first hand
-    { key: "new", label: "Tapped I'm new", note: "first-visit welcome (now skipped: counts going straight in)", did: (t) => t.newTap || t.lesson },
-    { key: "lesson", label: "Started the coached game", note: "Learn to play", did: (t) => t.lesson },
+    { key: "new", label: "Tapped I'm new", note: "first-visit welcome (now skipped: counts going straight in)", did: (t) => t.newTap || t.lesson || t.arcadeStarted },
+    { key: "lesson", label: "Started a game", note: "Learn to play or card game deal", did: (t) => t.lesson || t.arcadeStarted },
     ...turns.map((n) => ({ key: `turn${n}`, label: `Reached turn ${n}`, note: "of the coached game", did: (t: Trail) => t.turn >= n })),
-    { key: "finish", label: "Finished the coached game", note: "played it to the end", did: (t) => t.finished },
+    { key: "finish", label: "Finished the game", note: "played it to the end", did: (t) => t.finished || t.arcadeWon },
     { key: "tour", label: "Finished the lobby tour", note: "Wardrobe, Season pass, then picked what's next", did: (t) => t.toured },
     { key: "again", label: "Played another game", note: "a second game of any kind", did: (t) => t.games >= 2 || t.online },
     { key: "back", label: "Came back later", note: "12+ hours after the first visit", did: (t) => t.back },

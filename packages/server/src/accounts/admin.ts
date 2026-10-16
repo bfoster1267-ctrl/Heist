@@ -55,6 +55,12 @@ export interface AccountRow {
   claude: boolean;
   /** why this visit looks like a bot (left out of the stats), or null */
   bot: string | null;
+  /** all game types this account has played (e.g. solitaire, freecell, heist_solo) */
+  gamesPlayed: string[];
+  /** total arcade game wins */
+  arcadeGames: number;
+  /** total games across all modes (heist + arcade) */
+  totalGames: number;
 }
 
 /** Accounts grouped into people. */
@@ -260,6 +266,37 @@ export class AdminService {
   private row(a: Account, ppl?: People): AccountRow {
     const p = upgrade(a.progress);
     const person = ppl?.of.get(a.id) ?? a.id;
+    const playedTypes = new Set<string>();
+    if (p.stats.games > 0 || (p.coachGames ?? 0) > 0 || a.solo) playedTypes.add("heist_solo");
+    if (p.ranked) playedTypes.add("heist_online");
+    if ((p.solitaire?.won ?? 0) > 0 || a.solitaire) playedTypes.add("solitaire");
+    if ((p.freecell?.won ?? 0) > 0 || a.freecell) playedTypes.add("freecell");
+    if ((p.spider?.won ?? 0) > 0 || a.spider) playedTypes.add("spider");
+    if ((p.tripeaks?.won ?? 0) > 0 || a.tripeaks) playedTypes.add("tripeaks");
+    if ((p.pyramid?.won ?? 0) > 0 || a.pyramid) playedTypes.add("pyramid");
+    if ((p.ers?.won ?? 0) > 0 || a.ers) playedTypes.add("ers");
+    if ((p.yukon?.won ?? 0) > 0 || a.yukon) playedTypes.add("yukon");
+    if ((p.scoundrel?.won ?? 0) > 0 || a.scoundrel) playedTypes.add("scoundrel");
+
+    for (const e of this.log.window()) {
+      if (e.userId !== a.id) continue;
+      if (e.kind.startsWith("solitaire.")) playedTypes.add("solitaire");
+      else if (e.kind.startsWith("freecell.")) playedTypes.add("freecell");
+      else if (e.kind.startsWith("spider.")) playedTypes.add("spider");
+      else if (e.kind.startsWith("tripeaks.")) playedTypes.add("tripeaks");
+      else if (e.kind.startsWith("pyramid.")) playedTypes.add("pyramid");
+      else if (e.kind.startsWith("ers.")) playedTypes.add("ers");
+      else if (e.kind.startsWith("yukon.")) playedTypes.add("yukon");
+      else if (e.kind.startsWith("scoundrel.")) playedTypes.add("scoundrel");
+      else if (e.kind === "game.online" || e.kind.startsWith("table.")) playedTypes.add("heist_online");
+      else if (e.kind === "game.solo" || e.kind.startsWith("solo.")) playedTypes.add("heist_solo");
+    }
+
+    const arcadeWins = (p.solitaire?.won ?? 0) + (p.freecell?.won ?? 0) + (p.tripeaks?.won ?? 0) + (p.ers?.won ?? 0)
+      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0);
+    const gamesPlayed = [...playedTypes];
+    const totalGames = p.stats.games + arcadeWins;
+
     return {
       id: a.id, name: a.name, email: a.email ?? null, guest: a.guest, providers: a.logins.map((l) => l.provider), createdAt: a.createdAt,
       lastSeen: this.log.lastSeen(a.id) ?? null, level: levelInfo(p.xp).level, prestige: p.prestige, chips: p.chips, coins: p.coins,
@@ -268,6 +305,9 @@ export class AdminService {
       person, personAccounts: ppl?.members.get(person)?.length ?? 1, you: !!ppl?.owner.has(person),
       claude: !!ppl?.claude.has(person) && !ppl?.owner.has(person),
       bot: ppl?.bots.get(person)?.reason ?? null,
+      gamesPlayed,
+      arcadeGames: arcadeWins,
+      totalGames,
     };
   }
 
@@ -316,13 +356,58 @@ export class AdminService {
     const everyone = all.filter((a) => !mine(a.id));
     const sum = (f: (a: Account) => number) => everyone.reduce((s, a) => s + f(a), 0);
     const guests = all.filter((a) => a.guest);
+    const gamesByType: Record<string, number> = {
+      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, heist_solo: 0, heist_online: 0,
+    };
+    for (const a of everyone) {
+      const p = upgrade(a.progress);
+      gamesByType.solitaire += p.solitaire?.won ?? 0;
+      gamesByType.freecell += p.freecell?.won ?? 0;
+      gamesByType.spider += p.spider?.won ?? 0;
+      gamesByType.tripeaks += p.tripeaks?.won ?? 0;
+      gamesByType.pyramid += p.pyramid?.won ?? 0;
+      gamesByType.ers += p.ers?.won ?? 0;
+      gamesByType.yukon += p.yukon?.won ?? 0;
+      gamesByType.scoundrel += p.scoundrel?.won ?? 0;
+      gamesByType.heist_solo += p.stats.games;
+    }
+    const gamesTodayByType: Record<string, number> = {
+      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, heist_solo: 0, heist_online: 0,
+    };
+    let adLandingsToday = 0;
+    let visitorsTodayCount = 0;
+    const seenToday = new Set<string>();
+    for (const e of this.log.window()) {
+      if (e.at < now - DAY) continue;
+      if (e.userId && !seenToday.has(e.userId) && !mine(e.userId)) {
+        seenToday.add(e.userId);
+        visitorsTodayCount++;
+      }
+      if (e.kind === "auth.guest" && e.ref && /google|ad|gclid|bing|yahoo/i.test(e.ref)) {
+        adLandingsToday++;
+      }
+      if (e.userId && mine(e.userId)) continue;
+      if (e.kind === "game.solo" || e.kind === "solo.start") gamesTodayByType.heist_solo++;
+      else if (e.kind === "game.online" || e.kind === "table.start") gamesTodayByType.heist_online++;
+      else if (e.kind.startsWith("solitaire.")) gamesTodayByType.solitaire++;
+      else if (e.kind.startsWith("freecell.")) gamesTodayByType.freecell++;
+      else if (e.kind.startsWith("spider.")) gamesTodayByType.spider++;
+      else if (e.kind.startsWith("tripeaks.")) gamesTodayByType.tripeaks++;
+      else if (e.kind.startsWith("pyramid.")) gamesTodayByType.pyramid++;
+      else if (e.kind.startsWith("ers.")) gamesTodayByType.ers++;
+      else if (e.kind.startsWith("yukon.")) gamesTodayByType.yukon++;
+      else if (e.kind.startsWith("scoundrel.")) gamesTodayByType.scoundrel++;
+    }
+
+    const arcadeTotalWins = Object.entries(gamesByType).filter(([k]) => !k.startsWith("heist")).reduce((s, [, v]) => s + v, 0);
+
     return {
       at: now,
       accounts: {
         total: all.length, registered: registered.length, guests: guests.length,
         people, signedUp: others.length,
         untrackedGuests: guests.filter((a) => ppl.untracked.has(a.id)).length,
-        emptyGuests: guests.filter((a) => a.progress.stats.games === 0).length,
+        emptyGuests: guests.filter((a) => a.progress.stats.games === 0 && (a.progress.solitaire?.won ?? 0) === 0).length,
         untouched: guests.filter((a) => idle.has(a.id) && !notPlayer(ppl, a.id)).length,
         untouchedRemovedAfter: GUEST_KEEP_DAYS,
         yours: all.filter((a) => ppl.owner.has(ppl.of.get(a.id) ?? a.id)).length,
@@ -333,7 +418,16 @@ export class AdminService {
       active: { day: seenBy(now - DAY), week: seenBy(now - 7 * DAY), month: seenBy(now - 30 * DAY) },
       economy: {
         chips: sum((a) => a.progress.chips), coins: sum((a) => a.progress.coins), packsBought: sum((a) => a.progress.packsBought ?? 0),
-        gamesPlayed: sum((a) => a.progress.stats.games), drinksSent: sum((a) => a.progress.drinksSent ?? 0),
+        gamesPlayed: sum((a) => a.progress.stats.games) + arcadeTotalWins, drinksSent: sum((a) => a.progress.drinksSent ?? 0),
+        heistGames: sum((a) => a.progress.stats.games),
+        arcadeGames: arcadeTotalWins,
+      },
+      gamesByType,
+      gamesTodayByType,
+      acquisitionToday: {
+        visitors: visitorsTodayCount,
+        adLandings: adLandingsToday,
+        active: seenBy(now - DAY),
       },
       daily: days.map((d) => ({ day: d, signups: signups[d], people: newPeople[d], games: games[d], active: active.get(d)!.size })),
       today: [...kinds].sort((x, y) => y[1] - x[1]).map(([kind, count]) => ({ kind, count })),
@@ -492,19 +586,26 @@ export class AdminService {
     if (show === "people") {
       // one row per person: their signed-up account with the most games, else their newest
       const best = new Map<string, AccountRow>();
-      const rank = (r: AccountRow) => (r.guest ? 0 : 1e12) + r.games * 1e6 + r.createdAt / 1e7;
+      const rank = (r: AccountRow) => (r.guest ? 0 : 1e12) + r.totalGames * 1e6 + r.createdAt / 1e7;
       for (const r of rows) if (!best.has(r.person) || rank(r) > rank(best.get(r.person)!)) best.set(r.person, r);
-      rows = [...best.values()].filter((r) => !(r.guest && r.games === 0 && r.personAccounts === 1 && ppl.untracked.has(r.id)));
+      rows = [...best.values()].filter((r) => !(r.guest && r.totalGames === 0 && r.personAccounts === 1 && ppl.untracked.has(r.id)));
     }
     if (show === "registered") rows = rows.filter((r) => !r.guest);
     if (show === "guests") rows = rows.filter((r) => r.guest);
     if (show === "flagged") rows = rows.filter((r) => r.flagged);
     if (show === "banned") rows = rows.filter((r) => r.banned);
+    const game = q.get("game");
+    if (game) {
+      if (game === "any") rows = rows.filter((r) => r.gamesPlayed.length > 0);
+      else if (game === "none") rows = rows.filter((r) => r.gamesPlayed.length === 0);
+      else if (game === "arcade") rows = rows.filter((r) => r.gamesPlayed.some((g) => g !== "heist_solo" && g !== "heist_online"));
+      else rows = rows.filter((r) => r.gamesPlayed.includes(game));
+    }
     const tag = (q.get("tag") ?? "").trim().toLowerCase();
     if (tag) rows = rows.filter((r) => r.tags.some((t) => t.toLowerCase() === tag));
     if (text) rows = rows.filter((r) => r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text || r.tags.some((t) => t.toLowerCase() === text));
     const by: Record<string, (r: AccountRow) => number> = {
-      seen: (r) => r.lastSeen ?? r.createdAt, new: (r) => r.createdAt, games: (r) => r.games, chips: (r) => r.chips, level: (r) => r.prestige * 1e6 + r.level,
+      seen: (r) => r.lastSeen ?? r.createdAt, new: (r) => r.createdAt, games: (r) => r.totalGames, chips: (r) => r.chips, level: (r) => r.prestige * 1e6 + r.level,
       winnings: (r) => r.winnings, rating: (r) => r.rating,
     };
     const key = by[sort] ?? by.seen;
@@ -635,7 +736,8 @@ export class AdminService {
     const from = num("from") ?? this.now - 7 * DAY;
     const ppl = this.people(await this.accounts.store.all());
     const events = this.log.window().filter((e) => e.userId && !byOwner(e) && !byClaude(e) && !notPlayer(ppl, e.userId));
-    return buildFunnel(events, (id) => ppl.of.get(id) ?? id, from, to);
+    const game = q.get("game") ?? undefined;
+    return buildFunnel(events, (id) => ppl.of.get(id) ?? id, from, to, game);
   }
 
   game(id: string): GameView | null {

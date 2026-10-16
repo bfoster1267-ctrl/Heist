@@ -289,9 +289,11 @@ export function pageHtml(html: string, path: string): string {
     <meta name="twitter:image" content="${SITE}/og-image.png" />
     <script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`;
 
-  return html
-    .replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, head + "\n")
-    .replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);
+  const withHead = /<!-- app:start/.test(html)
+    ? html.replace(/<title>[\s\S]*?<\/script>\s*(?=<!-- app:start)/, head + "\n")
+    : html.replace(/<title>[\s\S]*?<\/title>/, head);
+
+  return withHead.replace(/<div id="root">[\s\S]*?<\/div>/, `<div id="root"><main class="ssr-fallback">\n${page.text}\n</main></div>`);
 }
 
 export const ROBOTS = `User-agent: *

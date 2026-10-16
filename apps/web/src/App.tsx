@@ -414,8 +414,38 @@ function Game() {
   }, []);
   // the owner's activity log: which screen the player is on
   useEffect(() => {
-    trackScreen(profile ? `Profile: ${profile}` : table ? (table.stage ? `Campaign table ${table.stage}` : "Table vs bots") : online !== null ? "Online" : sol ? "Solitaire" : "Lobby");
-  }, [profile, table, online, sol]);
+    const screen =
+      profile
+        ? `Profile: ${profile}`
+        : table
+        ? table.stage
+          ? `Campaign table ${table.stage}`
+          : "Table vs bots"
+        : online !== null
+        ? "Online Heist"
+        : sol
+        ? "Klondike Solitaire"
+        : fc
+        ? "FreeCell"
+        : tp
+        ? "TriPeaks Solitaire"
+        : spider
+        ? "Spider Solitaire"
+        : pyramid
+        ? "Pyramid Solitaire"
+        : ers
+        ? (ersPvp ? "Egyptian Rat Screw (PvP)" : "Egyptian Rat Screw")
+        : yukon
+        ? "Yukon Solitaire"
+        : scoundrel
+        ? "Scoundrel"
+        : dailyHubOpen
+        ? "Daily Challenge Hub"
+        : arcadeHubOpen
+        ? "Card Games Hub"
+        : "Lobby";
+    trackScreen(screen);
+  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, dailyHubOpen, arcadeHubOpen]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);

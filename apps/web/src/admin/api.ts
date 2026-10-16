@@ -126,6 +126,12 @@ export interface AccountRow {
   claude?: boolean;
   /** why this visit looks like a robot (left out of the stats), or null */
   bot?: string | null;
+  /** all game types this account has played (e.g. solitaire, freecell, heist_solo) */
+  gamesPlayed?: string[];
+  /** total arcade game wins */
+  arcadeGames?: number;
+  /** total games across all modes (heist + arcade) */
+  totalGames?: number;
 }
 
 export interface Crm {
@@ -227,7 +233,10 @@ export interface Overview {
     bots?: number;
   };
   active: { day: number; week: number; month: number };
-  economy: { chips: number; coins: number; packsBought: number; gamesPlayed: number; drinksSent: number };
+  economy: { chips: number; coins: number; packsBought: number; gamesPlayed: number; drinksSent: number; heistGames?: number; arcadeGames?: number };
+  gamesByType?: Record<string, number>;
+  gamesTodayByType?: Record<string, number>;
+  acquisitionToday?: { visitors: number; adLandings: number; active: number };
   daily: { day: string; signups: number; people: number; games: number; active: number }[];
   today: { kind: string; count: number }[];
   newest: AccountRow[];

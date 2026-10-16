@@ -124,12 +124,20 @@ export function usePoll(load: () => void, ms: number, on = true) {
 /** Families of activity, for filters and badge colors. Prefixes match the server's kinds. */
 export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open"] },
+  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel."] },
+  { id: "solitaire", label: "Klondike Solitaire", kinds: ["solitaire."] },
+  { id: "freecell", label: "FreeCell", kinds: ["freecell."] },
+  { id: "spider", label: "Spider Solitaire", kinds: ["spider."] },
+  { id: "tripeaks", label: "TriPeaks", kinds: ["tripeaks."] },
+  { id: "pyramid", label: "Pyramid", kinds: ["pyramid."] },
+  { id: "ers", label: "Egyptian Rat Screw", kinds: ["ers."] },
+  { id: "yukon", label: "Yukon", kinds: ["yukon."] },
+  { id: "scoundrel", label: "Scoundrel", kinds: ["scoundrel."] },
+  { id: "heist_solo", label: "Heist Solo", kinds: ["solo.", "game.solo"] },
+  { id: "tables", label: "Heist Online Tables", kinds: ["table.", "online.", "game.online"] },
   { id: "money", label: "Shop, packs & chips", kinds: ["shop.", "season.", "chips.", "prestige", "solo.drink"] },
-  { id: "games", label: "Games", kinds: ["game.", "solo."] },
-  { id: "tables", label: "Online tables & chat", kinds: ["table.", "online."] },
   { id: "app", label: "Screens & taps", kinds: ["ui.", "feedback"] },
-  { id: "views", label: "Profiles & boards viewed", kinds: ["view."] },
-  { id: "admin", label: "Your admin actions", kinds: ["admin."] },
+  { id: "admin", label: "Admin actions", kinds: ["admin."] },
 ];
 
 export function familyOf(kind: string) {
@@ -159,6 +167,30 @@ const LABELS: Record<string, string> = {
   "solo.drink": "Bought a drink (vs bots)",
   "game.solo": "Game vs bots",
   "game.online": "Online game",
+  "solitaire.start": "Started Klondike Solitaire",
+  "solitaire.bank": "Banked Solitaire moves",
+  "solitaire.finish": "Won Klondike Solitaire",
+  "freecell.start": "Started FreeCell",
+  "freecell.bank": "Banked FreeCell moves",
+  "freecell.finish": "Won FreeCell",
+  "tripeaks.start": "Started TriPeaks",
+  "tripeaks.bank": "Banked TriPeaks moves",
+  "tripeaks.finish": "Won TriPeaks",
+  "spider.start": "Started Spider Solitaire",
+  "spider.bank": "Banked Spider moves",
+  "spider.finish": "Won Spider Solitaire",
+  "pyramid.start": "Started Pyramid Solitaire",
+  "pyramid.bank": "Banked Pyramid moves",
+  "pyramid.finish": "Won Pyramid Solitaire",
+  "ers.start": "Started ERS",
+  "ers.bank": "Banked ERS moves",
+  "ers.finish": "Won ERS",
+  "yukon.start": "Started Yukon Solitaire",
+  "yukon.bank": "Banked Yukon moves",
+  "yukon.finish": "Won Yukon Solitaire",
+  "scoundrel.start": "Started Scoundrel",
+  "scoundrel.bank": "Banked Scoundrel moves",
+  "scoundrel.finish": "Won Scoundrel",
   "online.connect": "Connected to online play",
   "online.disconnect": "Disconnected",
   "table.create": "Opened a table",
@@ -249,6 +281,33 @@ export function detailOf(e: ActivityEvent): string {
     case "solo.finish":
     case "solo.quit":
       return [d.moves ? `${d.moves} moves` : "", d.reward ? `+${d.reward.xp} XP` : "", d.reward?.payout ? `paid ${num(d.reward.payout)}` : ""].filter(Boolean).join(" · ");
+    case "solitaire.start":
+    case "freecell.start":
+    case "spider.start":
+    case "tripeaks.start":
+    case "pyramid.start":
+    case "ers.start":
+    case "yukon.start":
+    case "scoundrel.start":
+      return d.isDaily ? "Daily challenge deal" : "Standard deal";
+    case "solitaire.finish":
+    case "freecell.finish":
+    case "spider.finish":
+    case "tripeaks.finish":
+    case "pyramid.finish":
+    case "ers.finish":
+    case "yukon.finish":
+    case "scoundrel.finish":
+      return [d.moves ? `${d.moves} moves` : "Won", d.reward ? `+${d.reward.xp} XP` : ""].filter(Boolean).join(" · ");
+    case "solitaire.bank":
+    case "freecell.bank":
+    case "spider.bank":
+    case "tripeaks.bank":
+    case "pyramid.bank":
+    case "ers.bank":
+    case "yukon.bank":
+    case "scoundrel.bank":
+      return d.moves ? `${d.moves} moves banked` : "";
     case "table.chat":
     case "dm.send":
     case "lounge.say":

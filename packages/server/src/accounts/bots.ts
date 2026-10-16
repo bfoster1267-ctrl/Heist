@@ -28,8 +28,23 @@ export function sourceOf(ref: string | undefined, ua: string | undefined): strin
 }
 
 /** taps, moves and anything else only a person at the screen does */
-const HUMAN = new Set(["ui.tap", "game.solo", "game.online", "solitaire.finish", "solitaire.bank", "table.chat", "lounge.say", "feedback", "board.post", "auth.login", "auth.register", "auth.google", "auth.apple", "me.name", "me.password"]);
-export const byHand = (e: ActivityEvent) => HUMAN.has(e.kind) || e.kind.startsWith("shop.") || e.kind.startsWith("season.");
+const HUMAN = new Set([
+  "ui.tap", "game.solo", "game.online", "solo.finish",
+  "solitaire.start", "solitaire.finish", "solitaire.bank",
+  "freecell.start", "freecell.finish", "freecell.bank",
+  "tripeaks.start", "tripeaks.finish", "tripeaks.bank",
+  "spider.start", "spider.finish", "spider.bank",
+  "pyramid.start", "pyramid.finish", "pyramid.bank",
+  "ers.start", "ers.finish", "ers.bank",
+  "yukon.start", "yukon.finish", "yukon.bank",
+  "scoundrel.start", "scoundrel.finish", "scoundrel.bank",
+  "table.chat", "lounge.say", "feedback", "board.post",
+  "auth.login", "auth.register", "auth.google", "auth.apple", "me.name", "me.password",
+]);
+export const byHand = (e: ActivityEvent) =>
+  HUMAN.has(e.kind) ||
+  e.kind.startsWith("shop.") ||
+  e.kind.startsWith("season.");
 
 export interface BotVisit {
   /** why it's called a bot, in plain words */

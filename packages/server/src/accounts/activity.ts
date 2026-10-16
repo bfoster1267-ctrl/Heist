@@ -95,8 +95,18 @@ export const byClaude = (e: ActivityEvent) => e.tester === "claude" || !!e.devic
 /** something the owner did to a player's account (it names the player but isn't the player being active) */
 export const byOwner = (e: ActivityEvent) => e.kind.startsWith("admin.");
 
-/** events that mean the player sat down to a game (a vs-bots game, a turn of one, or an online table) */
-const PLAY_KINDS = new Set(["solo.start", "game.solo", "game.online", "ui.turn", "table.create", "table.join", "table.queue", "table.sit", "table.start"]);
+/** events that mean the player sat down to a game (a vs-bots game, an arcade game, or an online table) */
+const PLAY_KINDS = new Set([
+  "solo.start", "game.solo", "game.online", "ui.turn", "table.create", "table.join", "table.queue", "table.sit", "table.start",
+  "solitaire.start", "solitaire.bank", "solitaire.finish",
+  "freecell.start", "freecell.bank", "freecell.finish",
+  "tripeaks.start", "tripeaks.bank", "tripeaks.finish",
+  "spider.start", "spider.bank", "spider.finish",
+  "pyramid.start", "pyramid.bank", "pyramid.finish",
+  "ers.start", "ers.bank", "ers.finish",
+  "yukon.start", "yukon.bank", "yukon.finish",
+  "scoundrel.start", "scoundrel.bank", "scoundrel.finish",
+]);
 export const startedGame = (e: ActivityEvent) => PLAY_KINDS.has(e.kind) && e.ok !== false;
 
 const matches = (e: ActivityEvent, q: ActivityQuery, text: string | null) => {

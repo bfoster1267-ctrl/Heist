@@ -140,8 +140,11 @@ export class AccountService {
    */
   untouched(a: Account): boolean {
     const p = a.progress;
-    return a.guest && !a.played && !a.solo && !a.crm && !a.feedback && p.stats.games === 0 && (p.coachGames ?? 0) === 0 && (p.campaign ?? 0) === 0
-      && !p.ranked && !this.activity.played().has(a.id);
+    const arcadeWins = (p.solitaire?.won ?? 0) + (p.freecell?.won ?? 0) + (p.tripeaks?.won ?? 0) + (p.ers?.won ?? 0)
+      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0);
+    const hasArcadeGame = Boolean(a.solitaire || a.freecell || a.tripeaks || a.spider || a.pyramid || a.ers || a.yukon || a.scoundrel);
+    return a.guest && !a.played && !a.solo && !hasArcadeGame && !a.crm && !a.feedback && p.stats.games === 0 && (p.coachGames ?? 0) === 0 && (p.campaign ?? 0) === 0
+      && !p.ranked && arcadeWins === 0 && !this.activity.played().has(a.id);
   }
 
   /** Remove guests who never played a game and haven't been seen for `days` days (any visit restarts the clock). */

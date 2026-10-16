@@ -21,8 +21,17 @@ const mins = (m: number | null) => (m === null ? "–" : m < 1 ? `${Math.round(m
 
 export function FunnelPage({ s, onAuth, query }: PageProps) {
   const range = query.get("range") ?? (query.get("from") || query.get("to") ? "" : "7d");
+  const game = query.get("game") ?? "all";
   const [from, setFrom] = useState(query.get("from") ?? "");
   const [to, setTo] = useState(query.get("to") ?? "");
+  const qs = (o: Record<string, string>) => {
+    const next = new URLSearchParams(query);
+    for (const [k, v] of Object.entries(o)) {
+      if (!v || (k === "game" && v === "all")) next.delete(k);
+      else next.set(k, v);
+    }
+    return `/dropoff?${next}`;
+  };
   const p = new URLSearchParams();
   const preset = RANGES.find((r) => r[0] === range);
   // a preset's start moves with the clock: rounded to the minute so the fetch stays put between renders
@@ -31,6 +40,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
     p.set("from", query.get("from") ? String(new Date(query.get("from") + "T00:00").getTime()) : "0");
     if (query.get("to")) p.set("to", String(new Date(query.get("to") + "T23:59:59").getTime()));
   }
+  if (game && game !== "all") p.set("game", game);
   const r = useAdmin<Funnel>(s, `/funnel?${p}`, onAuth);
   usePoll(r.reload, 60_000);
   const f = r.data;
@@ -41,8 +51,21 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
     <>
       <div className="card">
         <div className="filters">
+          <select value={game} onChange={(e) => go(qs({ game: e.target.value }))}>
+            <option value="all">All game types</option>
+            <option value="arcade">All arcade card games</option>
+            <option value="solitaire">Klondike Solitaire</option>
+            <option value="freecell">FreeCell</option>
+            <option value="spider">Spider Solitaire</option>
+            <option value="tripeaks">TriPeaks Solitaire</option>
+            <option value="pyramid">Pyramid Solitaire</option>
+            <option value="ers">Egyptian Rat Screw</option>
+            <option value="yukon">Yukon Solitaire</option>
+            <option value="scoundrel">Scoundrel</option>
+            <option value="heist">Heist (Solo & Online)</option>
+          </select>
           {RANGES.map(([k, label]) => (
-            <button key={k} type="button" className={`fam-chip ${range === k ? "on" : ""}`} onClick={() => go(`/dropoff?range=${k}`)}>
+            <button key={k} type="button" className={`fam-chip ${range === k ? "on" : ""}`} onClick={() => go(qs({ range: k, from: "", to: "" }))}>
               {label}
             </button>
           ))}
@@ -50,10 +73,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
             className="filters inline"
             onSubmit={(e) => {
               e.preventDefault();
-              const q = new URLSearchParams();
-              if (from) q.set("from", from);
-              if (to) q.set("to", to);
-              go(`/dropoff?${q}`);
+              go(qs({ range: "", from, to }));
             }}
           >
             <label className="date">

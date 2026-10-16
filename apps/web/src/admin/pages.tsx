@@ -90,6 +90,28 @@ const WIDGETS: Widget[] = [
       return <Stat label="Online now" value={num(live?.sockets ?? 0)} sub={`${num(seated)} at ${num(live?.rooms.length ?? 0)} tables · ${num(live?.queued ?? 0)} in queue`} tone="cash" />;
     },
   },
+  {
+    id: "acquisition",
+    label: "Visitors & ad landings today",
+    group: "stat",
+    render: ({ d }) => {
+      const acq = d.acquisitionToday;
+      if (!acq) return null;
+      return (
+        <Stat
+          label="Today's visitors & ads"
+          value={num(acq.visitors)}
+          sub={
+            <>
+              {num(acq.active)} active today · <Link to="/players?game=none">{num(Math.max(0, acq.visitors - acq.active))} landed without playing</Link>
+              {acq.adLandings > 0 && <> · {num(acq.adLandings)} from ads</>}
+            </>
+          }
+          tone="cash"
+        />
+      );
+    },
+  },
   { id: "games", label: "Games played", group: "stat", render: ({ d }) => <Stat label="Games played" value={num(d.economy.gamesPlayed)} sub={`all time, per player · ${num(sumDaily(d, "games"))} logged in 30 days`} /> },
   { id: "chips", label: "Chips held", group: "stat", render: ({ d }) => <Stat label="Chips held" value={num(d.economy.chips)} sub={`${num(d.economy.coins)} coins`} /> },
   { id: "packs", label: "Packs bought", group: "stat", render: ({ d }) => <Stat label="Packs bought" value={num(d.economy.packsBought)} sub={`${num(d.economy.drinksSent)} drinks sent`} /> },
@@ -120,6 +142,53 @@ const WIDGETS: Widget[] = [
         <PlayerTable rows={d.newest} compact />
       </div>
     ),
+  },
+  {
+    id: "games_by_type",
+    label: "Games by type",
+    group: "card",
+    render: ({ d }) => {
+      const gAll = d.gamesByType ?? {};
+      const gToday = d.gamesTodayByType ?? {};
+      const TYPES: [string, string][] = [
+        ["solitaire", "Klondike Solitaire"],
+        ["freecell", "FreeCell"],
+        ["spider", "Spider Solitaire"],
+        ["tripeaks", "TriPeaks Solitaire"],
+        ["pyramid", "Pyramid Solitaire"],
+        ["ers", "Egyptian Rat Screw"],
+        ["yukon", "Yukon Solitaire"],
+        ["scoundrel", "Scoundrel"],
+        ["heist_solo", "Heist (Solo)"],
+        ["heist_online", "Heist (Online)"],
+      ];
+      return (
+        <div className="card">
+          <div className="card-head">
+            <h3>Games played by type</h3>
+            <Link to="/players?game=arcade">All arcade players →</Link>
+          </div>
+          <ul className="kinds">
+            {TYPES.map(([id, label]) => {
+              const allCount = gAll[id] ?? 0;
+              const todayCount = gToday[id] ?? 0;
+              return (
+                <li key={id}>
+                  <Link to={`/players?game=${id}`}>
+                    <span className={`fam fam-${id.startsWith("heist") ? "game" : id}`} />
+                    {label}
+                  </Link>
+                  <span>
+                    <b>{num(allCount)}</b>
+                    {todayCount > 0 && <span className="dim small" style={{ marginLeft: 6 }}>(+{num(todayCount)} today)</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      );
+    },
   },
   {
     id: "today", label: "Last 24 hours", group: "card",
@@ -163,7 +232,7 @@ const WIDGETS: Widget[] = [
   { id: "tables", label: "Tables right now", group: "card", render: ({ d }) => d.live && <LiveTables live={d.live} /> },
 ];
 
-const DEFAULT_LAYOUT = ["people", "active", "online", "eco.added", "eco.up", "chips", "c.people", "c.active", "c.games", "newest", "today", "tables"];
+const DEFAULT_LAYOUT = ["people", "active", "online", "acquisition", "eco.added", "eco.up", "chips", "c.people", "c.active", "c.games", "games_by_type", "newest", "today", "tables"];
 
 export function Dashboard({ s, onAuth }: PageProps) {
   const o = useAdmin<Overview>(s, "/overview", onAuth);
@@ -360,17 +429,35 @@ export function Players({ s, onAuth, query }: PageProps) {
   const [q, setQ] = useState(query.get("q") ?? "");
   const sort = query.get("sort") ?? "seen";
   const show = query.get("show") ?? "people";
+  const game = query.get("game") ?? "all";
   const mine = query.get("mine") === "1";
   const offset = Number(query.get("offset") ?? 0);
+  const tag = query.get("tag") ?? "";
   const qs = (o: Record<string, string | number>) => {
-    const p = new URLSearchParams({ q, sort, show, tag, mine: mine ? "1" : "", offset: String(offset), ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])) });
+    const p = new URLSearchParams({
+      q,
+      sort,
+      show,
+      game: game === "all" ? "" : game,
+      tag,
+      mine: mine ? "1" : "",
+      offset: String(offset),
+      ...Object.fromEntries(Object.entries(o).map(([k, v]) => [k, String(v)])),
+    });
     const drop: string[] = [];
-    p.forEach((v, k) => (!v || (k === "offset" && v === "0")) && drop.push(k));
+    p.forEach((v, k) => (!v || (k === "offset" && v === "0") || (k === "game" && v === "all")) && drop.push(k));
     for (const k of drop) p.delete(k);
     return `/players?${p}`;
   };
-  const tag = query.get("tag") ?? "";
-  const path = `/accounts?${new URLSearchParams({ q: query.get("q") ?? "", sort, show: show === "all" ? "" : show, offset: String(offset), tag, mine: mine ? "1" : "" })}`;
+  const path = `/accounts?${new URLSearchParams({
+    q: query.get("q") ?? "",
+    sort,
+    show: show === "all" ? "" : show,
+    game: game === "all" ? "" : game,
+    offset: String(offset),
+    tag,
+    mine: mine ? "1" : "",
+  })}`;
   const l = useAdmin<{ total: number; rows: AccountRow[] }>(s, path, onAuth);
   return (
     <div className="card">
@@ -391,6 +478,22 @@ export function Players({ s, onAuth, query }: PageProps) {
           <option value="banned">Suspended</option>
           <option value="bots">Bot visits</option>
         </select>
+        <select value={game} onChange={(e) => go(qs({ game: e.target.value, offset: 0 }))}>
+          <option value="all">All game types</option>
+          <option value="any">Played any game</option>
+          <option value="none">No games played / landings</option>
+          <option value="arcade">All arcade card games</option>
+          <option value="solitaire">Klondike Solitaire</option>
+          <option value="freecell">FreeCell</option>
+          <option value="spider">Spider Solitaire</option>
+          <option value="tripeaks">TriPeaks Solitaire</option>
+          <option value="pyramid">Pyramid Solitaire</option>
+          <option value="ers">Egyptian Rat Screw</option>
+          <option value="yukon">Yukon Solitaire</option>
+          <option value="scoundrel">Scoundrel</option>
+          <option value="heist_solo">Heist Solo</option>
+          <option value="heist_online">Heist Online</option>
+        </select>
         <select value={sort} onChange={(e) => go(qs({ sort: e.target.value, offset: 0 }))}>
           {SORTS.map(([k, v]) => (
             <option key={k} value={k}>
@@ -402,6 +505,11 @@ export function Players({ s, onAuth, query }: PageProps) {
         <label className="toggle">
           <input type="checkbox" checked={mine} onChange={(e) => go(qs({ mine: e.target.checked ? "1" : "", offset: 0 }))} /> Include mine, Claude's and bots
         </label>
+        {game && game !== "all" && (
+          <button type="button" className="fam-chip on" onClick={() => go(qs({ game: "", offset: 0 }))}>
+            game: {game} ✕
+          </button>
+        )}
         {tag && (
           <button type="button" className="fam-chip on" onClick={() => go(qs({ tag: "", offset: 0 }))}>
             tag: {tag} ✕
@@ -428,6 +536,19 @@ export function Players({ s, onAuth, query }: PageProps) {
   );
 }
 
+const GAME_LABELS: Record<string, string> = {
+  solitaire: "♠ Solitaire",
+  freecell: "♦ FreeCell",
+  spider: "♣ Spider",
+  tripeaks: "▲ TriPeaks",
+  pyramid: "▲ Pyramid",
+  ers: "⚡ ERS",
+  yukon: "❄ Yukon",
+  scoundrel: "🗡 Scoundrel",
+  heist_solo: "Heist Solo",
+  heist_online: "Heist PvP",
+};
+
 function Badges({ r }: { r: AccountRow }) {
   return (
     <>
@@ -443,6 +564,16 @@ function Badges({ r }: { r: AccountRow }) {
         </span>
       ))}
       {r.notes > 0 && <span className="badge note">✎ {r.notes}</span>}
+      {r.gamesPlayed?.slice(0, 3).map((g) => (
+        <span key={g} className="badge note" title={`Played ${g}`}>
+          {GAME_LABELS[g] ?? g}
+        </span>
+      ))}
+      {(r.gamesPlayed?.length ?? 0) > 3 && (
+        <span className="badge note" title={r.gamesPlayed?.slice(3).join(", ")}>
+          +{(r.gamesPlayed?.length ?? 0) - 3}
+        </span>
+      )}
     </>
   );
 }
@@ -482,7 +613,9 @@ export function PlayerTable({ rows, compact }: { rows: AccountRow[]; compact?: b
                 {r.level}
               </td>
               {!compact && <td className="r">{num(r.chips)}</td>}
-              <td className="r">{num(r.games)}</td>
+              <td className="r" title={r.arcadeGames ? `${num(r.games)} Heist · ${num(r.arcadeGames)} Arcade wins` : undefined}>
+                {num(r.totalGames ?? r.games)}
+              </td>
               {!compact && <td className="r">{r.games ? `${Math.round((100 * r.wins) / r.games)}%` : "–"}</td>}
               {!compact && <td className="r">{r.rating}</td>}
               <td className="dim">{compact ? ago(r.createdAt) : ago(r.lastSeen)}</td>
@@ -530,7 +663,11 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         <Stat label="Chips" value={num(r.chips)} tone="gold" />
         <Stat label="Coins" value={num(r.coins)} />
         <Stat label="Level" value={`${r.prestige ? `P${r.prestige} · ` : ""}${r.level}`} sub={`${num(p.xp)} XP`} />
-        <Stat label="Games" value={num(r.games)} sub={`${num(r.wins)} won · ${r.games ? Math.round((100 * r.wins) / r.games) : 0}%`} />
+        <Stat
+          label="Games"
+          value={num(r.totalGames ?? r.games)}
+          sub={`${num(r.wins + (r.arcadeGames ?? 0))} won · ${num(r.games)} Heist${r.arcadeGames ? ` · ${num(r.arcadeGames)} Arcade` : ""}`}
+        />
         <Stat label="Winnings" value={num(r.winnings)} tone="cash" />
         <Stat label="Skill rating" value={r.rating} sub={`${num(p.ratedGames)} rated games · campaign ${p.campaign ?? 0}/12`} />
       </section>
@@ -538,7 +675,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         <div className="card">
           <div className="card-head">
             <h3>Recent games</h3>
-            <Link to={`/activity?user=${a.id}&kinds=game.`}>All games →</Link>
+            <Link to={`/activity?user=${a.id}&kinds=game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.`}>All games →</Link>
           </div>
           <GameList s={s} onAuth={onAuth} userId={a.id} />
         </div>
@@ -592,22 +729,26 @@ export function Player({ s, onAuth, param, query }: PageProps) {
   );
 }
 
+const ALL_GAMES_KINDS = "game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.";
+
 function GameList({ s, onAuth, userId }: { s: Session; onAuth: (e: unknown) => void; userId: string }) {
-  const l = useAdmin<{ events: ActivityEvent[] }>(s, `/activity?user=${userId}&kinds=game.&limit=12`, onAuth);
+  const l = useAdmin<{ events: ActivityEvent[] }>(s, `/activity?user=${userId}&kinds=${ALL_GAMES_KINDS}&limit=12`, onAuth);
   if (!l.data) return <Problem error={l.error} />;
   if (!l.data.events.length) return <p className="dim">No games yet.</p>;
   return (
     <ul className="games">
-      {l.data.events.map((e) => {
-        const d = e.data as Record<string, any>;
-        const res = d.abandoned ? "abandoned" : d.quit ? "quit" : d.won ? "won" : "lost";
+      {l.data.events.map((e, idx) => {
+        const d = (e.data ?? {}) as Record<string, any>;
+        const isArcade = !e.kind.startsWith("game.") && !e.kind.startsWith("solo.");
+        const res = isArcade ? (e.kind.endsWith(".finish") ? "won" : e.kind.endsWith(".bank") ? "banked" : "started") : d.abandoned ? "abandoned" : d.quit ? "quit" : d.won ? "won" : "lost";
+        const title = isArcade ? labelOf(e.kind) : e.kind === "game.online" ? "Online Heist" : d.stage ? `Campaign ${d.stage}` : "Vs bots";
         return (
-          <li key={`${e.at}${d.gameId}`} onClick={() => d.gameId && go(`/games/${d.gameId}`)}>
+          <li key={`${e.at}-${idx}-${d.gameId ?? ""}`} onClick={() => d.gameId && go(`/games/${d.gameId}`)}>
             <span className={`result ${res}`}>{res}</span>
             <span>
-              {e.kind === "game.online" ? "Online" : d.stage ? `Campaign ${d.stage}` : "Vs bots"} · {d.players}p · {d.stakes ? num(d.stakes) : "free"}
+              {title} {d.players ? `· ${d.players}p` : ""} {d.stakes ? `· ${num(d.stakes)}` : ""}
             </span>
-            <span className="dim">{d.payout ? `+${num(d.payout)}` : ""}</span>
+            <span className="dim">{d.payout ? `+${num(d.payout)}` : d.score ? `score ${num(d.score)}` : ""}</span>
             <span className="dim">{ago(e.at)}</span>
           </li>
         );
