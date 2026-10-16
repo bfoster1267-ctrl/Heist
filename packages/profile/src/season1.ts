@@ -3,22 +3,23 @@
 // the rest only come out of chip packs. Season items can only be earned while their season runs, and
 // players keep them for good.
 
+import { PROFILE_TEXT as T, say } from "./text";
 import type { Cosmetic, EquipSlot, Slot } from "./cosmetics";
 
 export const SEASON_1 = 1;
 
 /** [key, name, main, dark, light] */
 const PALETTE: [string, string, string, string, string][] = [
-  ["crimson", "Crimson", "#9b1c2c", "#3a0710", "#ff8a96"],
-  ["teal", "Teal", "#127a78", "#052c2b", "#7fe3dc"],
-  ["amber", "Amber", "#b8761a", "#3d2504", "#ffd27a"],
-  ["plum", "Plum", "#6b2a6e", "#240b26", "#e2a1e6"],
-  ["cobalt", "Cobalt", "#1f4fa8", "#0a1a3d", "#9cc0ff"],
-  ["jade", "Jade", "#2e8b57", "#0c2e1c", "#9ff0c0"],
-  ["rose", "Rose Gold", "#b76e79", "#3e1f24", "#ffd0d6"],
-  ["ash", "Ash", "#5b5f66", "#1a1c20", "#d6dae0"],
-  ["copper", "Copper", "#a5532a", "#36180a", "#f6b48b"],
-  ["ice", "Ice", "#4f8fa8", "#12303b", "#dff6ff"],
+  ["crimson", T["s1.color.crimson"], "#9b1c2c", "#3a0710", "#ff8a96"],
+  ["teal", T["s1.color.teal"], "#127a78", "#052c2b", "#7fe3dc"],
+  ["amber", T["s1.color.amber"], "#b8761a", "#3d2504", "#ffd27a"],
+  ["plum", T["s1.color.plum"], "#6b2a6e", "#240b26", "#e2a1e6"],
+  ["cobalt", T["s1.color.cobalt"], "#1f4fa8", "#0a1a3d", "#9cc0ff"],
+  ["jade", T["s1.color.jade"], "#2e8b57", "#0c2e1c", "#9ff0c0"],
+  ["rose", T["s1.color.rose"], "#b76e79", "#3e1f24", "#ffd0d6"],
+  ["ash", T["s1.color.ash"], "#5b5f66", "#1a1c20", "#d6dae0"],
+  ["copper", T["s1.color.copper"], "#a5532a", "#36180a", "#f6b48b"],
+  ["ice", T["s1.color.ice"], "#4f8fa8", "#12303b", "#dff6ff"],
 ];
 const color = (key: string) => PALETTE.find((p) => p[0] === key)!;
 
@@ -28,15 +29,15 @@ const item = (slot: Slot, key: string, name: string, extra: Partial<Cosmetic>): 
 
 const felts = ["crimson", "teal", "amber", "plum", "cobalt", "jade", "ash", "copper"].map((k) => {
   const [, n, main, dark] = color(k);
-  return item("felt", k, `${n} Felt`, { colors: [main, dark] });
+  return item("felt", k, say("s1.felt", { color: n }), { colors: [main, dark] });
 });
 
 const BACK_PATTERNS = ["stripes", "diamonds", "noir"];
 const backs = ["crimson", "teal", "amber", "plum", "cobalt", "jade", "rose", "ice"].map((k, i) => {
   const [, n, main, , light] = color(k);
   const pattern = BACK_PATTERNS[i % BACK_PATTERNS.length];
-  const style = pattern === "stripes" ? "Stripes" : pattern === "diamonds" ? "Diamonds" : "Noir";
-  return item("cardBack", k, `${n} ${style}`, { colors: [main, light], pattern });
+  const style = T[`s1.style.${pattern as "stripes" | "diamonds" | "noir"}`];
+  return item("cardBack", k, say("s1.styled", { color: n, style }), { colors: [main, light], pattern });
 });
 
 const frames = ["crimson", "teal", "amber", "plum", "cobalt", "rose"].map((k) => {
@@ -44,23 +45,23 @@ const frames = ["crimson", "teal", "amber", "plum", "cobalt", "rose"].map((k) =>
   return item("frame", k, n, { colors: [main, light] });
 });
 
-const titles = ["Opening Night", "Night Owl", "Getaway Artist", "Silver Tongue", "Card Sharp", "Heat Seeker", "Clean Hands", "Wise Guy"].map((t) =>
-  item("title", t.toLowerCase().replace(/\s+/g, "-"), t, { text: t }),
+const titles = (["opening-night", "night-owl", "getaway-artist", "silver-tongue", "card-sharp", "heat-seeker", "clean-hands", "wise-guy"] as const).map((k) =>
+  item("title", k, T[`s1.title.${k}`], { text: T[`s1.title.${k}`] }),
 );
 
-const chats = PALETTE.map(([k, n, main, dark, light]) => item("chat", k, `${n} Bubble`, { chat: [main, k === "ice" || k === "amber" ? dark : "#ffffff", light] }));
+const chats = PALETTE.map(([k, n, main, dark, light]) => item("chat", k, say("s1.bubble", { color: n }), { chat: [main, k === "ice" || k === "amber" ? dark : "#ffffff", light] }));
 
 const BANNER_PATTERNS: [string, string][] = [
-  ["stripes", "Stripes"],
-  ["pinstripe", "Pinstripe"],
-  ["diamonds", "Argyle"],
-  ["deco", "Deco"],
-  ["chevron", "Chevron"],
+  ["stripes", T["s1.style.stripes"]],
+  ["pinstripe", T["s1.style.pinstripe"]],
+  ["diamonds", T["s1.style.argyle"]],
+  ["deco", T["s1.style.deco"]],
+  ["chevron", T["s1.style.chevron"]],
 ];
 const banners = ["crimson", "teal", "amber", "plum", "cobalt", "jade", "rose", "ash", "copper", "ice"].map((k, i) => {
   const [, n, main, dark] = color(k);
   const [pattern, style] = BANNER_PATTERNS[i % BANNER_PATTERNS.length];
-  return item("banner", k, `${n} ${style}`, { colors: [main, dark], pattern });
+  return item("banner", k, say("s1.styled", { color: n, style }), { colors: [main, dark], pattern });
 });
 
 const emotes = (
@@ -69,14 +70,14 @@ const emotes = (
     ["siren", "Siren", "🚨"], ["key", "Key", "🗝️"], ["briefcase", "Briefcase", "💼"], ["tophat", "Top Hat", "🎩"],
     ["clover", "Lucky Clover", "🍀"], ["fire", "On Fire", "🔥"], ["hush", "Hush", "🤫"], ["rat", "Rat", "🐀"],
   ] as const
-).map(([k, n, e]) => item("emote", k, n, { emoji: e }));
+).map(([k, , e]) => item("emote", k, T[`s1.emote.${k}`], { emoji: e }));
 
 const drinks = (
   [
     ["wine", "Red Wine", "🍷"], ["maitai", "Mai Tai", "🍹"], ["toast", "Toast", "🥂"], ["sake", "Sake", "🍶"],
     ["tea", "Green Tea", "🍵"], ["boba", "Bubble Tea", "🧋"], ["milk", "Glass of Milk", "🥛"], ["juice", "Juice Box", "🧃"],
   ] as const
-).map(([k, n, e]) => item("drink", k, n, { emoji: e }));
+).map(([k, , e]) => item("drink", k, T[`s1.drink.${k}`], { emoji: e }));
 
 // cigars: [band, wrapper]
 const cigars = (
@@ -108,7 +109,7 @@ export const SEASON_1_PACK_ITEMS = packHalf.flat().map((c) => ({ ...c, source: "
  * The pass's top prize (tier 50): a legendary drink, free to send. It lands with its own animation at
  * the table (a vault door spins open, gold coins splash), keyed on its emoji so nothing else changes.
  */
-export const VAULT_DRINK: Cosmetic = item("drink", "vault", "The Vault", { emoji: "🏦", rarity: "legendary", source: "pass" });
+export const VAULT_DRINK: Cosmetic = item("drink", "vault", T["s1.drink.vault"], { emoji: "🏦", rarity: "legendary", source: "pass" });
 
 export const SEASON_ITEMS: Cosmetic[] = [...SEASON_1_PASS_ITEMS, VAULT_DRINK, ...SEASON_1_PACK_ITEMS];
 

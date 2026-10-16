@@ -4,6 +4,7 @@
 // Campaign tables have no buy-in. They count toward career stats and the skill rating like any vs-bots game.
 
 import type { BotOptions, RuleOptions } from "@heist/engine";
+import { PROFILE_TEXT as T, say } from "./text";
 
 export interface Stage {
   /** 1-based */
@@ -30,20 +31,20 @@ const hard: BotOptions = { level: "hard" };
 
 export const STAGES: Stage[] = [
   // Act 1: small time
-  { n: 1, name: "Corner Store", blurb: "Two amateurs and a cash drawer. Learn the ropes.", twist: "Easy bots", players: 3, bots: [easy, easy], coins: 40, xp: 50 },
-  { n: 2, name: "Pawn Shop", blurb: "The owner's nephew has done this before.", twist: "One bot knows the game", players: 3, bots: [easy, normal], coins: 50, xp: 60 },
-  { n: 3, name: "Jewelry Counter", blurb: "A bigger crew means more hands in the till.", twist: "Four at the table", players: 4, bots: [easy, normal, normal], coins: 60, xp: 70 },
-  { n: 4, name: "Armored Van", blurb: "Professionals only. They won't make it easy.", twist: "Full-strength bots", players: 4, bots: [normal, normal, normal], coins: 80, xp: 80, items: ["title.wheelman"] },
+  { n: 1, name: T["stage.1.name"], blurb: T["stage.1.blurb"], twist: T["stage.1.twist"], players: 3, bots: [easy, easy], coins: 40, xp: 50 },
+  { n: 2, name: T["stage.2.name"], blurb: T["stage.2.blurb"], twist: T["stage.2.twist"], players: 3, bots: [easy, normal], coins: 50, xp: 60 },
+  { n: 3, name: T["stage.3.name"], blurb: T["stage.3.blurb"], twist: T["stage.3.twist"], players: 4, bots: [easy, normal, normal], coins: 60, xp: 70 },
+  { n: 4, name: T["stage.4.name"], blurb: T["stage.4.blurb"], twist: T["stage.4.twist"], players: 4, bots: [normal, normal, normal], coins: 80, xp: 80, items: ["title.wheelman"] },
   // Act 2: moving up
-  { n: 5, name: "Casino Cage", blurb: "Someone at this table has done hard time.", twist: "One hard bot", players: 4, bots: [normal, normal, hard], coins: 100, xp: 90 },
-  { n: 6, name: "Bad Blood", blurb: "Beat them once and they'll come for you all night.", twist: "Bots hold grudges", players: 4, bots: [{ level: "normal", vendetta: true }, { level: "normal", vendetta: true }, { level: "hard" }], coins: 120, xp: 100 },
-  { n: 7, name: "Partners in Crime", blurb: "Two of them came in together. Watch who backs who.", twist: "Two bots are secret partners", players: 5, bots: [{ level: "normal", partner: 2 }, { level: "normal", partner: 1 }, normal, normal], coins: 140, xp: 110 },
-  { n: 8, name: "The Long Con", blurb: "They'll wait all night for the right card.", twist: "Patient hard bots", players: 5, bots: [{ level: "hard", patient: true }, { level: "hard", patient: true }, normal, normal], coins: 160, xp: 120, items: ["back.blueprint"] },
+  { n: 5, name: T["stage.5.name"], blurb: T["stage.5.blurb"], twist: T["stage.5.twist"], players: 4, bots: [normal, normal, hard], coins: 100, xp: 90 },
+  { n: 6, name: T["stage.6.name"], blurb: T["stage.6.blurb"], twist: T["stage.6.twist"], players: 4, bots: [{ level: "normal", vendetta: true }, { level: "normal", vendetta: true }, { level: "hard" }], coins: 120, xp: 100 },
+  { n: 7, name: T["stage.7.name"], blurb: T["stage.7.blurb"], twist: T["stage.7.twist"], players: 5, bots: [{ level: "normal", partner: 2 }, { level: "normal", partner: 1 }, normal, normal], coins: 140, xp: 110 },
+  { n: 8, name: T["stage.8.name"], blurb: T["stage.8.blurb"], twist: T["stage.8.twist"], players: 5, bots: [{ level: "hard", patient: true }, { level: "hard", patient: true }, normal, normal], coins: 160, xp: 120, items: ["back.blueprint"] },
   // Act 3: the big score
-  { n: 9, name: "Greased Palms", blurb: "Everyone here has a price. Bribes are on.", twist: "Bribes rule", players: 5, bots: [hard, normal, hard, normal], rules: { bribes: true }, coins: 180, xp: 130 },
-  { n: 10, name: "Full House", blurb: "Six seats, five sharks.", twist: "Six-player table", players: 6, bots: [hard, hard, normal, hard, normal], coins: 200, xp: 140 },
-  { n: 11, name: "The Syndicate", blurb: "A partnered pair and a grudge, at one table.", twist: "Partners and grudges", players: 6, bots: [{ level: "hard", partner: 2 }, { level: "hard", partner: 1 }, { level: "hard", vendetta: true }, hard, normal], rules: { openDeals: true }, coins: 250, xp: 160 },
-  { n: 12, name: "The Vault", blurb: "The best in the business. Every rule on.", twist: "All hard bots, every rule", players: 6, bots: [hard, hard, hard, hard, hard], rules: { bribes: true, placeCrew: true, openDeals: true }, coins: 400, xp: 250, items: ["title.mastermind", "felt.vaultfloor"] },
+  { n: 9, name: T["stage.9.name"], blurb: T["stage.9.blurb"], twist: T["stage.9.twist"], players: 5, bots: [hard, normal, hard, normal], rules: { bribes: true }, coins: 180, xp: 130 },
+  { n: 10, name: T["stage.10.name"], blurb: T["stage.10.blurb"], twist: T["stage.10.twist"], players: 6, bots: [hard, hard, normal, hard, normal], coins: 200, xp: 140 },
+  { n: 11, name: T["stage.11.name"], blurb: T["stage.11.blurb"], twist: T["stage.11.twist"], players: 6, bots: [{ level: "hard", partner: 2 }, { level: "hard", partner: 1 }, { level: "hard", vendetta: true }, hard, normal], rules: { openDeals: true }, coins: 250, xp: 160 },
+  { n: 12, name: T["stage.12.name"], blurb: T["stage.12.blurb"], twist: T["stage.12.twist"], players: 6, bots: [hard, hard, hard, hard, hard], rules: { bribes: true, placeCrew: true, openDeals: true }, coins: 400, xp: 250, items: ["title.mastermind", "felt.vaultfloor"] },
 ];
 
 export const stage = (n: number): Stage | undefined => STAGES[n - 1];

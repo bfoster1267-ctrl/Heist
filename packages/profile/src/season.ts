@@ -5,6 +5,7 @@
 // Packs cost play chips (never real money). A pack costs more than a top-up, and you have to keep a full
 // top-up's worth of chips after buying one, so spending down to zero and refilling can't farm packs.
 
+import { PROFILE_TEXT as T, say } from "./text";
 import { cosmetic, type Cosmetic, type Rarity } from "./cosmetics";
 import type { Fail, Progress } from "./progress";
 import { SEASON_1, SEASON_1_PACK_ITEMS, SEASON_1_PASS_ITEMS, VAULT_DRINK } from "./season1";
@@ -23,7 +24,7 @@ export interface Season {
 }
 
 export const SEASONS: Season[] = [
-  { id: SEASON_1, name: "Opening Night", start: Date.UTC(2026, 9, 8), end: Date.UTC(2027, 0, 5), passItems: SEASON_1_PASS_ITEMS, packItems: SEASON_1_PACK_ITEMS, prize: VAULT_DRINK.id },
+  { id: SEASON_1, name: T["season.1.name"], start: Date.UTC(2026, 9, 8), end: Date.UTC(2027, 0, 5), passItems: SEASON_1_PASS_ITEMS, packItems: SEASON_1_PACK_ITEMS, prize: VAULT_DRINK.id },
 ];
 
 export const seasonAt = (at: number) => SEASONS.find((s) => at >= s.start && at < s.end) ?? null;
@@ -69,11 +70,11 @@ export interface PassLine {
 /** Season XP for a game. Quitting earns nothing. */
 export function passLines(r: GameResult, firstWinToday: boolean): PassLine[] {
   if (r.quit) return [];
-  const lines: PassLine[] = [{ label: "Played", xp: 150 }];
-  if (r.won) lines.push({ label: "Won", xp: 100 });
-  if (r.mode === "online") lines.push({ label: "Online", xp: 50 });
-  if (r.ranked) lines.push({ label: "Ranked", xp: 100 });
-  if (r.won && firstWinToday) lines.push({ label: "First win of the day", xp: 200 });
+  const lines: PassLine[] = [{ label: T["pass.played"], xp: 150 }];
+  if (r.won) lines.push({ label: T["pass.won"], xp: 100 });
+  if (r.mode === "online") lines.push({ label: T["pass.online"], xp: 50 });
+  if (r.ranked) lines.push({ label: T["pass.ranked"], xp: 100 });
+  if (r.won && firstWinToday) lines.push({ label: T["pass.firstWin"], xp: 200 });
   return lines;
 }
 
@@ -152,11 +153,11 @@ export const DUPE_XP = 200;
  */
 export function openPack(prev: Progress, at: number, rand: Rand, paid: boolean): PackResult | Fail {
   const s = seasonAt(at);
-  if (!s) return { error: "No season is running right now." };
+  if (!s) return { error: T["err.noSeason"] };
   const pass = currentPass(prev, at)!;
   if (paid) {
-    if (prev.chips < PACK_PRICE + PACK_KEEP) return { error: `A pack costs ${PACK_PRICE.toLocaleString()} chips, and you need ${PACK_KEEP.toLocaleString()} left after buying.` };
-  } else if (pass.packs < 1) return { error: "You don't have a free pack to open." };
+    if (prev.chips < PACK_PRICE + PACK_KEEP) return { error: say("err.packCost", { price: PACK_PRICE.toLocaleString("en-US"), keep: PACK_KEEP.toLocaleString("en-US") }) };
+  } else if (pass.packs < 1) return { error: T["err.noPack"] };
   const p: Progress = structuredClone(prev);
   p.pass = { ...pass, packs: pass.packs - (paid ? 0 : 1) };
   if (paid) p.chips -= PACK_PRICE;

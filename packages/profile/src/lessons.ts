@@ -12,10 +12,13 @@
 
 import { Bot, type Answer, type Ask, type GameState, type HeistGame, type RoleId, type RuleOptions } from "@heist/engine";
 import { coachPick } from "./coach";
+import { PROFILE_TEXT as T } from "./text";
 
 type Kind = Ask["kind"];
 
 export interface Idea {
+  /** stable id for the idea's text (PROFILE_TEXT idea.<id>.title / .text); "" for known ideas */
+  id: string;
   /** the hand (your turns as the Boss, counted from 1) this idea opens on; 0: from the start */
   hand: number;
   /** decisions that are yours from then on; until then the coach plays them for you */
@@ -41,14 +44,14 @@ export interface Lesson {
 
 const SIMPLE_ROLES: RoleId[] = ["muscle", "lookout", "getaway", "safecracker", "pickpocket", "mastermind"];
 
-const FIGHT: Idea = { hand: 0, kinds: ["showdown"], title: "The fight", text: "When you're the Boss or the Mark, you lay a card face down, then both flip. Your card plus your crew: higher wins, and ties go to the Mark." };
-const SEND: Idea = { hand: 1, kinds: ["send"], title: "Send your crew", text: "Each crew you send is +1 in the fight. Win and they leave a Foothold in that hideout. Lose and they go to the Pen for a while." };
-const TARGET: Idea = { hand: 2, kinds: ["pickHideout", "pickMark"], title: "Pick the target", text: "Hit the hideout with the fewest guards that has none of your crew yet. A new hideout means a new Foothold." };
-const JOIN: Idea = { hand: 0, kinds: ["join"], title: "Pick a side", text: "When two rivals fight, you can join. Back the Boss to grab a Foothold, or defend the Mark to bank a Cut. Staying out is fine too." };
-const CASH: Idea = { hand: 1, kinds: ["bank", "hire"], at: ["bank"], title: "Cash and crew", text: "Cards you bank turn into cash. Spend $3 to hire another crew. Keep your best Score in hand to fight with." };
-const ACTION: Idea = { hand: 2, kinds: ["action", "again"], at: ["action"], title: "Hit, bust or lay low", text: "Now you choose your move. Hit a rival, bust a rival's Foothold out of your own hideout, or lay low when your hand is weak. A Bust button shows the rival's crew shape and which of your hideouts they're in." };
+const FIGHT: Idea = { id: "fight", hand: 0, kinds: ["showdown"], title: T["idea.fight.title"], text: T["idea.fight.text"] };
+const SEND: Idea = { id: "send", hand: 1, kinds: ["send"], title: T["idea.send.title"], text: T["idea.send.text"] };
+const TARGET: Idea = { id: "target", hand: 2, kinds: ["pickHideout", "pickMark"], title: T["idea.target.title"], text: T["idea.target.text"] };
+const JOIN: Idea = { id: "join", hand: 0, kinds: ["join"], title: T["idea.join.title"], text: T["idea.join.text"] };
+const CASH: Idea = { id: "cash", hand: 1, kinds: ["bank", "hire"], at: ["bank"], title: T["idea.cash.title"], text: T["idea.cash.text"] };
+const ACTION: Idea = { id: "action", hand: 2, kinds: ["action", "again"], at: ["action"], title: T["idea.action.title"], text: T["idea.action.text"] };
 /** what an earlier lesson taught: yours from the start, not explained again */
-const known = (...ideas: Idea[]): Idea => ({ hand: 0, kinds: ideas.flatMap((i) => i.kinds), title: "", text: "" });
+const known = (...ideas: Idea[]): Idea => ({ id: "", hand: 0, kinds: ideas.flatMap((i) => i.kinds), title: "", text: "" });
 
 /** the first hand: one round, then the new player is shown around the lobby (FIRST_HAND is its id) */
 export const FIRST_HAND = 5;
@@ -58,46 +61,46 @@ export const FIRST_HAND = 5;
 export const LESSONS: Lesson[] = [
   {
     n: FIRST_HAND,
-    name: "Your first hand",
-    blurb: "Lesson 1 of 5. One hand: the coach plays most of it and shows you the fight.",
+    name: T["lesson.5.name"],
+    blurb: T["lesson.5.blurb"],
     rules: { noRoles: true, scoresOnly: true, noBets: true, rounds: 1 },
     ideas: [FIGHT, SEND],
   },
   {
     n: 1,
-    name: "Pick the target",
-    blurb: "Lesson 2 of 5. The coach plays most of your turn and hands you one new move each hand.",
+    name: T["lesson.1.name"],
+    blurb: T["lesson.1.blurb"],
     rules: { noRoles: true, scoresOnly: true, noBets: true },
     ideas: [known(FIGHT, SEND), { ...TARGET, hand: 1 }, { ...JOIN, hand: 2 }, { ...CASH, hand: 3 }, { ...ACTION, hand: 4 }],
   },
   {
     n: 2,
-    name: "Your turn",
-    blurb: "Lesson 3 of 5. You take over the rest of your turn: picking sides, cash and crew, and your move.",
+    name: T["lesson.2.name"],
+    blurb: T["lesson.2.blurb"],
     rules: { noRoles: true, scoresOnly: true, noBets: true },
     ideas: [known(FIGHT, SEND, TARGET), JOIN, CASH, ACTION],
   },
   {
     n: 3,
-    name: "Dirty tricks",
-    blurb: "Lesson 4 of 5. The trick cards join the deck, one new one each hand.",
+    name: T["lesson.3.name"],
+    blurb: T["lesson.3.blurb"],
     rules: { noRoles: true, noBets: true },
     ideas: [
       known(FIGHT, SEND, TARGET, JOIN, CASH, ACTION),
-      { hand: 0, kinds: ["dealOffer", "dealAccept", "deal", "discard"], at: ["showdown", "dealOffer", "dealAccept", "deal"], title: "Fixers", text: "A Fixer is a bluff card. It loses to any Score, but if both sides play a Fixer it becomes a deal: say no and both lose 2 crew to the Pen." },
-      { hand: 1, kinds: ["backup"], title: "Backup", text: "After the flip, anyone holding a Backup can add +3 to either side. Use it when your side is close." },
-      { hand: 2, kinds: ["doubleCross"], title: "Double-Cross", text: "Right before the fight, flip one ally to the other side. Anyone can play it." },
+      { id: "fixers", hand: 0, kinds: ["dealOffer", "dealAccept", "deal", "discard"], at: ["showdown", "dealOffer", "dealAccept", "deal"], title: T["idea.fixers.title"], text: T["idea.fixers.text"] },
+      { id: "backup", hand: 1, kinds: ["backup"], title: T["idea.backup.title"], text: T["idea.backup.text"] },
+      { id: "doubleCross", hand: 2, kinds: ["doubleCross"], title: T["idea.doubleCross.title"], text: T["idea.doubleCross.text"] },
     ],
   },
   {
     n: 4,
-    name: "Roles and bets",
-    blurb: "Lesson 5 of 5. Everything so far, plus a Role that bends one rule your way, and side bets.",
+    name: T["lesson.4.name"],
+    blurb: T["lesson.4.blurb"],
     rules: { rolePool: SIMPLE_ROLES },
     rest: true,
     ideas: [
-      { hand: 0, kinds: ["keepRole"], title: "Roles", text: "Each Role breaks one rule in your favor, and everyone can see everyone's. These are the simple ones; the full game has 13." },
-      { hand: 1, kinds: ["bet"], title: "Side bets", text: "Not in a fight? Bet a banked card on who wins. Right and you get it back plus the top Job card. Wrong and it's gone." },
+      { id: "roles", hand: 0, kinds: ["keepRole"], title: T["idea.roles.title"], text: T["idea.roles.text"] },
+      { id: "bets", hand: 1, kinds: ["bet"], title: T["idea.bets.title"], text: T["idea.bets.text"] },
     ],
   },
 ];

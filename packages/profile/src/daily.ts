@@ -2,6 +2,7 @@
 // Ensures every player in the world shares the exact same daily challenge deal on any given day,
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
+import { PROFILE_TEXT as T, say } from "./text";
 import type { Progress } from "./progress";
 import { levelInfo, levelUpCoins, MAX_LEVEL, xpForLevel } from "./levels";
 
@@ -39,10 +40,10 @@ export interface StreakMilestone {
 }
 
 export const STREAK_MILESTONES: Record<number, StreakMilestone> = {
-  3: { streak: 3, xp: 100, coins: 25, label: "3-Day Streak Bonus" },
-  7: { streak: 7, xp: 250, coins: 75, label: "7-Day Streak Bonus" },
-  14: { streak: 14, xp: 500, coins: 150, label: "14-Day Streak Bonus" },
-  30: { streak: 30, xp: 1000, coins: 300, label: "30-Day Streak Bonus" },
+  3: { streak: 3, xp: 100, coins: 25, label: say("streak.bonus", { n: 3 }) },
+  7: { streak: 7, xp: 250, coins: 75, label: say("streak.bonus", { n: 7 }) },
+  14: { streak: 14, xp: 500, coins: 150, label: say("streak.bonus", { n: 14 }) },
+  30: { streak: 30, xp: 1000, coins: 300, label: say("streak.bonus", { n: 30 }) },
 };
 
 export function getMilestoneBonus(streak: number): StreakMilestone | null {
@@ -198,49 +199,49 @@ const GAME_CHALLENGE_CONFIG: Record<
   }
 > = {
   solitaire: {
-    title: "Daily Solitaire Heist",
-    description: "Crack today's deterministic Klondike deal and move all 52 cards to foundations.",
-    goal: () => ({ type: "win", target: 1, description: "Win the Klondike deal" }),
+    title: T["daily.solitaire.title"],
+    description: T["daily.solitaire.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.solitaire"] }),
   },
   freecell: {
-    title: "Daily FreeCell Syndicate",
-    description: "Solve today's shared FreeCell deal by clearing all cards into foundations.",
-    goal: () => ({ type: "win", target: 1, description: "Solve the FreeCell deal" }),
+    title: T["daily.freecell.title"],
+    description: T["daily.freecell.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.freecell"] }),
   },
   spider: {
-    title: "Daily Spider Solitaire",
-    description: "Weave through today's spider columns and assemble complete suit sequences.",
+    title: T["daily.spider.title"],
+    description: T["daily.spider.description"],
     goal: (seed) =>
       seed % 2 === 0
-        ? { type: "win", target: 1, description: "Clear all 8 card columns (Win)" }
-        : { type: "suits", target: 4, description: "Clear at least 4 suit columns" },
+        ? { type: "win", target: 1, description: T["goal.spiderWin"] }
+        : { type: "suits", target: 4, description: T["goal.spiderSuits"] },
   },
   tripeaks: {
-    title: "Daily TriPeaks Expedition",
-    description: "Scale today's peaks by sequencing cards into the discard pile.",
-    goal: () => ({ type: "peaks", target: 3, description: "Clear all 3 peaks" }),
+    title: T["daily.tripeaks.title"],
+    description: T["daily.tripeaks.description"],
+    goal: () => ({ type: "peaks", target: 3, description: T["goal.tripeaks"] }),
   },
   pyramid: {
-    title: "Daily Pyramid Vault",
-    description: "Pair cards adding to 13 to dismantle today's ancient pyramid.",
-    goal: () => ({ type: "win", target: 1, description: "Clear the entire pyramid" }),
+    title: T["daily.pyramid.title"],
+    description: T["daily.pyramid.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.pyramid"] }),
   },
   yukon: {
-    title: "Daily Yukon Territory",
-    description: "Maneuver unblocked groups in today's rugged Yukon tableau to solve all suits.",
-    goal: () => ({ type: "win", target: 1, description: "Solve the Yukon deal" }),
+    title: T["daily.yukon.title"],
+    description: T["daily.yukon.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.yukon"] }),
   },
   ers: {
-    title: "Daily Egyptian Rat Screw Showdown",
-    description: "Slap doubles and sandwiches to outwit bots and claim the whole deck today.",
-    goal: () => ({ type: "win", target: 1, description: "Win the ERS match" }),
+    title: T["daily.ers.title"],
+    description: T["daily.ers.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.ers"] }),
   },
   scoundrel: {
-    title: "Daily Scoundrel Dungeon Crawler",
-    description: "Survive today's treacherous 44-card dungeon and conquer monsters.",
+    title: T["daily.scoundrel.title"],
+    description: T["daily.scoundrel.description"],
     goal: (seed) => {
       const target = 8 + (seed % 4); // target 8 to 11 rooms
-      return { type: "rooms", target, description: `Clear at least ${target} dungeon rooms` };
+      return { type: "rooms", target, description: say("goal.scoundrel", { n: target }) };
     },
   },
 };
@@ -511,10 +512,10 @@ export function buyStreakFreeze(progress: Progress): { progress: Progress; succe
   if (!p.daily) p.daily = newDailyProgress();
   const currentFreezes = p.daily.freezes ?? 0;
   if (currentFreezes >= MAX_STREAK_FREEZES) {
-    return { progress: p, success: false, error: "Maximum 2 Streak Freezes already equipped." };
+    return { progress: p, success: false, error: say("err.maxFreezes") };
   }
   if (p.coins < STREAK_FREEZE_COST) {
-    return { progress: p, success: false, error: `Need ${STREAK_FREEZE_COST} Coins (you have ${p.coins}).` };
+    return { progress: p, success: false, error: say("err.freezeCoins", { cost: STREAK_FREEZE_COST, coins: p.coins }) };
   }
   p.coins -= STREAK_FREEZE_COST;
   p.daily.freezes = currentFreezes + 1;
@@ -558,8 +559,8 @@ export function getDailyQuests(progress?: Progress | null, dateStr?: string): Da
   const quests: DailyQuestStatus[] = [
     {
       id: "moves",
-      title: "Tactical Execution",
-      desc: "Make 30 card moves in any game",
+      title: T["quest.moves.title"],
+      desc: T["quest.moves.desc"],
       icon: "⚡",
       target: 30,
       current: Math.min(30, qData.moves),
@@ -569,8 +570,8 @@ export function getDailyQuests(progress?: Progress | null, dateStr?: string): Da
     },
     {
       id: "xp",
-      title: "Heist Operative",
-      desc: "Earn 200 XP across solo or table games",
+      title: T["quest.xp.title"],
+      desc: T["quest.xp.desc"],
       icon: "💎",
       target: 200,
       current: Math.min(200, qData.xp),
@@ -580,8 +581,8 @@ export function getDailyQuests(progress?: Progress | null, dateStr?: string): Da
     },
     {
       id: "daily",
-      title: "Daily Specialist",
-      desc: "Complete today's featured daily challenge deal",
+      title: T["quest.daily.title"],
+      desc: T["quest.daily.desc"],
       icon: "👑",
       target: 1,
       current: hasDailyDone ? 1 : 0,

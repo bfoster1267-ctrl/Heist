@@ -2,6 +2,7 @@
 // rules that change them. The game server stores one of these per account; the web app keeps one in
 // the browser when no server is configured. Both run these same functions, so rewards always match.
 
+import { say } from "./text";
 import { COSMETICS, DEFAULT_EQUIPPED, cosmetic, drink, equippable, freeWith, unlocked, type EquipSlot } from "./cosmetics";
 import { MAX_LEVEL, MAX_PRESTIGE, levelInfo, levelUpCoins, prestigeCoins, xpForLevel } from "./levels";
 import { addGame, emptyStats, type CareerStats, type GameResult } from "./stats";
@@ -138,19 +139,19 @@ export const RANKED_BONUS = { xp: 60, coins: 15, topHalfXp: 40 };
 
 /** Work out XP and coins for a game. */
 export function rewardLines(r: GameResult, firstWinToday: boolean): RewardLine[] {
-  if (r.quit) return [{ label: "Abandoned the game", xp: 0, coins: 0 }];
+  if (r.quit) return [{ label: say("reward.abandoned"), xp: 0, coins: 0 }];
   const s = r.summary;
-  const lines: RewardLine[] = [{ label: "Played a game", xp: 50, coins: 5 }];
-  if (r.won) lines.push({ label: "Won", xp: 100, coins: 20 });
-  if (r.won && r.players > 3) lines.push({ label: `Beat a ${r.players}-player table`, xp: 15 * (r.players - 3), coins: 0 });
-  if (r.mode === "online") lines.push({ label: "Online table", xp: 25, coins: 5 });
-  if (s.footholds) lines.push({ label: `Footholds x${s.footholds}`, xp: 10 * Math.min(s.footholds, 8), coins: 0 });
-  if (s.jobsWon) lines.push({ label: `Jobs pulled off x${s.jobsWon}`, xp: 5 * Math.min(s.jobsWon, 10), coins: 0 });
-  if (s.defenses) lines.push({ label: `Jobs fought off x${s.defenses}`, xp: 5 * Math.min(s.defenses, 10), coins: 0 });
-  if (r.won && firstWinToday) lines.push({ label: "First win of the day", xp: 100, coins: 25 });
+  const lines: RewardLine[] = [{ label: say("reward.played"), xp: 50, coins: 5 }];
+  if (r.won) lines.push({ label: say("reward.won"), xp: 100, coins: 20 });
+  if (r.won && r.players > 3) lines.push({ label: say("reward.bigTable", { n: r.players }), xp: 15 * (r.players - 3), coins: 0 });
+  if (r.mode === "online") lines.push({ label: say("reward.online"), xp: 25, coins: 5 });
+  if (s.footholds) lines.push({ label: say("reward.footholds", { n: s.footholds }), xp: 10 * Math.min(s.footholds, 8), coins: 0 });
+  if (s.jobsWon) lines.push({ label: say("reward.jobsWon", { n: s.jobsWon }), xp: 5 * Math.min(s.jobsWon, 10), coins: 0 });
+  if (s.defenses) lines.push({ label: say("reward.defenses", { n: s.defenses }), xp: 5 * Math.min(s.defenses, 10), coins: 0 });
+  if (r.won && firstWinToday) lines.push({ label: say("reward.firstWin"), xp: 100, coins: 25 });
   if (r.ranked) {
-    lines.push({ label: "Ranked game", xp: RANKED_BONUS.xp, coins: RANKED_BONUS.coins });
-    if (r.ranked.span[0] < r.players / 2) lines.push({ label: "Top-half finish", xp: RANKED_BONUS.topHalfXp, coins: 0 });
+    lines.push({ label: say("reward.ranked"), xp: RANKED_BONUS.xp, coins: RANKED_BONUS.coins });
+    if (r.ranked.span[0] < r.players / 2) lines.push({ label: say("reward.topHalf"), xp: RANKED_BONUS.topHalfXp, coins: 0 });
   }
   return lines;
 }
@@ -167,7 +168,7 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
   // the first clear of the next campaign stage
   const cleared = r.won && !r.quit && r.campaign !== undefined && r.campaign === p.campaign + 1 ? stage(r.campaign) : undefined;
   if (cleared) {
-    lines.push({ label: `Cleared ${cleared.name}`, xp: cleared.xp, coins: cleared.coins });
+    lines.push({ label: say("reward.cleared", { stage: cleared.name }), xp: cleared.xp, coins: cleared.coins });
     p.campaign = cleared.n;
     for (const id of cleared.items ?? []) if (!p.owned.includes(id)) p.owned.push(id);
   }
@@ -177,7 +178,7 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
     const g = playRanked(p.ranked, r.ranked);
     p.ranked = g.state;
     ranked = g.result;
-    if (ranked.seasonReward) lines.push({ label: `Season rank: ${ranked.seasonReward.label}`, xp: 0, coins: ranked.seasonReward.coins });
+    if (ranked.seasonReward) lines.push({ label: say("reward.seasonRank", { rank: ranked.seasonReward.label }), xp: 0, coins: ranked.seasonReward.coins });
   }
   let xp = lines.reduce((t, l) => t + l.xp, 0);
   let coins = lines.reduce((t, l) => t + l.coins, 0);
@@ -189,7 +190,7 @@ export function settle(prev: Progress, r: GameResult): { progress: Progress; rew
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -222,8 +223,8 @@ export const FIRST_HAND_PASS_XP = TIER_XP;
 /** Record a finished Coached play game (`firstHand` at `at`: the new player's one-hand first lesson). */
 export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: number }): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
-  const lines: RewardLine[] = [{ label: "Coached game", xp: COACH_XP.played, coins: 0 }];
-  if (won) lines.push({ label: "Won", xp: COACH_XP.won, coins: 0 });
+  const lines: RewardLine[] = [{ label: say("reward.coached"), xp: COACH_XP.played, coins: 0 }];
+  if (won) lines.push({ label: say("reward.won"), xp: COACH_XP.won, coins: 0 });
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -233,7 +234,7 @@ export function settleCoached(prev: Progress, won: boolean, firstHand?: { at: nu
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -265,7 +266,7 @@ function applyDailyBonus(
   if (completion.bonusXp > 0) {
     const baseXp = Math.round(completion.baseBonusXp * completion.multiplier);
     bonusLines.push({
-      label: `Daily Challenge: ${completion.challenge.title}`,
+      label: say("reward.daily", { title: completion.challenge.title }),
       xp: baseXp,
       coins: completion.bonusCoins - (completion.milestoneBonus?.coins ?? 0),
     });
@@ -299,7 +300,7 @@ export function settleDailyChallenge(
   const today = day(at);
   const challenge = getDailyChallenge(game, today);
   if (!isChallengeCompleted(challenge, outcome)) {
-    return { error: `Challenge goal not met: ${challenge.goal.description}` };
+    return { error: say("err.goalNotMet", { goal: challenge.goal.description }) };
   }
 
   const p: Progress = structuredClone(prev);
@@ -310,7 +311,7 @@ export function settleDailyChallenge(
   if (completion.bonusXp > 0) {
     const baseXp = Math.round(completion.baseBonusXp * completion.multiplier);
     lines.push({
-      label: `Daily Challenge: ${challenge.title}`,
+      label: say("reward.daily", { title: challenge.title }),
       xp: baseXp,
       coins: completion.bonusCoins - (completion.milestoneBonus?.coins ?? 0),
     });
@@ -324,7 +325,7 @@ export function settleDailyChallenge(
   }
   if (lines.length === 0) {
     lines.push({
-      label: `Daily Challenge: ${challenge.title} (already cleared today)`,
+      label: say("reward.dailyAgain", { title: challenge.title }),
       xp: 0,
       coins: 0,
     });
@@ -340,7 +341,7 @@ export function settleDailyChallenge(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -388,7 +389,7 @@ export function speedBonus(seconds?: number, maxSecs = 300): RewardLine | null {
   if (bonus <= 0) return null;
   const m = Math.floor(s / 60);
   const sec = String(s % 60).padStart(2, "0");
-  return { label: `Speed bonus (${m}:${sec})`, xp: bonus, coins: 0 };
+  return { label: say("reward.speed", { time: `${m}:${sec}` }), xp: bonus, coins: 0 };
 }
 
 /** The speed bonus trimmed to the XP still left in today's room for this game (null when none is left). */
@@ -416,18 +417,17 @@ export function settleSolitaire(
   const s = { ...p.solitaire, xp: p.solitaire.xp ?? 0 };
   if (s.day !== today) Object.assign(s, { day: today, xp: 0 });
   if (gained.won) s.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.moves, "new move", "new moves"), xp: gained.moves * SOL_XP.move, coins: 0 },
-    { label: plural(gained.aces, "ace sent up", "aces sent up"), xp: gained.aces * SOL_XP.ace, coins: 0 },
-    { label: plural(gained.stacks, "suit finished", "suits finished"), xp: gained.stacks * SOL_XP.stack, coins: 0 },
-    { label: "Solitaire solved", xp: gained.won ? SOL_XP.win : 0, coins: 0 },
+    { label: say("reward.moves", { count: gained.moves }), xp: gained.moves * SOL_XP.move, coins: 0 },
+    { label: say("reward.aces", { count: gained.aces }), xp: gained.aces * SOL_XP.ace, coins: 0 },
+    { label: say("reward.suits", { count: gained.stacks }), xp: gained.stacks * SOL_XP.stack, coins: 0 },
+    { label: say("reward.solved.solitaire"), xp: gained.won ? SOL_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slowHints"), xp: total - earned, coins: 0 });
   const room = Math.max(0, SOLITAIRE_DAY_XP - s.xp);
-  if (total > room) lines = [{ label: "Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.solitaire") }), xp: room, coins: 0 }];
   s.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.solitaire = s;
@@ -451,7 +451,7 @@ export function settleSolitaire(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -492,18 +492,17 @@ export function settleFreeCell(
   const fc = { ...(p.freecell ?? { won: 0, day: null, xp: 0 }), xp: p.freecell?.xp ?? 0 };
   if (fc.day !== today) Object.assign(fc, { day: today, xp: 0 });
   if (gained.won) fc.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.moves, "new move", "new moves"), xp: gained.moves * FC_XP.move, coins: 0 },
-    { label: plural(gained.aces, "ace sent up", "aces sent up"), xp: gained.aces * FC_XP.ace, coins: 0 },
-    { label: plural(gained.stacks, "suit finished", "suits finished"), xp: gained.stacks * FC_XP.stack, coins: 0 },
-    { label: "FreeCell solved", xp: gained.won ? FC_XP.win : 0, coins: 0 },
+    { label: say("reward.moves", { count: gained.moves }), xp: gained.moves * FC_XP.move, coins: 0 },
+    { label: say("reward.aces", { count: gained.aces }), xp: gained.aces * FC_XP.ace, coins: 0 },
+    { label: say("reward.suits", { count: gained.stacks }), xp: gained.stacks * FC_XP.stack, coins: 0 },
+    { label: say("reward.solved.freecell"), xp: gained.won ? FC_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slowHints"), xp: total - earned, coins: 0 });
   const room = Math.max(0, FREECELL_DAY_XP - fc.xp);
-  if (total > room) lines = [{ label: "FreeCell (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.freecell") }), xp: room, coins: 0 }];
   fc.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.freecell = fc;
@@ -527,7 +526,7 @@ export function settleFreeCell(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -568,22 +567,21 @@ export function settleTriPeaks(
   const tp = { ...(p.tripeaks ?? { won: 0, day: null, xp: 0 }), xp: p.tripeaks?.xp ?? 0 };
   if (tp.day !== today) Object.assign(tp, { day: today, xp: 0 });
   if (gained.won) tp.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.cleared, "card cleared", "cards cleared"), xp: gained.cleared * TP_XP.clear, coins: 0 },
-    { label: plural(gained.peaks, "peak cleared", "peaks cleared"), xp: gained.peaks * TP_XP.peak, coins: 0 },
-    { label: "TriPeaks cleared", xp: gained.won ? TP_XP.win : 0, coins: 0 },
+    { label: say("reward.cardsCleared", { count: gained.cleared }), xp: gained.cleared * TP_XP.clear, coins: 0 },
+    { label: say("reward.peaks", { count: gained.peaks }), xp: gained.peaks * TP_XP.peak, coins: 0 },
+    { label: say("reward.solved.tripeaks"), xp: gained.won ? TP_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
   const hasStreak10 = "streak10" in gained ? Boolean((gained as any).streak10) : gained.maxStreak >= 10;
   const hasStreak5 = "streak5" in gained ? Boolean((gained as any).streak5) : gained.maxStreak >= 5;
-  if (hasStreak10) lines.push({ label: "10-card combo streak", xp: TP_XP.streak10, coins: 0 });
-  if (hasStreak5) lines.push({ label: "5-card combo streak", xp: TP_XP.streak5, coins: 0 });
+  if (hasStreak10) lines.push({ label: say("reward.combo10"), xp: TP_XP.streak10, coins: 0 });
+  if (hasStreak5) lines.push({ label: say("reward.combo5"), xp: TP_XP.streak5, coins: 0 });
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play and hints", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slowHints"), xp: total - earned, coins: 0 });
   const room = Math.max(0, TRIPEAKS_DAY_XP - tp.xp);
-  if (total > room) lines = [{ label: "TriPeaks (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.tripeaks") }), xp: room, coins: 0 }];
   tp.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.tripeaks = tp;
@@ -608,7 +606,7 @@ export function settleTriPeaks(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -649,18 +647,17 @@ export function settleErs(
   const ers = { ...(p.ers ?? { won: 0, day: null, xp: 0 }), xp: p.ers?.xp ?? 0 };
   if (ers.day !== today) Object.assign(ers, { day: today, xp: 0 });
   if (gained.won) ers.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.slaps, "successful slap", "successful slaps"), xp: gained.slaps * ERS_XP.slap, coins: 0 },
-    { label: plural(gained.faceChallengesWon, "face challenge won", "face challenges won"), xp: gained.faceChallengesWon * ERS_XP.challenge, coins: 0 },
-    { label: "ERS victory", xp: gained.won ? ERS_XP.win : 0, coins: 0 },
+    { label: say("reward.slaps", { count: gained.slaps }), xp: gained.slaps * ERS_XP.slap, coins: 0 },
+    { label: say("reward.faceWins", { count: gained.faceChallengesWon }), xp: gained.faceChallengesWon * ERS_XP.challenge, coins: 0 },
+    { label: say("reward.solved.ers"), xp: gained.won ? ERS_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slow"), xp: total - earned, coins: 0 });
   const room = Math.max(0, ERS_DAY_XP - ers.xp);
-  if (total > room) lines = [{ label: "Egyptian Rat Screw (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.ers") }), xp: room, coins: 0 }];
   ers.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.ers = ers;
@@ -684,7 +681,7 @@ export function settleErs(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -725,17 +722,16 @@ export function settleSpider(
   const sp = { ...(p.spider ?? { won: 0, day: null, xp: 0 }), xp: p.spider?.xp ?? 0 };
   if (sp.day !== today) Object.assign(sp, { day: today, xp: 0 });
   if (gained.won) sp.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.completedRuns, "suit run cleared", "suit runs cleared"), xp: gained.completedRuns * SPIDER_XP.run, coins: 0 },
-    { label: "Spider Solitaire solved", xp: gained.won ? SPIDER_XP.win : 0, coins: 0 },
+    { label: say("reward.runs", { count: gained.completedRuns }), xp: gained.completedRuns * SPIDER_XP.run, coins: 0 },
+    { label: say("reward.solved.spider"), xp: gained.won ? SPIDER_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slow"), xp: total - earned, coins: 0 });
   const room = Math.max(0, SPIDER_DAY_XP - sp.xp);
-  if (total > room) lines = [{ label: "Spider Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.spider") }), xp: room, coins: 0 }];
   sp.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.spider = sp;
@@ -760,7 +756,7 @@ export function settleSpider(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -801,17 +797,16 @@ export function settlePyramid(
   const pyr = { ...(p.pyramid ?? { won: 0, day: null, xp: 0 }), xp: p.pyramid?.xp ?? 0 };
   if (pyr.day !== today) Object.assign(pyr, { day: today, xp: 0 });
   if (gained.won) pyr.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.clearedCards, "pyramid card cleared", "pyramid cards cleared"), xp: gained.clearedCards * PYRAMID_XP.clear, coins: 0 },
-    { label: "Pyramid cleared", xp: gained.won ? PYRAMID_XP.win : 0, coins: 0 },
+    { label: say("reward.pyramidCards", { count: gained.clearedCards }), xp: gained.clearedCards * PYRAMID_XP.clear, coins: 0 },
+    { label: say("reward.solved.pyramid"), xp: gained.won ? PYRAMID_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slow"), xp: total - earned, coins: 0 });
   const room = Math.max(0, PYRAMID_DAY_XP - pyr.xp);
-  if (total > room) lines = [{ label: "Pyramid Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.pyramid") }), xp: room, coins: 0 }];
   pyr.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.pyramid = pyr;
@@ -835,7 +830,7 @@ export function settlePyramid(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -874,18 +869,17 @@ export function settleYukon(
   const yk = { ...(p.yukon ?? { won: 0, day: null, xp: 0 }), xp: p.yukon?.xp ?? 0 };
   if (yk.day !== today) Object.assign(yk, { day: today, xp: 0 });
   if (gained.won) yk.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.unturned, "card turned up", "cards turned up"), xp: gained.unturned * YUKON_XP.turn, coins: 0 },
-    { label: plural(gained.foundations, "card to foundation", "cards to foundation"), xp: gained.foundations * YUKON_XP.foundation, coins: 0 },
-    { label: "Yukon cleared", xp: gained.won ? YUKON_XP.win : 0, coins: 0 },
+    { label: say("reward.turnedUp", { count: gained.unturned }), xp: gained.unturned * YUKON_XP.turn, coins: 0 },
+    { label: say("reward.toFoundation", { count: gained.foundations }), xp: gained.foundations * YUKON_XP.foundation, coins: 0 },
+    { label: say("reward.solved.yukon"), xp: gained.won ? YUKON_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slow"), xp: total - earned, coins: 0 });
   const room = Math.max(0, YUKON_DAY_XP - yk.xp);
-  if (total > room) lines = [{ label: "Yukon Solitaire (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.yukon") }), xp: room, coins: 0 }];
   yk.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.yukon = yk;
@@ -909,7 +903,7 @@ export function settleYukon(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -948,18 +942,17 @@ export function settleScoundrel(
   const sc = { ...(p.scoundrel ?? { won: 0, day: null, xp: 0 }), xp: p.scoundrel?.xp ?? 0 };
   if (sc.day !== today) Object.assign(sc, { day: today, xp: 0 });
   if (gained.won) sc.won++;
-  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
   let lines: RewardLine[] = [
-    { label: plural(gained.monstersSlayed, "monster slayed", "monsters slayed"), xp: gained.monstersSlayed * SCOUNDREL_XP.monster, coins: 0 },
-    { label: plural(gained.roomsCleared, "room cleared", "rooms cleared"), xp: gained.roomsCleared * SCOUNDREL_XP.room, coins: 0 },
-    { label: "Escaped the dungeon", xp: gained.won ? SCOUNDREL_XP.win : 0, coins: 0 },
+    { label: say("reward.monsters", { count: gained.monstersSlayed }), xp: gained.monstersSlayed * SCOUNDREL_XP.monster, coins: 0 },
+    { label: say("reward.rooms", { count: gained.roomsCleared }), xp: gained.roomsCleared * SCOUNDREL_XP.room, coins: 0 },
+    { label: say("reward.solved.scoundrel"), xp: gained.won ? SCOUNDREL_XP.win : 0, coins: 0 },
   ].filter((l) => l.xp > 0);
 
   const earned = lines.reduce((t, l) => t + l.xp, 0);
   const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
-  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  if (total < earned) lines.push({ label: say("reward.slow"), xp: total - earned, coins: 0 });
   const room = Math.max(0, SCOUNDREL_DAY_XP - sc.xp);
-  if (total > room) lines = [{ label: "Scoundrel (daily XP limit reached)", xp: room, coins: 0 }];
+  if (total > room) lines = [{ label: say("reward.capped", { game: say("reward.game.scoundrel") }), xp: room, coins: 0 }];
   sc.xp += Math.min(total, room);
   const regularSeason = Math.min(total, room);
   p.scoundrel = sc;
@@ -984,7 +977,7 @@ export function settleScoundrel(
   for (let l = before.level + 1; l <= after.level; l++) {
     const c = levelUpCoins(l);
     coins += c;
-    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+    lines.push({ label: say("reward.level", { n: l }), xp: 0, coins: c });
   }
   if (after.level > before.level) {
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
@@ -1016,7 +1009,7 @@ export const failed = <T extends object>(x: T | Fail): x is Fail => "error" in x
 
 /** Back to level 1 with a prestige star and a coin payout. Stats and cosmetics stay. */
 export function prestige(prev: Progress): { progress: Progress; coins: number; unlocked: string[] } | Fail {
-  if (!canPrestige(prev)) return { error: prev.prestige >= MAX_PRESTIGE ? "You're already at the top prestige." : `Reach level ${MAX_LEVEL} to prestige.` };
+  if (!canPrestige(prev)) return { error: prev.prestige >= MAX_PRESTIGE ? say("err.topPrestige") : say("err.reachLevel", { n: MAX_LEVEL }) };
   const p: Progress = structuredClone(prev);
   p.prestige++;
   p.xp = 0;
@@ -1035,13 +1028,13 @@ export function owns(p: Progress, id: string): boolean {
 
 export function buy(prev: Progress, id: string): Progress | Fail {
   const c = cosmetic(id);
-  if (!c) return { error: "No such item." };
-  if (owns(prev, id)) return { error: "You already own that." };
-  if (!unlocked(c, level(prev), prev.prestige)) return { error: "That one's still locked." };
-  if (c.season) return { error: "Season items come from the season pass and packs." };
-  if (c.campaign) return { error: `Clear campaign stage ${c.campaign} to earn that one.` };
-  if (c.price <= 0) return { error: "That one isn't for sale." };
-  if (prev.coins < c.price) return { error: "Not enough coins." };
+  if (!c) return { error: say("err.noItem") };
+  if (owns(prev, id)) return { error: say("err.owned") };
+  if (!unlocked(c, level(prev), prev.prestige)) return { error: say("err.locked") };
+  if (c.season) return { error: say("err.seasonItem") };
+  if (c.campaign) return { error: say("err.campaignItem", { n: c.campaign }) };
+  if (c.price <= 0) return { error: say("err.notForSale") };
+  if (prev.coins < c.price) return { error: say("err.coins") };
   const p: Progress = structuredClone(prev);
   p.coins -= c.price;
   p.owned.push(id);
@@ -1050,9 +1043,9 @@ export function buy(prev: Progress, id: string): Progress | Fail {
 
 export function equip(prev: Progress, id: string): Progress | Fail {
   const c = cosmetic(id);
-  if (!c) return { error: "No such item." };
-  if (!owns(prev, id)) return { error: "You don't own that yet." };
-  if (!equippable(c)) return { error: "That one's always on: find it in your chat tray or drink menu." };
+  if (!c) return { error: say("err.noItem") };
+  if (!owns(prev, id)) return { error: say("err.notOwned") };
+  if (!equippable(c)) return { error: say("err.alwaysOn") };
   const p: Progress = structuredClone(prev);
   p.equipped[c.slot] = id;
   return p;
@@ -1061,10 +1054,10 @@ export function equip(prev: Progress, id: string): Progress | Fail {
 /** Pay for a drink sent to `count` players (a round goes to everyone). */
 export function payForDrink(prev: Progress, id: string, count: number): Progress | Fail {
   const d = drink(id);
-  if (!d) return { error: "No such drink." };
-  if (cosmetic(id)?.season && !prev.owned.includes(id)) return { error: "You haven't got that drink yet." };
+  if (!d) return { error: say("err.noDrink") };
+  if (cosmetic(id)?.season && !prev.owned.includes(id)) return { error: say("err.drinkLocked") };
   const cost = d.price * (d.round ? 1 : count);
-  if (prev.coins < cost) return { error: "Not enough coins." };
+  if (prev.coins < cost) return { error: say("err.coins") };
   const p: Progress = structuredClone(prev);
   p.coins -= cost;
   p.drinksSent += d.round ? count : 1;
@@ -1073,17 +1066,17 @@ export function payForDrink(prev: Progress, id: string, count: number): Progress
 
 /** Top up a broke player, or pay the daily bonus. */
 export function refill(prev: Progress): Progress | Fail {
-  if (prev.chips >= REFILL_TO) return { error: `You can top up when you're under ${REFILL_TO.toLocaleString()} chips.` };
+  if (prev.chips >= REFILL_TO) return { error: say("err.refillOver", { n: REFILL_TO.toLocaleString("en-US") }) };
   return { ...structuredClone(prev), chips: REFILL_TO };
 }
 
 export function daily(prev: Progress, at: number): { progress: Progress; chips: number } | Fail {
-  if (prev.dailyDay === day(at)) return { error: "Come back tomorrow for more free chips." };
+  if (prev.dailyDay === day(at)) return { error: say("err.refillTomorrow") };
   return { progress: { ...structuredClone(prev), chips: prev.chips + DAILY_CHIPS, dailyDay: day(at) }, chips: DAILY_CHIPS };
 }
 
 export function buyIn(prev: Progress, stakes: number): Progress | Fail {
-  if (prev.chips < stakes) return { error: "Not enough chips for that table." };
+  if (prev.chips < stakes) return { error: say("err.chips") };
   return { ...structuredClone(prev), chips: prev.chips - stakes };
 }
 

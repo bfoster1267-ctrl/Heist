@@ -7,6 +7,7 @@
 // Rank protection: the first 10 ranked games of a season can't drop you a tier; once you reach Bronze
 // you never fall below it that season; above Bronze there's no floor.
 
+import { say } from "./text";
 import { seasonAt, seasonById } from "./season";
 
 /** account level needed to queue for Ranked */
@@ -67,7 +68,7 @@ export function rankOf(rp: number): Rank {
   const step = Math.floor(Math.max(0, rp) / DIV_POINTS);
   const tier = Math.floor(step / DIVS);
   const div = DIVS - (step % DIVS);
-  return { tier, name: TIERS[tier], div, label: `${TIERS[tier]} ${ROMAN[div]}`, into: Math.max(0, rp) - step * DIV_POINTS, of: DIV_POINTS };
+  return { tier, name: TIERS[tier], div, label: say("ranked.label", { tier: TIERS[tier], roman: ROMAN[div] }), into: Math.max(0, rp) - step * DIV_POINTS, of: DIV_POINTS };
 }
 
 export const tierStart = (tier: number) => tier * DIVS * DIV_POINTS;
@@ -190,7 +191,7 @@ export function playRanked(prev: RankedState | null | undefined, g: RankedGame):
   let seasonReward: RankedResult["seasonReward"];
   if (r !== before && before.games) {
     const old = seasonById(before.season);
-    seasonReward = { season: before.season, label: `${old?.name ?? "Last season"}: ${rankOf(before.peak).label}`, coins: seasonRankCoins(before.peak) };
+    seasonReward = { season: before.season, label: say("ranked.seasonPeak", { season: old?.name ?? say("ranked.lastSeason"), rank: rankOf(before.peak).label }), coins: seasonRankCoins(before.peak) };
   }
   const base = placePoints(g.players, g.span);
   const delta = rankDelta({ base, mmr: r.mmr, rivalsMmr: g.rivals.map((x) => x.mmr), rp: r.rp, quit: g.quit });
@@ -222,6 +223,6 @@ export function rankedPublic(r: RankedState | null | undefined, at: number): Ran
   if (!r || !r.total) return null;
   const cur = rollSeason(r, seasonAt(at)?.id ?? 0);
   const rank = rankOf(cur.rp);
-  const last = cur.last ? `${seasonById(cur.last.season)?.name ?? "Last season"}: ${rankOf(cur.last.peak).label}` : null;
-  return { label: cur.games ? rank.label : "Unranked this season", tier: rank.tier, rp: cur.rp, mmr: cur.mmr, games: cur.games, wins: cur.wins, peak: rankOf(cur.peak).label, last };
+  const last = cur.last ? say("ranked.seasonPeak", { season: seasonById(cur.last.season)?.name ?? say("ranked.lastSeason"), rank: rankOf(cur.last.peak).label }) : null;
+  return { label: cur.games ? rank.label : say("ranked.unranked"), tier: rank.tier, rp: cur.rp, mmr: cur.mmr, games: cur.games, wins: cur.wins, peak: rankOf(cur.peak).label, last };
 }

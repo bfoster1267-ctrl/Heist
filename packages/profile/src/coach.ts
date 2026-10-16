@@ -5,35 +5,18 @@
 //  - coachTip is the coach's one-line read of the decision in front of you.
 // Advice lives only here, in Coached play. Regular and online tables show facts, never advice.
 
+import { PROFILE_TEXT as T, say } from "./text";
 import { Bot, cardLabel, isFighter, jobBases, type Answer, type Ask, type GameState, type HeistGame } from "@heist/engine";
 
 export type MistakeId = "alreadyIn" | "allCrewOut" | "layLowStrong" | "fixerWithScore" | "bankLastFighter" | "skippedBackup";
 
 export const MISTAKES: Record<MistakeId, { title: string; why: string }> = {
-  alreadyIn: {
-    title: "You're already in that hideout",
-    why: "You already have a Foothold there, so winning gets you nothing new. Hit a hideout you're not in yet.",
-  },
-  allCrewOut: {
-    title: "That empties your hideouts",
-    why: "Crew at home defend you. Send everyone and any rival can walk into your empty hideouts next turn. Keep 1 or 2 home.",
-  },
-  layLowStrong: {
-    title: "You have a strong hand",
-    why: "A big Score wins most fights. Laying low with one wastes your turn while rivals catch up.",
-  },
-  fixerWithScore: {
-    title: "A Score beats a Fixer",
-    why: "If the other side plays any Score, your Fixer loses outright. Play a Score unless you want a Fixer-vs-Fixer deal.",
-  },
-  bankLastFighter: {
-    title: "That banks your last fighter",
-    why: "With no Score or Fixer in hand you can't fight: your turn gets skipped and you redraw. Keep one in hand.",
-  },
-  skippedBackup: {
-    title: "Backup wins this fight",
-    why: "Your side is close enough that +3 turns it around. Play the Backup.",
-  },
+  alreadyIn: { title: T["mistake.alreadyIn.title"], why: T["mistake.alreadyIn.why"] },
+  allCrewOut: { title: T["mistake.allCrewOut.title"], why: T["mistake.allCrewOut.why"] },
+  layLowStrong: { title: T["mistake.layLowStrong.title"], why: T["mistake.layLowStrong.why"] },
+  fixerWithScore: { title: T["mistake.fixerWithScore.title"], why: T["mistake.fixerWithScore.why"] },
+  bankLastFighter: { title: T["mistake.bankLastFighter.title"], why: T["mistake.bankLastFighter.why"] },
+  skippedBackup: { title: T["mistake.skippedBackup.title"], why: T["mistake.skippedBackup.why"] },
 };
 
 export const MISTAKE_IDS = Object.keys(MISTAKES) as MistakeId[];
@@ -111,77 +94,77 @@ export function coachTip(s: GameState, ask: Ask): string {
   const j = s.job;
   switch (ask.kind) {
     case "keepRole":
-      return "Pick the Role whose rule you'll use most. Everyone can see it, so rivals will play around it.";
+      return say("tip.keepRole");
     case "bank":
       return best >= 0
-        ? `Bank cheap cards you won't fight with. Keep your best Score (${best}) and at least one fighter in hand.`
-        : "Bank cards you won't fight with. You'll want a Score or Fixer in hand to hit.";
+        ? say("tip.bank", { best })
+        : say("tip.bankNoScore");
     case "hire":
-      return `You have ${home} crew at home. Hiring makes your hits bigger and your hideouts harder to crack. Hire when the cash is spare.`;
+      return say("tip.hire", { home });
     case "action": {
-      if (ask.wanted.length) return `${name(ask.wanted[0].leader)} is running away with it. Wanted lets you hit a hideout holding their crew and knock them back.`;
-      if (!ask.canHit) return ask.busts.length ? "No crew at home to hit with. Bust a rival out of your hideout instead." : "No crew at home. Lay low this turn and rebuild.";
-      if (best >= 15) return `You hold a ${best}. That wins most fights, so this is a good turn to hit.`;
-      if (best >= 8) return `Your best Score is ${best}. A hit is fine if you can send 2 or more crew.`;
-      return ask.busts.length ? "Your hand is weak. Busting a rival out of your own hideout is the safer play." : "Your hand is weak. Laying low is fine; draw into better cards.";
+      if (ask.wanted.length) return say("tip.wanted", { name: name(ask.wanted[0].leader) });
+      if (!ask.canHit) return ask.busts.length ? say("tip.noCrewBust") : say("tip.noCrew");
+      if (best >= 15) return say("tip.strong", { best });
+      if (best >= 8) return say("tip.medium", { best });
+      return ask.busts.length ? say("tip.weakBust") : say("tip.weak");
     }
     case "pickMark":
-      return "Pick someone with weak hideouts, or the leader, to slow them down.";
+      return say("tip.pickMark");
     case "pickHideout": {
       const hs = s.players[ask.mark].hideouts;
       const open = hs.map((h, i) => ({ i, g: h[ask.mark], in: h[me] > 0 })).filter((x) => !x.in);
-      if (!open.length) return "You already have a Foothold in every one of these, so this hit can't win you a new one.";
+      if (!open.length) return say("tip.allFootholds");
       const t = open.reduce((m, x) => (x.g < m.g ? x : m));
-      return `Hideout ${t.i + 1} has the fewest guards (${t.g}) and none of your crew yet. That's your best target.`;
+      return say("tip.pickHideout", { h: t.i + 1, g: t.g });
     }
     case "send": {
       if (!j) return "";
       // the Boss has to beat guards + home turf (allies aside) with crew + card; ties go to the Mark
       const { b, m } = jobBases(s, j);
       const need = Math.min(ask.max, Math.max(1, m + 1 - b - Math.max(best, 0)));
-      return `The Mark starts at ${m} (guards plus home turf) before cards. With your ${Math.max(best, 0)}, about ${need} crew wins it. Keep 1 or 2 home to defend.`;
+      return say("tip.send", { m, best: Math.max(best, 0), need });
     }
     case "join":
-      return j ? `Backing ${name(j.boss)} can win you a Foothold. Defending ${name(j.mark)} banks you a Cut if they hold. The Mark gets +5 home turf and wins ties.` : "";
+      return j ? say("tip.join", { boss: name(j.boss), mark: name(j.mark) }) : "";
     case "bet":
-      return "Bet on the side you think wins. The Mark has +5 home turf and wins ties.";
+      return say("tip.bet");
     case "doubleCross":
-      return "Flip an ally off the side you want to win. It works best right before the showdown, when they can't answer.";
+      return say("tip.doubleCross");
     case "hackerCall":
-      return "Call a number your opponent is likely to hold: the middle Scores (8, 10, 12) are the most common.";
+      return say("tip.hackerCall");
     case "showdown": {
-      if (ask.as === "bust" || ask.as === "rival") return `A Fixer counts as 0 here. Play a Score: your best is ${Math.max(best, 0)}.`;
-      if (best >= 0 && !s.players[me].hand.some((c) => c.kind === "F")) return `Your card plus your crew is your total. Your best Score is ${best}.`;
-      return best >= 0 ? `A Score beats any Fixer. Your best is ${best}.` : "No Scores in hand: your Fixer only wins if they play a Fixer too.";
+      if (ask.as === "bust" || ask.as === "rival") return say("tip.showdownBust", { best: Math.max(best, 0) });
+      if (best >= 0 && !s.players[me].hand.some((c) => c.kind === "F")) return say("tip.showdownTotal", { best });
+      return best >= 0 ? say("tip.showdownBeats", { best }) : say("tip.showdownNoScore");
     }
     case "forger":
-      return "Change your card if a higher number from the discard pile wins the fight.";
+      return say("tip.forger");
     case "backup": {
       const mine = sideOf(s, me);
-      if (!j || !mine) return "You're not in this fight. Backup can still swing it toward the side you bet on, or against the leader.";
+      if (!j || !mine) return say("tip.backupOut");
       const short = mine === "B" ? j.mTotal - j.bTotal : j.bTotal - j.mTotal - 1;
-      if (short < 0) return "Your side is already winning. Save the Backup.";
-      return short < 3 ? "Your side is close: +3 wins it. Play the Backup." : "Your side is too far behind for +3 to help. Save it.";
+      if (short < 0) return say("tip.backupWinning");
+      return short < 3 ? say("tip.backupClose") : say("tip.backupFar");
     }
     case "again":
-      return home >= 3 ? `You still have ${home} crew home. Go again if you hold a good Score.` : "Only a few crew left at home. Stopping keeps you safe from counter-hits.";
+      return home >= 3 ? say("tip.again", { home }) : say("tip.stop");
     case "discard":
-      return "Throw away the lowest Scores first. Keep Backup and Double-Cross; they swing fights.";
+      return say("tip.discard");
     case "fence":
-      return "Buy back a big Score or a Backup if one is in the discard pile.";
+      return say("tip.fence");
     case "wildcard":
-      return "Swap for a Role that's beating you, or keep yours if it's working.";
+      return say("tip.wildcard");
     case "dealOffer":
     case "deal":
-      return "No deal sends 2 of your crew and 2 of theirs to the Pen. A cheap deal is usually better than that.";
+      return say("tip.deal");
     case "dealAccept":
-      return "Refusing costs both of you 2 crew. Take the deal unless it hands them the game.";
+      return say("tip.dealAccept");
     case "giveCards":
-      return "Give away your weakest cards.";
+      return say("tip.giveCards");
     case "placeCrew":
-      return "Put crew where rivals have Footholds, so you can bust them out.";
+      return say("tip.placeCrew");
     case "bribe":
-      return "A bribe isn't binding. Pay players who need the cash, and don't count on them.";
+      return say("tip.bribe");
   }
   return "";
 }
@@ -217,49 +200,48 @@ export function describePick(s: GameState, ask: Ask, a: Answer): string {
   const name = (p: number) => s.players[p].name;
   const card = (id: number) => {
     const c = me.hand.find((x) => x.id === id) ?? me.bank.find((x) => x.id === id);
-    return c ? cardLabel(c) : "a card";
+    return c ? cardLabel(c) : say("pick.aCard");
   };
   const list = (ids: number[]) => ids.map(card).join(", ");
-  const crew = (n: number) => `${n} crew`;
   switch (a.kind) {
     case "bank":
-      return a.cardIds.length ? `Bank ${list(a.cardIds)}.` : "Bank nothing this turn.";
+      return a.cardIds.length ? say("pick.bank", { cards: list(a.cardIds) }) : say("pick.bankNothing");
     case "hire":
-      return a.count ? `Hire ${crew(a.count)}.` : "Don't hire.";
+      return a.count ? say("pick.hire", { count: a.count }) : say("pick.noHire");
     case "action":
-      if (a.choice === "hit") return "Hit.";
-      if (a.choice === "pass") return "Lay low.";
-      if (a.choice === "bust") return `Bust ${name(a.rival)} out of your hideout ${a.hideout + 1}.`;
-      return `Wanted: hit ${name(a.mark)}'s hideout ${a.hideout + 1}.`;
+      if (a.choice === "hit") return say("pick.hit");
+      if (a.choice === "pass") return say("pick.layLow");
+      if (a.choice === "bust") return say("pick.bust", { name: name(a.rival), h: a.hideout + 1 });
+      return say("pick.wanted", { name: name(a.mark), h: a.hideout + 1 });
     case "again":
-      return a.again ? "Hit again." : "Stop here.";
+      return a.again ? say("pick.again") : say("pick.stop");
     case "pickMark":
-      return `Hit ${name(a.mark)}.`;
+      return say("pick.mark", { name: name(a.mark) });
     case "pickHideout":
-      return `Hideout ${a.hideout + 1}.`;
+      return say("pick.hideout", { h: a.hideout + 1 });
     case "send":
-      return `Send ${crew(a.count)}.`;
+      return say("pick.send", { count: a.count });
     case "join":
-      if (a.B && a.M) return `Join both sides: ${a.B} with the Boss, ${a.M} with the Mark.`;
-      if (a.B) return `Back the Boss with ${crew(a.B)}.`;
-      if (a.M) return `Defend the Mark with ${crew(a.M)}.`;
-      return "Stay out.";
+      if (a.B && a.M) return say("pick.joinBoth", { b: a.B, m: a.M });
+      if (a.B) return say("pick.backBoss", { count: a.B });
+      if (a.M) return say("pick.defendMark", { count: a.M });
+      return say("pick.stayOut");
     case "bet":
-      return a.side ? `Bet on the ${a.side === "B" ? "Boss" : "Mark"}.` : "Don't bet.";
+      return a.side ? say(a.side === "B" ? "pick.betBoss" : "pick.betMark") : say("pick.noBet");
     case "showdown":
-      return `Play your ${card(a.cardId)}.`;
+      return say("pick.play", { card: card(a.cardId) });
     case "doubleCross":
-      return a.target === null ? "Keep your Double-Cross." : `Double-Cross ${name(a.target)}.`;
+      return a.target === null ? say("pick.keepDouble") : say("pick.double", { name: name(a.target) });
     case "backup":
-      return a.side ? `Play Backup for the ${a.side === "B" ? "Boss" : "Mark"}.` : "Keep your Backup.";
+      return a.side ? say(a.side === "B" ? "pick.backupBoss" : "pick.backupMark") : say("pick.keepBackup");
     case "discard":
-      return `Throw away ${list(a.cardIds)}.`;
+      return say("pick.discard", { cards: list(a.cardIds) });
     case "fence":
-      return a.cardId === null ? "Don't buy anything back." : "Buy it back.";
+      return a.cardId === null ? say("pick.noFence") : say("pick.fence");
     case "hackerCall":
-      return `Call ${a.n}.`;
+      return say("pick.call", { n: a.n });
     case "dealAccept":
-      return a.accept ? "Take the deal." : "Refuse it.";
+      return a.accept ? say("pick.takeDeal") : say("pick.refuse");
   }
   return "";
 }

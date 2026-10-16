@@ -1,6 +1,8 @@
 // Levels and prestige. XP builds levels 1 to 50; at 50 a player can prestige: back to level 1 with a
 // prestige star, a coin payout and prestige-only cosmetics. Ten prestiges, then you're a Legend for good.
 
+import { PROFILE_TEXT as T, say } from "./text";
+
 export const MAX_LEVEL = 50;
 export const MAX_PRESTIGE = 10;
 
@@ -40,10 +42,15 @@ export function levelInfo(xp: number): LevelInfo {
 }
 
 /** Rank names shown under the player's name. Each covers five levels. */
-const RANKS: [number, string][] = [
-  [1, "Rookie"], [5, "Runner"], [10, "Wheelman"], [15, "Cracksman"], [20, "Con Artist"], [25, "Enforcer"],
-  [30, "Lieutenant"], [35, "Underboss"], [40, "Kingpin"], [45, "Godfather"], [50, "Legend"],
-];
+export const RANK_LEVELS = [1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50] as const;
+const RANKS: [number, string][] = RANK_LEVELS.map((l) => [l, T[`rank.${l}`]]);
+
+/** The level a rank name starts at (its PROFILE_TEXT key is rank.<level>). */
+export function rankLevel(level: number): number {
+  let r: number = RANK_LEVELS[0];
+  for (const l of RANK_LEVELS) if (level >= l) r = l;
+  return r;
+}
 
 export function rankName(level: number): string {
   let name = RANKS[0][1];
@@ -52,7 +59,7 @@ export function rankName(level: number): string {
 }
 
 const ROMAN = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
-export const prestigeName = (p: number) => (p > 0 ? `Prestige ${ROMAN[Math.min(p, MAX_PRESTIGE)]}` : "");
+export const prestigeName = (p: number) => (p > 0 ? say("prestige.name", { roman: ROMAN[Math.min(p, MAX_PRESTIGE)] }) : "");
 
 /** Coins paid out on reaching a level. */
 export const levelUpCoins = (level: number) => 25 + level * 5;
