@@ -10,19 +10,20 @@ import { MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
 import { SYSTEM, badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
 import "./friends.css";
+import { t, tEn, tNodes } from "../i18n";
 
 /** Open a table from an invite: the app reloads into it (from the lobby, Solitaire or another table's lobby). */
 export function joinTable(code: string) {
   location.assign(new URL(`./?table=${encodeURIComponent(code)}`, location.href).href);
 }
 
-function ago(t: number | null) {
-  if (!t) return "";
-  const m = Math.floor((Date.now() - t) / 60_000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+function ago(at: number | null) {
+  if (!at) return "";
+  const m = Math.floor((Date.now() - at) / 60_000);
+  if (m < 1) return t("ago.now");
+  if (m < 60) return t("ago.m", { n: m });
   const h = Math.floor(m / 60);
-  return h < 24 ? `${h}h ago` : `${Math.floor(h / 24)}d ago`;
+  return h < 24 ? t("ago.h", { n: h }) : t("ago.d", { n: Math.floor(h / 24) });
 }
 
 /** The Friends page in the profile sheet. `chat` opens straight into a conversation (from a notification). */
@@ -36,17 +37,17 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       <AlertsNudge />
       {!!v?.invites.length && (
         <section>
-          <h3>Invites</h3>
+          <h3>{t("fr.invites")}</h3>
           {v.invites.map((i) => (
             <div key={i.code + i.from} className="fr-row invite">
               <span className="fr-who">
-                <b>{i.name}</b> invited you to table <b>{i.code}</b>
+                {tNodes("fr.invited", { name: <b>{i.name}</b>, code: <b>{i.code}</b> })}
                 <span className="dim"> · {ago(i.at)}</span>
               </span>
               <button className="btn primary small" onClick={() => joinTable(i.code)}>
-                Join
+                {t("fr.join")}
               </button>
-              <button className="btn ghost small" aria-label="Dismiss invite" onClick={() => void friendsApi.dismiss(i.code)}>
+              <button className="btn ghost small" aria-label={t("fr.dismiss")} onClick={() => void friendsApi.dismiss(i.code)}>
                 ✕
               </button>
             </div>
@@ -55,15 +56,15 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       )}
       {!!v?.incoming.length && (
         <section>
-          <h3>Friend requests</h3>
+          <h3>{t("fr.requests")}</h3>
           {v.incoming.map((p) => (
             <div key={p.id} className="fr-row">
               <PersonTag p={p} onPlayer={onPlayer} />
               <button className="btn gold small" onClick={() => void friendsApi.accept(p.id)}>
-                Accept
+                {t("fr.accept")}
               </button>
               <button className="btn ghost small" onClick={() => void friendsApi.remove(p.id)}>
-                No thanks
+                {t("fr.noThanks")}
               </button>
             </div>
           ))}
@@ -72,11 +73,11 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       <Groups meId={meId} onOpen={setChat} />
       <AddFriend />
       <section>
-        <h3>Friends{v?.friends.length ? ` (${v.friends.length})` : ""}</h3>
+        <h3>{t("prof.tab.friends")}{v?.friends.length ? ` (${v.friends.length})` : ""}</h3>
         {!v ? (
-          <div className="dim">Loading…</div>
+          <div className="dim">{t("common.loading")}</div>
         ) : !v.friends.length ? (
-          <div className="dim fr-empty">No friends yet. Find someone by name above, or tap a player's name at a table and add them.</div>
+          <div className="dim fr-empty">{t("fr.none")}</div>
         ) : (
           v.friends.map((f) => (
             <button key={f.id} className="fr-row fr-friend" onClick={() => setChat(f.id)}>
@@ -84,13 +85,13 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
               <span className="fr-last">
                 {f.last ? (
                   <>
-                    {f.last.mine ? "You: " : ""}
+                    {f.last.mine ? t("fr.you") : ""}
                     {f.last.text}
                   </>
                 ) : f.online ? (
-                  "Online"
+                  t("fr.online")
                 ) : f.seen ? (
-                  `Seen ${ago(f.seen)}`
+                  t("fr.seenAgo", { ago: ago(f.seen) })
                 ) : (
                   ""
                 )}
@@ -102,12 +103,12 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       </section>
       {!!v?.outgoing.length && (
         <section>
-          <h3>Requests you sent</h3>
+          <h3>{t("fr.sent")}</h3>
           {v.outgoing.map((p) => (
             <div key={p.id} className="fr-row">
               <PersonTag p={p} onPlayer={onPlayer} />
               <button className="btn ghost small" onClick={() => void friendsApi.remove(p.id)}>
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
           ))}
@@ -126,16 +127,16 @@ function Groups({ meId, onOpen }: { meId: string; onOpen: (id: string) => void }
   return (
     <section>
       <div className="fr-head">
-        <h3>Group chats</h3>
+        <h3>{t("fr.groups")}</h3>
         {!making && (
           <button className="btn gold small" onClick={() => setMaking(true)}>
-            New group
+            {t("fr.newGroup")}
           </button>
         )}
       </div>
       {making && (
         <PickFriends
-          label="Start chat"
+          label={t("fr.startChat")}
           withName
           onPick={async (ids, name) => {
             try {
@@ -143,7 +144,7 @@ function Groups({ meId, onOpen }: { meId: string; onOpen: (id: string) => void }
               setMaking(false);
               onOpen(id);
             } catch (e) {
-              setErr(e instanceof Error ? e.message : "Couldn't start that chat");
+              setErr(e instanceof Error ? tEn(e.message) : t("fr.errStart"));
             }
           }}
           onCancel={() => setMaking(false)}
@@ -163,7 +164,7 @@ function Groups({ meId, onOpen }: { meId: string; onOpen: (id: string) => void }
             </span>
             <span className="fr-name">{g.name || groupTitle(g.members.filter((p) => p.id !== meId).map((p) => p.name))}</span>
           </span>
-          <span className="fr-last">{g.last ? `${g.last.who ? `${g.last.who}: ` : ""}${g.last.text}` : ""}</span>
+          <span className="fr-last">{g.last ? `${g.last.who ? `${g.last.who === "You" ? t("fr.youName") : g.last.who}: ` : ""}${g.last.text}` : ""}</span>
           {g.unread > 0 && <span className="fr-badge">{g.unread}</span>}
         </button>
       ))}
@@ -176,7 +177,7 @@ function PersonTag({ p, online, onPlayer }: { p: Person; online?: boolean; onPla
     <span className="fr-person" onClick={onPlayer ? (e) => (e.stopPropagation(), onPlayer(p.id)) : undefined}>
       <span className="fr-avatar">
         <Avatar name={p.name} frame={p.frame} level={p.level} size={38} />
-        {online !== undefined && <span className={"fr-dot" + (online ? " on" : "")} aria-label={online ? "Online" : "Offline"} />}
+        {online !== undefined && <span className={"fr-dot" + (online ? " on" : "")} aria-label={online ? t("fr.online") : t("fr.offline")} />}
       </span>
       <span className="fr-name">
         {p.name} <Stars prestige={p.prestige} size={10} />
@@ -189,17 +190,17 @@ function PersonTag({ p, online, onPlayer }: { p: Person; online?: boolean; onPla
 function AlertsNudge() {
   const s = useAlertState();
   if (s === "needs-install")
-    return <div className="fr-nudge">Add Heist to your Home Screen (Share, then Add to Home Screen) so friends' invites arrive as notifications and open the app full screen.</div>;
+    return <div className="fr-nudge">{t("fr.nudgeInstall")}</div>;
   if (s === "off")
     return (
       <div className="fr-nudge">
-        Turn on notifications so friends can invite you to a table, even when Heist is closed.
+        {t("fr.nudgeOff")}
         <button className="btn gold small" onClick={() => void turnOnAlerts()}>
-          Turn on
+          {t("fr.turnOn")}
         </button>
       </div>
     );
-  if (s === "blocked") return <div className="fr-nudge">Notifications are blocked for Heist. Turn them on in your phone's settings to get friends' invites.</div>;
+  if (s === "blocked") return <div className="fr-nudge">{t("fr.nudgeBlocked")}</div>;
   return null;
 }
 
@@ -209,15 +210,15 @@ function AddFriend() {
   useEffect(() => {
     const term = q.trim();
     if (term.length < 2) return setPeople(null);
-    const t = window.setTimeout(() => {
+    const tm = window.setTimeout(() => {
       friendsApi.search(term).then(setPeople, () => setPeople([]));
     }, 300);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tm);
   }, [q]);
   return (
     <section>
-      <h3>Add a friend</h3>
-      <input className="fr-search" value={q} placeholder="Search by player name" maxLength={20} onChange={(e) => setQ(e.target.value)} aria-label="Search players by name" />
+      <h3>{t("fr.add")}</h3>
+      <input className="fr-search" value={q} placeholder={t("fr.search")} maxLength={20} onChange={(e) => setQ(e.target.value)} aria-label={t("fr.searchAria")} />
       {people &&
         (people.length ? (
           people.map((p) => (
@@ -227,7 +228,7 @@ function AddFriend() {
             </div>
           ))
         ) : (
-          <div className="dim">Nobody by that name.</div>
+          <div className="dim">{t("fr.nobody")}</div>
         ))}
     </section>
   );
@@ -240,8 +241,8 @@ export function AddFriendButton({ id, small }: { id: string; small?: boolean }) 
   const [err, setErr] = useState<string | null>(null);
   if (!v) return null;
   const cls = "btn" + (small ? " small" : "");
-  if (v.friends.some((f) => f.id === id)) return <span className="fr-state">✓ Friends</span>;
-  if (v.outgoing.some((p) => p.id === id)) return <span className="fr-state">Request sent</span>;
+  if (v.friends.some((f) => f.id === id)) return <span className="fr-state">✓ {t("prof.tab.friends")}</span>;
+  if (v.outgoing.some((p) => p.id === id)) return <span className="fr-state">{t("fr.requestSent")}</span>;
   const theyAsked = v.incoming.some((p) => p.id === id);
   return (
     <>
@@ -254,12 +255,12 @@ export function AddFriendButton({ id, small }: { id: string; small?: boolean }) 
           try {
             await (theyAsked ? friendsApi.accept(id) : friendsApi.request(id));
           } catch (e) {
-            setErr(e instanceof Error ? e.message : "Couldn't send that");
+            setErr(e instanceof Error ? tEn(e.message) : t("fr.errSend"));
           }
           setBusy(false);
         }}
       >
-        {theyAsked ? "Accept request" : "Add friend"}
+        {theyAsked ? t("fr.acceptRequest") : t("fr.addFriend")}
       </button>
       {err && <span className="fr-err">{err}</span>}
     </>
@@ -267,7 +268,7 @@ export function AddFriendButton({ id, small }: { id: string; small?: boolean }) 
 }
 
 function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack: () => void; onPlayer?: (id: string) => void }) {
-  const [t, setT] = useState<Thread | null>(null);
+  const [th, setT] = useState<Thread | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -282,7 +283,7 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
     const load = () =>
       friendsApi.thread(id).then(
         (x) => live && (setT(x), setErr(null)),
-        (e) => live && setErr(e instanceof Error ? e.message : "Couldn't load the chat"),
+        (e) => live && setErr(e instanceof Error ? tEn(e.message) : t("fr.errLoad")),
       );
     void load();
     const timer = window.setInterval(() => document.visibilityState === "visible" && void load(), 4000);
@@ -291,7 +292,7 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
       clearInterval(timer);
     };
   }, [id, nonce]);
-  const count = t?.messages.length ?? 0;
+  const count = th?.messages.length ?? 0;
   useEffect(() => {
     list.current?.scrollTo({ top: list.current.scrollHeight });
   }, [count]);
@@ -304,19 +305,19 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
       setText("");
       setT((x) => (x ? { ...x, messages: [...x.messages, message] } : x));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Couldn't send that");
+      setErr(e instanceof Error ? tEn(e.message) : t("fr.errSend"));
     }
     setSending(false);
   };
-  const group = t?.group;
-  const people = new Map((t?.people ?? []).map((p) => [p.id, p]));
+  const group = th?.group;
+  const people = new Map((th?.people ?? []).map((p) => [p.id, p]));
   const groupRow = v?.groups?.find((g) => g.id === id);
-  const name = group ? group.name || groupTitle(group.members.filter((m) => m !== meId).map((m) => people.get(m)?.name ?? "").filter(Boolean)) : (t?.friend?.name ?? friend?.name ?? groupRow?.name ?? "");
-  const lastMine = t ? [...t.messages].reverse().find((m) => m.from === meId) : undefined;
+  const name = group ? group.name || groupTitle(group.members.filter((m) => m !== meId).map((m) => people.get(m)?.name ?? "").filter(Boolean)) : (th?.friend?.name ?? friend?.name ?? groupRow?.name ?? "");
+  const lastMine = th ? [...th.messages].reverse().find((m) => m.from === meId) : undefined;
   // everyone's lines look like the Lounge's: framed avatar, name, and the chat bubble they wear
   const lineOf = (m: Dm): ChatLine => {
-    const p = m.from === meId ? null : group ? people.get(m.from) : t?.friend;
-    return { key: `${m.from}-${m.at}`, userId: m.from, name: p?.name ?? "Someone", text: m.text, at: m.at, badge: p ? badgeOf(p) : { level: 0, prestige: 0, frame: "frame.none", title: null, chat: t?.chat } };
+    const p = m.from === meId ? null : group ? people.get(m.from) : th?.friend;
+    return { key: `${m.from}-${m.at}`, userId: m.from, name: p?.name ?? t("fr.someone"), text: m.text, at: m.at, badge: p ? badgeOf(p) : { level: 0, prestige: 0, frame: "frame.none", title: null, chat: th?.chat } };
   };
   const act = async (f: () => Promise<unknown>) => {
     try {
@@ -324,19 +325,19 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
       setMenu(null);
       reload((n) => n + 1);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Couldn't do that");
+      setErr(e instanceof Error ? tEn(e.message) : t("fr.errDo"));
     }
   };
   return (
     <div className="fr fr-chat">
       <div className="fr-chat-head">
         <button className="btn ghost small" onClick={onBack}>
-          ← Friends
+          ← {t("prof.tab.friends")}
         </button>
         <span className="fr-chat-name" onClick={() => !group && onPlayer?.(id)}>
           {name}
-          {t?.friend && <span className={"fr-dot inline" + (t.friend.online ? " on" : "")} />}
-          {group && <span className="fr-chat-sub">{group.members.length} people</span>}
+          {th?.friend && <span className={"fr-dot inline" + (th.friend.online ? " on" : "")} />}
+          {group && <span className="fr-chat-sub">{t("fr.people", { count: group.members.length })}</span>}
         </span>
         <button className="btn ghost small" aria-expanded={!!menu} onClick={() => setMenu(menu ? null : "menu")}>
           ⋯
@@ -346,41 +347,41 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
         (group ? (
           <div className="fr-menu">
             <button className="btn small" onClick={() => setMenu("add")}>
-              Add friends
+              {t("fr.addFriends")}
             </button>
             <button className="btn small" onClick={() => setMenu("rename")}>
-              Rename
+              {t("fr.rename")}
             </button>
             <button className="btn danger small" onClick={() => setMenu("leave")}>
-              Leave chat
+              {t("fr.leaveChat")}
             </button>
           </div>
         ) : (
           <div className="fr-menu">
             <button className="btn danger small" onClick={() => setMenu("unfriend")}>
-              Unfriend {name}
+              {t("fr.unfriendName", { name })}
             </button>
           </div>
         ))}
       {menu === "unfriend" && (
         <div className="fr-sure">
-          Unfriend {name}? You won't be able to message each other.
+          {t("fr.unfriendSure", { name })}
           <button className="btn danger small" onClick={() => void friendsApi.remove(id).then(onBack, onBack)}>
-            Unfriend
+            {t("fr.unfriend")}
           </button>
           <button className="btn ghost small" onClick={() => setMenu(null)}>
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       )}
       {menu === "leave" && group && (
         <div className="fr-sure">
-          Leave {name}? You'll stop getting its messages.
+          {t("fr.leaveSure", { name })}
           <button className="btn danger small" onClick={() => void friendsApi.leaveGroup(id).then(onBack, onBack)}>
-            Leave
+            {t("fr.leave")}
           </button>
           <button className="btn ghost small" onClick={() => setMenu(null)}>
-            Cancel
+            {t("common.cancel")}
           </button>
         </div>
       )}
@@ -388,36 +389,36 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
       {menu === "add" && group && (
         <PickFriends
           skip={group.members}
-          label="Add"
+          label={t("fr.addBtn")}
           onPick={(ids) => void act(() => friendsApi.addToGroup(id, ids))}
           onCancel={() => setMenu(null)}
         />
       )}
       <div className="fr-msgs" ref={list}>
-        {!t ? (
-          <div className="dim">{err ?? "Loading…"}</div>
-        ) : !t.messages.length ? (
-          <div className="dim fr-empty">Say hi to {name}.</div>
+        {!th ? (
+          <div className="dim">{err ?? t("common.loading")}</div>
+        ) : !th.messages.length ? (
+          <div className="dim fr-empty">{t("fr.sayHi", { name })}</div>
         ) : (
-          t.messages.map((m: Dm, i) => {
+          th.messages.map((m: Dm, i) => {
             if (m.from === SYSTEM)
               return (
                 <div key={m.at + m.from} className="fr-sys">
-                  {m.text}
+                  {tEn(m.text)}
                 </div>
               );
             const mine = m.from === meId;
             // a run of lines from one person shows their avatar and name once
             return (
-              <MessageRow key={m.at + m.from} line={lineOf(m)} mine={mine} first={t.messages[i - 1]?.from !== m.from} onPlayer={onPlayer}>
-                {!group && m === lastMine && t.theirRead >= m.at && <span className="fr-seen">Seen</span>}
+              <MessageRow key={m.at + m.from} line={lineOf(m)} mine={mine} first={th.messages[i - 1]?.from !== m.from} onPlayer={onPlayer}>
+                {!group && m === lastMine && th.theirRead >= m.at && <span className="fr-seen">{t("fr.seen")}</span>}
               </MessageRow>
             );
           })
         )}
       </div>
-      {t && !t.friends ? (
-        <div className="dim">You're not friends any more, so you can't send messages.</div>
+      {th && !th.friends ? (
+        <div className="dim">{t("fr.notFriends")}</div>
       ) : (
         <form
           className="fr-send"
@@ -426,14 +427,14 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
             void send();
           }}
         >
-          <input value={text} maxLength={200} placeholder={`Message ${name}`} onChange={(e) => setText(e.target.value)} aria-label="Message" enterKeyHint="send" />
+          <input value={text} maxLength={200} placeholder={t("fr.messageTo", { name })} onChange={(e) => setText(e.target.value)} aria-label={t("fr.message")} enterKeyHint="send" />
           <button className="btn primary small" type="submit" disabled={!text.trim() || sending}>
-            Send
+            {t("common.send")}
           </button>
         </form>
       )}
-      {t && err && <div className="fr-err">{err}</div>}
-      <div className="fr-note">Heist staff can read chats to keep everyone safe.</div>
+      {th && err && <div className="fr-err">{err}</div>}
+      <div className="fr-note">{t("fr.staff")}</div>
     </div>
   );
 }
@@ -441,7 +442,7 @@ function Chat({ id, meId, onBack, onPlayer }: { id: string; meId: string; onBack
 /** "Bo, Cy and 2 more": a group with no name goes by its people. */
 function groupTitle(names: string[]) {
   if (names.length <= 3) return names.join(", ");
-  return `${names.slice(0, 2).join(", ")} and ${names.length - 2} more`;
+  return t("fr.andMore", { names: names.slice(0, 2).join(", "), n: names.length - 2 });
 }
 
 function RenameGroup({ name, onSave, onCancel }: { name: string; onSave: (n: string) => void; onCancel: () => void }) {
@@ -454,12 +455,12 @@ function RenameGroup({ name, onSave, onCancel }: { name: string; onSave: (n: str
         onSave(n.trim());
       }}
     >
-      <input value={n} maxLength={30} placeholder="Name the chat" autoFocus aria-label="Chat name" onChange={(e) => setN(e.target.value)} />
+      <input value={n} maxLength={30} placeholder={t("fr.nameChat")} autoFocus aria-label={t("fr.chatName")} onChange={(e) => setN(e.target.value)} />
       <button className="btn gold small" type="submit">
-        Save
+        {t("common.save")}
       </button>
       <button className="btn ghost small" type="button" onClick={onCancel}>
-        Cancel
+        {t("common.cancel")}
       </button>
     </form>
   );
@@ -473,9 +474,9 @@ function PickFriends({ skip = [], label, withName, onPick, onCancel }: { skip?: 
   const list = (v?.friends ?? []).filter((f) => !skip.includes(f.id));
   return (
     <div className="fr-pick">
-      {withName && <input className="fr-search" value={name} maxLength={30} placeholder="Name the chat (optional)" aria-label="Chat name" onChange={(e) => setName(e.target.value)} />}
+      {withName && <input className="fr-search" value={name} maxLength={30} placeholder={t("fr.nameChatOpt")} aria-label={t("fr.chatName")} onChange={(e) => setName(e.target.value)} />}
       {!list.length ? (
-        <div className="dim">{v?.friends.length ? "All your friends are already in this chat." : "Add some friends first."}</div>
+        <div className="dim">{v?.friends.length ? t("fr.allIn") : t("fr.addFirst")}</div>
       ) : (
         <div className="fr-pick-list">
           {list.map((f) => (
@@ -492,7 +493,7 @@ function PickFriends({ skip = [], label, withName, onPick, onCancel }: { skip?: 
           {picked.length ? ` (${picked.length})` : ""}
         </button>
         <button className="btn ghost small" onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </button>
       </div>
     </div>
@@ -507,7 +508,7 @@ export function InviteFriends({ code, seated, onText }: { code: string; /** user
   if (!v) return null;
   const list: Friend[] = v.friends.filter((f) => !seated.includes(f.id));
   if (!v.friends.length)
-    return <div className="fine">Add friends from their player card or your profile, and you can invite them here with one tap.</div>;
+    return <div className="fine">{t("fr.inviteHint")}</div>;
   if (!list.length) return null;
   const invite = async (f: Friend) => {
     setSent((s) => ({ ...s, [f.id]: "sending" }));
@@ -515,7 +516,7 @@ export function InviteFriends({ code, seated, onText }: { code: string; /** user
       const r = await friendsApi.invite(f.id, code);
       setSent((s) => ({ ...s, [f.id]: r.devices > 0 ? "buzzed" : "app" }));
     } catch (e) {
-      setSent((s) => ({ ...s, [f.id]: e instanceof Error ? e.message : "Couldn't invite" }));
+      setSent((s) => ({ ...s, [f.id]: e instanceof Error ? tEn(e.message) : t("fr.errInvite") }));
     }
   };
   return (
@@ -533,20 +534,20 @@ export function InviteFriends({ code, seated, onText }: { code: string; /** user
             </span>
             {!s ? (
               <button className="btn gold small" onClick={() => void invite(f)}>
-                Invite
+                {t("fr.invite")}
               </button>
             ) : s === "sending" ? (
-              <span className="fr-state">Sending…</span>
+              <span className="fr-state">{t("common.sending")}</span>
             ) : s === "buzzed" ? (
-              <span className="fr-state">✓ Sent to their phone</span>
+              <span className="fr-state">✓ {t("fr.sentPhone")}</span>
             ) : s === "app" ? (
               f.online ? (
-                <span className="fr-state">✓ Sent</span>
+                <span className="fr-state">✓ {t("fr.sentShort")}</span>
               ) : (
                 <span className="fr-state">
-                  No notifications on.{" "}
+                  {t("fr.noAlerts")}{" "}
                   <button className="fr-link" onClick={onText}>
-                    Text them
+                    {t("fr.textThem")}
                   </button>
                 </span>
               )
@@ -569,12 +570,12 @@ export function InviteToast({ busy, here }: { /** in a game: hold invites until 
   return (
     <div className="fr-toast" role="alert">
       <span>
-        <b>{i.name}</b> invited you to table <b>{i.code}</b>
+        {tNodes("fr.invited", { name: <b>{i.name}</b>, code: <b>{i.code}</b> })}
       </span>
       <button className="btn primary small" onClick={() => joinTable(i.code)}>
-        Join
+        {t("fr.join")}
       </button>
-      <button className="btn ghost small" aria-label="Not now" onClick={() => void friendsApi.dismiss(i.code)}>
+      <button className="btn ghost small" aria-label={t("fr.notNow")} onClick={() => void friendsApi.dismiss(i.code)}>
         ✕
       </button>
     </div>
@@ -595,7 +596,8 @@ export function useFriendsSlot(meId: string | undefined, onPlayer?: (id: string)
     if (f.unread > 0 && f.last && !f.last.mine) floats.push({ key: `dm-${f.id}-${f.last.at}`, userId: f.id, name: f.name, text: f.last.text, at: f.last.at, badge: badgeOf(f) });
   for (const g of v.groups ?? [])
     if (g.unread > 0 && g.last && g.last.who && g.last.who !== "You")
-      floats.push({ key: `group-${g.id}-${g.last.at}`, userId: g.id, name: `${g.last.who} · ${g.name || "group"}`, text: g.last.text, at: g.last.at });
+      floats.push({ key: `group-${g.id}-${g.last.at}`, userId: g.id, name: `${g.last.who} · ${g.name || t("fr.group")}`,
+ text: g.last.text, at: g.last.at });
   return {
     unread: badgeCount(v),
     floats: floats.sort((a, b) => a.at - b.at),
