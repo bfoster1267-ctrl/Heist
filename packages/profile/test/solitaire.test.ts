@@ -118,4 +118,18 @@ describe("solitaire", () => {
     expect(solitaireRoom(capped.progress, at + 86_400_000)).toBe(SOLITAIRE_DAY_XP);
     expect(upgrade({ xp: 5 } as never).solitaire).toEqual({ won: 0, day: null, xp: 0 });
   });
+
+  it("awards a speed bonus of 1 XP per second under 5 minutes on wins", () => {
+    const at = SEASONS[0].start + 1000;
+    const p = newProgress();
+    const t = { moves: 60, aces: 4, stacks: 4, won: true };
+    // Won in 2 minutes (120 seconds): 300 - 120 = 180 bonus XP
+    const r = settleSolitaire(p, at, t, tallyXp(t), false, 120);
+    const speedLine = r.reward.lines.find((l) => l.label.startsWith("Speed bonus"));
+    expect(speedLine).toEqual({ label: "Speed bonus (2:00)", xp: 180, coins: 0 });
+    expect(r.reward.xp).toBe(tallyXp(t) + 180);
+    // Over 5 minutes (310 seconds): no speed bonus
+    const slow = settleSolitaire(p, at, t, tallyXp(t), false, 310);
+    expect(slow.reward.lines.find((l) => l.label.startsWith("Speed bonus"))).toBeUndefined();
+  });
 });

@@ -335,7 +335,10 @@ export function TriPeaks({
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="tp-hud">
-            <span className="tp-hud-name">TRIPEAKS</span>
+            <span className="tp-hud-name">
+              TRIPEAKS
+              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            </span>
             <span className="tp-hud-stats">
               <b>{moves.length}</b> moves <span className="tp-dot">·</span> <b>{clock}</b>
               {game?.gameId && (shownXp > 0 || drain > 0) && (

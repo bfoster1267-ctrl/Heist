@@ -329,7 +329,10 @@ export function Ers({
           </button>
 
           <div className="ers-hud">
-            <span className="ers-hud-name">EGYPTIAN RAT SCREW</span>
+            <span className="ers-hud-name">
+              EGYPTIAN RAT SCREW
+              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            </span>
             <span className="ers-hud-stats">
               DAILY CAP: <span className="ers-hud-val">{room} XP ROOM</span>
             </span>

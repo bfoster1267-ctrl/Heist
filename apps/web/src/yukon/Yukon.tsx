@@ -464,7 +464,10 @@ export function Yukon({
         </button>
 
         <div className="yk-hud">
-          <div className="yk-hud-name">YUKON</div>
+          <div className="yk-hud-name">
+            YUKON
+            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+          </div>
           <div className="yk-hud-stats">
             <span>{timeStr}</span>
             <span className="yk-dot">•</span>

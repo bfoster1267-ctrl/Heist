@@ -379,6 +379,19 @@ export const SOLITAIRE_DAY_XP = 500;
 export const solitaireRoom = (p: Progress, at: number) => Math.max(0, SOLITAIRE_DAY_XP - (p.solitaire.day === day(at) ? p.solitaire.xp ?? 0 : 0));
 
 /**
+ * Speed bonus: for wins completed in under 5 minutes (300 seconds), awards 1 bonus XP per second remaining.
+ */
+export function speedBonus(seconds?: number, maxSecs = 300): RewardLine | null {
+  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0 || seconds >= maxSecs) return null;
+  const s = Math.floor(seconds);
+  const bonus = maxSecs - s;
+  if (bonus <= 0) return null;
+  const m = Math.floor(s / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return { label: `Speed bonus (${m}:${sec})`, xp: bonus, coins: 0 };
+}
+
+/**
  * Pay for Solitaire play the server has checked by replaying the moves. `gained` is what the deal
  * earned beyond what was already paid for it (see tallySol); `pay` is what it comes to after stalling
  * and hints drained some off (see solPay).
@@ -388,7 +401,8 @@ export function settleSolitaire(
   at: number,
   gained: SolTally,
   pay = tallyXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -415,6 +429,9 @@ export function settleSolitaire(
   const dailyResult = isDaily ? applyDailyBonus(p, "solitaire", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -430,7 +447,7 @@ export function settleSolitaire(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -457,7 +474,8 @@ export function settleFreeCell(
   at: number,
   gained: FcTally,
   pay = tallyFcXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -483,6 +501,9 @@ export function settleFreeCell(
   const dailyResult = isDaily ? applyDailyBonus(p, "freecell", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -498,7 +519,7 @@ export function settleFreeCell(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -525,7 +546,8 @@ export function settleTriPeaks(
   at: number,
   gained: TpTally,
   pay = tallyTpXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -556,6 +578,9 @@ export function settleTriPeaks(
   const dailyResult = isDaily ? applyDailyBonus(p, "tripeaks", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -571,7 +596,7 @@ export function settleTriPeaks(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -598,7 +623,8 @@ export function settleErs(
   at: number,
   gained: ErsTally,
   pay = tallyErsXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -624,6 +650,9 @@ export function settleErs(
   const dailyResult = isDaily ? applyDailyBonus(p, "ers", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -639,7 +668,7 @@ export function settleErs(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -666,7 +695,8 @@ export function settleSpider(
   at: number,
   gained: SpiderTally,
   pay = tallySpiderXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -692,6 +722,9 @@ export function settleSpider(
   const dailyResult = isDaily ? applyDailyBonus(p, "spider", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -707,7 +740,7 @@ export function settleSpider(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -734,7 +767,8 @@ export function settlePyramid(
   at: number,
   gained: PyramidTally,
   pay = tallyPyramidXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -759,6 +793,9 @@ export function settlePyramid(
   const dailyResult = isDaily ? applyDailyBonus(p, "pyramid", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -774,7 +811,7 @@ export function settlePyramid(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -799,7 +836,8 @@ export function settleYukon(
   at: number,
   gained: YukonTally,
   pay = tallyYukonXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -825,6 +863,9 @@ export function settleYukon(
   const dailyResult = isDaily ? applyDailyBonus(p, "yukon", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -840,7 +881,7 @@ export function settleYukon(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,
@@ -865,7 +906,8 @@ export function settleScoundrel(
   at: number,
   gained: ScoundrelTally,
   pay = tallyScoundrelXp(gained),
-  isDaily = false
+  isDaily = false,
+  secondsTaken?: number
 ): { progress: Progress; reward: Reward } {
   const p: Progress = structuredClone(prev);
   const today = day(at);
@@ -892,6 +934,9 @@ export function settleScoundrel(
   const dailyResult = isDaily ? applyDailyBonus(p, "scoundrel", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
+  const speed = gained.won ? speedBonus(secondsTaken) : null;
+  if (speed) lines.push(speed);
+
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
   p.xp = Math.min(xpCap(), p.xp + xp);
@@ -907,7 +952,7 @@ export function settleScoundrel(
     for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
   }
   p.coins += coins;
-  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0);
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
   const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
   return {
     progress: p,

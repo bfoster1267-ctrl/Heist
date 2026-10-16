@@ -254,6 +254,26 @@ export function Solitaire({
     [k],
   );
 
+  const autoComplete = useCallback(() => {
+    if (!k || done || solWon(k)) return;
+    click();
+    buzz("tap");
+    let curr = k;
+    const newMoves: string[] = [];
+    const newHist = [...hist];
+    while (!solWon(curr)) {
+      const m = autoMove(curr);
+      if (!m) break;
+      const next = applySol(curr, m);
+      if (!next) break;
+      curr = next;
+      newMoves.push(m);
+      newHist.push(curr);
+    }
+    setMoves((prev) => [...prev, ...newMoves]);
+    setHist(newHist);
+  }, [k, done, hist]);
+
   // every card face up and the stock gone: play the rest to the foundations
   useEffect(() => {
     if (!k || done || solWon(k) || !solSolved(k)) return;
@@ -463,7 +483,10 @@ export function Solitaire({
           <Icon d="M15 5 8 12l7 7" />
         </button>
         <div className="sol-hud">
-          <span className="sol-hud-name">SOLITAIRE</span>
+          <span className="sol-hud-name">
+            SOLITAIRE
+            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+          </span>
           <span className="sol-hud-stats">
             <b>{moves.length}</b> moves <span className="sol-dot">·</span> <b>{clock}</b>
             {game?.gameId && (shownXp > 0 || drain > 0) && (
@@ -486,6 +509,12 @@ export function Solitaire({
           {armed ? <span className="sol-sure">New?</span> : <Icon d="M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 12.4 2M18.5 9A7 7 0 0 0 6.1 7" />}
         </button>
       </div>
+
+      {k && !done && !solWon(k) && solSolved(k) && (
+        <button className="sol-autocomplete-btn" onClick={autoComplete}>
+          ⚡ Auto Complete
+        </button>
+      )}
 
       {/* empty spots */}
       <button

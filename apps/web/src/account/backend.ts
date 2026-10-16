@@ -357,10 +357,10 @@ export class BrowserBackend implements Backend {
     return { gameId: this.save.solo.gameId, seed, levels, stage: st?.n, players, gentle: coached || undefined, lesson, me: this.view(), quit };
   }
 
-  private sol: { gameId: string; seed: number; isDaily?: boolean; paid?: SolTally; paidXp?: number; drain?: number } | null = null;
+  private sol: { gameId: string; seed: number; isDaily?: boolean; paid?: SolTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async solitaireStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.sol = { gameId: `l_${s}`, seed: s, isDaily };
+    this.sol = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.sol.gameId, seed: s };
   }
   async solitaireFinish(gameId: string, moves: string[], drain: number) {
@@ -376,18 +376,19 @@ export class BrowserBackend implements Backend {
     const pay = solPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.sol = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleSolitaire(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleSolitaire(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private fc: { gameId: string; seed: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number } | null = null;
+  private fc: { gameId: string; seed: number; isDaily?: boolean; paid?: FcTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async freecellStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.fc = { gameId: `l_${s}`, seed: s, isDaily };
+    this.fc = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.fc.gameId, seed: s };
   }
   async freecellFinish(gameId: string, moves: string[], drain: number) {
@@ -403,18 +404,19 @@ export class BrowserBackend implements Backend {
     const pay = fcPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.fc = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleFreeCell(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private tp: { gameId: string; seed: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number } | null = null;
+  private tp: { gameId: string; seed: number; isDaily?: boolean; paid?: TpTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async tripeaksStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.tp = { gameId: `l_${s}`, seed: s, isDaily };
+    this.tp = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.tp.gameId, seed: s };
   }
   async tripeaksFinish(gameId: string, moves: string[], drain: number) {
@@ -430,18 +432,19 @@ export class BrowserBackend implements Backend {
     const pay = tpPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.tp = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleTriPeaks(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleTriPeaks(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private ersState: { gameId: string; seed: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number } | null = null;
+  private ersState: { gameId: string; seed: number; isDaily?: boolean; paid?: ErsTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async ersStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.ersState = { gameId: `l_${s}`, seed: s, isDaily };
+    this.ersState = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.ersState.gameId, seed: s };
   }
   async ersFinish(gameId: string, moves: string[], drain: number) {
@@ -457,18 +460,19 @@ export class BrowserBackend implements Backend {
     const pay = ersPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.ersState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleErs(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleErs(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private spiderState: { gameId: string; seed: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number } | null = null;
+  private spiderState: { gameId: string; seed: number; isDaily?: boolean; paid?: SpiderTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async spiderStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.spiderState = { gameId: `l_${s}`, seed: s, isDaily };
+    this.spiderState = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.spiderState.gameId, seed: s };
   }
   async spiderFinish(gameId: string, moves: unknown[], drain: number) {
@@ -484,18 +488,19 @@ export class BrowserBackend implements Backend {
     const pay = spiderPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.spiderState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleSpider(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleSpider(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private pyramidState: { gameId: string; seed: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number } | null = null;
+  private pyramidState: { gameId: string; seed: number; isDaily?: boolean; paid?: PyramidTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async pyramidStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.pyramidState = { gameId: `l_${s}`, seed: s, isDaily };
+    this.pyramidState = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.pyramidState.gameId, seed: s };
   }
   async pyramidFinish(gameId: string, moves: unknown[], drain: number) {
@@ -511,18 +516,19 @@ export class BrowserBackend implements Backend {
     const pay = pyramidPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.pyramidState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settlePyramid(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settlePyramid(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private yukonState: { gameId: string; seed: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number } | null = null;
+  private yukonState: { gameId: string; seed: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async yukonStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.yukonState = { gameId: `l_${s}`, seed: s, isDaily };
+    this.yukonState = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.yukonState.gameId, seed: s };
   }
   async yukonFinish(gameId: string, moves: string[], drain: number) {
@@ -538,18 +544,19 @@ export class BrowserBackend implements Backend {
     const pay = yukonPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.yukonState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleYukon(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleYukon(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
   }
 
-  private scoundrelState: { gameId: string; seed: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number } | null = null;
+  private scoundrelState: { gameId: string; seed: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number; startedAt?: number } | null = null;
   async scoundrelStart(seed?: number, isDaily = false) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
-    this.scoundrelState = { gameId: `l_${s}`, seed: s, isDaily };
+    this.scoundrelState = { gameId: `l_${s}`, seed: s, isDaily, startedAt: Date.now() };
     return { gameId: this.scoundrelState.gameId, seed: s };
   }
   async scoundrelFinish(gameId: string, moves: unknown[], drain: number) {
@@ -565,9 +572,10 @@ export class BrowserBackend implements Backend {
     const pay = scoundrelPay(g.paid, g.paidXp, t, g.drain);
     g.paid = pay.paid;
     g.paidXp = pay.paidXp;
+    const secondsTaken = g.startedAt ? Math.max(1, Math.round((Date.now() - g.startedAt) / 1000)) : undefined;
     if (t.won) this.scoundrelState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
-    const r = settleScoundrel(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    const r = settleScoundrel(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };

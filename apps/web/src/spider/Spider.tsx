@@ -350,7 +350,10 @@ export function Spider({
           </button>
 
           <div className="spider-hud">
-            <span className="spider-hud-name">SPIDER SOLITAIRE</span>
+            <span className="spider-hud-name">
+              SPIDER SOLITAIRE
+              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            </span>
             <span className="spider-hud-stats">
               {mode} SUIT • RUNS: <span className="spider-hud-val">{completed}/8</span> • <span className="spider-hud-val">{room} XP ROOM</span>
             </span>

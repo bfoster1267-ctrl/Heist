@@ -386,7 +386,10 @@ export function Pyramid({
         </button>
 
         <div className="pyr-hud">
-          <div className="pyr-hud-name">PYRAMID</div>
+          <div className="pyr-hud-name">
+            PYRAMID
+            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+          </div>
           <div className="pyr-hud-stats">
             <span>{timeStr}</span>
             <span className="pyr-dot">•</span>

@@ -110,6 +110,19 @@ export function VictoryModal({
   const multiplier = getStreakMultiplier(streak);
   const freezes = progress?.daily?.freezes ?? 0;
 
+  // Speed bonus: wins under 5 mins (300s) award +1 XP per second remaining
+  let speedBonusXp = 0;
+  if (time) {
+    const parts = time.split(":").map((p) => parseInt(p, 10));
+    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+      const s = parts[0] * 60 + parts[1];
+      if (s > 0 && s < 300) speedBonusXp = 300 - s;
+    } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+      const s = parts[0] * 3600 + parts[1] * 60 + parts[2];
+      if (s > 0 && s < 300) speedBonusXp = 300 - s;
+    }
+  }
+
   // Level info
   const lvl = progress ? levelInfo(progress.xp) : { level: 1, pct: 0, into: 0, need: 100, maxed: false };
   const levelPercent = Math.min(100, Math.round(lvl.pct * 100));
@@ -195,6 +208,12 @@ export function VictoryModal({
               <span className="vic-stat-lbl">Time</span>
             </div>
           )}
+          {speedBonusXp > 0 && (
+            <div className="vic-stat-pill" style={{ borderColor: "rgba(56, 189, 248, 0.4)", background: "rgba(56, 189, 248, 0.1)" }}>
+              <span className="vic-stat-val" style={{ color: "#38bdf8" }}>+{speedBonusXp} XP</span>
+              <span className="vic-stat-lbl" style={{ color: "#bae6fd" }}>Speed Bonus</span>
+            </div>
+          )}
           {moves !== undefined && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{moves}</span>
@@ -275,8 +294,10 @@ export function VictoryModal({
           <div className="vic-reward-item">
             <span className="vic-reward-icon">⭐</span>
             <div>
-              <div className="vic-reward-val">+{Math.round((isDaily ? 100 : 50) * multiplier)} XP</div>
-              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Level {lvl.level} ({levelPercent}%)</div>
+              <div className="vic-reward-val">+{Math.round((isDaily ? 100 : 50) * multiplier) + speedBonusXp} XP</div>
+              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
+                {speedBonusXp > 0 ? `+${speedBonusXp} Speed · Level ${lvl.level}` : `Level ${lvl.level} (${levelPercent}%)`}
+              </div>
             </div>
           </div>
         </div>

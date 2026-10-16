@@ -456,7 +456,10 @@ export function FreeCell({
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="fc-hud">
-            <span className="fc-hud-name">FREECELL</span>
+            <span className="fc-hud-name">
+              FREECELL
+              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            </span>
             <span className="fc-hud-stats">
               <b>{moves.length}</b> moves <span className="fc-dot">·</span> <b>{clock}</b>
               {game?.gameId && (shownXp > 0 || drain > 0) && (

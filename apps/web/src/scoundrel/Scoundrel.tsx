@@ -276,7 +276,10 @@ export function Scoundrel({
         </button>
 
         <div className="sc-hud">
-          <div className="sc-hud-name">SCOUNDREL</div>
+          <div className="sc-hud-name">
+            SCOUNDREL
+            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+          </div>
           <div className="sc-hud-stats">
             <span>{timeStr}</span>
             <span className="sc-dot">•</span>
