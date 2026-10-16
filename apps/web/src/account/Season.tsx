@@ -62,13 +62,15 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
   return (
     <div className="season">
       <div className="season-top">
-        <div>
+        <div className="season-top-copy">
+          <div className="season-kicker">★ VIP VAULT PASS · INCLUDED FREE</div>
           <div className="season-name">Season {season.id}: {season.name}</div>
           <div className="dim">
             {days} day{days === 1 ? "" : "s"} left · {owned.have} of {owned.of} items collected · Season items can only be earned this season
           </div>
         </div>
         <div className="season-tier">
+          <span className="season-tier-lbl">TIER</span>
           <span className="season-tier-n">{tier}</span>
           <span className="dim">of {PASS_TIERS}</span>
         </div>
@@ -80,7 +82,8 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
       <div className="dim season-how">Every game earns season XP: 150 for playing, +100 for a win, +50 online, +200 for your first win of the day.</div>
       {season.prize && (
         <div className="season-prize-line">
-          Tier {PASS_TIERS} prize: <b>{cosmetic(season.prize)?.name}</b>, a legendary drink you can send to anyone at the table.
+          <span className="season-prize-tag">TIER {PASS_TIERS} GRAND PRIZE</span>
+          <span><b>{cosmetic(season.prize)?.name}</b> — a legendary drink you can send to anyone at the table.</span>
         </div>
       )}
 
