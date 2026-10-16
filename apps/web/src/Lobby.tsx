@@ -1,20 +1,21 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt, type Progress } from "@heist/profile";
-import { Campaign } from "./Campaign";
 import { CrewBadge } from "./table/pieces";
-import { Rules } from "./table/Rules";
-import { Settings } from "./table/Settings";
 import { createPortal } from "react-dom";
-import { isIOS, isStandalone } from "./appShell";
+import { isStandalone } from "./appShell";
 import { onCrazyGames } from "./crazygames";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
-import { ArcadeHub } from "./arcade/ArcadeHub";
 import { ChallengeBanner } from "./daily/ChallengeBanner";
 import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal";
 import { t, useLanguage } from "./i18n";
+
+const Campaign = lazy(() => import("./Campaign").then((m) => ({ default: m.Campaign })));
+const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
+const Rules = lazy(() => import("./table/Rules").then((m) => ({ default: m.Rules })));
+const Settings = lazy(() => import("./table/Settings").then((m) => ({ default: m.Settings })));
 
 const FLOAT_POS = [
   { left: "6%", top: "12%" },
@@ -328,66 +329,68 @@ export function Lobby({
           </Sheet>
         )}
       </AnimatePresence>
-      <AnimatePresence>
-        {camp && (
-          <Campaign
-            cleared={cleared}
-            onClose={() => setCamp(false)}
-            onPlay={(n) => {
-              setCamp(false);
-              go(0, n);
-            }}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {games && (
-          <ArcadeHub
-            progress={progress}
-            onOpenDaily={onOpenDaily}
-            onClose={() => setGames(false)}
-            onSelectGame={(id) => {
-              setGames(false);
-              switch (id) {
-                case "solitaire":
-                  onSolitaire?.();
-                  break;
-                case "freecell":
-                  onFreeCell?.();
-                  break;
-                case "spider":
-                  onSpider?.();
-                  break;
-                case "tripeaks":
-                  onTriPeaks?.();
-                  break;
-                case "pyramid":
-                  onPyramid?.();
-                  break;
-                case "yukon":
-                  onYukon?.();
-                  break;
-                case "ers":
-                  onErs?.();
-                  break;
-                case "scoundrel":
-                  onScoundrel?.();
-                  break;
-                case "minesweeper":
-                  onMinesweeper?.();
-                  break;
-                case "sudoku":
-                  onSudoku?.();
-                  break;
-                case "checkers":
-                  onCheckers?.();
-                  break;
-              }
-            }}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {camp && (
+            <Campaign
+              cleared={cleared}
+              onClose={() => setCamp(false)}
+              onPlay={(n) => {
+                setCamp(false);
+                go(0, n);
+              }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {games && (
+            <ArcadeHub
+              progress={progress}
+              onOpenDaily={onOpenDaily}
+              onClose={() => setGames(false)}
+              onSelectGame={(id) => {
+                setGames(false);
+                switch (id) {
+                  case "solitaire":
+                    onSolitaire?.();
+                    break;
+                  case "freecell":
+                    onFreeCell?.();
+                    break;
+                  case "spider":
+                    onSpider?.();
+                    break;
+                  case "tripeaks":
+                    onTriPeaks?.();
+                    break;
+                  case "pyramid":
+                    onPyramid?.();
+                    break;
+                  case "yukon":
+                    onYukon?.();
+                    break;
+                  case "ers":
+                    onErs?.();
+                    break;
+                  case "scoundrel":
+                    onScoundrel?.();
+                    break;
+                  case "minesweeper":
+                    onMinesweeper?.();
+                    break;
+                  case "sudoku":
+                    onSudoku?.();
+                    break;
+                  case "checkers":
+                    onCheckers?.();
+                    break;
+                }
+              }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>{rules && <Rules target={players === 3 ? 3 : 4} fixed onClose={() => setRules(false)} />}</AnimatePresence>
+      </Suspense>
       <AnimatePresence>
         {learn && (
           <Sheet title="How to play" onClose={() => setLearn(false)}>
@@ -413,7 +416,9 @@ export function Lobby({
           </Sheet>
         )}
       </AnimatePresence>
-      <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
+      </Suspense>
       <AnimatePresence>
         {tour && onTour && onOpen && (tour === "next" ? (
           <TourNext

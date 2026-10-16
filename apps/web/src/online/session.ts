@@ -226,3 +226,13 @@ export function session(name: string): OnlineSession {
   void current.connect();
   return current;
 }
+
+/** The table code in an invite link: ?table=ABCDE */
+export function inviteCode(): string | null {
+  try {
+    const c = new URLSearchParams(location.search).get("table");
+    return c && /^[A-Za-z2-9]{5}$/.test(c) ? c.toUpperCase() : null;
+  } catch {
+    return null;
+  }
+}

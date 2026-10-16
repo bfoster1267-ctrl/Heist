@@ -6,17 +6,12 @@
 import type { Badge } from "@heist/profile";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Stars } from "./bits";
-import { MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
-import { SYSTEM, badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
+import { Lounge, MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
+import { SYSTEM, badgeCount, friendsApi, joinTable, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
-import { appUrl, onCrazyGames } from "../crazygames";
 import "./friends.css";
 
-/** Open a table from an invite: the app reloads into it (from the lobby, Solitaire or another table's lobby). */
-export function joinTable(code: string) {
-  // (on CrazyGames the address stays on the game's own file: see appUrl)
-  location.assign(onCrazyGames ? appUrl(`/?table=${encodeURIComponent(code)}`) : new URL(`./?table=${encodeURIComponent(code)}`, location.href).href);
-}
+export { joinTable };
 
 function ago(t: number | null) {
   if (!t) return "";
@@ -603,4 +598,9 @@ export function useFriendsSlot(meId: string | undefined, onPlayer?: (id: string)
     floats: floats.sort((a, b) => a.at - b.at),
     render: () => <Friends meId={meId} onPlayer={onPlayer} />,
   };
+}
+
+export function LoungeDock({ meId }: { meId?: string }) {
+  const friendsSlot = useFriendsSlot(meId);
+  return <Lounge friends={friendsSlot} />;
 }

@@ -11,7 +11,7 @@ import {
   type ErsMove, type ErsState, type ErsTally, type PlayingCard, type SlapReason,
 } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "../account/useAccount";
 import { startPath } from "../crazygames";
 import { buzz } from "../haptics";
@@ -19,8 +19,9 @@ import { card as cardSound, cardSlam, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { VictoryModal } from "../arcade/VictoryModal";
-import { ErsMultiplayer } from "./ErsMultiplayer";
 import "./ers.css";
+
+const ErsMultiplayer = lazy(() => import("./ErsMultiplayer").then((m) => ({ default: m.ErsMultiplayer })));
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -306,11 +307,13 @@ export function Ers({
       ? (new URLSearchParams(location.search).get("join") ?? new URLSearchParams(location.search).get("joinErs") ?? undefined)
       : undefined;
     return (
-      <ErsMultiplayer
-        initialCode={codeFromUrl}
-        onExit={() => setPvp(false)}
-        banner={banner}
-      />
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
+        <ErsMultiplayer
+          initialCode={codeFromUrl}
+          onExit={() => setPvp(false)}
+          banner={banner}
+        />
+      </Suspense>
     );
   }
 

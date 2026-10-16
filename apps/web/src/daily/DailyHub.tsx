@@ -27,21 +27,10 @@ import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import "./daily.css";
+import { GAME_LABELS } from "./ChallengeBanner";
 import { getDailyBest, getDailyLeaderboard, shareDailyResult } from "./shareHelpers";
 
-export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
-  solitaire: { title: "Klondike Solitaire", icon: "♠" },
-  freecell: { title: "FreeCell", icon: "♦" },
-  spider: { title: "Spider Solitaire", icon: "🕷️" },
-  tripeaks: { title: "TriPeaks", icon: "⛰️" },
-  pyramid: { title: "Pyramid", icon: "🔺" },
-  yukon: { title: "Yukon", icon: "🐺" },
-  ers: { title: "Egyptian Rat Screw", icon: "⚡" },
-  scoundrel: { title: "Scoundrel", icon: "🗡️" },
-  minesweeper: { title: "Minesweeper", icon: "💣" },
-  sudoku: { title: "Sudoku", icon: "🔢" },
-  checkers: { title: "Checkers", icon: "⛀" },
-};
+export { GAME_LABELS };
 
 export interface DailyHubProps {
   progress?: Progress;

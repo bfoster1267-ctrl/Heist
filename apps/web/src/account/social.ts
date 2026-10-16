@@ -3,6 +3,7 @@
 // the lobby's badge, the Friends sheet and the table's invite list all agree. Server accounts only.
 
 import { useEffect, useSyncExternalStore } from "react";
+import { appUrl, onCrazyGames } from "../crazygames";
 import { ServerBackend, type Backend } from "./backend";
 
 export interface Person {
@@ -176,3 +177,8 @@ export const friendsApi = {
   renameGroup: (id: string, name: string) => after(api().request("/api/chats/rename", { id, name })),
   leaveGroup: (id: string) => after(api().request("/api/chats/leave", { id })),
 };
+
+/** Open a table from an invite: the app reloads into it (from the lobby, Solitaire or another table's lobby). */
+export function joinTable(code: string) {
+  location.assign(onCrazyGames ? appUrl(`/?table=${encodeURIComponent(code)}`) : new URL(`./?table=${encodeURIComponent(code)}`, location.href).href);
+}

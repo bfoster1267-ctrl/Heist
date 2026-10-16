@@ -1,37 +1,41 @@
 import type { Answer } from "@heist/engine";
 import { ALL_DRINKS, FIRST_HAND, currentPass, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
-import { Lounge } from "./account/Lounge";
-import { InviteToast, joinTable, useFriendsSlot } from "./account/Friends";
-import { useFriendsSync } from "./account/social";
-import { Profile } from "./account/Profile";
+import { joinTable, useFriends, useFriendsSync } from "./account/social";
 import { Rewards } from "./account/Rewards";
-import { WhatLostYou, type LostAsk } from "./account/WhatLostYou";
+import type { LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
 import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
-import { OnlineLobby, QueueBar, inviteCode } from "./online/OnlineLobby";
-import { session } from "./online/session";
-import { Solitaire } from "./solitaire/Solitaire";
-import { FreeCell } from "./freecell/FreeCell";
-import { TriPeaks } from "./tripeaks/TriPeaks";
-import { Ers } from "./ers/Ers";
-import { Spider } from "./spider/Spider";
-import { Pyramid } from "./pyramid/Pyramid";
-import { Yukon } from "./yukon/Yukon";
-import { Scoundrel } from "./scoundrel/Scoundrel";
-import { Minesweeper } from "./minesweeper/Minesweeper";
-import { Sudoku } from "./sudoku/Sudoku";
-import { Checkers } from "./checkers/Checkers";
-import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
-import { DailyHub } from "./daily/DailyHub";
-import { Table } from "./table/Table";
+import { inviteCode, session } from "./online/session";
+import type { ArcadeGameId } from "./arcade/ArcadeHub";
 import { crazyGamesLoaded, onCrazyGames, onCrazyGamesSignIn, startPath, useCrazyGamesChatOff, useCrazyGamesPlay } from "./crazygames";
 import { menuTaps } from "./menuTap";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
+
+const Table = lazy(() => import("./table/Table").then((m) => ({ default: m.Table })));
+const OnlineLobby = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.OnlineLobby })));
+const QueueBar = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.QueueBar })));
+const Solitaire = lazy(() => import("./solitaire/Solitaire").then((m) => ({ default: m.Solitaire })));
+const FreeCell = lazy(() => import("./freecell/FreeCell").then((m) => ({ default: m.FreeCell })));
+const TriPeaks = lazy(() => import("./tripeaks/TriPeaks").then((m) => ({ default: m.TriPeaks })));
+const Ers = lazy(() => import("./ers/Ers").then((m) => ({ default: m.Ers })));
+const Spider = lazy(() => import("./spider/Spider").then((m) => ({ default: m.Spider })));
+const Pyramid = lazy(() => import("./pyramid/Pyramid").then((m) => ({ default: m.Pyramid })));
+const Yukon = lazy(() => import("./yukon/Yukon").then((m) => ({ default: m.Yukon })));
+const Scoundrel = lazy(() => import("./scoundrel/Scoundrel").then((m) => ({ default: m.Scoundrel })));
+const Minesweeper = lazy(() => import("./minesweeper/Minesweeper").then((m) => ({ default: m.Minesweeper })));
+const Sudoku = lazy(() => import("./sudoku/Sudoku").then((m) => ({ default: m.Sudoku })));
+const Checkers = lazy(() => import("./checkers/Checkers").then((m) => ({ default: m.Checkers })));
+const Profile = lazy(() => import("./account/Profile").then((m) => ({ default: m.Profile })));
+const LoungeDock = lazy(() => import("./account/Friends").then((m) => ({ default: m.LoungeDock })));
+const InviteToast = lazy(() => import("./account/Friends").then((m) => ({ default: m.InviteToast })));
+const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
+const DailyHub = lazy(() => import("./daily/DailyHub").then((m) => ({ default: m.DailyHub })));
+const WhatLostYou = lazy(() => import("./account/WhatLostYou").then((m) => ({ default: m.WhatLostYou })));
 
 export function App() {
   return (
@@ -50,8 +54,7 @@ function Game() {
   const { me, backend, failed, suspended, act, showReward, error, clearError } = useAccount();
   // friends, requests, invites and messages stay fresh while the app is open
   useFriendsSync(backend, !!me);
-  // friends live in the Lounge's Friends tab (the lobby's one chat button)
-  const friendsSlot = useFriendsSlot(me?.id);
+  const friendsView = useFriends();
   // can't reach the server: check back every few seconds and reload once it answers
   useEffect(() => {
     if (!failed) return;
@@ -642,7 +645,7 @@ function Game() {
   // lobby only needs to re-read the account when money moves.
   if (online !== null)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <OnlineLobby
           name={online}
           chips={chips}
@@ -672,12 +675,12 @@ function Game() {
           }}
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (sol && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Solitaire
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -701,12 +704,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (fc && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <FreeCell
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -729,12 +732,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (tp && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <TriPeaks
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -757,12 +760,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (ers && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Ers
           initialPvp={ersPvp}
           initialSeed={gameConfig.seed}
@@ -788,12 +791,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (spider && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Spider
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -816,12 +819,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (pyramid && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Pyramid
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -844,12 +847,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (yukon && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Yukon
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -872,12 +875,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (scoundrel && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Scoundrel
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -900,12 +903,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (minesweeper && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Minesweeper
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -928,12 +931,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (sudoku && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Sudoku
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -956,12 +959,12 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   if (checkers && !table)
     return (
-      <>
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Checkers
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
@@ -981,7 +984,7 @@ function Game() {
           }
         />
         <Rewards />
-      </>
+      </Suspense>
     );
 
   return (
@@ -1022,62 +1025,68 @@ function Game() {
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
-          {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour && !chatOff ? <Lounge friends={friendsSlot} /> : null}
-          {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
+          <Suspense fallback={null}>
+            {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour && !chatOff ? <LoungeDock meId={me.id} /> : null}
+            {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
+          </Suspense>
         </>
       ) : (
-        <Table
-          key={round}
-          settings={table}
-          onExit={exit}
-          onGameOver={gameOver}
-          buyDrink={buyDrink}
-          mistakes={me.progress.mistakes}
-          place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
-          turnRef={turnRef}
-          firstReward={table.lesson === FIRST_HAND ? firstReward : null}
-          onAgain={() => {
-            if (chips < table.stakes) return exit();
-            void sit({ ...table, campaign: table.stage });
-          }}
-        />
+        <Suspense fallback={<div className="loading">Opening the vault…</div>}>
+          <Table
+            key={round}
+            settings={table}
+            onExit={exit}
+            onGameOver={gameOver}
+            buyDrink={buyDrink}
+            mistakes={me.progress.mistakes}
+            place={table.coached ? "Learning to play" : table.stage ? `Campaign, stage ${table.stage}` : `${table.players} players vs bots`}
+            turnRef={turnRef}
+            firstReward={table.lesson === FIRST_HAND ? firstReward : null}
+            onAgain={() => {
+              if (chips < table.stakes) return exit();
+              void sit({ ...table, campaign: table.stage });
+            }}
+          />
+        </Suspense>
       )}
-      <AnimatePresence>
-        {profile && (
-          <Profile
-            key={profile}
-            tab={profile}
-            chat={profile === "friends" ? chatWith : null}
-            onClose={() => {
-              setProfile(false);
-              setChatWith(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {arcadeHubOpen && (
-          <ArcadeHub
-            progress={me.progress}
-            onOpenDaily={() => setDailyHubOpen(true)}
-            onClose={() => setArcadeHubOpen(false)}
-            onSelectGame={(id, pvp) => {
-              setArcadeHubOpen(false);
-              openSoloGame(id, pvp);
-            }}
-            activeGame={activeSoloGame}
-          />
-        )}
-      </AnimatePresence>
-      <AnimatePresence>
-        {dailyHubOpen && (
-          <DailyHub
-            progress={me.progress}
-            onClose={() => setDailyHubOpen(false)}
-            onPlayChallenge={launchDailyGame}
-          />
-        )}
-      </AnimatePresence>
+      <Suspense fallback={null}>
+        <AnimatePresence>
+          {profile && (
+            <Profile
+              key={profile}
+              tab={profile}
+              chat={profile === "friends" ? chatWith : null}
+              onClose={() => {
+                setProfile(false);
+                setChatWith(null);
+              }}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {arcadeHubOpen && (
+            <ArcadeHub
+              progress={me.progress}
+              onOpenDaily={() => setDailyHubOpen(true)}
+              onClose={() => setArcadeHubOpen(false)}
+              onSelectGame={(id, pvp) => {
+                setArcadeHubOpen(false);
+                openSoloGame(id, pvp);
+              }}
+              activeGame={activeSoloGame}
+            />
+          )}
+        </AnimatePresence>
+        <AnimatePresence>
+          {dailyHubOpen && (
+            <DailyHub
+              progress={me.progress}
+              onClose={() => setDailyHubOpen(false)}
+              onPlayChallenge={launchDailyGame}
+            />
+          )}
+        </AnimatePresence>
+      </Suspense>
       {profile && !table && tour === "next" && (
         <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
           Keep going →
@@ -1085,8 +1094,10 @@ function Game() {
       )}
       {/* no "save your progress" sign-in nudge on CrazyGames: their own account keeps it */}
       <Rewards onSave={onCrazyGames ? undefined : () => setProfile("account")} />
-      <InviteToast busy={!!table} />
-      <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
+      <Suspense fallback={null}>
+        {!!friendsView?.invites.length && <InviteToast busy={!!table} />}
+        <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
+      </Suspense>
       {error && (
         <div className="acct-toast" role="alert" onClick={clearError}>
           {error}

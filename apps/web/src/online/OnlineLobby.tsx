@@ -1,7 +1,7 @@
 // Play with friends: make a table and share its code, join one by code, or sit at an open public
 // table. Once the host deals, the same Table as solo play runs, fed by the game server.
 import { AnimatePresence, motion } from "motion/react";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Table } from "../table/Table";
 import { Chips, CrewBadge } from "../table/pieces";
 import { ALL_DRINKS, RANKED_LEVEL, RANKED_PLAYERS, levelInfo, rankedPublic } from "@heist/profile";
@@ -9,10 +9,9 @@ import { PlayerCard } from "../account/Profile";
 import { InviteFriends, InviteToast } from "../account/Friends";
 import { useAccount } from "../account/useAccount";
 import { STAKES } from "../wallet";
-import { session, type OnlineSession } from "./session";
+import { inviteCode, session, type OnlineSession } from "./session";
 import { onlineSource } from "./useOnlineTable";
 import { dismissAlertsAsk, shouldAskForAlerts, turnOnAlerts, useAlertState } from "../alerts";
-import { Solitaire } from "../solitaire/Solitaire";
 import { ARCADE_GAMES, type ArcadeGameId } from "../arcade/ArcadeHub";
 import { shareUrl, useCrazyGamesPlay } from "../crazygames";
 import { buzz } from "../haptics";
@@ -20,20 +19,14 @@ import { card as cardSound, click } from "../sound";
 import "../arcade/arcade.css";
 import "./online.css";
 
+const Solitaire = lazy(() => import("../solitaire/Solitaire").then((m) => ({ default: m.Solitaire })));
+
+export { inviteCode };
+
 function useSession(sess: OnlineSession) {
   const [, force] = useState(0);
   useEffect(() => sess.subscribe(() => force((n) => n + 1)), [sess]);
   return sess;
-}
-
-/** The table code in an invite link: ?table=ABCDE */
-export function inviteCode(): string | null {
-  try {
-    const c = new URLSearchParams(location.search).get("table");
-    return c && /^[A-Za-z2-9]{5}$/.test(c) ? c.toUpperCase() : null;
-  } catch {
-    return null;
-  }
 }
 
 function inviteLink(code: string) {
@@ -122,25 +115,27 @@ export function OnlineLobby({
   // the moment it's dealt (the return above)
   if (sol && !room)
     return (
-      <Solitaire
-        onExit={() => setSol(false)}
-        banner={
-          sess.queue ? (
-            <QueueStrip
-              sess={sess}
-              onSwitchGame={(g) => {
-                setSol(false);
-                onArcade?.(g);
-              }}
-              activeGame="solitaire"
-              onOpenArcade={onOpenArcade}
-              inline
-            />
-          ) : (
-            <div className="queue-strip">Not in the queue any more</div>
-          )
-        }
-      />
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
+        <Solitaire
+          onExit={() => setSol(false)}
+          banner={
+            sess.queue ? (
+              <QueueStrip
+                sess={sess}
+                onSwitchGame={(g) => {
+                  setSol(false);
+                  onArcade?.(g);
+                }}
+                activeGame="solitaire"
+                onOpenArcade={onOpenArcade}
+                inline
+              />
+            ) : (
+              <div className="queue-strip">Not in the queue any more</div>
+            )
+          }
+        />
+      </Suspense>
     );
 
   return (
