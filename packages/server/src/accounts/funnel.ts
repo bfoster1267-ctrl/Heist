@@ -115,7 +115,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     if (e.name) t.name = e.name;
     t.last = e.at;
     // the API's own calls (config, /me) say little; taps, screens and game steps say where they were
-    if (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel.")) t.lastWhat = what(e);
+    if (e.kind !== "ui.ping" && (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel."))) t.lastWhat = what(e);
     if (e.at - t.first >= RETURN_AFTER) t.back = true;
     const d = (e.data ?? {}) as Record<string, unknown>;
     const ok = e.ok !== false;

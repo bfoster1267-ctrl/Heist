@@ -9,7 +9,7 @@ const base = set === "same-origin" ? "" : set?.replace(/\/$/, "");
 const TOKEN_KEY = "heist.session";
 
 interface Ev {
-  kind: "screen" | "tap" | "turn";
+  kind: "screen" | "tap" | "turn" | "ping";
   name: string;
   at: number;
   data?: Record<string, unknown>;
@@ -79,7 +79,20 @@ export function installTracking() {
     },
     { capture: true, passive: true },
   );
+  // Heartbeat every 30s while active so time-on-site is measured accurately
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      add({ kind: "ping", name: "heartbeat", at: Date.now() });
+    }
+    flush();
+  }, 30_000);
   window.setInterval(() => flush(), 10_000);
-  addEventListener("pagehide", () => flush(true));
-  document.addEventListener("visibilitychange", () => document.visibilityState === "hidden" && flush(true));
+  const onLeave = () => {
+    add({ kind: "ping", name: "leave", at: Date.now() });
+    flush(true);
+  };
+  addEventListener("pagehide", onLeave);
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") onLeave();
+  });
 }
