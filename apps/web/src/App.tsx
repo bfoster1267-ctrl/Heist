@@ -22,6 +22,7 @@ import { Spider } from "./spider/Spider";
 import { Pyramid } from "./pyramid/Pyramid";
 import { Yukon } from "./yukon/Yukon";
 import { Scoundrel } from "./scoundrel/Scoundrel";
+import { Checkers } from "./checkers/Checkers";
 import { ArcadeHub, type ArcadeGameId } from "./arcade/ArcadeHub";
 import { DailyHub } from "./daily/DailyHub";
 import { Table } from "./table/Table";
@@ -241,6 +242,25 @@ function Game() {
       /* fine without */
     }
   }, []);
+  // Checkers vs bot: from the lobby, or straight in at playheist.net/checkers
+  const [checkers, setCheckersState] = useState(() => {
+    const on = location.pathname === "/checkers";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setCheckers = useCallback((on: boolean) => {
+    setCheckersState(on);
+    try {
+      history.replaceState(null, "", on ? "/checkers" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
   // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
   const [tour, setTourState] = useState<TourStep | null>(savedTour);
   const setTour = useCallback((t: TourStep | null) => {
@@ -272,8 +292,9 @@ function Game() {
       setPyramid(id === "pyramid");
       setYukon(id === "yukon");
       setScoundrel(id === "scoundrel");
+      setCheckers(id === "checkers");
     },
-    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel],
+    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel, setCheckers],
   );
   const activeSoloGame: ArcadeGameId | null =
     sol ? "solitaire"
@@ -284,6 +305,7 @@ function Game() {
     : pyramid ? "pyramid"
     : yukon ? "yukon"
     : scoundrel ? "scoundrel"
+    : checkers ? "checkers"
     : null;
   const [arcadeHubOpen, setArcadeHubOpenState] = useState(() => {
     try {
@@ -442,23 +464,25 @@ function Game() {
         ? "Yukon Solitaire"
         : scoundrel
         ? "Scoundrel"
+        : checkers
+        ? "Checkers"
         : dailyHubOpen
         ? "Daily Challenge Hub"
         : arcadeHubOpen
         ? "Card Games Hub"
         : "Lobby";
     trackScreen(screen);
-  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, dailyHubOpen, arcadeHubOpen]);
+  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, checkers, dailyHubOpen, arcadeHubOpen]);
   // a soft tap on the menus' buttons (the lobby and the sheets over it); never on a game screen, which
   // has its own sounds, nor online, where the lobby and table already play theirs
-  const inMenu = !!profile || (!table && online === null && !sol && !fc && !tp && !spider && !pyramid && !ers && !yukon && !scoundrel);
+  const inMenu = !!profile || (!table && online === null && !sol && !fc && !tp && !spider && !pyramid && !ers && !yukon && !scoundrel && !checkers);
   useEffect(() => (inMenu ? menuTaps() : undefined), [inMenu]);
   // CrazyGames (does nothing elsewhere): loading ends with the account, gameplay is a table or solo game
   // (online tables tell it from OnlineLobby), and signing in to CrazyGames mid-visit links that account
   useEffect(() => {
     if (me) crazyGamesLoaded();
   }, [me]);
-  useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel));
+  useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel || checkers));
   useEffect(() => onCrazyGamesSignIn(() => void act((b) => b.me())), [act]);
   const chatOff = useCrazyGamesChatOff();
   const onlineTableEnded = useCallback(() => {
@@ -831,6 +855,31 @@ function Game() {
       </>
     );
 
+  if (checkers && !table)
+    return (
+      <>
+        <Checkers
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          onExit={() => {
+            setCheckers(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="checkers" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setCheckers(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </>
+    );
+
   return (
     <>
       {!table ? (
@@ -854,6 +903,7 @@ function Game() {
             onPyramid={() => setPyramid(true)}
             onYukon={() => setYukon(true)}
             onScoundrel={() => setScoundrel(true)}
+            onCheckers={() => setCheckers(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

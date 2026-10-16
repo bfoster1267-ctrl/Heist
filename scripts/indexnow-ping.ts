@@ -16,6 +16,7 @@ const URLS = [
   `https://${HOST}/yukon`,
   `https://${HOST}/ers`,
   `https://${HOST}/scoundrel`,
+  `https://${HOST}/checkers`,
   `https://${HOST}/card-games`,
   `https://${HOST}/arcade`,
   `https://${HOST}/blog`,

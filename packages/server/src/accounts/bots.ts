@@ -40,6 +40,7 @@ const HUMAN = new Set([
   "ers.start", "ers.finish", "ers.bank",
   "yukon.start", "yukon.finish", "yukon.bank",
   "scoundrel.start", "scoundrel.finish", "scoundrel.bank",
+  "checkers.start", "checkers.finish", "checkers.bank",
   "table.chat", "lounge.say", "feedback", "board.post",
   "auth.login", "auth.register", "auth.google", "auth.apple", "me.name", "me.password",
 ]);

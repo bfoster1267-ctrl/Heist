@@ -35,6 +35,7 @@ const DAILY_LABELS: Record<string, string> = {
   yukon: "Yukon",
   ers: "Egyptian Rat Screw",
   scoundrel: "Scoundrel",
+  checkers: "Checkers",
 };
 
 export interface VictoryModalProps {

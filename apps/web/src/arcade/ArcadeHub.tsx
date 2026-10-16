@@ -15,7 +15,8 @@ export type ArcadeGameId =
   | "pyramid"
   | "yukon"
   | "ers"
-  | "scoundrel";
+  | "scoundrel"
+  | "checkers";
 
 export type ArcadeCategory = "all" | "solitaire" | "action";
 export type ArcadeDifficulty = "Casual" | "Medium" | "Expert";
@@ -233,6 +234,30 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       goal: "Clear the entire dungeon deck and emerge alive with 1 or more HP.",
       keyRule: "Rooms hold 4 cards. Face 3 before advancing or flee (can't flee two rooms in a row). Clubs/Spades are Monsters. Diamonds are Weapons. Hearts are Healing Potions.",
       tip: "Fight low-rank monsters (2-4) barehanded to preserve your high-value weapon durability for dragons (J, Q, K).",
+    },
+  },
+  {
+    id: "checkers",
+    title: "Checkers",
+    subtitle: "Duel the House Bot",
+    tagline: "Casino-noir checkers with poker-chip pieces: outjump the Rookie, the Pro and the Boss.",
+    category: "action",
+    difficulty: "Medium",
+    tags: ["Vs Bot", "3 Difficulties", "Strategy", "Kings"],
+    deckInfo: "8x8 board, 12 chips a side",
+    path: "/checkers",
+    art: {
+      cards: [
+        { rank: "⛀", suit: "", red: true, isSymbol: true },
+        { rank: "♛", suit: "", red: false, isSymbol: true },
+      ],
+      badge: "Vs Bot",
+    },
+    rules: {
+      overview: "Classic American checkers on an 8x8 board against a house bot at Rookie, Pro or Boss strength.",
+      goal: "Capture every bot chip, or leave it with no legal move.",
+      keyRule: "Chips move diagonally forward; jumps are forced and chain into multi-jumps. Reach the far row to crown a king that moves both ways. 40 moves each without a capture, or a position seen three times, is a draw.",
+      tip: "Keep your back row home as long as you can: it stops the bot crowning kings behind your lines.",
     },
   },
 ];
