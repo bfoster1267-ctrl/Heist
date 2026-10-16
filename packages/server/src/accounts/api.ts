@@ -17,7 +17,7 @@ const BODY_LIMIT = 16 * 1024;
 /** a finished solo game posts every answer the player gave */
 const SOLO_BODY_LIMIT = 512 * 1024;
 /** routes that carry a whole game's moves: every arcade game's bank and finish, and a vs-bots game's finish */
-const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel)\/(bank|finish))$/;
+const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel|hearts|spades)\/(bank|finish))$/;
 /** sign-in attempts per address per window */
 const AUTH_TRIES = 20;
 const AUTH_WINDOW_MS = 10 * 60_000;
@@ -324,6 +324,12 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/scoundrel/start": async (b, t) => svc.scoundrelStart(await me(t), b.seed, b.isDaily),
     "POST /api/scoundrel/finish": async (b, t) => svc.scoundrelBank(await me(t), b.gameId, b.moves, true, b.drain),
     "POST /api/scoundrel/bank": async (b, t) => svc.scoundrelBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/hearts/start": async (b, t) => svc.heartsStart(await me(t), b.seed, b.isDaily),
+    "POST /api/hearts/finish": async (b, t) => svc.heartsBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/hearts/bank": async (b, t) => svc.heartsBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/spades/start": async (b, t) => svc.spadesStart(await me(t), b.seed, b.isDaily, b.quick),
+    "POST /api/spades/finish": async (b, t) => svc.spadesBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/spades/bank": async (b, t) => svc.spadesBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
