@@ -4,6 +4,7 @@ import { CREWS, type GameState } from "@heist/engine";
 import { useMemo, useState } from "react";
 import type { HistoryEntry } from "../useTable";
 import { Crew } from "./pieces";
+import { t } from "../i18n";
 
 interface Line {
   hitsWon: number;
@@ -29,15 +30,15 @@ function stats(h: HistoryEntry[], n: number) {
         per[e.boss].hitsLost++;
         per[e.mark].held++;
       }
-      if (margin <= 1) moments.push({ turn: e.turn, text: `Photo finish: ${ev.bTotal} vs ${ev.mTotal}. ${e.msg}`, weight: 3 });
-      else if (margin >= 12) moments.push({ turn: e.turn, text: `Blowout: ${ev.bTotal} vs ${ev.mTotal}. ${e.msg}`, weight: 2 });
+      if (margin <= 1) moments.push({ turn: e.turn, text: t("recap.photo", { b: ev.bTotal, m: ev.mTotal, msg: e.msg }), weight: 3 });
+      else if (margin >= 12) moments.push({ turn: e.turn, text: t("recap.blowout", { b: ev.bTotal, m: ev.mTotal, msg: e.msg }), weight: 2 });
     } else if (ev.t === "doubleCross") {
       per[ev.seat].doubleCrosses++;
       moments.push({ turn: e.turn, text: e.msg, weight: 4 });
     } else if (ev.t === "hacked") moments.push({ turn: e.turn, text: e.msg, weight: 4 });
     else if (ev.t === "toPen") per[ev.seat].toPen += ev.count;
     else if (ev.t === "loot") per[ev.to].loot += ev.amount;
-    else if (ev.t === "lastCall") moments.push({ turn: e.turn, text: "Last Call.", weight: 1 });
+    else if (ev.t === "lastCall") moments.push({ turn: e.turn, text: t("recap.lastCall"), weight: 1 });
     else if (ev.t === "deal") moments.push({ turn: e.turn, text: e.msg, weight: 2 });
   }
   moments.sort((a, b) => b.weight - a.weight || a.turn - b.turn);
@@ -55,7 +56,7 @@ function RaceChart({ h, s }: { h: HistoryEntry[]; s: GameState }) {
   const x = (i: number) => pad + (i / maxT) * (W - pad * 2);
   const y = (v: number) => H - pad - (v / maxY) * (H - pad * 2);
   return (
-    <svg className="race" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="Footholds over the game, per player">
+    <svg className="race" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={t("recap.raceAria")}>
       {Array.from({ length: maxY + 1 }, (_, v) => (
         <g key={v}>
           <line x1={pad} x2={W - pad} y1={y(v)} y2={y(v)} stroke="rgba(255,255,255,0.07)" />
@@ -66,12 +67,12 @@ function RaceChart({ h, s }: { h: HistoryEntry[]; s: GameState }) {
       ))}
       <line x1={pad} x2={W - pad} y1={y(s.target)} y2={y(s.target)} stroke="rgba(231,181,60,0.5)" strokeDasharray="4 4" />
       {s.players.map((p) => {
-        const pts = turns.map((t, i) => `${x(i)},${y(byTurn.get(t)![p.seat] ?? 0)}`).join(" ");
+        const pts = turns.map((tn, i) => `${x(i)},${y(byTurn.get(tn)![p.seat] ?? 0)}`).join(" ");
         const win = s.winners?.includes(p.seat);
         return <polyline key={p.seat} points={pts} fill="none" stroke={CREWS[p.color].hex} strokeWidth={win ? 3.5 : 2} strokeLinejoin="round" opacity={win ? 1 : 0.8} />;
       })}
       <text x={W - pad} y={H - 4} textAnchor="end" className="race-axis">
-        turns →
+        {t("recap.turns")}
       </text>
     </svg>
   );
@@ -93,10 +94,10 @@ export function Recap({ h, s }: { h: HistoryEntry[]; s: GameState }) {
     <div className="recap">
       <div className="seg small recap-tabs" role="tablist">
         <button role="tab" aria-selected={tab === "recap"} className={tab === "recap" ? "on" : ""} onClick={() => setTab("recap")}>
-          Recap
+          {t("recap.recap")}
         </button>
         <button role="tab" aria-selected={tab === "history"} className={tab === "history" ? "on" : ""} onClick={() => setTab("history")}>
-          Hand history
+          {t("recap.history")}
         </button>
       </div>
       {tab === "recap" ? (
@@ -106,11 +107,11 @@ export function Recap({ h, s }: { h: HistoryEntry[]; s: GameState }) {
             <thead>
               <tr>
                 <th />
-                <th data-tip="Hits won as Boss">Hits</th>
-                <th data-tip="Defended as the Mark">Held</th>
-                <th data-tip="Crew sent to the Pen">Pen</th>
-                <th data-tip="Loot taken">Loot</th>
-                <th data-tip="Double-Crosses played">✕</th>
+                <th data-tip={t("recap.hitsTip")}>{t("recap.hits")}</th>
+                <th data-tip={t("recap.heldTip")}>{t("recap.held")}</th>
+                <th data-tip={t("recap.penTip")}>{t("recap.pen")}</th>
+                <th data-tip={t("recap.lootTip")}>{t("recap.loot")}</th>
+                <th data-tip={t("recap.xTip")}>✕</th>
               </tr>
             </thead>
             <tbody>
@@ -136,7 +137,7 @@ export function Recap({ h, s }: { h: HistoryEntry[]; s: GameState }) {
             <ul className="moments">
               {moments.map((m, i) => (
                 <li key={i}>
-                  <span className="dim">Turn {m.turn}</span> {m.text}
+                  <span className="dim">{t("recap.turn", { n: m.turn })}</span> {m.text}
                 </li>
               ))}
             </ul>
@@ -146,7 +147,8 @@ export function Recap({ h, s }: { h: HistoryEntry[]; s: GameState }) {
         <div className="history" tabIndex={0}>
           {turns.map(([turn, msgs]) => (
             <div key={turn} className="history-turn">
-              <div className="history-head">Turn {turn}</div>
+              <div className="history-head">{t("recap.turn", { n: turn })}</div>
+
               {msgs.map((m, i) => (
                 <div key={i} className="history-line">
                   {m}

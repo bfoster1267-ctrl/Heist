@@ -3,126 +3,86 @@
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { t, tRich, type TKey } from "../i18n";
+
+const P = ({ k, n }: { k: TKey; n?: number }) => <p>{tRich(k, { n })}</p>;
+const Li = ({ k, n }: { k: TKey; n?: number }) => <li>{tRich(k, { n })}</li>;
 
 const TABS = [
   {
     id: "goal",
-    label: "Goal",
+    label: "rules.tab.goal",
     body: (target: number) => (
       <>
-        <p>
-          <b>Win with {target} Footholds.</b> A Foothold is one of your crew living in a rival's hideout. The diamonds on each seat count them.
-        </p>
-        <p>Everyone starts with 3 hideouts of 3 crew at home, plus 3 spare crew.</p>
-        <p>
-          <b>Last Call:</b> the third time the Job deck runs out, the game ends. Most Footholds wins; a tie goes to the most cash.
-        </p>
+        <P k="rules.goal.1" n={target} />
+        <P k="rules.goal.2" />
+        <P k="rules.goal.3" />
       </>
     ),
   },
   {
     id: "turn",
-    label: "Your turn",
+    label: "rules.tab.turn",
     body: () => (
       <>
-        <p>When you hold the Boss badge, it's your turn:</p>
+        <P k="rules.turn.0" />
         <ol>
-          <li>
-            <b>Regroup.</b> Draw 2. One crew leaves the Pen. Bank up to 2 cards as cash. Hire up to 2 crew for $3 each.
-          </li>
-          <li>
-            <b>Hit.</b> Flip a Job card: its color is the <b>Mark</b> you rob. Pick one of their hideouts.
-          </li>
-          <li>
-            <b>Crew up.</b> Send 1 to 4 crew. Everyone else may join either side.
-          </li>
-          <li>
-            <b>Showdown.</b> Boss and Mark each lay a card face down, then flip.
-          </li>
-          <li>
-            Won? You may hit once more. Then the Boss badge passes left.
-          </li>
+          <Li k="rules.turn.1" />
+          <Li k="rules.turn.2" />
+          <Li k="rules.turn.3" />
+          <Li k="rules.turn.4" />
+          <Li k="rules.turn.5" />
         </ol>
-        <p>
-          <b>Bust</b> instead of a hit: fight a rival's crew sitting in one of your own hideouts.
-        </p>
+        <P k="rules.turn.bust" />
       </>
     ),
   },
   {
     id: "fight",
-    label: "The fight",
+    label: "rules.tab.fight",
     body: () => (
       <>
-        <p>
-          <b>Total = card + crew on your side.</b> The Mark gets +5 for home turf, and ties go to the Mark.
-        </p>
-        <p>
-          <b>Boss wins:</b> each Boss-side player leaves 1 crew there as a Foothold. The Mark's side goes to the Pen, and the Mark pays $3 loot.
-        </p>
-        <p>
-          <b>Mark wins:</b> the Boss side goes to the Pen. Each Mark ally banks a card (their Cut).
-        </p>
-        <p>
-          <b>Score beats Fixer.</b> Fixer vs Fixer: make a deal, or both send 2 crew to the Pen.
-        </p>
+        <P k="rules.fight.1" />
+        <P k="rules.fight.2" />
+        <P k="rules.fight.3" />
+        <P k="rules.fight.4" />
       </>
     ),
   },
   {
     id: "cards",
-    label: "Cards",
+    label: "rules.tab.cards",
     body: () => (
       <>
-        <p>Every card is a fighter or money. The green coin in its corner is its cash value when banked.</p>
+        <P k="rules.cards.0" />
         <ul>
-          <li>
-            <b>Score</b> (big number): fight with it.
-          </li>
-          <li>
-            <b>Fixer</b>: loses to any Score; two Fixers make a deal.
-          </li>
-          <li>
-            <b>Backup</b>: +3 to either side after the flip.
-          </li>
-          <li>
-            <b>Double-Cross</b>: make one ally switch sides.
-          </li>
-          <li>
-            <b>Role</b>: your one rule-breaking power. Long-press a role name to read it.
-          </li>
+          <Li k="rules.cards.S" />
+          <Li k="rules.cards.F" />
+          <Li k="rules.cards.B" />
+          <Li k="rules.cards.X" />
+          <Li k="rules.cards.role" />
         </ul>
-        <p>You pay with banked cards and get no change.</p>
+        <P k="rules.cards.pay" />
       </>
     ),
   },
   {
     id: "table",
-    label: "Reading the table",
+    label: "rules.tab.table",
     body: (target: number) => (
       <>
         <ul>
-          <li>
-            <b>Cards</b>: cards in hand. <b>Cash</b>: banked money.
-          </li>
-          <li>
-            <b>Home</b>: your crew in your own hideouts. <b>Pen</b>: caught crew. <b>Spare</b>: crew you can hire.
-          </li>
-          <li>
-            <b>Footholds 0/{target}</b>: progress to the win.
-          </li>
-          <li>
-            <b>Hideouts 1 to 3</b>: whose crew are inside. A gold ring marks a rival's Foothold.
-          </li>
-          <li>
-            <b>BOSS</b> and <b>MARK</b> badges show who is fighting. The glowing seat is the one acting.
-          </li>
+          <Li k="rules.table.1" />
+          <Li k="rules.table.2" />
+          <Li k="rules.table.3" n={target} />
+          <Li k="rules.table.4" />
+          <Li k="rules.table.5" />
         </ul>
-        <p>Long-press (or hover) anything on the table to see what it is.</p>
+        <P k="rules.table.6" />
       </>
     ),
   },
-];
+] satisfies { id: string; label: TKey; body: (target: number) => React.ReactNode }[];
 
 export function Rules({ target, onClose, fixed }: { target: number; onClose: () => void; fixed?: boolean }) {
   const [tab, setTab] = useState(TABS[0].id);
@@ -131,33 +91,34 @@ export function Rules({ target, onClose, fixed }: { target: number; onClose: () 
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
-  const t = TABS.find((x) => x.id === tab)!;
+  const cur = TABS.find((x) => x.id === tab)!;
   const sheet = (
     <motion.div className={"modal-back rules-back" + (fixed ? " fixed" : "")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
       <motion.div
         className="rules"
         role="dialog"
-        aria-label="How to play"
+        aria-label={t("rules.title")}
         initial={{ scale: 0.94, y: 12 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0 }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="rules-head">
-          <span className="rules-title">How to play</span>
+          <span className="rules-title">{t("rules.title")}</span>
           <button className="btn small rules-close" onClick={onClose} autoFocus>
-            ✕ Close
+            ✕ {t("common.close")}
           </button>
         </div>
         <div className="rules-tabs" role="tablist">
           {TABS.map((x) => (
             <button key={x.id} role="tab" aria-selected={tab === x.id} className={tab === x.id ? "on" : ""} onClick={() => setTab(x.id)}>
-              {x.label}
+              {t(x.label)}
             </button>
           ))}
         </div>
         <div className="rules-body" role="tabpanel">
-          {t.body(target)}
+          {cur.body(target)}
+
         </div>
       </motion.div>
     </motion.div>

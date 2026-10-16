@@ -107,6 +107,13 @@ export function tNodes(key: TKey, nodes: Record<string, ReactNode>, vars?: Vars)
   return text.split(/\{(\w+)\}/g).map((part, i) => (i % 2 ? createElement(Fragment, { key: i }, nodes[part] ?? `{${part}}`) : part));
 }
 
+/** `t` where the text marks bold parts with **double stars**: returns a list to render as children. */
+export function tRich(key: TKey, vars?: Vars): ReactNode[] {
+  return t(key, vars)
+    .split("**")
+    .map((part, i) => (i % 2 ? createElement("b", { key: i }, part) : part));
+}
+
 /** `t` for a key built at runtime (a stage number, an item id): falls back to `fallback` when it's unknown. */
 export function tk(key: string, fallback: string, vars?: Vars): string {
   const locale = getLocale();

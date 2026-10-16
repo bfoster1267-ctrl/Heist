@@ -3,6 +3,7 @@
 import type { GameEvent, GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { CardBack, CardFace, CountUp } from "./pieces";
+import { t } from "../i18n";
 
 export function Showdown({ s, ev, k }: { s: GameState; ev: GameEvent | null; k: number }) {
   const j = s.job;
@@ -27,7 +28,7 @@ export function Showdown({ s, ev, k }: { s: GameState; ev: GameEvent | null; k: 
                 transition={{ type: "spring", stiffness: 140, damping: 18, delay: i * 0.08 }}
               >
                 <div className="sd-who">
-                  {bust ? "" : side === "B" ? "BOSS · " : "MARK · "}
+                  {bust ? "" : side === "B" ? t("sd.boss") : t("sd.mark")}
                   {s.players[who].name}
                 </div>
                 <div className="sd-flip">
@@ -51,7 +52,7 @@ export function Showdown({ s, ev, k }: { s: GameState; ev: GameEvent | null; k: 
               </motion.div>
             );
           })}
-          <div className="sd-vs">VS</div>
+          <div className="sd-vs">{t("sd.vs")}</div>
           <AnimatePresence>
             {winner && (
               <motion.div
@@ -61,7 +62,8 @@ export function Showdown({ s, ev, k }: { s: GameState; ev: GameEvent | null; k: 
                 animate={{ scale: 1, opacity: 1, rotate: -8 }}
                 transition={{ type: "spring", stiffness: 300, damping: 14 }}
               >
-                {winner === "B" ? (bust ? "CLEARED OUT" : "BOSS WINS") : bust ? "HELD ON" : "MARK HOLDS"}
+                {winner === "B" ? t(bust ? "job.clearedOut" : "job.bossWins") : t(bust ? "job.heldOn" : "job.markHolds")}
+
               </motion.div>
             )}
           </AnimatePresence>

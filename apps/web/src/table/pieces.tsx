@@ -1,6 +1,8 @@
 // Small visual building blocks: crew shapes, crew tokens, cards and chips. Colors and shapes match
 // the printed cards (game/v3/build_cards.py).
-import { CREWS, ROLES, cardLabel, type Card, type RoleId } from "@heist/engine";
+import { CREWS, type Card, type RoleId } from "@heist/engine";
+import { num, t, type TKey } from "../i18n";
+import { cardName, crewName, roleName, roleText } from "../i18n/data";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { reducedMotion } from "../prefs";
@@ -45,7 +47,7 @@ export function Crew({ color, size = 18, glow, style }: { color: number; size?: 
     <span
       className={"crew" + (glow ? " crew-glow" : "")}
       style={{ width: size, height: size, background: crewHex(color), ...style }}
-      title={color >= 0 ? `${CREWS[color].name} crew` : undefined}
+      title={color >= 0 ? t("piece.crew", { name: crewName(color) }) : undefined}
     >
       <Shape color={color} size={size * 0.62} />
     </span>
@@ -60,11 +62,11 @@ export function CrewBadge({ color, size = 44 }: { color: number; size?: number }
   );
 }
 
-const KIND_STYLE: Record<Card["kind"], { label: string; accent: string }> = {
-  S: { label: "SCORE", accent: "#e7b53c" },
-  F: { label: "FIXER", accent: "#1f9e8f" },
-  B: { label: "BACKUP", accent: "#d6452b" },
-  X: { label: "DOUBLE-CROSS", accent: "#d6452b" },
+const KIND_STYLE: Record<Card["kind"], { readonly label: string; accent: string }> = {
+  S: { get label() { return t("piece.S"); }, accent: "#e7b53c" },
+  F: { get label() { return t("piece.F"); }, accent: "#1f9e8f" },
+  B: { get label() { return t("piece.B"); }, accent: "#d6452b" },
+  X: { get label() { return t("piece.X"); }, accent: "#d6452b" },
 };
 
 export type CardSize = "xs" | "sm" | "md" | "lg";
@@ -87,9 +89,9 @@ export function CardFace({ card, size = "md" }: { card: Card; size?: CardSize })
         {card.kind === "F" && <FixerIcon size={ICON_PX[size]} />}
         {card.kind === "B" && <span className="card-num">+3</span>}
         {card.kind === "X" && <SwitchIcon size={ICON_PX[size] * 1.1} />}
-        {big && card.kind === "F" && <span className="card-sub">MAKE A DEAL</span>}
-        {big && card.kind === "B" && <span className="card-sub">BOOST EITHER SIDE</span>}
-        {big && card.kind === "X" && <span className="card-sub">1 ALLY SWITCHES</span>}
+        {big && card.kind === "F" && <span className="card-sub">{t("piece.subF")}</span>}
+        {big && card.kind === "B" && <span className="card-sub">{t("piece.subB")}</span>}
+        {big && card.kind === "X" && <span className="card-sub">{t("piece.subX")}</span>}
       </div>
       {size === "sm" && <span className="card-label">{k.label}</span>}
       {big && card.kind === "S" && (
@@ -114,15 +116,14 @@ export function CardBack({ size = "md" }: { size?: CardSize }) {
 
 /** A Role card, blueprint style like the print. */
 export function RoleCard({ role, size = "md" }: { role: RoleId; size?: "sm" | "md" }) {
-  const R = ROLES.find((r) => r.id === role)!;
   return (
     <div className={"role-face role-" + size}>
-      <span className="role-kicker">CREW ROLE · BREAKS ONE RULE</span>
+      <span className="role-kicker">{t("piece.roleKicker")}</span>
       <span className="role-disc">
         <RoleIcon role={role} size={size === "sm" ? 30 : 46} />
       </span>
-      <span className="role-band">{R.name}</span>
-      <span className="role-rule">{R.text}</span>
+      <span className="role-band">{roleName(role)}</span>
+      <span className="role-rule">{roleText(role)}</span>
     </div>
   );
 }
@@ -163,7 +164,7 @@ export function TableCard({
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
       aria-pressed={onClick ? !!selected : undefined}
-      aria-label={hidden ? "Face-down card" : cardLabel(card) + (card.cash ? `, $${card.cash}` : "")}
+      aria-label={hidden ? t("piece.faceDown") : cardName(card) + (card.cash ? `, $${card.cash}` : "")}
       data-tip={hidden || onClick || size === "md" || size === "lg" ? undefined : tipFor(card)}
       onKeyDown={
         onClick
@@ -206,20 +207,13 @@ export function Chips({ amount, small, counting }: { amount: number; small?: boo
           <span key={i} className="chip" style={{ background: colors[i % colors.length], bottom: i * 3 }} />
         ))}
       </span>
-      <span className="chip-amt">{counting ? <CountUp value={amount} /> : amount.toLocaleString()}</span>
+      <span className="chip-amt">{counting ? <CountUp value={amount} /> : num(amount)}</span>
     </span>
   );
 }
 
-const KIND_TIP: Record<Card["kind"], string> = {
-  S: "Score: lay it face down at the showdown. Its number plus your side's crew is your total.",
-  F: "Fixer: lay it at the showdown. Fixer vs Fixer makes a deal; a Score always beats a Fixer.",
-  B: "Backup: play after the cards are revealed for +3 to either side.",
-  X: "Double-Cross: anyone can play it after allies join. One ally switches sides.",
-};
-
 export function tipFor(card: Card) {
-  return `${cardLabel(card)} · $${card.cash} cash · ${CREWS[card.color]?.name ?? ""} color\n${KIND_TIP[card.kind]}`;
+  return t("piece.tip", { card: cardName(card), cash: card.cash, color: crewName(card.color), text: t(`piece.tip${card.kind}` as TKey) });
 }
 
 /** A number that counts to its new value instead of jumping. */
@@ -249,7 +243,8 @@ export function CountUp({ value, prefix = "" }: { value: number; prefix?: string
   return (
     <>
       {prefix}
-      {shown.toLocaleString()}
+      {num(shown)}
+
     </>
   );
 }

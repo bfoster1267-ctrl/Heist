@@ -1,4 +1,6 @@
-import { roleName, ROLES, type GameState } from "@heist/engine";
+import { ROLES, type GameState } from "@heist/engine";
+import { t } from "../i18n";
+import { roleShort } from "../i18n/data";
 import { AnimatePresence, motion } from "motion/react";
 import { Cigar } from "../account/items";
 import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
@@ -51,11 +53,11 @@ export function Hideout({
     <div
       data-anchor={`hideout-${owner}-${h}`}
       className={"hideout" + (glow ? " glow" : "") + (targeted || busted ? " targeted" : "") + (onClick ? " clickable" : "") + (big ? " big" : "")}
-      data-tip={`${s.players[owner].name}'s hideout ${h + 1}\n${entries.map(({ k, seat }) => `${k} ${s.players[seat].name}${seat === owner ? " (home)" : " (Foothold)"}`).join(", ") || "Empty"}`}
-      {...pressable(onClick, `Hideout ${h + 1}`)}
+      data-tip={`${t("seat.hideoutTip", { name: s.players[owner].name, n: h + 1 })}\n${entries.map(({ k, seat }) => t(seat === owner ? "seat.home" : "seat.foothold", { k, name: s.players[seat].name })).join(", ") || t("seat.empty")}`}
+      {...pressable(onClick, t("seat.hideout", { n: h + 1 }))}
     >
       <span className="hideout-num">{h + 1}</span>
-      {entries.length === 0 && <span className="hideout-empty">empty</span>}
+      {entries.length === 0 && <span className="hideout-empty">{t("seat.emptyShort")}</span>}
       {entries.map(({ k, seat }) => (
         <span key={seat} className={"hideout-entry" + (seat !== owner ? " foothold" : "")}>
           <Crew color={s.players[seat].color} size={big ? 18 : 14} />
@@ -119,7 +121,7 @@ export function Seat({
       style={{ left: pos[0], top: pos[1], ...grow }}
       layout={false}
       data-anchor={me ? "my-seat" : undefined}
-      {...pressable(onClick, `Pick ${P.name} as the Mark`)}
+      {...pressable(onClick, t("seat.pickMark", { name: P.name }))}
     >
       <div className="seat-top">
         <div className="seat-avatar" data-anchor={`seat-${seat}`}>
@@ -135,12 +137,12 @@ export function Seat({
           <AnimatePresence>
             {isBoss && (
               <motion.span key="boss" className="tag tag-boss" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                BOSS
+                {t("seat.boss")}
               </motion.span>
             )}
             {isMark && (
               <motion.span key="mark" className="tag tag-mark" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}>
-                MARK
+                {t("seat.mark")}
               </motion.span>
             )}
           </AnimatePresence>
@@ -150,7 +152,7 @@ export function Seat({
             {onName ? (
               <button
                 className="seat-name-btn"
-                data-tip="See their profile"
+                data-tip={t("seat.profile")}
                 onClick={(e) => {
                   e.stopPropagation();
                   onName();
@@ -161,22 +163,22 @@ export function Seat({
             ) : (
               P.name
             )}
-            {me && <span className="you-tag">YOU</span>}
+            {me && <span className="you-tag">{t("seat.you")}</span>}
             {away && (
-              <span className="away-tag" data-tip={away === "bot" ? "A bot is playing this seat until they're back" : "Lost connection. Their seat is held."}>
-                {away === "bot" ? "AUTO" : "AWAY"}
+              <span className="away-tag" data-tip={away === "bot" ? t("seat.botTip") : t("seat.awayTip")}>
+                {away === "bot" ? t("seat.auto") : t("seat.away")}
               </span>
             )}
           </div>
           <div className="seat-role" data-tip-role={role?.id} tabIndex={role ? 0 : undefined}>
             {tag && <span className="rank-tag">{tag}</span>}
             {/* "The Getaway Driver" doesn't fit next to the Footholds; the seat shows "Getaway Driver" */}
-            {roleName(P.role).replace(/^The /, "")}
+            {roleShort(P.role)}
           </div>
         </div>
-        <div className="seat-fh" data-anchor={me ? "my-fh" : undefined} data-tip={`Footholds: ${fh} of ${s.target}\nCrew living in rival hideouts. ${s.target} wins.`} aria-label={`${fh} of ${s.target} Footholds`}>
+        <div className="seat-fh" data-anchor={me ? "my-fh" : undefined} data-tip={t("seat.fhTip", { fh, n: s.target })} aria-label={t("seat.fhAria", { fh, n: s.target })}>
           <span className="fh-k">
-            Footholds {fh}/{s.target}
+            {t("seat.fh", { fh, n: s.target })}
           </span>
           <span className="fh-pips">
           {Array.from({ length: s.target }, (_, i) => (
@@ -186,36 +188,37 @@ export function Seat({
         </div>
       </div>
       <div className="seat-stats">
-        <span className="stat" data-tip="Cards in hand">
+        <span className="stat" data-tip={t("seat.cardsTip")}>
           <span className="stat-v">
             <span className="mini-back" />
             {P.hand.length}
           </span>
-          <span className="stat-k">Cards</span>
+          <span className="stat-k">{t("seat.cards")}</span>
         </span>
-        <span className="stat cash" data-tip="Banked cash\nSpent on crew and bets. Thieves take loot from it." data-anchor={`bank-${seat}`}>
+        <span className="stat cash" data-tip={t("seat.cashTip")} data-anchor={`bank-${seat}`}>
           <span className="stat-v">
             <CountUp value={cash} prefix="$" />
           </span>
-          <span className="stat-k">Cash</span>
+          <span className="stat-k">{t("seat.cash")}</span>
         </span>
-        <span className="stat" data-tip="Crew at home\nIn your own hideouts, ready to send." data-anchor={`home-${seat}`}>
+        <span className="stat" data-tip={t("seat.homeTip")} data-anchor={`home-${seat}`}>
           <span className="stat-v">
             <Crew color={P.color} size={13} />
             {home}
           </span>
-          <span className="stat-k">Home</span>
+          <span className="stat-k">{t("seat.homeK")}</span>
         </span>
-        <span className="stat dim" data-tip="Crew in the Pen\nCaught crew. One leaves the Pen each turn.">
+        <span className="stat dim" data-tip={t("seat.penTip")}>
           <span className="stat-v">{P.pen}</span>
-          <span className="stat-k">Pen</span>
+          <span className="stat-k">{t("seat.pen")}</span>
         </span>
-        <span className="stat dim" data-tip="Crew in reserve\nNot on the table yet. Hire them with cash.">
+        <span className="stat dim" data-tip={t("seat.spareTip")}>
           <span className="stat-v">{P.reserve}</span>
-          <span className="stat-k">Spare</span>
+          <span className="stat-k">{t("seat.spare")}</span>
         </span>
       </div>
-      <div className="seat-sub">Hideouts</div>
+      <div className="seat-sub">{t("seat.hideouts")}</div>
+
       <div className="seat-hideouts">
         {P.hideouts.map((_, h) => (
           <Hideout key={h} s={s} owner={seat} h={h} glow={hideoutGlow} onClick={onHideout ? () => onHideout(h) : undefined} />

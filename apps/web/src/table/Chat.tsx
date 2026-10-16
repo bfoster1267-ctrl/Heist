@@ -9,6 +9,8 @@ import { chatStyle } from "../account/items";
 import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
 import { VaultGlass, isVault } from "../vault";
+import { t, tk } from "../i18n";
+import { drinkName } from "../i18n/data";
 
 export interface Bubble {
   seat: number;
@@ -20,6 +22,9 @@ export const EMOTES = ["😎", "😂", "😡", "🤝", "👀", "💰", "😱", "
 export const LINES = ["Nice hit.", "Traitor!", "Deal?", "Watch your back.", "Not my crew!", "Good game."];
 
 const pick = <T,>(xs: T[]) => xs[Math.floor(Math.random() * xs.length)];
+
+/** Quick-chat lines travel in English (other players may read another language) and are shown in yours. */
+export const chatLine = (text: string) => tk(`chat.${text}`, text);
 
 /** What a bot might say after an event. Each entry: who speaks, and their lines. */
 function botLines(ev: GameEvent, s: GameState): { seat: number; lines: string[] }[] {
@@ -115,7 +120,7 @@ export function Bubbles({ bubbles, pos, mine, looks }: { bubbles: Bubble[]; pos:
             transition={{ type: "spring", stiffness: 420, damping: 20 }}
             role="status"
           >
-            {b.text}
+            {chatLine(b.text)}
           </motion.div>
         );
       })}
@@ -129,7 +134,7 @@ export function ChatTray({
   rivals,
   onClose,
 }: {
-  onSay: (t: string) => void;
+  onSay: (text: string) => void;
   onDrink: (to: number, emoji: string) => void;
   rivals: { seat: number; name: string }[];
   onClose: () => void;
@@ -145,18 +150,18 @@ export function ChatTray({
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, [onClose]);
-  const send = (t: string) => {
+  const send = (text: string) => {
     if (cool) return;
-    onSay(t);
+    onSay(text);
     setCool(true);
     window.setTimeout(() => setCool(false), 1500);
     onClose();
   };
   return (
-    <motion.div className="chat-tray" role="dialog" aria-label="Emotes and quick chat" initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }}>
+    <motion.div className="chat-tray" role="dialog" aria-label={t("chat.aria")} initial={{ opacity: 0, y: 10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 10 }}>
       <div className="chat-emotes">
         {emotes.map((e) => (
-          <button key={e} onClick={() => send(e)} aria-label={`Send ${e}`}>
+          <button key={e} onClick={() => send(e)} aria-label={t("chat.send", { what: e })}>
             {e}
           </button>
         ))}
@@ -164,12 +169,12 @@ export function ChatTray({
       <div className="chat-lines">
         {LINES.map((l) => (
           <button key={l} className="btn small" onClick={() => send(l)}>
-            {l}
+            {chatLine(l)}
           </button>
         ))}
       </div>
       <div className="chat-drinks">
-        <div className="chat-head">{drink ? `Send ${isVault(drink) ? "The Vault" : drink} to…` : "Send a drink"}</div>
+        <div className="chat-head">{drink ? t("chat.sendTo", { what: isVault(drink) ? t("chat.vault") : drink }) : t("chat.sendDrink")}</div>
         {drink ? (
           <div className="chat-lines">
             {rivals.map((r) => (
@@ -184,16 +189,17 @@ export function ChatTray({
                 {r.name}
               </button>
             ))}
-            <button className="btn small ghost" onClick={() => setDrink(null)} aria-label="Pick another drink">
+            <button className="btn small ghost" onClick={() => setDrink(null)} aria-label={t("chat.otherDrink")}>
               ←
             </button>
           </div>
         ) : (
           <div className="chat-emotes">
             {drinks.map((d) => (
-              <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
+              <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => setDrink(d.emoji)} aria-label={t("chat.drinkAria", { name: drinkName(d.id), price: d.price ? t("common.coins", { n: d.price }) : t("common.free") })} title={`${drinkName(d.id)}: ${d.price ? t("common.coins", { n: d.price }) : t("common.free")}`}>
                 {isVault(d.emoji) ? <VaultGlass size={26} /> : d.emoji}
-                <span className="chat-price">{d.price || "free"}</span>
+                <span className="chat-price">{d.price || t("chat.free")}</span>
+
               </button>
             ))}
           </div>
