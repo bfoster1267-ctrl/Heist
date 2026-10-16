@@ -408,7 +408,7 @@ export function VictoryModal({
               }}
               autoFocus
             >
-              NEXT DAILY DEAL: {DAILY_LABELS[nextDailyGame] ?? nextDailyGame.toUpperCase()} ({dailyCompletedCount}/8) ➔
+              NEXT DAILY DEAL: {DAILY_LABELS[nextDailyGame] ?? nextDailyGame.toUpperCase()} ({dailyCompletedCount}/{DAILY_GAMES.length}) ➔
             </button>
           ) : isDaily && !nextDailyGame ? (
             <button

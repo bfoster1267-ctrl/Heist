@@ -1,4 +1,4 @@
-// Daily challenge and streak progression system for all 8 solo card games.
+// Daily challenge and streak progression system for every solo card game.
 // Ensures every player in the world shares the exact same daily challenge deal on any given day,
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
@@ -14,6 +14,8 @@ export const DAILY_GAMES = [
   "yukon",
   "ers",
   "scoundrel",
+  "hearts",
+  "spades",
 ] as const;
 
 export type DailyGame = (typeof DAILY_GAMES)[number];
@@ -108,7 +110,7 @@ export function formatDailyChallengeNumber(dateStr?: string): number {
   return Math.max(1, daysBetween(DAILY_EPOCH_DATE, date) + 1);
 }
 
-/** Returns the featured daily game for a given date, rotating deterministically across all 8 games. */
+/** Returns the featured daily game for a given date, rotating deterministically across every daily game. */
 export function getFeaturedDailyGame(timestamp?: number | Date): DailyGame {
   const date = todayUtc(timestamp);
   const num = formatDailyChallengeNumber(date);
@@ -242,6 +244,16 @@ const GAME_CHALLENGE_CONFIG: Record<
       const target = 8 + (seed % 4); // target 8 to 11 rooms
       return { type: "rooms", target, description: `Clear at least ${target} dungeon rooms` };
     },
+  },
+  hearts: {
+    title: "Daily Hearts Heist",
+    description: "Today's shared deal against Lou, Duchess and Nails: dodge the hearts, duck the Queen of Spades.",
+    goal: () => ({ type: "win", target: 1, description: "Finish with the lowest score" }),
+  },
+  spades: {
+    title: "Daily Spades Syndicate",
+    description: "Team up with Ledger on today's shared deal, a quick game to 250: bid tight, make your contract.",
+    goal: () => ({ type: "win", target: 1, description: "Win the quick game to 250" }),
   },
 };
 

@@ -15,6 +15,8 @@ import { SPIDER_XP, tallySpiderXp, type SpiderTally } from "./spider";
 import { PYRAMID_XP, tallyPyramidXp, type PyramidTally } from "./pyramid";
 import { YUKON_XP, tallyYukonXp, type YukonTally, YUKON_DAY_XP } from "./yukon";
 import { SCOUNDREL_XP, tallyScoundrelXp, type ScoundrelTally, SCOUNDREL_DAY_XP } from "./scoundrel";
+import { HEARTS_XP, tallyHeartsXp, type HeartsTally, HEARTS_DAY_XP } from "./hearts";
+import { SPADES_XP, tallySpadesXp, type SpadesTally, SPADES_DAY_XP } from "./spades";
 import { START_RATING, rate } from "./rating";
 import { stage } from "./campaign";
 import { playRanked, type RankedResult, type RankedState } from "./ranked";
@@ -81,6 +83,10 @@ export interface Progress {
   yukon?: { won: number; day: string | null; xp: number };
   /** Scoundrel: games won, and XP paid today (UTC day) toward the daily ceiling */
   scoundrel?: { won: number; day: string | null; xp: number };
+  /** Hearts vs the crew: games won, and XP paid today (UTC day) toward the daily ceiling */
+  hearts?: { won: number; day: string | null; xp: number };
+  /** Spades with a crew partner: games won, and XP paid today (UTC day) toward the daily ceiling */
+  spades?: { won: number; day: string | null; xp: number };
   /** Daily challenge and streak tracking across solo games */
   daily?: DailyProgress;
 }
@@ -99,6 +105,8 @@ export function newProgress(): Progress {
     pyramid: { won: 0, day: null, xp: 0 },
     yukon: { won: 0, day: null, xp: 0 },
     scoundrel: { won: 0, day: null, xp: 0 },
+    hearts: { won: 0, day: null, xp: 0 },
+    spades: { won: 0, day: null, xp: 0 },
     daily: newDailyProgress(),
   };
 }
@@ -1003,6 +1011,157 @@ export function settleScoundrel(
   };
 }
 
+/** Hearts XP still to be earned today. */
+export const heartsRoom = (p: Progress, at: number) =>
+  Math.max(0, HEARTS_DAY_XP - (p.hearts?.day === day(at) ? p.hearts?.xp ?? 0 : 0));
+
+/**
+ * Pay for Hearts play checked by replaying the whole game (the bots too) from the seed.
+ */
+export function settleHearts(
+  prev: Progress,
+  at: number,
+  gained: HeartsTally,
+  pay = tallyHeartsXp(gained),
+  isDaily = false,
+  secondsTaken?: number
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const hr = { ...(p.hearts ?? { won: 0, day: null, xp: 0 }), xp: p.hearts?.xp ?? 0 };
+  if (hr.day !== today) Object.assign(hr, { day: today, xp: 0 });
+  if (gained.won) hr.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.avoided, "point dodged", "points dodged"), xp: gained.avoided * HEARTS_XP.avoided, coins: 0 },
+    { label: plural(gained.moons, "moon shot", "moons shot"), xp: gained.moons * HEARTS_XP.moon, coins: 0 },
+    { label: "Won the Hearts game", xp: gained.won ? HEARTS_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
+  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  const room = Math.max(0, HEARTS_DAY_XP - hr.xp);
+  if (total > room) lines = [{ label: "Hearts (daily XP limit reached)", xp: room, coins: 0 }];
+  hr.xp += Math.min(total, room);
+  const regularSeason = Math.min(total, room);
+  p.hearts = hr;
+
+  const challenge = getDailyChallenge("hearts", today);
+  const dailyResult = isDaily ? applyDailyBonus(p, "hearts", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
+  if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
+
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    hr.xp += speed.xp;
+  }
+
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = lines.reduce((t, l) => t + l.coins, 0);
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
+  const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+      ...(dailyResult.daily ? { daily: dailyResult.daily } : {}),
+    },
+  };
+}
+
+/** Spades XP still to be earned today. */
+export const spadesRoom = (p: Progress, at: number) =>
+  Math.max(0, SPADES_DAY_XP - (p.spades?.day === day(at) ? p.spades?.xp ?? 0 : 0));
+
+/**
+ * Pay for Spades play checked by replaying the whole game (the bots too) from the seed.
+ */
+export function settleSpades(
+  prev: Progress,
+  at: number,
+  gained: SpadesTally,
+  pay = tallySpadesXp(gained),
+  isDaily = false,
+  secondsTaken?: number
+): { progress: Progress; reward: Reward } {
+  const p: Progress = structuredClone(prev);
+  const today = day(at);
+  const spd = { ...(p.spades ?? { won: 0, day: null, xp: 0 }), xp: p.spades?.xp ?? 0 };
+  if (spd.day !== today) Object.assign(spd, { day: today, xp: 0 });
+  if (gained.won) spd.won++;
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  let lines: RewardLine[] = [
+    { label: plural(gained.tricks, "trick taken", "tricks taken"), xp: gained.tricks * SPADES_XP.trick, coins: 0 },
+    { label: plural(gained.contracts, "bid made", "bids made"), xp: gained.contracts * SPADES_XP.contract, coins: 0 },
+    { label: plural(gained.nils, "Nil made", "Nils made"), xp: gained.nils * SPADES_XP.nil, coins: 0 },
+    { label: "Won the Spades game", xp: gained.won ? SPADES_XP.win : 0, coins: 0 },
+  ].filter((l) => l.xp > 0);
+
+  const earned = lines.reduce((t, l) => t + l.xp, 0);
+  const total = Math.max(0, Math.min(earned, Number.isFinite(pay) ? pay : 0));
+  if (total < earned) lines.push({ label: "Slow play penalties", xp: total - earned, coins: 0 });
+  const room = Math.max(0, SPADES_DAY_XP - spd.xp);
+  if (total > room) lines = [{ label: "Spades (daily XP limit reached)", xp: room, coins: 0 }];
+  spd.xp += Math.min(total, room);
+  const regularSeason = Math.min(total, room);
+  p.spades = spd;
+
+  const challenge = getDailyChallenge("spades", today);
+  const dailyResult = isDaily ? applyDailyBonus(p, "spades", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
+  if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
+
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    spd.xp += speed.xp;
+  }
+
+  const xp = lines.reduce((t, l) => t + l.xp, 0);
+  const before = levelInfo(p.xp);
+  p.xp = Math.min(xpCap(), p.xp + xp);
+  const after = levelInfo(p.xp);
+  let coins = lines.reduce((t, l) => t + l.coins, 0);
+  const unlockedNow: string[] = [];
+  for (let l = before.level + 1; l <= after.level; l++) {
+    const c = levelUpCoins(l);
+    coins += c;
+    lines.push({ label: `Reached level ${l}`, xp: 0, coins: c });
+  }
+  if (after.level > before.level) {
+    for (const c of COSMETICS) if (freeWith(c, after.level, p.prestige) && !freeWith(c, before.level, p.prestige)) unlockedNow.push(c.id);
+  }
+  p.coins += coins;
+  const seasonXp = regularSeason + (dailyResult.daily?.bonusXp ?? 0) + (speed?.xp ?? 0);
+  const pass = seasonXp ? addPassXp(p, seasonXp, at) : null;
+  return {
+    progress: p,
+    reward: {
+      xp, coins, lines, payout: 0,
+      levelBefore: before.level, levelAfter: after.level, xpBefore: before.into, xpAfter: after.into,
+      unlocked: unlockedNow, canPrestige: canPrestige(p), pass,
+      ...(dailyResult.daily ? { daily: dailyResult.daily } : {}),
+    },
+  };
+}
+
 /** Add one game's rookie mistakes to the player's tally. */
 export function addMistakes(prev: Progress, m: MistakeCounts): Progress {
   return { ...prev, mistakes: addCounts(prev.mistakes ?? {}, m) };
@@ -1102,6 +1261,8 @@ export function upgrade(p: Partial<Progress>): Progress {
     pyramid: { ...(base.pyramid ?? { won: 0, day: null, xp: 0 }), ...p.pyramid },
     yukon: { ...(base.yukon ?? { won: 0, day: null, xp: 0 }), ...p.yukon },
     scoundrel: { ...(base.scoundrel ?? { won: 0, day: null, xp: 0 }), ...p.scoundrel },
+    hearts: { ...(base.hearts ?? { won: 0, day: null, xp: 0 }), ...p.hearts },
+    spades: { ...(base.spades ?? { won: 0, day: null, xp: 0 }), ...p.spades },
     daily: p.daily
       ? {
           ...base.daily,

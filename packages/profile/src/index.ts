@@ -20,4 +20,7 @@ export * from "./spider";
 export * from "./pyramid";
 export * from "./yukon";
 export * from "./scoundrel";
+export * from "./tricks";
+export * from "./hearts";
+export * from "./spades";
 export * from "./daily";

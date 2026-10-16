@@ -49,7 +49,7 @@ describe("Daily Seed Generator", () => {
     expect(implicit).toBe(explicit);
   });
 
-  it("generates distinct seeds for all 8 games on the same date", () => {
+  it("generates distinct seeds for every daily game on the same date", () => {
     const testDate = "2026-10-15";
     const seeds = DAILY_GAMES.map((game) => getDailySeed(game, testDate));
     const uniqueSeeds = new Set(seeds);
@@ -68,7 +68,7 @@ describe("Daily Seed Generator", () => {
     expect(seeds.size).toBe(30);
   });
 
-  it("simulates 365 days across all 8 games with high seed entropy and 0 collisions", () => {
+  it("simulates 365 days across every daily game with high seed entropy and 0 collisions", () => {
     const allSeeds = new Set<number>();
     const startDate = new Date(Date.UTC(2026, 0, 1));
 
@@ -84,8 +84,8 @@ describe("Daily Seed Generator", () => {
       }
     }
 
-    // 365 * 8 = 2920 unique deals
-    expect(allSeeds.size).toBe(365 * 8);
+    // one unique deal per game per day
+    expect(allSeeds.size).toBe(365 * DAILY_GAMES.length);
   });
 
   it("is case-insensitive for game names", () => {
@@ -112,7 +112,7 @@ describe("Date Utilities & Calendar Math", () => {
 });
 
 describe("Daily Challenge Definitions", () => {
-  it("provides definitions with valid goals and rewards for all 8 games", () => {
+  it("provides definitions with valid goals and rewards for every daily game", () => {
     for (const game of DAILY_GAMES) {
       expect(isDailyGame(game)).toBe(true);
       const challenge = getDailyChallenge(game, "2026-10-15");
