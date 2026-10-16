@@ -165,6 +165,21 @@ function build() {
 
 const enCache = new Map<string, string>();
 
+/** One piece of package English in `locale`, or undefined when it matches no template. */
+function matchEn(text: string, locale: Locale): string | undefined {
+  if (!exact) build();
+  const k = exact!.get(text);
+  if (k) return lookup(k, undefined, locale);
+  for (const tp of templates) {
+    const m = tp.re.exec(text);
+    if (!m) continue;
+    const vars: Record<string, string> = {};
+    tp.names.forEach((n, i) => (vars[n] = TRANSLATED.has(n) ? tEn(m[i + 1]) : m[i + 1]));
+    return fill(CATALOGS[locale][tp.key] ?? (en as Record<string, string>)[tp.key], vars);
+  }
+  return undefined;
+}
+
 /** English from a package, in the active language (as it came when it can't be matched). */
 export function tEn(text: string | null | undefined): string {
   if (!text) return text ?? "";
@@ -173,23 +188,13 @@ export function tEn(text: string | null | undefined): string {
   const ck = locale + "\u0000" + text;
   const hit = enCache.get(ck);
   if (hit !== undefined) return hit;
-  if (!exact) build();
+  // a list of things ("Score 4, Fixer") when every item is one we know
   let out: string | undefined;
-  const k = exact!.get(text);
-  if (k) out = lookup(k, undefined, locale);
-  if (out === undefined) {
-    for (const tp of templates) {
-      const m = tp.re.exec(text);
-      if (!m) continue;
-      const vars: Record<string, string> = {};
-      tp.names.forEach((n, i) => (vars[n] = TRANSLATED.has(n) ? tEn(m[i + 1]) : m[i + 1]));
-      const tpl = CATALOGS[locale][tp.key] ?? (en as Record<string, string>)[tp.key];
-      out = fill(tpl, vars);
-      break;
-    }
+  if (text.includes(", ")) {
+    const parts = text.split(", ").map((p) => matchEn(p, locale));
+    if (parts.every((p) => p !== undefined)) out = parts.join(", ");
   }
-  if (out === undefined && text.includes(", ")) out = text.split(", ").map(tEn).join(", ");
-  if (out === undefined) out = text;
+  out ??= matchEn(text, locale) ?? text;
   if (enCache.size > 2000) enCache.clear();
   enCache.set(ck, out);
   return out;

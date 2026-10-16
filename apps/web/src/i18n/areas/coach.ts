@@ -1,0 +1,98 @@
+// The table tour, first-time tips and the coach in Coached play. Glossary in ../packages.pt.ts.
+import { strings } from "../define";
+
+export default strings({
+  "walk.1.title": ["Welcome to the table", "Bem-vindo à mesa"],
+  "walk.1.text": [
+    "Heist is a game of crews, jobs and betrayal. Plant {n} Footholds in rival hideouts and the pot is yours.",
+    "Heist é um jogo de gangues, golpes e traição. Plante {n} Bases nos esconderijos dos rivais e o pote é seu.",
+  ],
+  "walk.2.title": ["Footholds win the game", "Bases ganham o jogo"],
+  "walk.2.text": [
+    "A Foothold is one of your crew living in a rival's hideout. Fill these {n} diamonds first and you win.",
+    "Uma Base é um capanga seu morando no esconderijo de um rival. Preencha esses {n} losangos primeiro e você vence.",
+  ],
+  "walk.3.title": ["Your turn, in short", "Seu turno, resumindo"],
+  "walk.3.lesson": [
+    "Hit rivals with your crew and a card from this hand. This first game, the coach plays most of your turn; each hand you take over one more move. Long-press anything to see what it is.",
+    "Ataque rivais com seus capangas e uma carta desta mão. Nesta primeira partida o treinador joga quase todo o seu turno; a cada mão você assume mais uma jogada. Segure o dedo em qualquer coisa pra ver o que é.",
+  ],
+  "walk.3.text": [
+    "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is.",
+    "Guarde cartas pra ter grana, contrate capangas e ataque um rival com seus capangas e uma carta desta mão. Segure o dedo em qualquer coisa da mesa pra ver o que é.",
+  ],
+  "walk.aria": ["How the table works", "Como a mesa funciona"],
+  "walk.skip": ["Skip tour", "Pular tour"],
+  "walk.back": ["Back", "Voltar"],
+  "walk.go": ["Let's go", "Bora!"],
+  "walk.next": ["Next", "Próximo"],
+
+  "tipcard.keepRole.title": ["Roles", "Papéis"],
+  "tipcard.keepRole.text": [
+    "Each Role breaks one rule in your favor. Everyone can see everyone's Role, so pick one that fits how you want to play.",
+    "Cada Papel quebra uma regra a seu favor. Todo mundo vê o Papel de todo mundo, então escolha um que combine com seu jeito de jogar.",
+  ],
+  "tipcard.bank.title": ["Banking", "Guardando cartas"],
+  "tipcard.bank.text": [
+    "Banked cards are your cash. You spend it to hire crew and bet. Keep at least one Score or Fixer in hand to fight with.",
+    "Cartas guardadas são sua grana. Você gasta pra contratar capangas e apostar. Fique com pelo menos uma Força ou um Blefe na mão pra brigar.",
+  ],
+  "tipcard.hire.title": ["Hiring", "Contratando"],
+  "tipcard.hire.text": [
+    "New crew come out of your reserve into a home hideout. More crew at home means stronger defense and bigger hits.",
+    "Capangas novos saem da sua reserva pra um esconderijo seu. Mais capangas em casa é defesa mais forte e ataques maiores.",
+  ],
+  "tipcard.action.title": ["Hit, bust or lay low", "Atacar, expulsar ou ficar na moita"],
+  "tipcard.action.text": [
+    "A Hit flips the top Job card: its color picks the Mark. You attack one of their hideouts. Bust clears a rival's Foothold out of your own hideout: each Bust button shows that rival's crew shape and the number of your hideout they're in. Wanted buttons show whose hideout you'd hit and its number.",
+    "Atacar vira a carta do topo dos Golpes: a cor dela escolhe o Alvo. Você ataca um dos esconderijos dele. Expulsar tira a Base de um rival do seu próprio esconderijo: cada botão Expulsar mostra o símbolo dos capangas do rival e o número do seu esconderijo onde ele está. Os botões Procurado mostram de quem é o esconderijo e o número dele.",
+  ],
+  "tipcard.pickHideout.title": ["Pick the target", "Escolha o alvo"],
+  "tipcard.pickHideout.text": ["Fewer guards is an easier fight. Their crew at home get a home-turf bonus.", "Menos guardas, briga mais fácil. Os capangas em casa ganham bônus de mando de campo."],
+  "tipcard.send.title": ["Send your crew", "Mande seus capangas"],
+  "tipcard.send.text": [
+    "Each crew is +1 to your side. Win and they each try to leave 1 behind as a Foothold. Lose and they all go to the Pen.",
+    "Cada capanga é +1 pro seu lado. Venceu, um deles fica pra trás como Base. Perdeu, vão todos pro Xadrez.",
+  ],
+  "tipcard.join.title": ["Pick a side", "Escolha um lado"],
+  "tipcard.join.text": [
+    "Other players can join. Back the Boss to grab a Foothold, or defend the Mark to bank a Cut. Or stay out of it.",
+    "Os outros jogadores podem entrar. Apoie o Chefe pra pegar uma Base, ou defenda o Alvo pra garantir uma Parte. Ou fique de fora.",
+  ],
+  "tipcard.bet.title": ["Side bets", "Apostas paralelas"],
+  "tipcard.bet.text": [
+    "Put a banked card on the side you think wins. Right: it comes back plus the top Job card. Wrong: it's gone.",
+    "Coloque uma carta guardada no lado que você acha que vence. Acertou: ela volta mais a carta do topo dos Golpes. Errou: já era.",
+  ],
+  "tipcard.showdown.title": ["The showdown", "A revelação"],
+  "tipcard.showdown.text": [
+    "Boss and Mark each lay a card face down, then flip. Card plus crew. Higher wins, ties go to the Mark.",
+    "Chefe e Alvo baixam uma carta virada e depois revelam. Carta mais capangas. O maior vence, empate fica com o Alvo.",
+  ],
+  "tipcard.doubleCross.title": ["Double-Cross", "Traição"],
+  "tipcard.doubleCross.text": ["Flip one ally to the other side right before the showdown. Brutal, and anyone can play it.", "Vire um aliado pro outro lado logo antes da revelação. Brutal, e qualquer um pode jogar."],
+  "tipcard.backup.title": ["Backup", "Reforço"],
+  "tipcard.backup.text": ["Cards are face up now. +3 to either side can turn the fight.", "As cartas estão abertas agora. +3 pra qualquer lado pode virar a briga."],
+  "tipcard.dealOffer.title": ["Fixer vs Fixer", "Blefe contra Blefe"],
+  "tipcard.dealOffer.text": ["Both laid Fixers, so it's a negotiation. If the Mark says no, both of you lose 2 crew to the Pen.", "Os dois baixaram Blefe, então é negociação. Se o Alvo recusar, os dois perdem 2 capangas pro Xadrez."],
+  "tipcard.dealAccept.title": ["A deal on the table", "Acordo na mesa"],
+  "tipcard.dealAccept.text": ["Accept and it's done. Refuse and both of you send 2 crew to the Pen.", "Aceitou, está feito. Recusou, os dois mandam 2 capangas pro Xadrez."],
+  "tipcard.again.title": ["On a roll", "Embalado"],
+  "tipcard.again.text": ["You won, so you can hit again this turn. Each hit risks more crew.", "Você venceu, então pode atacar de novo neste turno. Cada ataque arrisca mais capangas."],
+  "tipcard.discard.title": ["Hand limit", "Limite da mão"],
+  "tipcard.discard.text": ["You can hold 7 cards at the end of your turn. Pick the extras to throw away.", "Você pode ficar com 7 cartas no fim do turno. Escolha as que sobram pra jogar fora."],
+  "coach.noTips": ["No more tips", "Chega de dicas"],
+  "coach.next": ["Next", "Próximo"],
+  "coach.new": ["New", "Novo"],
+  "coach.newIdea": ["New idea: {title}", "Novidade: {title}"],
+  "coach.skip": ["Skip coaching", "Dispensar o treinador"],
+  "coach.aria": ["Coach", "Treinador"],
+  "coach.coach": ["Coach:", "Treinador:"],
+  "coach.hint": ["Hint:", "Dica:"],
+  "coach.getHint": ["Get a hint", "Pedir uma dica"],
+  "coach.holdOn": ["Hold on: {what}", "Calma aí: {what}"],
+  "coach.anyway": ["Do it anyway", "Fazer mesmo assim"],
+  "coach.change": ["Change my move", "Mudar minha jogada"],
+  "coach.before_one": [" You've made this one {count} time before.", " Você já fez essa {count} vez antes."],
+  "coach.before_other": [" You've made this one {count} times before.", " Você já fez essa {count} vezes antes."],
+});

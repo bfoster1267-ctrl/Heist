@@ -5,5 +5,6 @@ import lobby from "./lobby";
 import settings from "./settings";
 import table from "./table";
 import actions from "./actions";
+import coach from "./coach";
 
-export const AREAS = [common, settings, app, lobby, table, actions] as const;
+export const AREAS = [common, settings, app, lobby, table, actions, coach] as const;
