@@ -4,6 +4,7 @@
 import { passTrack, seasonById, xpToNext, type Reward } from "@heist/profile";
 import { motion } from "motion/react";
 import { Track } from "./Season";
+import { t, tEn, tRich } from "../i18n";
 
 /** How many pass tiers the card shows (four fit the table's modal without scrolling). */
 const SHOWN = 4;
@@ -15,7 +16,7 @@ export function FirstWin({ r, won, name, onNext }: { r: Reward; won: boolean; na
   return (
     <>
       <div id="go-title" className="modal-title gold">
-        {won ? "YOU PULLED IT OFF" : "THAT'S A HAND"}
+        {won ? t("fw.won") : t("fw.played")}
       </div>
       <div className="first-win-xp">
         <motion.span className="acct-reward-xp" initial={{ scale: 0.6 }} animate={{ scale: 1 }}>
@@ -28,15 +29,16 @@ export function FirstWin({ r, won, name, onNext }: { r: Reward; won: boolean; na
       {season && r.pass && (
         <motion.div className="first-win-pass" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.2 }}>
           <div className="first-win-pass-head">
-            Season pass · <b>tier {r.pass.tierAfter} unlocked</b>
+            {tRich("fw.tier", { n: r.pass.tierAfter })}
           </div>
           <Track rewards={passTrack(season).slice(0, SHOWN)} tier={r.pass.tierAfter} name={name} />
-          <div className="dim">Every game moves you up the pass. {season.name} has 50 tiers.</div>
+          <div className="dim">{t("fw.every", { season: tEn(season.name) })}</div>
         </motion.div>
       )}
       <div className="btns center">
         <button className="btn primary big" onClick={onNext} autoFocus>
-          Show me around
+          {t("fw.next")}
+
         </button>
       </div>
     </>

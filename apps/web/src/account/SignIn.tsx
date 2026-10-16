@@ -4,6 +4,7 @@
 
 import { useState } from "react";
 import { useAccount } from "./useAccount";
+import { t, tEn, tNodes } from "../i18n";
 
 declare global {
   interface Window {
@@ -50,7 +51,7 @@ export function SignIn() {
       await f();
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Sign-in didn't work";
-      setNote(msg);
+      setNote(tEn(msg));
       // the email already has an account: flip to signing in, keeping what they typed
       if (/sign in instead/i.test(msg)) setMode("login");
     }
@@ -86,37 +87,37 @@ export function SignIn() {
     run(async () => {
       await script("https://connect.facebook.net/en_US/sdk.js");
       window.FB!.init({ appId: cfg!.facebook, version: "v19.0", cookie: false, xfbml: false });
-      const token = await new Promise<string>((res, rej) => window.FB!.login((r) => (r.authResponse ? res(r.authResponse.accessToken) : rej(new Error("Facebook sign-in was cancelled"))), { scope: "public_profile,email" }));
+      const token = await new Promise<string>((res, rej) => window.FB!.login((r) => (r.authResponse ? res(r.authResponse.accessToken) : rej(new Error(t("signin.fbCancelled")))), { scope: "public_profile,email" }));
       await act((b) => b.oauth("facebook", token));
     });
 
   if (backend?.kind !== "server")
     return (
       <div className="acct-signin">
-        <h3>Save your career to an account</h3>
-        <div className="dim">Email sign-up turns on when the game server is live. Until then your level, coins and stats are saved in this browser.</div>
+        <h3>{t("signin.title")}</h3>
+        <div className="dim">{t("signin.offline")}</div>
       </div>
     );
 
   return (
     <div className="acct-signin">
-      <h3>Save your career to an account</h3>
-      <div className="dim">Keep your level, coins, items and stats on every device. Everything you've earned as a guest comes with you.</div>
+      <h3>{t("signin.title")}</h3>
+      <div className="dim">{t("signin.sub")}</div>
       {(has("apple") || has("google") || has("facebook")) && (
         <div className="acct-provider-row">
           {has("apple") && (
             <button className="acct-provider apple" disabled={busy} onClick={apple}>
-              Sign in with Apple
+              {t("signin.apple")}
             </button>
           )}
           {has("google") && (
             <button className="acct-provider google" disabled={busy} onClick={google}>
-              Sign in with Google
+              {t("signin.google")}
             </button>
           )}
           {has("facebook") && (
             <button className="acct-provider facebook" disabled={busy} onClick={facebook}>
-              Continue with Facebook
+              {t("signin.facebook")}
             </button>
           )}
         </div>
@@ -130,40 +131,42 @@ export function SignIn() {
       >
         <div className="seg">
           <button type="button" className={mode === "register" ? "on" : ""} onClick={() => setMode("register")}>
-            Create account
+            {t("signin.create")}
           </button>
           <button type="button" className={mode === "login" ? "on" : ""} onClick={() => setMode("login")}>
-            I have one
+            {t("signin.haveOne")}
           </button>
         </div>
-        <input type="email" name="email" autoComplete="username" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input type="email" name="email" autoComplete="username" placeholder={t("signin.email")} value={email} onChange={(e) => setEmail(e.target.value)} required />
         <div className="acct-pw">
-          <input type={show ? "text" : "password"} name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? "Password (8+ characters)" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
-          <button type="button" className="acct-pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"}>
-            {show ? "Hide" : "Show"}
+          <input type={show ? "text" : "password"} name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? t("signin.pwNew") : t("signin.pw")} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
+          <button type="button" className="acct-pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? t("signin.hidePw") : t("signin.showPw")}>
+            {show ? t("signin.hide") : t("signin.show")}
           </button>
         </div>
-        {mode === "register" && <input placeholder="Display name" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />}
+        {mode === "register" && <input placeholder={t("signin.displayName")} maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />}
         <button className="btn primary big" disabled={busy}>
-          {mode === "register" ? "Create account" : "Sign in"}
+          {mode === "register" ? t("signin.create") : t("signin.signIn")}
         </button>
         {mode === "register" && (
           <div className="dim acct-privacy">
-            By creating an account you agree that the game records what you do in it (games, purchases, chat, taps) as described in the{" "}
-            <a href="./privacy.html" target="_blank" rel="noreferrer">
-              privacy policy
-            </a>
-            .
+            {tNodes("signin.privacy", {
+              link: (
+                <a href="./privacy.html" target="_blank" rel="noreferrer">
+                  {t("signin.privacyLink")}
+                </a>
+              ),
+            })}
           </div>
         )}
         {mode === "login" && (
           <button type="button" className="acct-link" onClick={() => setForgot((v) => !v)}>
-            Forgot your password?
+            {t("signin.forgot")}
           </button>
         )}
         {mode === "login" && forgot && (
           <div className="dim acct-forgot">
-            Reset by email is coming soon. For now, open the game on a device where you're still signed in and change it under Account.
+            {t("signin.forgotText")}
           </div>
         )}
       </form>
@@ -175,10 +178,11 @@ export function SignIn() {
             run(() => act((b) => b.dev(name), { inline: true }));
           }}
         >
-          <div className="dim">Test server: sign in with just a name.</div>
-          <input placeholder="Name" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="dim">{t("signin.dev")}</div>
+          <input placeholder={t("signin.name")} maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />
           <button className="btn" disabled={busy || !name.trim()}>
-            Test sign-in
+            {t("signin.devBtn")}
+
           </button>
         </form>
       )}

@@ -1,6 +1,8 @@
 // Small pieces of the player's identity: avatar with frame and level, prestige stars, XP bar, coins.
 
-import { MAX_PRESTIGE, cosmetic, levelInfo, prestigeName, rankName } from "@heist/profile";
+import { MAX_PRESTIGE, cosmetic, levelInfo, prestigeName } from "@heist/profile";
+import { num, t, tEn } from "../i18n";
+import { rankTitle } from "../i18n/data";
 import { motion } from "motion/react";
 import type { Me } from "./backend";
 import { Chips } from "../table/pieces";
@@ -36,8 +38,8 @@ export function Avatar({ name, frame, level, size = 56 }: { name: string; frame:
 export function Stars({ prestige, size = 14 }: { prestige: number; size?: number }) {
   if (!prestige) return null;
   return (
-    <span className="acct-stars" title={prestigeName(prestige)} style={{ fontSize: size }}>
-      {prestige >= MAX_PRESTIGE ? "★ LEGEND ★" : "★".repeat(prestige)}
+    <span className="acct-stars" title={tEn(prestigeName(prestige))} style={{ fontSize: size }}>
+      {prestige >= MAX_PRESTIGE ? t("acct.legend") : "★".repeat(prestige)}
     </span>
   );
 }
@@ -45,18 +47,18 @@ export function Stars({ prestige, size = 14 }: { prestige: number; size?: number
 export function XpBar({ xp, from }: { xp: number; from?: number }) {
   const li = levelInfo(xp);
   return (
-    <div className="acct-xp" title={li.maxed ? "Max level: prestige to start again with a star" : `${li.into.toLocaleString()} / ${li.need.toLocaleString()} XP`}>
+    <div className="acct-xp" title={li.maxed ? t("acct.maxTip") : `${num(li.into)} / ${num(li.need)} XP`}>
       <motion.div className="acct-xp-fill" initial={{ width: `${(from ?? li.pct) * 100}%` }} animate={{ width: `${li.pct * 100}%` }} transition={{ duration: 1.1, ease: "easeOut" }} />
-      <span className="acct-xp-text">{li.maxed ? "MAX" : `${li.into.toLocaleString()} / ${li.need.toLocaleString()} XP`}</span>
+      <span className="acct-xp-text">{li.maxed ? t("acct.max") : `${num(li.into)} / ${num(li.need)} XP`}</span>
     </div>
   );
 }
 
 export function Coins({ amount, big }: { amount: number; big?: boolean }) {
   return (
-    <span className={"acct-coins" + (big ? " big" : "")} title="Coins: earned by playing, spent on cosmetics and drinks">
+    <span className={"acct-coins" + (big ? " big" : "")} title={t("acct.coinsTip")}>
       <span className="acct-coin" />
-      {amount.toLocaleString()}
+      {num(amount)}
     </span>
   );
 }
@@ -66,15 +68,15 @@ export function ProfileChip({ me, packs = 0, onOpen }: { me: Me; packs?: number;
   const p = me.progress;
   const li = levelInfo(p.xp);
   return (
-    <button className="acct-chip" onClick={onOpen} aria-label={packs ? "Open your profile: a free pack is waiting" : "Open your profile and career stats"}>
+    <button className="acct-chip" onClick={onOpen} aria-label={packs ? t("acct.chipPack") : t("acct.chipOpen")}>
       <Avatar name={me.name} frame={p.equipped.frame} level={li.level} size={46} />
       <span className="acct-chip-body">
         <span className="acct-chip-name">
           {me.name} <Stars prestige={p.prestige} size={11} />
         </span>
         <span className="acct-chip-rank">
-          {rankName(li.level)}
-          {me.guest ? " · Guest" : ""}
+          {rankTitle(li.level)}
+          {me.guest ? ` · ${t("acct.guest")}` : ""}
         </span>
         <XpBar xp={p.xp} />
       </span>
@@ -82,7 +84,8 @@ export function ProfileChip({ me, packs = 0, onOpen }: { me: Me; packs?: number;
         <Chips amount={p.chips} small />
         <Coins amount={p.coins} />
       </span>
-      {packs > 0 && <span className="acct-chip-dot" title={packs === 1 ? "A free pack to open" : `${packs} free packs to open`} />}
+      {packs > 0 && <span className="acct-chip-dot" title={t("acct.packsTip", { count: packs })} />}
+
     </button>
   );
 }

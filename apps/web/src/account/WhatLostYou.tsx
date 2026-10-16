@@ -6,12 +6,13 @@ import { motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import type { LostReason } from "./backend";
 import { useAccount } from "./useAccount";
+import { t, type TKey } from "../i18n";
 
-const OPTIONS: { id: LostReason; label: string }[] = [
-  { id: "lost", label: "I didn't know what to do" },
-  { id: "roles", label: "The roles" },
-  { id: "buttons", label: "Too many buttons" },
-  { id: "notForMe", label: "Just not my thing" },
+const OPTIONS: { id: LostReason; label: TKey }[] = [
+  { id: "lost", label: "lost.lost" },
+  { id: "roles", label: "lost.roles" },
+  { id: "buttons", label: "lost.buttons" },
+  { id: "notForMe", label: "lost.notForMe" },
 ];
 
 export interface LostAsk {
@@ -26,7 +27,7 @@ export function WhatLostYou({ ask, onDone }: { ask: LostAsk; onDone: () => void 
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
   const sent = useRef(false);
-  const options = ask.when === "finished" ? [{ id: "liked" as const, label: "Nothing, I liked it" }, ...OPTIONS] : OPTIONS;
+  const options: { id: LostReason; label: TKey }[] = ask.when === "finished" ? [{ id: "liked", label: "lost.liked" }, ...OPTIONS] : OPTIONS;
 
   const send = (reason: LostReason) => {
     if (sent.current) return;
@@ -45,14 +46,14 @@ export function WhatLostYou({ ask, onDone }: { ask: LostAsk; onDone: () => void 
 
   return (
     <motion.div className="lost-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && (picked ? onDone() : skip())}>
-      <motion.div className="lost-card" role="dialog" aria-label="What lost you?" initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}>
-        <button className="lost-x" onClick={picked ? onDone : skip} aria-label="Close" data-track="What lost you: close">
+      <motion.div className="lost-card" role="dialog" aria-label={t("lost.title")} initial={{ y: 24, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 24, opacity: 0 }}>
+        <button className="lost-x" onClick={picked ? onDone : skip} aria-label={t("common.close")} data-track="What lost you: close">
           ✕
         </button>
         {!picked ? (
           <>
-            <h2>{ask.when === "finished" ? "Anything lose you?" : "What lost you?"}</h2>
-            <p className="lost-sub">One tap helps make Heist easier to learn.</p>
+            <h2>{ask.when === "finished" ? t("lost.titleDone") : t("lost.title")}</h2>
+            <p className="lost-sub">{t("lost.sub")}</p>
             <div className="lost-options">
               {options.map((o) => (
                 <button
@@ -64,12 +65,12 @@ export function WhatLostYou({ ask, onDone }: { ask: LostAsk; onDone: () => void 
                     setPicked(o.id);
                   }}
                 >
-                  {o.label}
+                  {t(o.label)}
                 </button>
               ))}
             </div>
             <button className="lost-skip" onClick={skip} data-track="What lost you: skip">
-              Skip
+              {t("lost.skip")}
             </button>
           </>
         ) : (
@@ -82,15 +83,16 @@ export function WhatLostYou({ ask, onDone }: { ask: LostAsk; onDone: () => void 
               onDone();
             }}
           >
-            <h2>Thanks!</h2>
-            <p className="lost-sub">Anything else you'd tell us? (optional)</p>
-            <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} rows={3} placeholder="What would have made it easier?" />
+            <h2>{t("lost.thanks")}</h2>
+            <p className="lost-sub">{t("lost.more")}</p>
+            <textarea value={comment} onChange={(e) => setComment(e.target.value)} maxLength={1000} rows={3} placeholder={t("lost.placeholder")} />
             <div className="lost-row">
               <button type="button" className="btn ghost" onClick={onDone}>
-                Done
+                {t("common.done")}
               </button>
               <button className="btn primary" disabled={busy || !comment.trim()} data-track="What lost you: send comment">
-                {busy ? "Sending…" : "Send"}
+                {busy ? t("common.sending") : t("common.send")}
+
               </button>
             </div>
           </form>

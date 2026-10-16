@@ -228,6 +228,14 @@ export function time(at: number | Date, opts: Intl.DateTimeFormatOptions = { hou
   return new Date(at).toLocaleTimeString(getLocale(), opts);
 }
 
+/** A place in a finish: "1st", "2nd" / "1º", "2º". */
+export function ordinal(n: number): string {
+  if (getLocale() === "pt-BR") return `${n}º`;
+  const ten = n % 100;
+  const s = ten >= 11 && ten <= 13 ? "th" : n % 10 === 1 ? "st" : n % 10 === 2 ? "nd" : n % 10 === 3 ? "rd" : "th";
+  return `${n}${s}`;
+}
+
 /** "a, b and c" / "a, b e c". */
 export function list(items: string[]): string {
   try {

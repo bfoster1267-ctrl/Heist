@@ -2,12 +2,14 @@ import { cosmetic, rarityOf, type Cosmetic, type Rarity } from "@heist/profile";
 import type { CSSProperties } from "react";
 import { Avatar } from "./bits";
 import { VaultGlass, isVault } from "../vault";
+import { t, tEn, type TKey } from "../i18n";
+import { cosName } from "../i18n/data";
 
 export function RarityBadge({ rarity }: { rarity: Rarity }) {
   const icon = rarity === "legendary" ? "✦" : rarity === "epic" ? "★" : rarity === "rare" ? "◆" : "•";
   return (
     <span className={`rarity-pill ${rarity}`}>
-      {icon} {rarity}
+      {icon} {t(`rarity.${rarity}` as TKey)}
     </span>
   );
 }
@@ -37,7 +39,7 @@ export function Cigar({ id, size = 34 }: { id: string | undefined; size?: number
   if (!c?.colors) return null;
   const [band, wrapper] = c.colors;
   return (
-    <svg className="cigar" viewBox="0 0 60 24" width={size} height={size * 0.4} aria-label={c.name}>
+    <svg className="cigar" viewBox="0 0 60 24" width={size} height={size * 0.4} aria-label={cosName(c)}>
       <path className="cigar-smoke" d="M56 9 C52 4, 60 2, 55 -4" fill="none" stroke="rgba(230,230,230,0.55)" strokeWidth="1.6" strokeLinecap="round" />
       <rect x="2" y="10" width="50" height="9" rx="4.5" fill={wrapper} />
       <rect x="2" y="10" width="50" height="3" rx="1.5" fill="rgba(255,255,255,0.12)" />
@@ -71,7 +73,7 @@ export function Preview({ c, name }: { c: Cosmetic; name: string }) {
       return (
         <div className="acct-prev acct-prev-title">
           <span className="acct-prev-chat" style={chatStyle(c)}>
-            Nice hit.
+            {t("chat.Nice hit.")}
           </span>
         </div>
       );
@@ -90,6 +92,7 @@ export function Preview({ c, name }: { c: Cosmetic; name: string }) {
     case "emote":
       return <div className="acct-prev acct-prev-title acct-prev-emoji">{c.emoji}</div>;
     default:
-      return <div className="acct-prev acct-prev-title">{c.text ? `“${c.text}”` : "—"}</div>;
+      return <div className="acct-prev acct-prev-title">{c.text ? `“${tEn(c.text)}”` : "—"}</div>;
+
   }
 }
