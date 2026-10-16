@@ -1,6 +1,7 @@
 // The accounts HTTP API, served next to the game socket. JSON in and out; the session token goes in an
 // `Authorization: Bearer` header. Every route is listed in packages/server/README.md.
 
+import { clientIp } from "../ip";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { badgeOf, drink as drinkInfo, upgrade, type Progress } from "@heist/profile";
 import { LoungeError, type Lounge } from "../lounge";
@@ -101,13 +102,15 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
   const opened = new Map<string, number>();
   const reports = new Map<string, number[]>();
   const adminTries = new Map<string, number[]>();
-  const ipOf = (req: IncomingMessage) => String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
+  const ipOf = clientIp;
   const within = (m: Map<string, number[]>, key: string, windowMs: number, max: number) => {
     const t = now();
     const recent = (m.get(key) ?? []).filter((x) => t - x < windowMs);
     recent.push(t);
+    m.delete(key);
     m.set(key, recent);
-    if (m.size > 10_000) m.clear();
+    // forget the oldest keys rather than everything, so spraying new addresses can't wipe every limit
+    if (m.size > 10_000) for (const k of [...m.keys()].slice(0, 1_000)) m.delete(k);
     return recent.length <= max;
   };
 

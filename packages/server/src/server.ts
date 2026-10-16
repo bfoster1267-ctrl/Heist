@@ -4,13 +4,14 @@
 
 import { randomBytes } from "node:crypto";
 import { reverse as dnsReverse } from "node:dns/promises";
-import { createServer, type IncomingMessage, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
 import { scrub } from "./accounts/activity";
 import { AdminAuth, AdminService, type AdminTeam } from "./accounts/admin";
 import { accountsApi } from "./accounts/api";
 import { serveStatic } from "./static";
+import { clientIp } from "./ip";
 import { ApiError, type AccountService } from "./accounts/service";
 import { GuestIdentity, cleanName, type Identity, type IdentityProvider } from "./identity";
 import { PROTOCOL_VERSION, type ClientMsg, type ServerMsg } from "./protocol";
@@ -228,7 +229,15 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   const restored = rooms.restore();
   if (restored) log("restored tables", { count: restored });
 
-  const http = createServer(async (req, res) => {
+  const http = createServer((req, res) => {
+    // one bad request must never take the server (and every table on it) down
+    handleHttp(req, res).catch((e) => {
+      log("http error", { url: req.url?.slice(0, 200), err: String(e) });
+      if (!res.headersSent) res.writeHead(500);
+      res.end();
+    });
+  });
+  async function handleHttp(req: IncomingMessage, res: ServerResponse) {
     if (api && (await api(req, res))) return;
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
@@ -238,11 +247,19 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     }
     if (req.url === "/api/ers/create" && req.method === "POST") {
       let body = "";
-      req.on("data", (chunk) => { body += chunk; });
+      req.on("data", (chunk) => {
+        body += chunk;
+        if (body.length > 4096) req.destroy();
+      });
       req.on("end", () => {
-        let opts: { isPrivate?: boolean; seed?: number } = {};
+        let opts: { isPrivate?: boolean } = {};
         try { if (body) opts = JSON.parse(body); } catch {}
-        const room = ersRooms.create(opts);
+        const room = ersRooms.create({ isPrivate: opts?.isPrivate === true });
+        if (!room) {
+          res.writeHead(503, { "content-type": "application/json" });
+          res.end(JSON.stringify({ ok: false, error: "full" }));
+          return;
+        }
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ ok: true, code: room.code, id: room.id }));
       });
@@ -267,7 +284,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     }
     if (o.webDir && (await serveStatic(o.webDir, req, res))) return;
     res.writeHead(404).end();
-  });
+  }
 
   const wss = new WebSocketServer({
     server: http,
@@ -284,7 +301,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
   o.hosting?.start(() => wss.clients.size);
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
-    const ip = String(req.headers["fly-client-ip"] ?? req.headers["x-forwarded-for"] ?? req.socket.remoteAddress ?? "?").split(",")[0].trim();
+    const ip = clientIp(req);
     const c: Client = { conn: null, id: null, room: null, ersRoom: null, tokens: rate.burst, last: clock.now(), alive: true, queue: Promise.resolve(), ip, away: false };
     const send = (m: ServerMsg) => {
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(m));
@@ -424,6 +441,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
           if (c.room) { c.room.leave(conn.id); c.room = null; }
           if (c.ersRoom) { c.ersRoom.leave(conn.id); c.ersRoom = null; }
           const room = ersRooms.create({ isPrivate: m.isPrivate });
+          if (!room) return err("bad_state", "The server is full right now");
           c.ersRoom = room;
           const res = room.join(conn);
           if (!res.ok) return err("bad_state", res.error);

@@ -35,3 +35,31 @@ describe("blog", () => {
     expect(blogPage("/blog/nope")).toBeNull();
   });
 });
+
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { serveStatic } from "../src/static";
+
+describe("hardening", () => {
+  it("turns away a malformed escape in the path instead of throwing (it used to crash the server)", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "heist-web-"));
+    writeFileSync(join(dir, "index.html"), APP);
+    const req = { method: "GET", url: "/%E0%A4%A" } as IncomingMessage;
+    const res = { writeHead() { return this; }, end() {} } as unknown as ServerResponse;
+    await expect(serveStatic(dir, req, res)).resolves.toBe(false);
+  });
+  it("keeps $-patterns in a challenge link from rewriting the page", () => {
+    const html = pageHtml(APP, "/solitaire", new URLSearchParams({ challenge: "12", ctime: "$'", cmoves: "$&" }));
+    expect(html.match(/<body>/g)).toHaveLength(1);
+    expect(html).not.toContain("$'");
+  });
+  it("puts only a deal number, a m:ss time and a move count in a challenge title", () => {
+    const ok = pageHtml(APP, "/solitaire", new URLSearchParams({ challenge: "12", ctime: "1:23", cmoves: "45" }));
+    expect(ok).toContain("Beat My 1:23 Score");
+    const junk = pageHtml(APP, "/solitaire", new URLSearchParams({ challenge: "12", ctime: "anything you like" }));
+    expect(junk).not.toContain("anything you like");
+    expect(pageHtml(APP, "/solitaire", new URLSearchParams({ challenge: "not a deal" }))).not.toContain("Challenge:");
+  });
+});
