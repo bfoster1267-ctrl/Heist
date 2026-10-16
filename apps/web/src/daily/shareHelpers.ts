@@ -110,10 +110,11 @@ export function getDailyLeaderboard(
   const t2 = t1 + 15 + (seed % 8);
   const t3 = t2 + 20 + ((seed >> 2) % 11);
 
+  // par times to aim for, not players: there's no shared board yet, so no names that read like people
   const topSolvers = [
-    { rank: 1, name: "AceCracker", medal: "🥇", seconds: t1 },
-    { rank: 2, name: "VelvetJack", medal: "🥈", seconds: t2 },
-    { rank: 3, name: "NeonDealer", medal: "🥉", seconds: t3 },
+    { rank: 1, name: "Gold par", medal: "🥇", seconds: t1 },
+    { rank: 2, name: "Silver par", medal: "🥈", seconds: t2 },
+    { rank: 3, name: "Bronze par", medal: "🥉", seconds: t3 },
   ];
 
   const formatTime = (sec: number) =>
@@ -149,7 +150,6 @@ export function getDailyLeaderboard(
   const reindexed = all.map((entry, idx) => ({
     ...entry,
     rank: idx + 1,
-    medal: idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : "👤",
   }));
 
   const userRank = reindexed.find((e) => e.isUser)?.rank ?? null;

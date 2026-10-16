@@ -132,4 +132,18 @@ describe("solitaire", () => {
     const slow = settleSolitaire(p, at, t, tallyXp(t), false, 310);
     expect(slow.reward.lines.find((l) => l.label.startsWith("Speed bonus"))).toBeUndefined();
   });
+
+  it("takes the speed bonus out of the daily XP limit, so quick wins can't farm past it", () => {
+    const at = SEASONS[0].start + 1000;
+    const t = { moves: 60, aces: 4, stacks: 4, won: true };
+    let p = newProgress();
+    let total = 0;
+    for (let i = 0; i < 10; i++) {
+      const r = settleSolitaire(p, at, t, tallyXp(t), false, 10);
+      total += r.reward.xp;
+      p = r.progress;
+    }
+    expect(total).toBe(SOLITAIRE_DAY_XP);
+    expect(solitaireRoom(p, at)).toBe(0);
+  });
 });

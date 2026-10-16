@@ -7,6 +7,7 @@ import {
   formatCountdown,
   formatDailyChallengeNumber,
   getDailyQuests,
+  getDailySeed,
   getDailyStreak,
   getRemainingMsUntilNextUtcDay,
   getStreakMultiplier,
@@ -402,7 +403,8 @@ export function VictoryModal({
               onClick={() => {
                 click();
                 buzz("tap");
-                window.location.href = `/${nextDailyGame}?daily=1`;
+                // dailyGame + seed opens today's own deal; ?daily alone opened the Daily Hub over a random deal
+                window.location.href = `/${nextDailyGame}?dailyGame=1&seed=${getDailySeed(nextDailyGame)}`;
               }}
               autoFocus
             >

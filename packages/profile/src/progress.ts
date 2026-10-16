@@ -391,6 +391,12 @@ export function speedBonus(seconds?: number, maxSecs = 300): RewardLine | null {
   return { label: `Speed bonus (${m}:${sec})`, xp: bonus, coins: 0 };
 }
 
+/** The speed bonus trimmed to the XP still left in today's room for this game (null when none is left). */
+function fitSpeed(speed: RewardLine | null, left: number): RewardLine | null {
+  if (!speed || left <= 0) return null;
+  return speed.xp > left ? { ...speed, xp: left } : speed;
+}
+
 /**
  * Pay for Solitaire play the server has checked by replaying the moves. `gained` is what the deal
  * earned beyond what was already paid for it (see tallySol); `pay` is what it comes to after stalling
@@ -429,8 +435,12 @@ export function settleSolitaire(
   const dailyResult = isDaily ? applyDailyBonus(p, "solitaire", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    s.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -501,8 +511,12 @@ export function settleFreeCell(
   const dailyResult = isDaily ? applyDailyBonus(p, "freecell", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    fc.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -578,8 +592,12 @@ export function settleTriPeaks(
   const dailyResult = isDaily ? applyDailyBonus(p, "tripeaks", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    tp.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -650,8 +668,12 @@ export function settleErs(
   const dailyResult = isDaily ? applyDailyBonus(p, "ers", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    ers.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -722,8 +744,12 @@ export function settleSpider(
   const dailyResult = isDaily ? applyDailyBonus(p, "spider", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    sp.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -793,8 +819,12 @@ export function settlePyramid(
   const dailyResult = isDaily ? applyDailyBonus(p, "pyramid", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    pyr.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -863,8 +893,12 @@ export function settleYukon(
   const dailyResult = isDaily ? applyDailyBonus(p, "yukon", at, gained.won) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    yk.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);
@@ -934,8 +968,12 @@ export function settleScoundrel(
   const dailyResult = isDaily ? applyDailyBonus(p, "scoundrel", at, isChallengeCompleted(challenge, gained)) : { bonusLines: [] };
   if (dailyResult.bonusLines.length) lines.push(...dailyResult.bonusLines);
 
-  const speed = gained.won ? speedBonus(secondsTaken) : null;
-  if (speed) lines.push(speed);
+  // speed XP comes out of the same daily room as the deal, so quick wins can't farm past the limit
+  const speed = gained.won ? fitSpeed(speedBonus(secondsTaken), room - Math.min(total, room)) : null;
+  if (speed) {
+    lines.push(speed);
+    sc.xp += speed.xp;
+  }
 
   const xp = lines.reduce((t, l) => t + l.xp, 0);
   const before = levelInfo(p.xp);

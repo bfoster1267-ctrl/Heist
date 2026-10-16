@@ -16,6 +16,8 @@ import type { Social } from "./social";
 const BODY_LIMIT = 16 * 1024;
 /** a finished solo game posts every answer the player gave */
 const SOLO_BODY_LIMIT = 512 * 1024;
+/** routes that carry a whole game's moves: every arcade game's bank and finish, and a vs-bots game's finish */
+const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel)\/(bank|finish))$/;
 /** sign-in attempts per address per window */
 const AUTH_TRIES = 20;
 const AUTH_WINDOW_MS = 10 * 60_000;
@@ -587,7 +589,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       if (key.startsWith("POST /api/auth/") || key === "POST /api/me/password") {
         if (limited(ip)) throw new ApiError(429, "Too many tries. Wait a few minutes and try again.");
       }
-      body = req.method === "POST" ? await readBody(req, key === "POST /api/solo/finish" || key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank" ? SOLO_BODY_LIMIT : BODY_LIMIT) : {};
+      body = req.method === "POST" ? await readBody(req, BIG_BODY.test(key) ? SOLO_BODY_LIMIT : BODY_LIMIT) : {};
       if (param) body = { ...body, id: param };
       const out = await route(body, token, url.searchParams, param);
       send(res, 200, out);

@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -580,11 +580,24 @@ export class AccountService {
     });
   }
 
+  /** Count play toward today's three daily quests (the Loot Safe opens when all three are done). */
+  private quest(x: Account, moves: number, reward?: Reward | null) {
+    const xp = Math.max(0, reward?.xp ?? 0);
+    const challengeDone = !!reward?.daily;
+    if (!moves && !xp && !challengeDone) return;
+    x.progress = recordQuestActivity(x.progress, { moves, xp, challengeDone }, todayUtc(this.now()));
+  }
+
+  /** Only today's own daily deal counts as the daily: the client can't mark any seed it likes. */
+  private isDailyDeal(game: string, seed: number, asked: unknown): boolean {
+    return asked === true && seed === getDailySeed(game, todayUtc(this.now()));
+  }
+
   /** Deal a Solitaire game. Starting another one just replaces it (nothing is at stake). */
   solitaireStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.solitaire = { gameId: `k_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.solitaire = { gameId: `k_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("solitaire", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.solitaire.gameId, seed: x.solitaire.seed };
     });
@@ -614,10 +627,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.solitaire = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleSolitaire(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -626,7 +645,7 @@ export class AccountService {
   freecellStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.freecell = { gameId: `fc_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.freecell = { gameId: `fc_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("freecell", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.freecell.gameId, seed: x.freecell.seed };
     });
@@ -650,10 +669,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.freecell = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleFreeCell(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -662,7 +687,7 @@ export class AccountService {
   tripeaksStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.tripeaks = { gameId: `tp_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.tripeaks = { gameId: `tp_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("tripeaks", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.tripeaks.gameId, seed: x.tripeaks.seed };
     });
@@ -686,10 +711,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.tripeaks = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleTriPeaks(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -698,7 +729,7 @@ export class AccountService {
   ersStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.ers = { gameId: `ers_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.ers = { gameId: `ers_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("ers", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.ers.gameId, seed: x.ers.seed };
     });
@@ -722,10 +753,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.ers = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleErs(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -734,7 +771,7 @@ export class AccountService {
   spiderStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.spider = { gameId: `sp_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.spider = { gameId: `sp_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("spider", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.spider.gameId, seed: x.spider.seed };
     });
@@ -758,10 +795,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.spider = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleSpider(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -770,7 +813,7 @@ export class AccountService {
   pyramidStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.pyramid = { gameId: `pyr_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.pyramid = { gameId: `pyr_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("pyramid", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.pyramid.gameId, seed: x.pyramid.seed };
     });
@@ -794,10 +837,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.pyramid = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settlePyramid(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -806,7 +855,7 @@ export class AccountService {
   yukonStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.yukon = { gameId: `yk_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.yukon = { gameId: `yk_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("yukon", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.yukon.gameId, seed: x.yukon.seed };
     });
@@ -830,10 +879,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.yukon = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleYukon(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -842,7 +897,7 @@ export class AccountService {
   scoundrelStart(a: Account, seed?: unknown, isDaily?: unknown) {
     const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
     return this.update(a.id, (x) => {
-      x.scoundrel = { gameId: `sc_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: Boolean(isDaily), startedAt: this.now() };
+      x.scoundrel = { gameId: `sc_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("scoundrel", s, isDaily), startedAt: this.now() };
       x.played ??= this.now();
       return { gameId: x.scoundrel.gameId, seed: x.scoundrel.seed };
     });
@@ -866,10 +921,16 @@ export class AccountService {
       g.paid = pay.paid;
       g.paidXp = pay.paidXp;
       const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
       if (t.won) x.scoundrel = null;
-      if (!pay.xp && !pay.gained.won) return { me: this.me(x), reward: null };
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
       const r = settleScoundrel(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
       x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };
     });
   }
@@ -903,6 +964,7 @@ export class AccountService {
         rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
       });
       x.progress = r.progress;
+      this.quest(x, 0, r.reward);
       this.board = null;
       this.activity.saveSolo({ gameId: g.gameId, userId: x.id, name: x.name, seed: g.seed, players: g.players, stakes: g.stakes, setup: { levels: g.levels, stage: g.stage, gentle: g.gentle, lesson: g.lesson },
         answers: answers as never, startedAt: g.startedAt, endedAt: this.now(), quit: false, winners: rep.winners });
@@ -949,6 +1011,7 @@ export class AccountService {
             : {}),
         });
         x.progress = st.progress;
+        this.quest(x, 0, st.reward);
         this.track({ kind: "game.online", userId: x.id, name: x.name, data: { gameId: r.gameId, roomId: r.roomId, seat: s.seat, players: r.players, stakes: r.stakes, won, abandoned: quit, payout: pay, xp: st.reward.xp, coins: st.reward.coins, ...(st.reward.ranked ? { ranked: true, place: st.reward.ranked.place, rp: st.reward.ranked.rpAfter, rpDelta: st.reward.ranked.rpAfter - st.reward.ranked.rpBefore, mmr: st.reward.ranked.mmrAfter } : {}) } });
         return { reward: st.reward, me: this.me(x) };
       });
