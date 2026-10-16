@@ -3549,13 +3549,20 @@ button:disabled {
     font-size: 28px;
   }
 }
+.lobby-daily-wrap {
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto 4px;
+  display: flex;
+  justify-content: center;
+}
 /* the name in the top bar, between the gear and your card: only when the big logo doesn't fit */
 .lobby-topname {
   display: none;
   position: fixed;
   z-index: 20;
   top: calc(16px + env(safe-area-inset-top));
-  left: calc(70px + env(safe-area-inset-left));
+  left: calc(136px + env(safe-area-inset-left));
   margin: 0;
   font-size: 34px;
   letter-spacing: 5px;
@@ -3732,6 +3739,7 @@ button:disabled {
     font-size: 12px;
   }
   /* no room sideways for the install nudge and the small print (both still show on bigger screens) */
+  .lobby-main .lobby-daily-wrap,
   .lobby-main .install,
   .lobby-main .fine {
     display: none;
@@ -3742,7 +3750,7 @@ button:disabled {
     font-size: 24px;
   }
   .lobby-lang-btn {
-    left: calc(60px + env(safe-area-inset-left));
+    left: calc(62px + env(safe-area-inset-left));
     height: 44px;
     padding: 0 9px;
     font-size: 13px;

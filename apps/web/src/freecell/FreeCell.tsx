@@ -31,6 +31,9 @@ interface Float {
 }
 
 const NOTHING: FcTally = { moves: 0, aces: 0, stacks: 0, won: false };
+const LAND_SCALE = [1.08, 1];
+const SHAKE_ROT = [0, -5, 5, -3, 0];
+const WIN_ROT = [0, -6, 6, 0];
 
 type Pile = `c${number}` | `f${number}` | `t${number}`;
 interface Drag {
@@ -279,7 +282,7 @@ export function FreeCell({
   useEffect(() => {
     const p = prevFound.current;
     prevFound.current = foundNow;
-    if (!p.size) return;
+    if (!foundNow.size) return;
     setLanded(new Set([...foundNow].filter((c) => !p.has(c))));
     const t = window.setTimeout(() => setLanded(new Set()), 450);
     return () => clearTimeout(t);
@@ -412,9 +415,12 @@ export function FreeCell({
       p.land = at;
       if (dealT < at) {
         Object.assign(p, { x: colX(3), y: -b.ch - 20, z: 60 - cardIdx });
+      } else if (dealT < at + 260) {
+        p.z = 200 + p.z;
       }
     }
   }
+  placed.sort((a, b) => a.c - b.c);
 
   const dragging = (p: Placed) => !!drag && drag.moved && p.pile === drag.from && p.depth <= drag.depth && p.depth > 0;
   const hinted = (p: Placed) => !!hint && p.pile === hint.pile && p.depth > 0 && p.depth <= hint.depth;
@@ -543,6 +549,14 @@ export function FreeCell({
         {placed.map((p) => {
           const lift = dragging(p);
           const key = `${p.pile}:${p.depth}`;
+          const isLanded = !reduce && landed.has(p.c);
+          const zIndex = lift
+            ? 500 + p.z
+            : isLanded
+              ? 400 + p.z
+              : p.pile[0] === "t"
+                ? 30 + p.z
+                : 5 + p.z;
           return (
             <motion.div
               key={p.c}
@@ -551,20 +565,26 @@ export function FreeCell({
                 (cardRed(p.c) ? " red" : "") +
                 (lift ? " lifted" : "") +
                 (hinted(p) ? " hinted" : "") +
-                (landed.has(p.c) ? " landed" : "")
+                (isLanded ? " landed" : "")
               }
-              style={{ width: b.cw, height: b.ch, zIndex: lift ? 500 + p.z : p.pile[0] === "t" ? 10 + p.z : 5 + p.z, fontSize: Math.round(b.cw * 0.3) }}
+              style={{ width: b.cw, height: b.ch, zIndex, fontSize: Math.round(b.cw * 0.3) }}
               initial={false}
               animate={{
                 x: p.x + (lift ? drag!.dx : 0),
                 y: p.y + (lift ? drag!.dy : 0),
-                scale: lift ? 1.05 : 1,
-                rotate: shake && key === shake ? [0, -5, 5, -3, 0] : won && p.pile[0] === "f" && !reduce ? [0, -6, 6, 0] : 0,
+                scale: lift ? 1.05 : isLanded ? LAND_SCALE : 1,
+                rotate: shake && key === shake ? SHAKE_ROT : won && p.pile[0] === "f" && !reduce ? WIN_ROT : 0,
               }}
               transition={
                 lift
                   ? { duration: 0, scale: { duration: 0.12 } }
-                  : { type: "spring", stiffness: 520, damping: 38, rotate: won ? { duration: 0.6, delay: (p.c % 13) * 0.04 } : { duration: 0.3 } }
+                  : {
+                      type: "spring",
+                      stiffness: 520,
+                      damping: 38,
+                      scale: isLanded ? { duration: 0.32, ease: "easeOut" } : { duration: 0.15 },
+                      rotate: won ? { duration: 0.6, delay: (p.c % 13) * 0.04 } : { duration: 0.3 },
+                    }
               }
               onPointerDown={(e) => down(p, e)}
             >

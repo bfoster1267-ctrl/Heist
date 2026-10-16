@@ -31,6 +31,10 @@ interface Float {
 const NOTHING: SolTally = { moves: 0, aces: 0, stacks: 0, won: false };
 
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
+const FLIP_Y = [90, 0];
+const LAND_SCALE = [1.08, 1];
+const SHAKE_ROT = [0, -5, 5, -3, 0];
+const WIN_ROT = [0, -6, 6, 0];
 
 type Pile = "w" | `f${number}` | `t${number}`;
 interface Drag {
@@ -433,9 +437,11 @@ export function Solitaire({
       const at = landsAt(Number(p.pile[1]), p.z);
       p.land = at;
       if (dealT < at) Object.assign(p, { x: colX(0), y: rowY, z: 60 - at / DEAL.step });
+      else if (dealT < at + 260) p.z = 200 + p.z;
       if (dealT < at + DEAL.flip) p.up = false;
     }
   }
+  placed.sort((a, b) => a.c - b.c);
 
   const dragging = (p: Placed) => !!drag && drag.moved && p.pile === drag.from && p.depth <= drag.depth && p.depth > 0;
   const hinted = (p: Placed) => !!hint && (hint.pile === "s" ? p.pile === "s" && p.depth === 1 : p.pile === hint.pile && p.depth > 0 && p.depth <= hint.depth);
@@ -551,7 +557,18 @@ export function Solitaire({
       {placed.map((p) => {
         const lift = dragging(p);
         const key = `${p.pile}:${p.depth}`;
-        const flipping = !reduce && (dealAt ? p.up && p.land !== undefined && dealT < p.land + DEAL.flip + 320 : fresh.flipped.has(p.c));
+        const isLanded = !reduce && fresh.landed.has(p.c);
+        const isFlipped = !reduce && fresh.flipped.has(p.c);
+        const flipping = !reduce && (dealAt ? p.up && p.land !== undefined && dealT < p.land + DEAL.flip + 320 : isFlipped);
+        const zIndex = lift
+          ? 500 + p.z
+          : isLanded
+            ? 400 + p.z
+            : isFlipped
+              ? 300 + p.z
+              : p.pile[0] === "t"
+                ? 30 + p.z
+                : 5 + p.z;
         return (
           <motion.div
             key={p.c}
@@ -560,21 +577,28 @@ export function Solitaire({
               (p.up ? (cardRed(p.c) ? " red" : "") : " back") +
               (lift ? " lifted" : "") +
               (hinted(p) ? " hinted" : "") +
-              (fresh.landed.has(p.c) ? " landed" : "")
+              (isLanded ? " landed" : "")
             }
-            style={{ width: b.cw, height: b.ch, zIndex: lift ? 500 + p.z : p.pile[0] === "t" ? 10 + p.z : 5 + p.z, fontSize: Math.round(b.cw * 0.3) }}
+            style={{ width: b.cw, height: b.ch, zIndex, fontSize: Math.round(b.cw * 0.3) }}
             initial={false}
             animate={{
               x: p.x + (lift ? drag!.dx : 0),
               y: p.y + (lift ? drag!.dy : 0),
-              scale: lift ? 1.05 : 1,
-              rotateY: flipping ? [90, 0] : 0,
-              rotate: shake && key === shake ? [0, -5, 5, -3, 0] : won && p.pile[0] === "f" && !reduce ? [0, -6, 6, 0] : 0,
+              scale: lift ? 1.05 : isLanded ? LAND_SCALE : 1,
+              rotateY: flipping ? FLIP_Y : 0,
+              rotate: shake && key === shake ? SHAKE_ROT : won && p.pile[0] === "f" && !reduce ? WIN_ROT : 0,
             }}
             transition={
               lift
                 ? { duration: 0, scale: { duration: 0.12 } }
-                : { type: "spring", stiffness: 520, damping: 38, rotateY: { duration: 0.28, ease: "easeOut" }, rotate: won ? { duration: 0.6, delay: (p.c % 13) * 0.04 } : { duration: 0.3 } }
+                : {
+                    type: "spring",
+                    stiffness: 520,
+                    damping: 38,
+                    scale: isLanded ? { duration: 0.32, ease: "easeOut" } : { duration: 0.15 },
+                    rotateY: { duration: 0.28, ease: "easeOut" },
+                    rotate: won ? { duration: 0.6, delay: (p.c % 13) * 0.04 } : { duration: 0.3 },
+                  }
             }
             onPointerDown={(e) => (p.pile === "s" ? draw() : down(p, e))}
           >

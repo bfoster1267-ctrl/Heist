@@ -254,7 +254,7 @@ export function Lobby({
         </div>
 
         {onOpenDaily && (
-          <div style={{ width: "100%", maxWidth: 420, margin: "0 auto 14px", display: "flex", justifyContent: "center" }}>
+          <div className="lobby-daily-wrap">
             <ChallengeBanner progress={progress} onOpenDaily={onOpenDaily} />
           </div>
         )}
