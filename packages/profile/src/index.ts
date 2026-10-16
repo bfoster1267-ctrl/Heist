@@ -20,4 +20,6 @@ export * from "./spider";
 export * from "./pyramid";
 export * from "./yukon";
 export * from "./scoundrel";
+export * from "./minesweeper";
+export * from "./sudoku";
 export * from "./daily";

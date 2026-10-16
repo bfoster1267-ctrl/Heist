@@ -1,4 +1,4 @@
-// Daily challenge and streak progression system for all 8 solo card games.
+// Daily challenge and streak progression system for all 10 solo games.
 // Ensures every player in the world shares the exact same daily challenge deal on any given day,
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
@@ -14,6 +14,8 @@ export const DAILY_GAMES = [
   "yukon",
   "ers",
   "scoundrel",
+  "minesweeper",
+  "sudoku",
 ] as const;
 
 export type DailyGame = (typeof DAILY_GAMES)[number];
@@ -108,7 +110,7 @@ export function formatDailyChallengeNumber(dateStr?: string): number {
   return Math.max(1, daysBetween(DAILY_EPOCH_DATE, date) + 1);
 }
 
-/** Returns the featured daily game for a given date, rotating deterministically across all 8 games. */
+/** Returns the featured daily game for a given date, rotating deterministically across all the games. */
 export function getFeaturedDailyGame(timestamp?: number | Date): DailyGame {
   const date = todayUtc(timestamp);
   const num = formatDailyChallengeNumber(date);
@@ -242,6 +244,16 @@ const GAME_CHALLENGE_CONFIG: Record<
       const target = 8 + (seed % 4); // target 8 to 11 rooms
       return { type: "rooms", target, description: `Clear at least ${target} dungeon rooms` };
     },
+  },
+  minesweeper: {
+    title: "Daily Minesweeper Vault",
+    description: "Crack today's shared 16x16 Intermediate minefield: 40 mines, one safe first click.",
+    goal: () => ({ type: "win", target: 1, description: "Clear the Intermediate minefield" }),
+  },
+  sudoku: {
+    title: "Daily Sudoku Safe",
+    description: "Crack today's shared Medium Sudoku combination: one unique solution, three mistakes allowed.",
+    goal: () => ({ type: "win", target: 1, description: "Solve the Medium Sudoku" }),
   },
 };
 
