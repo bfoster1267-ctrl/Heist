@@ -55,7 +55,7 @@ export function useLayout(ref: RefObject<HTMLDivElement | null>): Layout | null 
   const ch = Math.round(cw * 1.4);
   const handY = h - ch - 6;
   // upright, you sit above your hand in the middle; sideways, off to the left so the trick has the height
-  const southY = handY - (landscape ? 40 : 28);
+  const southY = handY - (landscape ? 58 : 52);
   const northY = landscape ? 26 : 34;
   const cy = Math.round(landscape ? (northY + 30 + handY - 8) / 2 : (northY + 30 + southY - 24) / 2);
   const side = landscape ? Math.min(w * 0.2, 150) : Math.max(40, Math.min(w * 0.14, 70));
