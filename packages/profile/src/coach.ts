@@ -100,7 +100,7 @@ export function coachTip(s: GameState, ask: Ask): string {
         ? say("tip.bank", { best })
         : say("tip.bankNoScore");
     case "hire":
-      return say("tip.hire", { home });
+      return say("tip.hire", { count: home });
     case "action": {
       if (ask.wanted.length) return say("tip.wanted", { name: name(ask.wanted[0].leader) });
       if (!ask.canHit) return ask.busts.length ? say("tip.noCrewBust") : say("tip.noCrew");

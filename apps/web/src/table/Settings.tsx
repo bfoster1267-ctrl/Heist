@@ -2,9 +2,10 @@
 // the Wardrobe.
 import { motion } from "motion/react";
 import { useState } from "react";
-import { setPrefs, usePrefs, type MotionPref } from "../prefs";
+import { setPrefs, usePrefs, type Lang, type MotionPref } from "../prefs";
 import { chip, getMusicVolume, getVolume, isMuted, setMusicVolume, setMuted, setVolume } from "../sound";
 import { turnOffAlerts, turnOnAlerts, useAlertState } from "../alerts";
+import { LOCALES, t, useLocale } from "../i18n";
 
 export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () => void }) {
   const prefs = usePrefs();
@@ -12,17 +13,20 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
   const [vol, setVol] = useState(getVolume());
   const [music, setMusic] = useState(getMusicVolume());
   const alerts = useAlertState();
+  useLocale();
   return (
-    <motion.div className="settings" role="dialog" aria-label="Settings" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+    <motion.div className="settings" role="dialog" aria-label={t("settings.title")} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
       <div className="settings-head">
-        <span>Settings</span>
-        <button className="icon-btn" onClick={onClose} aria-label="Close settings">
+        <span>{t("settings.title")}</span>
+        <button className="icon-btn" onClick={onClose} aria-label={t("settings.close")}>
           ✕
         </button>
       </div>
 
+      <LanguageRow />
+
       <label className="set-row">
-        <span>Sound</span>
+        <span>{t("settings.sound")}</span>
         <input
           type="checkbox"
           checked={!muted}
@@ -33,7 +37,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         />
       </label>
       <label className="set-row">
-        <span>Effects</span>
+        <span>{t("settings.effects")}</span>
         <input
           type="range"
           min={0}
@@ -50,7 +54,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
 
       <label className="set-row">
-        <span>Music</span>
+        <span>{t("settings.music")}</span>
         <input
           type="range"
           min={0}
@@ -58,7 +62,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
           step={0.05}
           value={prefs.tableMusic ? music : 0}
           disabled={muted}
-          aria-valuetext={prefs.tableMusic && music > 0 ? `${Math.round(music * 100)}%` : "Off"}
+          aria-valuetext={prefs.tableMusic && music > 0 ? `${Math.round(music * 100)}%` : t("settings.off")}
           onChange={(e) => {
             const v = Number(e.target.value);
             setMusicVolume(v);
@@ -69,23 +73,23 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
       {alerts !== "unsupported" && (
         <label className="set-row">
-          <span>Turn alerts and invites</span>
+          <span>{t("settings.alerts")}</span>
           {alerts === "on" || alerts === "off" ? (
             <input type="checkbox" checked={alerts === "on"} onChange={(e) => void (e.target.checked ? turnOnAlerts() : turnOffAlerts())} />
           ) : (
-            <span className="set-note">{alerts === "needs-install" ? "Add Heist to your Home Screen first" : "Allow notifications for Heist in your phone's settings"}</span>
+            <span className="set-note">{alerts === "needs-install" ? t("settings.alertsInstall") : t("settings.alertsBlocked")}</span>
           )}
         </label>
       )}
 
       <div className="set-row">
-        <span>Motion</span>
-        <div className="seg small" role="radiogroup" aria-label="Motion">
+        <span>{t("settings.motion")}</span>
+        <div className="seg small" role="radiogroup" aria-label={t("settings.motion")}>
           {(
             [
-              ["system", "Auto"],
-              ["full", "Full"],
-              ["reduce", "Reduced"],
+              ["system", t("settings.motionAuto")],
+              ["full", t("settings.motionFull")],
+              ["reduce", t("settings.motionReduced")],
             ] as [MotionPref, string][]
           ).map(([v, label]) => (
             <button key={v} role="radio" aria-checked={prefs.motion === v} className={prefs.motion === v ? "on" : ""} onClick={() => setPrefs({ motion: v })}>
@@ -96,11 +100,11 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </div>
 
       <label className="set-row">
-        <span>Haptics</span>
+        <span>{t("settings.haptics")}</span>
         <input type="checkbox" checked={prefs.haptics} onChange={(e) => setPrefs({ haptics: e.target.checked })} />
       </label>
       <label className="set-row text-size">
-        <span>Text size</span>
+        <span>{t("settings.textSize")}</span>
         <span className="ts-small" aria-hidden>
           A
         </span>
@@ -119,17 +123,37 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
 
       <label className="set-row">
-        <span>Coach tips</span>
+        <span>{t("settings.tips")}</span>
         <input type="checkbox" checked={prefs.tips} onChange={(e) => setPrefs({ tips: e.target.checked, ...(e.target.checked ? { seen: [] } : {}) })} />
       </label>
 
       <button className="btn small" onClick={onTour}>
-        Show the table tour
+        {t("settings.tour")}
       </button>
 
       <div className="keys">
-        <b>Keys</b> Tab to move, Enter to choose · S skip · L log · 1/2/4 speed · Esc close
+        <b>{t("settings.keys")}</b> {t("settings.keysHelp")}
       </div>
     </motion.div>
   );
 }
+
+/** The language picker: Auto (the browser's), English, Português (Brasil). Shared by the lobby and the table. */
+export function LanguageRow() {
+  const prefs = usePrefs();
+  useLocale();
+  const opts: [Lang, string][] = [["auto", t("settings.langAuto")], ...LOCALES.map((l): [Lang, string] => [l.id, l.name])];
+  return (
+    <label className="set-row set-lang">
+      <span>{t("settings.language")}</span>
+      <select value={prefs.lang} onChange={(e) => setPrefs({ lang: e.target.value as Lang })} aria-label={t("settings.language")}>
+        {opts.map(([v, label]) => (
+          <option key={v} value={v}>
+            {label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+

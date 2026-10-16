@@ -21,3 +21,4 @@ export * from "./pyramid";
 export * from "./yukon";
 export * from "./scoundrel";
 export * from "./daily";
+export * from "./text";

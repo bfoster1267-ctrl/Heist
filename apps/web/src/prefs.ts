@@ -4,6 +4,8 @@ import { useSyncExternalStore } from "react";
 
 export type MotionPref = "system" | "reduce" | "full";
 export type Theme = "classic" | "vault" | "neon";
+/** The game's language; "auto" follows the browser (any Portuguese gets pt-BR, else English). */
+export type Lang = "auto" | "en" | "pt-BR";
 
 export const THEMES: { id: Theme; name: string; felt: string; rail: string }[] = [
   { id: "classic", name: "Classic", felt: "#0f5a3c", rail: "#5b3a1e" },
@@ -26,10 +28,12 @@ export interface Prefs {
   walked: boolean;
   /** Coach tips already shown, by key. */
   seen: string[];
+  /** the game's language (see i18n/) */
+  lang: Lang;
 }
 
 const KEY = "heist.prefs";
-const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: phone() ? 1.3 : 1, tips: true, tableMusic: true, walked: false, seen: [] };
+const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: phone() ? 1.3 : 1, tips: true, tableMusic: true, walked: false, seen: [], lang: "auto" };
 
 /** A phone (touch, small screen): text starts bigger there so new players can read it without hunting for the slider. */
 function phone() {
@@ -71,13 +75,13 @@ export function markSeen(k: string) {
   if (!prefs.seen.includes(k)) setPrefs({ seen: [...prefs.seen, k] });
 }
 
-const subscribe = (f: () => void) => {
+export const subscribePrefs = (f: () => void) => {
   subs.add(f);
   return () => subs.delete(f);
 };
 
 export function usePrefs() {
-  return useSyncExternalStore(subscribe, getPrefs);
+  return useSyncExternalStore(subscribePrefs, getPrefs);
 }
 
 const mq = typeof window !== "undefined" && window.matchMedia ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;

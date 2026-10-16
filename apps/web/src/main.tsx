@@ -8,6 +8,7 @@ import { installTracking } from "./track";
 import { installTurn } from "./turn";
 import "./fonts/fonts.css";
 import "./styles.css";
+import { useLocale } from "./i18n";
 
 installAppShell();
 installTurn();
@@ -15,7 +16,10 @@ syncAlerts();
 
 // Opened inside Instagram, Facebook or TikTok (not Reddit, whose browser plays fine): send them to a real browser before an account is made
 function Root() {
-  const [app, setApp] = useState(() => (inAppWaved() ? null : gatedInApp()));
+  // re-render everything when the language changes
+  useLocale();
+  const [app, setApp]
+ = useState(() => (inAppWaved() ? null : gatedInApp()));
   if (app) return <OpenInBrowser app={app} onAnyway={() => setApp(null)} />;
   return <App />;
 }

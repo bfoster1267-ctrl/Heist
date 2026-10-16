@@ -1,0 +1,25 @@
+import { strings } from "../define";
+
+export default strings({
+  "settings.title": ["Settings", "Configurações"],
+  "settings.close": ["Close settings", "Fechar configurações"],
+  "settings.language": ["Language", "Idioma"],
+  "settings.langAuto": ["Auto", "Automático"],
+  "settings.sound": ["Sound", "Som"],
+  "settings.effects": ["Effects", "Efeitos"],
+  "settings.music": ["Music", "Música"],
+  "settings.off": ["Off", "Desligado"],
+  "settings.alerts": ["Turn alerts and invites", "Avisos de vez e convites"],
+  "settings.alertsInstall": ["Add Heist to your Home Screen first", "Adicione o Heist à Tela de Início primeiro"],
+  "settings.alertsBlocked": ["Allow notifications for Heist in your phone's settings", "Permita notificações do Heist nos ajustes do celular"],
+  "settings.motion": ["Motion", "Animações"],
+  "settings.motionAuto": ["Auto", "Auto"],
+  "settings.motionFull": ["Full", "Todas"],
+  "settings.motionReduced": ["Reduced", "Menos"],
+  "settings.haptics": ["Haptics", "Vibração"],
+  "settings.textSize": ["Text size", "Tamanho do texto"],
+  "settings.tips": ["Coach tips", "Dicas do treinador"],
+  "settings.tour": ["Show the table tour", "Ver o tour da mesa"],
+  "settings.keys": ["Keys", "Teclas"],
+  "settings.keysHelp": ["Tab to move, Enter to choose · S skip · L log · 1/2/4 speed · Esc close", "Tab pra navegar, Enter pra escolher · S pular · L histórico · 1/2/4 velocidade · Esc fechar"],
+});
