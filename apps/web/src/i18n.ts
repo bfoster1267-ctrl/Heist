@@ -22,6 +22,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "common.defeat": "Defeat",
     "common.restart": "Restart",
     "common.settings": "Settings",
+    "common.back_to_lobby": "← Back to Lobby",
 
     // Lobby
     "lobby.quick_play": "Quick Play",
@@ -44,6 +45,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "lobby.play_solo_hub": "🃏 Play Solo Arcade & Daily Deals",
     "lobby.play_solo_hub_sub": "Klondike Solitaire, Checkers, Puzzles & more. Instant play.",
     "lobby.have_account": "I already have an account",
+    "lobby.save_progress_nudge": "🔥 Save Your Progress & Streak",
+    "lobby.save_progress_sub": "Guest account active · Tap to create a free login and keep your chips & streak",
 
     // Table Setup
     "table.your_table": "Your table",
@@ -95,6 +98,7 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "common.defeat": "Derrota",
     "common.restart": "Reiniciar",
     "common.settings": "Configurações",
+    "common.back_to_lobby": "← Voltar ao Saguão",
 
     // Lobby
     "lobby.quick_play": "Jogo Rápido",
@@ -117,6 +121,8 @@ const TRANSLATIONS: Record<Language, Record<string, string>> = {
     "lobby.play_solo_hub": "🃏 Jogar Arcade Solo & Desafios",
     "lobby.play_solo_hub_sub": "Paciência Klondike, Damas, Puzzles e mais. Jogo instantâneo.",
     "lobby.have_account": "Já tenho uma conta",
+    "lobby.save_progress_nudge": "🔥 Salve Seu Progresso & Sequência",
+    "lobby.save_progress_sub": "Conta de convidado ativa · Toque para salvar suas fichas e jogar em qualquer aparelho",
 
     // Table Setup
     "table.your_table": "Sua Mesa",

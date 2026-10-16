@@ -3405,6 +3405,76 @@ button:disabled {
   flex-direction: column;
   gap: 12px;
 }
+/* Glowing Coach button for new visitors */
+.lobby-coach-glow {
+  position: relative;
+  background: linear-gradient(180deg, #f5d77f 0%, #d4af37 50%, #aa820a 100%) !important;
+  color: #121319 !important;
+  border: 1px solid #fff !important;
+  box-shadow: 0 0 24px rgba(212, 175, 55, 0.45), 0 6px 20px rgba(0, 0, 0, 0.4) !important;
+  animation: coach-pulse 2.2s infinite ease-in-out;
+}
+.lobby-coach-glow .lobby-sub {
+  color: rgba(18, 19, 25, 0.85) !important;
+  font-weight: 700 !important;
+}
+@keyframes coach-pulse {
+  0% {
+    box-shadow: 0 0 14px rgba(212, 175, 55, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 32px rgba(212, 175, 55, 0.75), 0 8px 26px rgba(0, 0, 0, 0.5);
+    transform: scale(1.02);
+  }
+  100% {
+    box-shadow: 0 0 14px rgba(212, 175, 55, 0.35), 0 4px 12px rgba(0, 0, 0, 0.4);
+    transform: scale(1);
+  }
+}
+/* Save progress guest nudge for returning guests */
+.lobby-save-nudge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin-top: 6px;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(245, 158, 11, 0.5);
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(120, 32, 37, 0.15) 100%);
+  color: var(--paper);
+  cursor: pointer;
+  transition: all 0.18s ease;
+  animation: save-nudge-glow 3s infinite alternate;
+}
+.lobby-save-nudge:hover {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22) 0%, rgba(120, 32, 37, 0.25) 100%);
+  border-color: #f59e0b;
+  transform: translateY(-1px);
+}
+@keyframes save-nudge-glow {
+  0% {
+    border-color: rgba(245, 158, 11, 0.3);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
+  }
+  100% {
+    border-color: rgba(245, 158, 11, 0.8);
+    box-shadow: 0 0 22px rgba(245, 158, 11, 0.3);
+  }
+}
+.lobby-save-nudge-badge {
+  font-family: var(--cond, "Barlow Condensed", sans-serif);
+  font-size: 15px;
+  font-weight: 700;
+  color: #f59e0b;
+  letter-spacing: 0.5px;
+}
+.lobby-save-nudge-sub {
+  font-family: var(--cond, "Barlow Condensed", sans-serif);
+  font-size: 12px;
+  color: var(--muted, #8a909b);
+}
 .lobby-modes {
   display: grid;
   grid-template-columns: 1fr 1fr;

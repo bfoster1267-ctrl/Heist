@@ -414,15 +414,16 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
             </p>
           </div>
           <button
-            className="arcade-close-btn"
+            className="arcade-back-lobby-btn"
             onClick={() => {
               click();
               buzz("tap");
               onClose();
             }}
-            aria-label={t("common.close")}
+            aria-label={t("common.back_to_lobby")}
           >
-            ✕
+            <span className="arcade-back-arrow">←</span>
+            <span className="arcade-back-text">{t("common.back_to_lobby")}</span>
           </button>
         </div>
 

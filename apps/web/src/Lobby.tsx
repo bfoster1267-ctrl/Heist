@@ -156,15 +156,6 @@ export function Lobby({
     save();
     onPlay({ players: 3, name: nm(), stakes: 0, coached: true });
   };
-  // a first visit goes straight into the one-hand first lesson: no question screen first
-  // (players with an account sign in from the lobby afterwards)
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current || !newbie || flag("heist.welcomed")) return;
-    started.current = true;
-    setFlag("heist.welcomed");
-    coach();
-  }, []);
   return (
     <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
@@ -204,18 +195,23 @@ export function Lobby({
             <>
               <button
                 type="button"
+                className="btn lobby-big lobby-coach-glow"
+                onClick={coach}
+              >
+                {t("lobby.learn_heist")}
+                <span className="lobby-sub">{t("lobby.learn_heist_sub")}</span>
+              </button>
+
+              <button
+                type="button"
                 className="btn primary lobby-big"
                 onClick={() => setGames(true)}
-                style={{ background: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)", marginBottom: "0.6rem" }}
+                style={{ background: "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)", marginTop: "0.6rem" }}
               >
                 {t("lobby.play_solo_hub")}
                 <span className="lobby-sub">{t("lobby.play_solo_hub_sub")}</span>
               </button>
 
-              <button className="btn lobby-big" onClick={coach}>
-                {t("lobby.learn_heist")}
-                <span className="lobby-sub">{t("lobby.learn_heist_sub")}</span>
-              </button>
               {onSignIn && (
                 <button className="lobby-change" onClick={onSignIn}>
                   {t("lobby.have_account")}
@@ -240,6 +236,17 @@ export function Lobby({
         <button className="lobby-change" onClick={() => setOptions(true)}>
           {t("lobby.change_table")}
         </button>
+
+        {onSave && (
+          <button
+            type="button"
+            className="lobby-save-nudge"
+            onClick={onSave}
+          >
+            <span className="lobby-save-nudge-badge">{t("lobby.save_progress_nudge")}</span>
+            <span className="lobby-save-nudge-sub">{t("lobby.save_progress_sub")}</span>
+          </button>
+        )}
             </>
           )}
         </div>
