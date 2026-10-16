@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, settleCheckers, checkersPay, replayCheckers, checkersTallyOf, isCheckersLevel, type CheckersTally, type CheckersLevel, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -194,6 +194,12 @@ export interface Backend {
   scoundrelFinish(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward }>;
   /** pay a Scoundrel game's moves so far */
   scoundrelBank(gameId: string, moves: unknown[], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** start a Checkers game against the bot (the daily is always the Pro bot); the result is worked out by replaying your moves */
+  checkersStart(seed?: number, isDaily?: boolean, level?: CheckersLevel): Promise<{ gameId: string; seed: number; level: CheckersLevel }>;
+  /** settle a finished Checkers game (won, lost or drawn) */
+  checkersFinish(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** pay a Checkers game's captures so far */
+  checkersBank(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -581,6 +587,35 @@ export class BrowserBackend implements Backend {
     return { me: this.view(), reward: r.reward };
   }
 
+  private checkersState: { gameId: string; seed: number; level: CheckersLevel; isDaily?: boolean; paid?: CheckersTally; paidXp?: number; drain?: number; plies?: number[][] } | null = null;
+  async checkersStart(seed?: number, isDaily = false, level?: CheckersLevel) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    const lv: CheckersLevel = isDaily ? "pro" : isCheckersLevel(level) ? level : "rookie";
+    this.checkersState = { gameId: `l_${s}`, seed: s, level: lv, isDaily };
+    return { gameId: this.checkersState.gameId, seed: s, level: lv };
+  }
+  async checkersFinish(gameId: string, moves: number[][], drain: number) {
+    return this.checkersBank(gameId, moves, drain, true);
+  }
+  async checkersBank(gameId: string, moves: number[][], drain: number, finish = false) {
+    const g = this.checkersState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const rep = replayCheckers(g.seed, g.level, moves, g.plies);
+    const over = rep.state.winner !== null;
+    if (finish && !over) throw new BackendError("That game isn't over yet");
+    g.plies = rep.plies;
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = checkersPay(g.paid, g.paidXp, checkersTallyOf(rep.state, g.level), g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (over) this.checkersState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleCheckers(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
   async soloFinish(gameId: string, answers: unknown[]) {
     const g = this.save.solo;
     if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
@@ -888,6 +923,15 @@ export class ServerBackend implements Backend {
   }
   scoundrelBank(gameId: string, moves: unknown[], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/scoundrel/bank", { gameId, moves, drain });
+  }
+  checkersStart(seed?: number, isDaily?: boolean, level?: CheckersLevel) {
+    return this.call<{ gameId: string; seed: number; level: CheckersLevel }>("/api/checkers/start", { seed, isDaily, level });
+  }
+  checkersFinish(gameId: string, moves: number[][], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/checkers/finish", { gameId, moves, drain });
+  }
+  checkersBank(gameId: string, moves: number[][], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/checkers/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

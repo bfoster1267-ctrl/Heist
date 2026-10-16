@@ -17,7 +17,7 @@ const BODY_LIMIT = 16 * 1024;
 /** a finished solo game posts every answer the player gave */
 const SOLO_BODY_LIMIT = 512 * 1024;
 /** routes that carry a whole game's moves: every arcade game's bank and finish, and a vs-bots game's finish */
-const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel)\/(bank|finish))$/;
+const BIG_BODY = /^POST \/api\/(solo\/finish|(solitaire|freecell|tripeaks|ers|spider|pyramid|yukon|scoundrel|checkers)\/(bank|finish))$/;
 /** sign-in attempts per address per window */
 const AUTH_TRIES = 20;
 const AUTH_WINDOW_MS = 10 * 60_000;
@@ -76,6 +76,7 @@ function outcome(key: string, out: unknown): Record<string, unknown> {
   if (key === "POST /api/prestige") Object.assign(x, { coins: o.coins, unlocked: o.unlocked });
   if (key === "POST /api/solo/start") Object.assign(x, { gameId: o.gameId, players: o.players, stage: o.stage });
   if (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank") x.reward = o.reward && { xp: o.reward.xp };
+  if (key === "POST /api/checkers/finish" || key === "POST /api/checkers/bank") x.reward = o.reward && { xp: o.reward.xp };
   if (key === "POST /api/board/new" && o.post) Object.assign(x, { post: o.post.id, kind: o.post.kind, title: o.post.title });
   if (key === "POST /api/lounge/report" && o.reported) Object.assign(x, { reported: o.reported, hidden: o.hidden });
   if (key === "POST /api/solo/finish" || key === "POST /api/solo/quit") x.reward = o.reward && { xp: o.reward.xp, coins: o.reward.coins, payout: o.reward.payout };
@@ -159,6 +160,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     const sent =
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
       : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
+      : (key === "POST /api/checkers/finish" || key === "POST /api/checkers/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
       : key === "POST /api/auth/guest" ? { ...body, ref: undefined }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
@@ -324,6 +326,9 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/scoundrel/start": async (b, t) => svc.scoundrelStart(await me(t), b.seed, b.isDaily),
     "POST /api/scoundrel/finish": async (b, t) => svc.scoundrelBank(await me(t), b.gameId, b.moves, true, b.drain),
     "POST /api/scoundrel/bank": async (b, t) => svc.scoundrelBank(await me(t), b.gameId, b.moves, false, b.drain),
+    "POST /api/checkers/start": async (b, t) => svc.checkersStart(await me(t), b.seed, b.isDaily, b.level),
+    "POST /api/checkers/finish": async (b, t) => svc.checkersBank(await me(t), b.gameId, b.moves, true, b.drain),
+    "POST /api/checkers/bank": async (b, t) => svc.checkersBank(await me(t), b.gameId, b.moves, false, b.drain),
     "POST /api/solo/quit": async (_, t) => svc.soloQuit(await me(t)),
     "POST /api/solo/drink": async (b, t) => {
       const count = typeof b.count === "number" && Number.isInteger(b.count) && b.count >= 1 && b.count <= 5 ? b.count : 1;
