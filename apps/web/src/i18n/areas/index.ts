@@ -15,5 +15,6 @@ import friends from "./friends";
 import lounge from "./lounge";
 import feedback from "./board.feedback";
 import server from "./server";
+import online from "./online";
 
-export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback, server] as const;
+export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback, server, online] as const;
