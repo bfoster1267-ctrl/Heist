@@ -121,5 +121,8 @@ export default strings({
   "server.ersStarted": ["Game started! 26 cards dealt each.", "Começou! 26 cartas pra cada um."],
   "server.ersStarted2": ["Game started. Player 1 flips first.", "Começou. O jogador 1 vira primeiro."],
   "server.ersNoCards": ["Opponent has no cards left to play!", "O adversário não tem mais cartas pra jogar!"],
-  "server.ersRanOut": ["Opponent ran out of cards during challenge!", "O adversário ficou sem cartas no desafio!"],
+  "server.notSignedIn": ["Not signed in", "Você não entrou na conta"],
+  "server.couldntSave": ["Couldn't save that", "Não deu pra salvar"],
+  "server.alertsOffHere": ["Turn alerts aren't set up on the server", "Os alertas de vez não estão ligados no servidor"],
+  "server.ersRanOut":["Opponent ran out of cards during challenge!", "O adversário ficou sem cartas no desafio!"],
 });
