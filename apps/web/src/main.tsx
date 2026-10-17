@@ -8,6 +8,7 @@ import { installTracking } from "./track";
 import { installTurn } from "./turn";
 import "./fonts/fonts.css";
 import "./styles.css";
+import "./i18n/i18n.css";
 import { useLocale } from "./i18n";
 
 installAppShell();

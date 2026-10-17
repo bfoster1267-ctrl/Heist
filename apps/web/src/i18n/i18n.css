@@ -1,0 +1,143 @@
+/* Portuguese runs 20-30% longer than English. These rules apply only when the page is in Portuguese
+   (<html lang="pt-BR">, which i18n keeps in step), so English keeps its exact look. Long labels wrap or
+   shrink a little instead of spilling out of their button or badge on an upright iPhone. */
+
+/* buttons: a long label wraps onto a second line (hyphenated where the browser can) */
+:lang(pt) .btn,
+:lang(pt) .daily-play-btn,
+:lang(pt) .daily-mini-play-btn,
+:lang(pt) .daily-freeze-btn,
+:lang(pt) .daily-banner-btn,
+:lang(pt) .vic-pwa-btn,
+:lang(pt) .sc-action-btn,
+:lang(pt) .sc-choice-btn,
+:lang(pt) .sc-result-btn,
+:lang(pt) .ers-flip-btn,
+:lang(pt) .ers-rules-close-btn,
+:lang(pt) .sol-autocomplete-btn {
+  white-space: normal;
+  overflow-wrap: break-word;
+  -webkit-hyphens: auto;
+  hyphens: auto;
+  line-height: 1.15;
+}
+
+/* the solo games' title bar: the game name never pushes the toolbar buttons off screen */
+:lang(pt) .sol-hud-name,
+:lang(pt) .fc-hud-name,
+:lang(pt) .tp-hud-name,
+:lang(pt) .spider-hud-name,
+:lang(pt) .pyr-hud-name,
+:lang(pt) .yk-hud-name,
+:lang(pt) .sc-hud-name,
+:lang(pt) .ers-hud-name,
+:lang(pt) .sol-hud-stats,
+:lang(pt) .fc-hud-stats,
+:lang(pt) .tp-hud-stats,
+:lang(pt) .spider-hud-stats,
+:lang(pt) .pyr-hud-stats,
+:lang(pt) .yk-hud-stats,
+:lang(pt) .sc-hud-stats,
+:lang(pt) .ers-hud-stats {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+:lang(pt) .arcade-trust-pill,
+:lang(pt) .arcade-streak-pill {
+  letter-spacing: 0;
+  padding: 1px 4px;
+}
+@media (max-width: 430px) {
+  /* "✓ Grátis · Sem anúncios" doesn't fit beside the game's name on a phone held upright */
+  :lang(pt) .arcade-trust-pill {
+    display: none;
+  }
+  :lang(pt) .sol-hud-name,
+  :lang(pt) .fc-hud-name,
+  :lang(pt) .tp-hud-name,
+  :lang(pt) .spider-hud-name,
+  :lang(pt) .pyr-hud-name,
+  :lang(pt) .yk-hud-name,
+  :lang(pt) .sc-hud-name,
+  :lang(pt) .ers-hud-name {
+    letter-spacing: 1.5px;
+  }
+}
+
+/* the table's turn steps (Reagrupar · Atacar · Juntar a gangue · Revelação · Acerto) */
+:lang(pt) .turn-steps {
+  letter-spacing: 0.2px;
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+:lang(pt) .turn-step {
+  padding: 2px 5px;
+}
+@media (max-width: 430px) {
+  :lang(pt) .turn-steps {
+    font-size: 11px;
+    gap: 2px;
+  }
+  :lang(pt) .turn-step {
+    padding: 1px 4px;
+  }
+}
+
+/* seats and lobby cards: role names and mode blurbs are longer */
+:lang(pt) .seat-role {
+  font-size: 11.5px;
+  letter-spacing: -0.1px;
+}
+:lang(pt) .lobby-mode-sub {
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+/* badges and pills: tighter so the Portuguese fits on one line */
+:lang(pt) .daily-multiplier-pill,
+:lang(pt) .daily-featured-badge,
+:lang(pt) .daily-speed-badge,
+:lang(pt) .ers-pot-badge,
+:lang(pt) .ers-count-pill,
+:lang(pt) .ers-challenge-banner,
+:lang(pt) .sc-card-badge,
+:lang(pt) .sc-card-desc,
+:lang(pt) .install-badge,
+:lang(pt) .acct-tabs button,
+:lang(pt) .lounge-tabs button {
+  letter-spacing: 0;
+}
+:lang(pt) .sc-card-badge {
+  font-size: 0.92em;
+}
+:lang(pt) .ers-pot-badge {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* the queue switcher strip */
+:lang(pt) .queue-switcher-item-title,
+:lang(pt) .queue-switcher-item-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Settings: the language picker */
+.set-lang select {
+  font: inherit;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--paper, #f2e8d3);
+  background: #2a2e37;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 5px 8px;
+  max-width: 60%;
+}
