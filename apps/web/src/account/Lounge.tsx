@@ -19,6 +19,8 @@ import { PlayerCard } from "./Profile";
 import { useAccount, useLook } from "./useAccount";
 import { VaultGlass, isVault } from "../vault";
 import { FeedbackBoard } from "./Board";
+import { t, tEn, time as timeOf, tNodes } from "../i18n";
+import { drinkName, rankLabel } from "../i18n/data";
 
 const SEEN_KEY = "heist.lounge.seen";
 const MUTED_KEY = "heist.lounge.muted";
@@ -126,13 +128,13 @@ export function MessageRow({
 }) {
   const b = line.badge;
   const emoji = [...line.text].length <= 2;
-  const time = new Date(line.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const time = timeOf(line.at);
   return (
     <div className={"lounge-row" + (mine ? " mine" : "") + (first ? " first" : "")}>
       {!mine && (
         <span className="lounge-who">
           {first && (
-            <button className="lounge-avatar" onClick={() => onPlayer?.(line.userId)} aria-label={`See ${line.name}'s player card`}>
+            <button className="lounge-avatar" onClick={() => onPlayer?.(line.userId)} aria-label={t("lg.seeCard", { name: line.name })}>
               <Avatar name={line.name} frame={b?.frame ?? "frame.none"} level={b?.level} size={34} />
             </button>
           )}
@@ -142,8 +144,8 @@ export function MessageRow({
         {first && !mine && (
           <div className="lounge-name">
             {line.name}
-            {b?.title && <span className="lounge-tag">{b.title}</span>}
-            {b?.rank && <span className="lounge-tag rank">{b.rank}</span>}
+            {b?.title && <span className="lounge-tag">{tEn(b.title)}</span>}
+            {b?.rank && <span className="lounge-tag rank">{rankLabel(b.rank)}</span>}
           </div>
         )}
         {onTap ? (
@@ -293,17 +295,15 @@ function LoungeDock({
               {m.drink ? (
                 <span className="lounge-drink">
                   {isVault(m.drink.emoji) ? <VaultGlass size={22} /> : <span className="lounge-drink-emoji">{m.drink.emoji}</span>}
-                  <span>
-                    <b>{m.userId === me ? "You" : m.name}</b> sent <b>{m.drink.toId === me ? "you" : m.drink.to}</b> a {m.text}
-                  </span>
+                  <span>{drinkLine(m, me)}</span>
                 </span>
               ) : (
                 <>
                   <Avatar name={m.name} frame={m.badge?.frame ?? "frame.none"} size={28} />
                   <span className="lounge-float-say">
                     <span className="lounge-float-name">
-                      {m.userId === me ? "You" : m.name}
-                      {!m.key.startsWith("lounge-") && <span className="lounge-float-dm"> · to you</span>}
+                      {m.userId === me ? t("fr.youName") : m.name}
+                      {!m.key.startsWith("lounge-") && <span className="lounge-float-dm"> · {t("lg.toYou")}</span>}
                     </span>
                     <span className="lounge-bubble" style={bubbleOf(m.badge)}>
                       {m.text}
@@ -315,11 +315,11 @@ function LoungeDock({
           ))}
         </AnimatePresence>
       </div>
-      <button className={"lounge-pill" + (unread ? " fresh" : "")} onClick={() => onOpen()} aria-label={unread ? `Open the Lounge: ${unread} new` : "Open the Lounge, the chat for everyone"}>
+      <button className={"lounge-pill" + (unread ? " fresh" : "")} onClick={() => onOpen()} aria-label={unread ? t("lg.openNew", { n: unread }) : t("lg.open")}>
         <BubbleIcon />
-        <span className="lounge-pill-name">The Lounge</span>
+        <span className="lounge-pill-name">{t("lg.title")}</span>
         <span className="lounge-pill-here">
-          <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here` : "Chat"}
+          <span className="lounge-live" aria-hidden /> {here > 1 ? t("lg.here", { n: here }) : t("lg.chat")}
         </span>
         {unread > 0 && <span className="lounge-btn-count">{unread > 9 ? "9+" : unread}</span>}
       </button>
@@ -374,17 +374,17 @@ function LoungePanel({
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
-    const t = text.trim();
-    if (!t || busy || !backend.loungeSay) return;
+    const body = text.trim();
+    if (!body || busy || !backend.loungeSay) return;
     setBusy(true);
     setErr(null);
     try {
-      const { msg } = await backend.loungeSay(t);
+      const { msg } = await backend.loungeSay(body);
       setText("");
       atBottom.current = true;
       onSaid(msg);
     } catch (x) {
-      setErr(x instanceof Error ? x.message : "That didn't send");
+      setErr(x instanceof Error ? tEn(x.message) : t("lg.errSend"));
     } finally {
       setBusy(false);
     }
@@ -401,50 +401,50 @@ function LoungePanel({
         onSaid(r.msg);
       }
     } catch (x) {
-      setErr(x instanceof Error ? x.message : "That drink didn't go through");
+      setErr(x instanceof Error ? tEn(x.message) : t("lg.errDrink"));
     }
   };
 
   const report = async (m: LoungeMsg) => {
     setPicked(null);
-    if (!backend.loungeReport || !window.confirm(`Report this line from ${m.name}? It's hidden for you now, and taken down for everyone if others report it too.`)) return;
+    if (!backend.loungeReport || !window.confirm(t("lg.reportSure", { name: m.name }))) return;
     onGone(m.id);
-    setNote("Thanks. We'll take a look.");
+    setNote(t("lg.reported"));
     await backend.loungeReport(m.id).catch(() => {});
     void onPull().catch(() => {});
   };
 
   return (
     <motion.div className="lounge-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <motion.div className="lounge" role="dialog" aria-label="The Lounge" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
+      <motion.div className="lounge" role="dialog" aria-label={t("lg.title")} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
         <div className="lounge-head">
           {friends || backend.board ? (
-            <div className="lounge-tabs" role="tablist" aria-label="Chat">
+            <div className="lounge-tabs" role="tablist" aria-label={t("lg.chat")}>
               <button role="tab" aria-selected={tab === "lounge"} className={tab === "lounge" ? "on" : ""} onClick={() => onTab("lounge")}>
-                Lounge
+                {t("lg.tab")}
                 {tab !== "lounge" && loungeUnread > 0 && <span className="lounge-tab-count">{loungeUnread > 9 ? "9+" : loungeUnread}</span>}
               </button>
               {friends && (
                 <button role="tab" aria-selected={tab === "friends"} className={tab === "friends" ? "on" : ""} onClick={() => onTab("friends")}>
-                  Friends
+                  {t("prof.tab.friends")}
                   {friends.unread > 0 && <span className="lounge-tab-count">{friends.unread > 9 ? "9+" : friends.unread}</span>}
                 </button>
               )}
               {backend.board && (
                 <button role="tab" aria-selected={tab === "board"} className={tab === "board" ? "on" : ""} onClick={() => onTab("board")}>
-                  Feedback
+                  {t("lg.feedback")}
                 </button>
               )}
             </div>
           ) : (
             <div>
-              <div className="lounge-title">The Lounge</div>
+              <div className="lounge-title">{t("lg.title")}</div>
               <div className="lounge-sub">
-                <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here now` : "Chat with everyone playing Heist"}
+                <span className="lounge-live" aria-hidden /> {here > 1 ? t("lg.hereNow", { n: here }) : t("lg.everyone")}
               </div>
             </div>
           )}
-          <button className="acct-x" onClick={onClose} aria-label="Close the Lounge">
+          <button className="acct-x" onClick={onClose} aria-label={t("lg.close")}>
             ×
           </button>
         </div>
@@ -456,7 +456,7 @@ function LoungePanel({
         <>
         {(friends || backend.board) && (
           <div className="lounge-sub lounge-sub-tabbed">
-            <span className="lounge-live" aria-hidden /> {here > 1 ? `${here} here now` : "Chat with everyone playing Heist"}
+            <span className="lounge-live" aria-hidden /> {here > 1 ? t("lg.hereNow", { n: here }) : t("lg.everyone")}
           </div>
         )}
         <div
@@ -467,16 +467,14 @@ function LoungePanel({
             atBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;
           }}
         >
-          {!msgs.length && <p className="lounge-empty">It's quiet in here. Say hi, or ask who's up for a game.</p>}
+          {!msgs.length && <p className="lounge-empty">{t("lg.empty")}</p>}
           {msgs.map((m, i) => {
             if (m.drink) {
               const glass = isVault(m.drink.emoji) ? <VaultGlass size={26} /> : <span className="lounge-drink-emoji">{m.drink.emoji}</span>;
               return (
                 <div key={m.id} className={"lounge-drink" + (m.drink.toId === me ? " for-me" : "")}>
                   {glass}
-                  <span>
-                    <b>{m.userId === me ? "You" : m.name}</b> sent <b>{m.drink.toId === me ? "you" : m.drink.to}</b> a {m.text}
-                  </span>
+                  <span>{drinkLine(m, me)}</span>
                 </div>
               );
             }
@@ -497,11 +495,11 @@ function LoungePanel({
                 }}
               >
                 {pour === m.id && (
-                  <div className="lounge-pour" role="group" aria-label={`Send ${m.name} a drink`}>
+                  <div className="lounge-pour" role="group" aria-label={t("lg.drinkFor", { name: m.name })}>
                     {drinks.map((d) => (
-                      <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => void sendDrink(m, d.id)} aria-label={`Send ${m.name} a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
+                      <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => void sendDrink(m, d.id)} aria-label={t("lg.drinkAria", { name: m.name, drink: drinkName(d.id), price: d.price ? t("common.coins", { n: d.price }) : t("common.free") })} title={`${drinkName(d.id)}: ${d.price ? t("common.coins", { n: d.price }) : t("common.free")}`}>
                         {isVault(d.emoji) ? <VaultGlass size={24} /> : d.emoji}
-                        <span className="chat-price">{d.price || "free"}</span>
+                        <span className="chat-price">{d.price || t("chat.free")}</span>
                       </button>
                     ))}
                   </div>
@@ -515,7 +513,7 @@ function LoungePanel({
                         setPour(m.id);
                       }}
                     >
-                      Send a drink
+                      {t("chat.sendDrink")}
                     </button>
                     <button
                       className="btn small ghost"
@@ -524,20 +522,20 @@ function LoungePanel({
                         setCard(m.userId);
                       }}
                     >
-                      Player card
+                      {t("prof.card")}
                     </button>
                     <button
                       className="btn small ghost"
                       onClick={() => {
                         setPicked(null);
                         onMute(m.userId);
-                        setNote(`${m.name} is muted. You won't see them here.`);
+                        setNote(t("lg.muted", { name: m.name }));
                       }}
                     >
-                      Mute
+                      {t("lg.mute")}
                     </button>
                     <button className="btn small ghost danger" onClick={() => void report(m)}>
-                      Report
+                      {t("lg.report")}
                     </button>
                   </div>
                 )}
@@ -556,8 +554,8 @@ function LoungePanel({
               className="lounge-input"
               value={text}
               maxLength={200}
-              placeholder="Say something to everyone"
-              aria-label="Message the Lounge"
+              placeholder={t("lg.say")}
+              aria-label={t("lg.sayAria")}
               enterKeyHint="send"
               onChange={(e) => {
                 setText(e.target.value);
@@ -565,17 +563,17 @@ function LoungePanel({
               }}
             />
             <button className="btn gold" type="submit" disabled={busy || !text.trim()}>
-              Send
+              {t("common.send")}
             </button>
           </form>
         ) : (
-          <div className="lounge-locked">{why ?? "You can read along. Talking opens after your first game."}</div>
+          <div className="lounge-locked">{why ? tEn(why) : t("lg.locked")}</div>
         )}
         <div className="lounge-fine">
-          {err ? <span className="lounge-err">{err}</span> : "Be nice. Swears get starred out; links and slurs don't send."}
+          {err ? <span className="lounge-err">{err}</span> : t("lg.fine")}
           {mutedCount > 0 && (
             <button className="lounge-unmute" onClick={onUnmuteAll}>
-              Unmute {mutedCount}
+              {t("lg.unmute", { n: mutedCount })}
             </button>
           )}
         </div>
@@ -587,7 +585,15 @@ function LoungePanel({
   );
 }
 
+/** "Ann sent you a Martini": a drink line in the Lounge, from the server's English drink name. */
+function drinkLine(m: { userId: string; name: string; text: string; drink?: LoungeMsg["drink"] }, me: string) {
+  const from = m.userId === me;
+  const to = m.drink?.toId === me;
+  return tNodes(to ? "lg.drinkYou" : from ? "lg.drinkFromYou" : "lg.drink", { from: <b>{m.name}</b>, to: <b>{m.drink?.to}</b> }, { drink: tEn(m.text) });
+}
+
 function BubbleIcon() {
+
   return (
     <svg className="lounge-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M4 5h16v10H9l-4 4v-4H4z" />

@@ -1,0 +1,38 @@
+// The Lounge (the chat for everyone) and its tabs.
+import { strings } from "../define";
+
+export default strings({
+  "lg.title": ["The Lounge", "O Lounge"],
+  "lg.tab": ["Lounge", "Lounge"],
+  "lg.chat": ["Chat", "Chat"],
+  "lg.feedback": ["Feedback", "Sugestões"],
+  "lg.seeCard": ["See {name}'s player card", "Ver a ficha de {name}"],
+  "lg.toYou": ["to you", "pra você"],
+  "lg.openNew": ["Open the Lounge: {n} new", "Abrir o Lounge: {n} novas"],
+  "lg.open": ["Open the Lounge, the chat for everyone", "Abrir o Lounge, o chat de todo mundo"],
+  "lg.here": ["{n} here", "{n} aqui"],
+  "lg.hereNow": ["{n} here now", "{n} aqui agora"],
+  "lg.everyone": ["Chat with everyone playing Heist", "Converse com todo mundo que está jogando Heist"],
+  "lg.close": ["Close the Lounge", "Fechar o Lounge"],
+  "lg.errSend": ["That didn't send", "Não foi enviado"],
+  "lg.errDrink": ["That drink didn't go through", "Essa bebida não foi"],
+  "lg.reportSure": [
+    "Report this line from {name}? It's hidden for you now, and taken down for everyone if others report it too.",
+    "Denunciar essa mensagem de {name}? Ela some pra você agora, e sai pra todo mundo se outras pessoas também denunciarem.",
+  ],
+  "lg.reported": ["Thanks. We'll take a look.", "Valeu. Vamos dar uma olhada."],
+  "lg.empty": ["It's quiet in here. Say hi, or ask who's up for a game.", "Tá quietinho aqui. Dá um oi, ou pergunta quem topa uma partida."],
+  "lg.drinkFor": ["Send {name} a drink", "Pagar uma bebida pra {name}"],
+  "lg.drinkAria": ["Send {name} a {drink}, {price}", "Mandar {drink} pra {name}, {price}"],
+  "lg.muted": ["{name} is muted. You won't see them here.", "{name} foi silenciado. Você não vai ver essa pessoa aqui."],
+  "lg.mute": ["Mute", "Silenciar"],
+  "lg.report": ["Report", "Denunciar"],
+  "lg.say": ["Say something to everyone", "Fale alguma coisa pra todo mundo"],
+  "lg.sayAria": ["Message the Lounge", "Mensagem pro Lounge"],
+  "lg.locked": ["You can read along. Talking opens after your first game.", "Você pode ler. Pra falar, jogue sua primeira partida."],
+  "lg.fine": ["Be nice. Swears get starred out; links and slurs don't send.", "Seja gentil. Palavrão vira asterisco; links e ofensas não são enviados."],
+  "lg.unmute": ["Unmute {n}", "Tirar silêncio de {n}"],
+  "lg.drink": ["{from} sent {to} a {drink}", "{from} mandou {drink} pra {to}"],
+  "lg.drinkYou": ["{from} sent you a {drink}", "{from} te mandou {drink}"],
+  "lg.drinkFromYou": ["You sent {to} a {drink}", "Você mandou {drink} pra {to}"],
+});
