@@ -715,15 +715,13 @@ function LobbySettings({ onClose }: { onClose: () => void }) {
   }, [onClose]);
   return createPortal(
     <motion.div className="lobby-settings-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()}>
-        <Settings
-          onClose={onClose}
-          onTour={() => {
-            setPrefs({ walked: false, tips: true, seen: [] });
-            onClose();
-          }}
-        />
-      </div>
+      <Settings
+        onClose={onClose}
+        onTour={() => {
+          setPrefs({ walked: false, tips: true, seen: [] });
+          onClose();
+        }}
+      />
     </motion.div>,
     document.body,
   );

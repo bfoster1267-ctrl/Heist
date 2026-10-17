@@ -638,6 +638,7 @@ export function Table({
           <AnimatePresence>
             {showSettings && (
               <Settings
+                inGame
                 onClose={() => setShowSettings(false)}
                 onTour={() => {
                   setShowSettings(false);

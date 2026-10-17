@@ -3238,19 +3238,25 @@ button:disabled {
     margin-left: 0;
   }
 }
-/* the table's settings, opened from the lobby */
+/* the settings modal, opened from the lobby */
 .lobby-settings-back {
   position: fixed;
   inset: 0;
-  z-index: 90;
-  background: rgba(0, 0, 0, 0.55);
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 .lobby-settings-back .settings {
-  position: fixed;
-  top: calc(12px + env(safe-area-inset-top));
-  right: calc(12px + env(safe-area-inset-right));
-  max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  overflow-y: auto;
+  position: relative;
+  top: auto;
+  right: auto;
+  left: auto;
+  bottom: auto;
 }
 /* the text size slider reaches the lobby's small print too */
 .lobby.big-text .tagline {
@@ -4138,11 +4144,9 @@ html.turned .lobby-settings-back .settings {
   max-height: calc(var(--turn-h) - 24px);
 }
 
-/* ------------------------------------------------------------------ polish pass (2026-10-10) */
-/* the lobby's settings open beside the gear that opened them, not across the screen */
+/* the lobby's settings open centered */
 .lobby-settings-back .settings {
-  right: auto;
-  left: calc(12px + env(safe-area-inset-left));
+  margin: auto;
 }
 /* keyboard shortcuts mean nothing on a touch screen */
 @media (pointer: coarse) {
