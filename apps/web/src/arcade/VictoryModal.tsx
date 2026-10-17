@@ -24,6 +24,7 @@ import { click, chipRun, win } from "../sound";
 import { saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
 import "./victory.css";
+import { t, tk } from "../i18n";
 
 const DAILY_LABELS: Record<string, string> = {
   solitaire: "Klondike Solitaire",
@@ -35,6 +36,8 @@ const DAILY_LABELS: Record<string, string> = {
   ers: "Egyptian Rat Screw",
   scoundrel: "Scoundrel",
 };
+/** a daily game's name in the active language (the catalog's arcade title) */
+const dailyLabel = (g: string) => (DAILY_LABELS[g] ? tk(`arc.${g}.title`, DAILY_LABELS[g]) : g.toUpperCase());
 
 export interface VictoryModalProps {
   game: DailyGame | string;
@@ -110,7 +113,7 @@ export function VictoryModal({
     click();
     buzz("tap");
     if (typeof window === "undefined" || !("Notification" in window)) {
-      alert("Browser push notifications are not supported on this device/browser.");
+      alert(t("vic.noPush"));
       return;
     }
     try {
@@ -119,7 +122,7 @@ export function VictoryModal({
         setReminderSet(true);
         buzz("win");
       } else {
-        alert("Notifications were disabled. Please allow notifications in browser settings.");
+        alert(t("vic.pushOff"));
       }
     } catch {
       /* ignore */
@@ -176,10 +179,10 @@ export function VictoryModal({
   useEffect(() => {
     win();
     buzz("win");
-    const t = setTimeout(() => {
+    const tm = setTimeout(() => {
       chipRun(6);
     }, 450);
-    return () => clearTimeout(t);
+    return () => clearTimeout(tm);
   }, []);
 
   // Countdown timer for next challenge
@@ -232,40 +235,40 @@ export function VictoryModal({
   };
 
   return createPortal(
-    <div className="vic-overlay" role="dialog" aria-modal="true" aria-label="Game Won Celebration">
+    <div className="vic-overlay" role="dialog" aria-modal="true" aria-label={t("vic.aria")}>
       <div className="vic-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header Badge & Title */}
         <div className="vic-badge-row">
           <span className="vic-badge">
-            <span>🏆</span> {isDaily ? "DAILY CHALLENGE SOLVED" : "CLEAN JOB"}
+            <span>🏆</span> {isDaily ? t("vic.dailySolved") : t("vic.clean")}
           </span>
         </div>
-        <h2 className="vic-title">VICTORY!</h2>
+        <h2 className="vic-title">{t("vic.title")}</h2>
 
         {/* Quick Stats Row */}
         <div className="vic-stats-row">
           {time && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{time}</span>
-              <span className="vic-stat-lbl">Time</span>
+              <span className="vic-stat-lbl">{t("vic.time")}</span>
             </div>
           )}
           {speedBonusXp > 0 && (
             <div className="vic-stat-pill" style={{ borderColor: "rgba(56, 189, 248, 0.4)", background: "rgba(56, 189, 248, 0.1)" }}>
               <span className="vic-stat-val" style={{ color: "#38bdf8" }}>+{speedBonusXp} XP</span>
-              <span className="vic-stat-lbl" style={{ color: "#bae6fd" }}>Speed Bonus</span>
+              <span className="vic-stat-lbl" style={{ color: "#bae6fd" }}>{t("vic.speed")}</span>
             </div>
           )}
           {moves !== undefined && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{moves}</span>
-              <span className="vic-stat-lbl">Moves</span>
+              <span className="vic-stat-lbl">{t("vic.moves")}</span>
             </div>
           )}
           {score !== undefined && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{score}</span>
-              <span className="vic-stat-lbl">Score</span>
+              <span className="vic-stat-lbl">{t("vic.score")}</span>
             </div>
           )}
         </div>
@@ -275,24 +278,22 @@ export function VictoryModal({
           <span className="vic-flame-icon" aria-hidden="true">🔥</span>
           <div className="vic-streak-content">
             <div className="vic-streak-title">
-              <span>{streak}-DAY STREAK!</span>
+              <span>{t("vic.streak", { count: streak })}</span>
               <span style={{ fontSize: "0.75rem", background: "rgba(0,0,0,0.4)", padding: "0.15rem 0.4rem", borderRadius: "4px" }}>
                 {multiplier}x XP
               </span>
             </div>
             <div className="vic-streak-sub">
-              {streak === 1
-                ? "First win locked in! Play tomorrow to reach Day 2."
-                : `Streak active! Keep the fire burning in ${formatCountdown(msLeft)}.`}
+              {streak === 1 ? t("vic.first") : t("vic.active", { time: formatCountdown(msLeft) })}
             </div>
             {usedFreeze && (
               <div className="vic-freeze-tag">
-                <span>🧊</span> Streak Freeze saved your streak!
+                <span>🧊</span> {t("vic.freezeSaved")}
               </div>
             )}
             {freezes > 0 && !usedFreeze && (
               <div className="vic-freeze-tag">
-                <span>🧊</span> {freezes} Streak Freeze Protected
+                <span>🧊</span> {t("vic.freezes", { count: freezes })}
               </div>
             )}
           </div>
@@ -302,11 +303,11 @@ export function VictoryModal({
         <div className="vic-reminder-row">
           {reminderSet ? (
             <div className="vic-reminder-confirmed">
-              <span>✓</span> Streak reminder active! We'll alert you before reset.
+              <span>✓</span> {t("vic.reminderOn")}
             </div>
           ) : (
             <button type="button" className="vic-reminder-btn" onClick={handleSetReminder}>
-              <span>🔔</span> Remind Me Tomorrow
+              <span>🔔</span> {t("vic.remind")}
             </button>
           )}
         </div>
@@ -316,10 +317,8 @@ export function VictoryModal({
           <div className="vic-welcome-gift-card">
             <span style={{ fontSize: "1.8rem" }}>🎁</span>
             <div>
-              <div className="vic-welcome-gift-title">DAY 1 STARTER PACK UNLOCKED!</div>
-              <div className="vic-welcome-gift-sub">
-                +1 Streak Freeze 🧊 &amp; +250 Coins 🪙 added! Your streak is protected if you miss tomorrow.
-              </div>
+              <div className="vic-welcome-gift-title">{t("vic.packTitle")}</div>
+              <div className="vic-welcome-gift-sub">{t("vic.packText")}</div>
             </div>
           </div>
         )}
@@ -329,8 +328,8 @@ export function VictoryModal({
           <div className="vic-reward-item">
             <span className="vic-reward-icon">🪙</span>
             <div>
-              <div className="vic-reward-val">+{isDaily ? 50 : 25} COINS</div>
-              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Loot Earned</div>
+              <div className="vic-reward-val">{t("vic.coins", { n: isDaily ? 50 : 25 })}</div>
+              <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>{t("vic.loot")}</div>
             </div>
           </div>
           <div className="vic-reward-item">
@@ -338,7 +337,7 @@ export function VictoryModal({
             <div>
               <div className="vic-reward-val">+{Math.round((isDaily ? 100 : 50) * multiplier) + speedBonusXp} XP</div>
               <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>
-                {speedBonusXp > 0 ? `+${speedBonusXp} Speed · Level ${lvl.level}` : `Level ${lvl.level} (${levelPercent}%)`}
+                {speedBonusXp > 0 ? t("vic.speedLevel", { n: speedBonusXp, lv: lvl.level }) : t("vic.levelPct", { lv: lvl.level, pct: levelPercent })}
               </div>
             </div>
           </div>
@@ -348,8 +347,8 @@ export function VictoryModal({
         {questsSummary && (
           <div className="vic-quests-card">
             <div className="vic-quests-head">
-              <span>Daily Quests ({questsSummary.quests.filter((q) => q.done).length}/3)</span>
-              <span style={{ color: "#fbbf24" }}>Vault: +100 🪙</span>
+              <span>{t("vic.quests", { n: questsSummary.quests.filter((q) => q.done).length })}</span>
+              <span style={{ color: "#fbbf24" }}>{t("vic.vault")}</span>
             </div>
             <div className="vic-quests-row">
               {questsSummary.quests.map((q) => (
@@ -377,8 +376,8 @@ export function VictoryModal({
           <div className="vic-pwa-card">
             <span style={{ fontSize: "1.4rem" }}>📲</span>
             <div className="vic-pwa-content">
-              <div className="vic-pwa-title">Play in Full Screen</div>
-              <div className="vic-pwa-sub">Install to home screen for zero browser bars and offline play.</div>
+              <div className="vic-pwa-title">{t("vic.pwaTitle")}</div>
+              <div className="vic-pwa-sub">{t("vic.pwaText")}</div>
             </div>
             <button
               type="button"
@@ -389,7 +388,7 @@ export function VictoryModal({
                 setShowInstallModal(true);
               }}
             >
-              How to Install ➔
+              {t("vic.howInstall")} ➔
             </button>
           </div>
         )}
@@ -408,7 +407,7 @@ export function VictoryModal({
               }}
               autoFocus
             >
-              NEXT DAILY DEAL: {DAILY_LABELS[nextDailyGame] ?? nextDailyGame.toUpperCase()} ({dailyCompletedCount}/8) ➔
+              {t("vic.nextDaily", { game: dailyLabel(nextDailyGame), n: dailyCompletedCount })} ➔
             </button>
           ) : isDaily && !nextDailyGame ? (
             <button
@@ -421,7 +420,7 @@ export function VictoryModal({
               }}
               autoFocus
             >
-              ALL 8 DEALS CRACKED! REPLAY ↺
+              {t("vic.allDone")} ↺
             </button>
           ) : (
             <button
@@ -434,7 +433,7 @@ export function VictoryModal({
               }}
               autoFocus
             >
-              PLAY NEXT DEAL 🃏
+              {t("vic.nextDeal")} 🃏
             </button>
           )}
 
@@ -443,7 +442,7 @@ export function VictoryModal({
             className="vic-btn-share"
             onClick={handleShare}
           >
-            <span>🔥</span> {copied ? "COPIED TO CLIPBOARD! ✓" : "SHARE SCORE CARD"}
+            <span>🔥</span> {copied ? t("vic.copied") : t("vic.share")}
           </button>
 
           <div className="vic-sub-actions">
@@ -457,7 +456,7 @@ export function VictoryModal({
                   onDealAgain();
                 }}
               >
-                ↺ Replay Deal
+                ↺ {t("vic.replay")}
               </button>
             )}
             {onChallengeFriend && (
@@ -470,7 +469,7 @@ export function VictoryModal({
                   onChallengeFriend();
                 }}
               >
-                🏆 Challenge Friend
+                🏆 {t("vic.challenge")}
               </button>
             )}
             {onHeist && (
@@ -483,7 +482,7 @@ export function VictoryModal({
                   onHeist();
                 }}
               >
-                Multiplayer Heist
+                {t("vic.heist")}
               </button>
             )}
             <button
@@ -495,8 +494,9 @@ export function VictoryModal({
                 onExit();
               }}
             >
-              Lobby
+              {t("table.lobby")}
             </button>
+
           </div>
         </div>
       </div>
