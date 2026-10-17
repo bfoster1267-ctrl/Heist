@@ -18,6 +18,8 @@ import {
   settleSolitaire,
   settleFreeCell,
   settleScoundrel,
+  settleMinesweeper,
+  settleSudoku,
   settleTriPeaks,
   todayUtc,
   upgrade,
@@ -49,7 +51,7 @@ describe("Daily Seed Generator", () => {
     expect(implicit).toBe(explicit);
   });
 
-  it("generates distinct seeds for all 8 games on the same date", () => {
+  it("generates distinct seeds for all daily games on the same date", () => {
     const testDate = "2026-10-15";
     const seeds = DAILY_GAMES.map((game) => getDailySeed(game, testDate));
     const uniqueSeeds = new Set(seeds);
@@ -68,7 +70,7 @@ describe("Daily Seed Generator", () => {
     expect(seeds.size).toBe(30);
   });
 
-  it("simulates 365 days across all 8 games with high seed entropy and 0 collisions", () => {
+  it("simulates 365 days across all daily games with high seed entropy and 0 collisions", () => {
     const allSeeds = new Set<number>();
     const startDate = new Date(Date.UTC(2026, 0, 1));
 
@@ -84,8 +86,8 @@ describe("Daily Seed Generator", () => {
       }
     }
 
-    // 365 * 8 = 2920 unique deals
-    expect(allSeeds.size).toBe(365 * 8);
+    // one unique deal per game per day
+    expect(allSeeds.size).toBe(365 * DAILY_GAMES.length);
   });
 
   it("is case-insensitive for game names", () => {
@@ -112,7 +114,7 @@ describe("Date Utilities & Calendar Math", () => {
 });
 
 describe("Daily Challenge Definitions", () => {
-  it("provides definitions with valid goals and rewards for all 8 games", () => {
+  it("provides definitions with valid goals and rewards for all daily games", () => {
     for (const game of DAILY_GAMES) {
       expect(isDailyGame(game)).toBe(true);
       const challenge = getDailyChallenge(game, "2026-10-15");
@@ -423,6 +425,18 @@ describe("settle<Game> isDaily integration", () => {
     const res = settleScoundrel(p, at, tally, undefined, true);
     expect(res.reward.daily).toBeDefined();
     expect(res.reward.daily?.streak).toBe(1);
+  });
+
+  it("settleMinesweeper and settleSudoku with isDaily = true award the daily bonus only on a win", () => {
+    const at = Date.UTC(2026, 9, 15, 10, 0, 0);
+    const lostMines = settleMinesweeper(newProgress(), at, { cells: 40, won: false, level: "intermediate" }, undefined, true);
+    expect(lostMines.reward.daily).toBeUndefined();
+    const wonMines = settleMinesweeper(newProgress(), at, { cells: 180, won: true, level: "intermediate" }, undefined, true);
+    expect(wonMines.reward.daily?.streak).toBe(1);
+    const lostSudoku = settleSudoku(newProgress(), at, { placed: 20, mistakes: 3, won: false, level: "medium" }, undefined, true);
+    expect(lostSudoku.reward.daily).toBeUndefined();
+    const wonSudoku = settleSudoku(newProgress(), at, { placed: 49, mistakes: 1, won: true, level: "medium" }, undefined, true);
+    expect(wonSudoku.reward.daily?.streak).toBe(1);
   });
 
   it("settleTriPeaks with isDaily = true awards daily bonus when peaks cleared", () => {

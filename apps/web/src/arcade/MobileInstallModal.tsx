@@ -105,7 +105,7 @@ export function MobileInstallModal({
             <span className="install-benefit-icon">✈️</span>
             <div>
               <div className="install-benefit-title">{t("inst.b3")}</div>
-              <div className="install-benefit-desc">{t("inst.b3d")}</div>
+              <div className="install-benefit-desc">{t("inst.b3d", { n: 13 })}</div>
             </div>
           </div>
           <div className="install-benefit-pill">

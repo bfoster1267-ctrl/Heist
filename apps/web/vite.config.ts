@@ -108,11 +108,27 @@ function stripAppTags(): Plugin {
   };
 }
 
+/**
+ * The CrazyGames build (see docs/CRAZYGAMES.md) plays inside their portal: no home-screen app, no
+ * playheist.net tags, search text or links, just the game and a plain title.
+ */
+function crazyGamesPage(): Plugin {
+  return {
+    name: "heist-crazygames-page",
+    transformIndexHtml: (html) =>
+      html
+        .replace(/\s*<!-- web:start[\s\S]*?<!-- web:end -->/g, "")
+        .replace(/\s*<!-- app:start[\s\S]*?<!-- app:end -->/, "")
+        .replace("</head>", "  <title>Heist</title>\n  </head>"),
+  };
+}
+
 // `--mode single` builds one self-contained index.html (for sharing a playable link).
+// `--mode crazygames` builds the CrazyGames upload into dist-crazygames (set VITE_SERVER_URL to the game server).
 // `base: "./"` lets the normal build run from any folder, e.g. GitHub Pages at /Heist/.
 export default defineConfig(({ mode }) => ({
   base: "./",
-  plugins: [react(), ...(mode === "single" ? [viteSingleFile(), stripAppTags()] : [serviceWorker()])],
+  plugins: [react(), ...(mode === "single" ? [viteSingleFile(), stripAppTags()] : mode === "crazygames" ? [crazyGamesPage()] : [serviceWorker()])],
   server: {
     host: true,
     port: 5173,
@@ -128,9 +144,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    outDir: mode === "single" ? "dist-single" : "dist",
+    outDir: mode === "single" ? "dist-single" : mode === "crazygames" ? "dist-crazygames" : "dist",
     copyPublicDir: mode !== "single",
     // the normal build also makes the owner's back office (admin.html, served at /admin)
-    rollupOptions: mode === "single" ? undefined : { input: { main: resolve(__dirname, "index.html"), admin: resolve(__dirname, "admin.html") } },
+    rollupOptions: mode === "single" || mode === "crazygames" ? undefined : { input: { main: resolve(__dirname, "index.html"), admin: resolve(__dirname, "admin.html") } },
   },
 }));

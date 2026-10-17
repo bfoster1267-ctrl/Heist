@@ -1,10 +1,14 @@
 import { Bot, runBots, type Answer, type GameState } from "@heist/engine";
-import { FIRST_HAND, SOL_XP, STAGES, botLevelsFor, createSoloGame, dealKlondike, type SoloSetup } from "@heist/profile";
+import {
+  FIRST_HAND, advanceHearts, advanceSpades, applyHearts, applySpades, dealHearts, dealSpades, heartsPickCard, heartsPickPass, spadesBidMove, spadesPickBid, spadesPickCard, tallyHearts, tallyHeartsXp, tallySpades, tallySpadesXp, MINES_DAILY_LEVEL, SOL_XP, STAGES, SUDOKU_DAILY_LEVEL, SUDOKU_XP, applyMines, botLevelsFor, createSoloGame, dealKlondike, dealMines,
+  dealSudoku, getDailySeed, tallyMines, tallyMinesXp, todayUtc, type MinesMove, type SoloSetup, type SudokuMove,
+} from "@heist/profile";
 import { generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
+import { originAllowed } from "../src/accounts/api";
 import { OAuth } from "../src/accounts/oauth";
 import { AccountService } from "../src/accounts/service";
 import { FileAccountStore } from "../src/accounts/store";
@@ -81,6 +85,45 @@ describe("accounts", () => {
     await expect(svc.oauthSignIn("google", idToken({ sub: "g-1", exp: 1000 }), undefined)).rejects.toThrow(/expired/);
     await expect(svc.oauthSignIn("google", idToken({ sub: "g-1", aud: "someone-else" }), undefined)).rejects.toThrow(/different app/);
     await expect(svc.oauthSignIn("apple", idToken({ sub: "g-1" }), undefined)).rejects.toThrow(/set up/);
+  });
+
+  it("signs CrazyGames players into a guest account by their CrazyGames user token", async () => {
+    const pem = publicKey.export({ type: "spki", format: "pem" }).toString();
+    const cgFetch = async (url: string) => ({ ok: true, json: async () => (url.includes("crazygames") ? { publicKey: pem } : {}) });
+    const svc = new AccountService({ secret: "s", verifier: new OAuth({}, cgFetch) });
+    const cgToken = (claims: Record<string, unknown>, key = privateKey) => {
+      const head = b64({ alg: "RS256", typ: "JWT" });
+      const body = b64({ userId: "cg-42", gameId: "heist", username: "CoolCat", exp: Math.floor(Date.now() / 1000) + 3600, ...claims });
+      return `${head}.${body}.${sign("RSA-SHA256", Buffer.from(`${head}.${body}`), key).toString("base64url")}`;
+    };
+    // the guest already playing on this device keeps its progress and takes the CrazyGames login
+    const g = await svc.guest(undefined, "", "cg");
+    const a = await svc.crazyGames(cgToken({}), g.token);
+    expect(a.me.id).toBe(g.me.id);
+    expect(a.me.guest).toBe(true);
+    expect(a.me.logins).toEqual(["crazygames"]);
+    expect(a.me.name).toBe("CoolCat");
+    // the same CrazyGames user on another device lands on the same account
+    expect((await svc.crazyGames(cgToken({}))).me.id).toBe(g.me.id);
+    // a different CrazyGames user on that device gets an account of their own
+    const b = await svc.crazyGames(cgToken({ userId: "cg-7", username: "Other" }), a.token);
+    expect(b.me.id).not.toBe(g.me.id);
+    expect((await svc.store.get(b.me.id))?.source).toBe("cg");
+    expect(await svc.rankedLocked(g.me.id)).not.toMatch(/Sign in/);
+    const other = generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey;
+    await expect(svc.crazyGames(cgToken({}, other))).rejects.toThrow(/signature/);
+    await expect(svc.crazyGames(cgToken({ exp: 1000 }))).rejects.toThrow(/expired/);
+    await expect(svc.crazyGames("nope")).rejects.toThrow(/Malformed/);
+  });
+
+  it("allows exact origins and wildcard subdomains", () => {
+    const allowed = ["https://playheist.net", "https://*.crazygames.com"];
+    expect(originAllowed([], "https://anything.example")).toBe(true);
+    expect(originAllowed(allowed, "https://playheist.net")).toBe(true);
+    expect(originAllowed(allowed, "https://heist.game-files.crazygames.com")).toBe(true);
+    expect(originAllowed(allowed, "https://crazygames.com.evil.example")).toBe(false);
+    expect(originAllowed(allowed, "https://evilcrazygames.com")).toBe(false);
+    expect(originAllowed(allowed, "http://games.crazygames.com")).toBe(false);
   });
 
   it("changes an email account's password only with the current one", async () => {
@@ -163,6 +206,98 @@ describe("accounts", () => {
     expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d"], false, 2)).reward?.xp).toBe(1);
     expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d", "d"], false, 0)).reward?.xp).toBe(1);
     expect((await svc.solitaireBank(await acct(), h.gameId, ["d", "d", "d", "d"], false, "lots")).reward).toBeNull();
+  });
+
+  it("replays a whole Hearts game (bots too) before paying, and closes it once it's over", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Hearts");
+    const acct = () => svc.require(token);
+    const g = await svc.heartsStart(await acct());
+    let st = advanceHearts(dealHearts(g.seed));
+    const moves: unknown[] = [];
+    while (st.phase !== "over") {
+      const m = st.phase === "pass" ? heartsPickPass(st.t.hands[0]) : heartsPickCard(st);
+      moves.push(m);
+      st = advanceHearts(applyHearts(st, m)!);
+    }
+    const t = tallyHearts(g.seed, moves);
+    // a made-up win is turned away; banking what really happened pays it (capped for the day) and ends the game
+    if (!t.won) await expect(svc.heartsBank(await acct(), g.gameId, moves, true)).rejects.toThrow(/isn't won/);
+    const r = await svc.heartsBank(await acct(), g.gameId, moves, t.won);
+    expect(r.reward?.xp).toBe(Math.min(500, tallyHeartsXp(t)));
+    await expect(svc.heartsBank(await acct(), g.gameId, moves)).rejects.toThrow(/isn't running/);
+    // forged plays stop the replay: nothing is paid for them
+    const h = await svc.heartsStart(await acct());
+    expect((await svc.heartsBank(await acct(), h.gameId, [[0, 1, 2], 7, 8, 9])).reward).toBeNull();
+  });
+
+  it("plays Spades to 250 for a quick game and replays every bid and card", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Spades");
+    const acct = () => svc.require(token);
+    const g = await svc.spadesStart(await acct(), undefined, false, true);
+    expect(g.target).toBe(250);
+    expect((await svc.spadesStart(await acct())).target).toBe(500);
+    const q = await svc.spadesStart(await acct(), 1234, false, true);
+    let st = advanceSpades(dealSpades(q.seed, q.target));
+    const moves: unknown[] = [];
+    while (st.phase !== "over") {
+      const m = st.phase === "bid" ? spadesBidMove(spadesPickBid(st, 0)) : spadesPickCard(st);
+      moves.push(m);
+      st = advanceSpades(applySpades(st, m)!);
+    }
+    const t = tallySpades(q.seed, moves, 250);
+    const r = await svc.spadesBank(await acct(), q.gameId, moves, t.won);
+    expect(r.reward?.xp).toBe(Math.min(500, tallySpadesXp(t)));
+  });
+
+  it("lays and replays Minesweeper boards on the server, and pays a won board once", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Mines");
+    const acct = () => svc.require(token);
+    const g = await svc.minesweeperStart(await acct(), 12345, false, "beginner");
+    expect(g.level).toBe("beginner");
+    // clear it the way a player would: the field is laid from the seed and the first click, same as the server's
+    let s = applyMines(dealMines(g.seed, "beginner"), { k: "r", i: 40 });
+    const moves: MinesMove[] = [{ k: "f", i: 0 }, { k: "f", i: 0 }, { k: "r", i: 40 }];
+    for (let i = 0; i < 81 && !s.won; i++) {
+      if (s.mines![i] || s.revealed[i]) continue;
+      moves.push({ k: "r", i });
+      s = applyMines(s, { k: "r", i });
+    }
+    expect(s.won).toBe(true);
+    await expect(svc.minesweeperBank(await acct(), g.gameId, moves.slice(0, 3), true)).rejects.toThrow(/isn't won/);
+    const r = await svc.minesweeperBank(await acct(), g.gameId, moves, true);
+    expect(r.reward?.xp).toBeGreaterThanOrEqual(tallyMinesXp(tallyMines(g.seed, "beginner", moves)) - tallyMinesXp(tallyMines(g.seed, "beginner", moves.slice(0, 3))));
+    expect((await acct()).progress.minesweeper?.won).toBe(1);
+    await expect(svc.minesweeperBank(await acct(), g.gameId, moves, true)).rejects.toThrow(/isn't running/);
+    // the daily deal is always the daily board, whatever size the client asks for; a made-up size gets Beginner
+    const d = await svc.minesweeperStart(await acct(), getDailySeed("minesweeper", todayUtc()), true, "expert");
+    expect(d.level).toBe(MINES_DAILY_LEVEL);
+    expect((await svc.minesweeperStart(await acct(), 1, false, "huge")).level).toBe("beginner");
+  });
+
+  it("rebuilds Sudoku puzzles from the seed and pays only digits the replay agrees with", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const { token } = await svc.guest(undefined, "Sudoku");
+    const acct = () => svc.require(token);
+    const g = await svc.sudokuStart(await acct(), 777, false, "easy");
+    expect(g.level).toBe("easy");
+    const p = dealSudoku(g.seed, "easy");
+    const open = p.cells.map((v, i) => (v ? -1 : i)).filter((i) => i >= 0);
+    const first: SudokuMove[] = open.slice(0, 5).map((i) => ({ k: "p", i, d: p.solution[i] }));
+    const r = await svc.sudokuBank(await acct(), g.gameId, first);
+    expect(r.reward?.xp).toBe(5 * SUDOKU_XP.digit);
+    expect((await svc.sudokuBank(await acct(), g.gameId, first)).reward).toBeNull();
+    // a digit the client claims is right but isn't pays nothing (it's a mistake)
+    const wrong: SudokuMove = { k: "p", i: open[5], d: (p.solution[open[5]] % 9) + 1 };
+    expect((await svc.sudokuBank(await acct(), g.gameId, [...first, wrong])).reward).toBeNull();
+    const all: SudokuMove[] = [...first, wrong, ...open.slice(5).map((i) => ({ k: "p" as const, i, d: p.solution[i] }))];
+    const won = await svc.sudokuBank(await acct(), g.gameId, all, true);
+    expect(won.reward?.xp).toBeGreaterThanOrEqual((open.length - 5) * SUDOKU_XP.digit + SUDOKU_XP.win.easy);
+    expect((await acct()).progress.sudoku?.won).toBe(1);
+    const d = await svc.sudokuStart(await acct(), getDailySeed("sudoku", todayUtc()), true, "expert");
+    expect(d.level).toBe(SUDOKU_DAILY_LEVEL);
   });
 
   it("pays out vs-bots games only after replaying them, and counts quits as losses", async () => {

@@ -1,5 +1,5 @@
 // Daily Challenge Hub Modal
-// Displays today's worldwide daily challenges across all 8 solo games, active streak counter,
+// Displays today's worldwide daily challenges across all 9 solo games, active streak counter,
 // streak multipliers, milestone progress, countdown timers, and Wordle-style sharing.
 
 import {
@@ -48,6 +48,11 @@ export const GAME_LABELS: Record<DailyGame, { readonly title: string; icon: stri
   yukon: label("yukon", "🐺"),
   ers: label("ers", "⚡"),
   scoundrel: label("scoundrel", "🗡️"),
+  hearts: label("hearts", "♥"),
+  spades: label("spades", "♠"),
+  minesweeper: label("minesweeper", "💣"),
+  sudoku: label("sudoku", "🔢"),
+  checkers: label("checkers", "⛀"),
 };
 
 export interface DailyHubProps {
@@ -362,7 +367,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
 
         {/* 8-Game Grid */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h4 className="daily-grid-title">{t("dly.all", { n: completedCount })}</h4>
+          <h4 className="daily-grid-title">{t("dly.all", { n: completedCount, total: DAILY_GAMES.length })}</h4>
           <span style={{ fontSize: 11, color: "var(--gold)", fontFamily: "var(--cond)" }}>
             {t("dly.each")}
           </span>

@@ -21,5 +21,10 @@ import victory from "./victory";
 import daily from "./daily";
 import solo from "./solo";
 import ers from "./ers";
+import tricks from "./tricks";
+import checkers from "./checkers";
+import minesweeper from "./minesweeper";
+import sudoku from "./sudoku";
+import crazygames from "./crazygames";
 
-export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback, server, online, arcade, victory, daily, solo, ers] as const;
+export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback, server, online, arcade, victory, daily, solo, ers, tricks, checkers, minesweeper, sudoku, crazygames] as const;

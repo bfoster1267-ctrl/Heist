@@ -5,7 +5,7 @@ Portuguese, and TypeScript fails the build if one is missing.
 
 ## Where text lives
 
-- `areas/*.ts`: the web app's strings, one file per area (lobby, table, daily, solo, ers...). Each entry
+- `areas/*.ts`: the web app's strings, one file per area (lobby, table, daily, solo, ers, tricks for Copas and Espadas, checkers, minesweeper, sudoku, crazygames...). Each entry
   holds both languages side by side:
   ```ts
   export default strings({

@@ -22,7 +22,7 @@ export default strings({
   "lobby.afterLesson": ["After your first lesson", "Depois da primeira lição"],
   "lobby.realPeople": ["Real people", "Gente de verdade"],
   "lobby.arcade": ["Solo Arcade", "Jogos Solo"],
-  "lobby.arcadeSub": ["8 Card Games · Solitaire & Roguelike", "8 jogos de cartas · Paciência e Roguelike"],
+  "lobby.arcadeSub": ["{n} Games · Solitaire, Hearts, Spades & Puzzles", "{n} jogos · Paciência, Copas, Espadas e quebra-cabeças"],
   "lobby.campaign": ["Campaign", "Campanha"],
   "lobby.stages": ["{n} of {total} stages", "{n} de {total} fases"],
   "lobby.howTo": ["How to play", "Como jogar"],

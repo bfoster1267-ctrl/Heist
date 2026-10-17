@@ -1,5 +1,5 @@
 // Automated IndexNow Search Engine Submission
-// Submits all 10 canonical playheist.net URLs directly to Microsoft Bing, Yandex,
+// Submits all the canonical playheist.net URLs directly to Microsoft Bing, Yandex,
 // and partner search crawlers for instant indexing without waiting for weekly crawls.
 
 const INDEXNOW_KEY = "d7e93f8b1c4a2e5d6f8a9b0c1d2e3f4a";
@@ -16,6 +16,11 @@ const URLS = [
   `https://${HOST}/yukon`,
   `https://${HOST}/ers`,
   `https://${HOST}/scoundrel`,
+  `https://${HOST}/hearts`,
+  `https://${HOST}/spades`,
+  `https://${HOST}/minesweeper`,
+  `https://${HOST}/sudoku`,
+  `https://${HOST}/checkers`,
   `https://${HOST}/card-games`,
   `https://${HOST}/arcade`,
   `https://${HOST}/blog`,

@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, replayCheckers, checkersTallyOf, checkersPay, settleCheckers, isCheckersLevel, tallyMines, minesPay, settleMinesweeper, isMinesLevel, MINES_DAILY_LEVEL, tallySudoku, sudokuPay, settleSudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, tallyHearts, heartsPay, settleHearts, tallySpades, spadesPay, settleSpades, spadesTarget, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -141,8 +141,9 @@ export class AccountService {
   untouched(a: Account): boolean {
     const p = a.progress;
     const arcadeWins = (p.solitaire?.won ?? 0) + (p.freecell?.won ?? 0) + (p.tripeaks?.won ?? 0) + (p.ers?.won ?? 0)
-      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0);
-    const hasArcadeGame = Boolean(a.solitaire || a.freecell || a.tripeaks || a.spider || a.pyramid || a.ers || a.yukon || a.scoundrel);
+      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0) + (p.checkers?.won ?? 0)
+      + (p.minesweeper?.won ?? 0) + (p.sudoku?.won ?? 0) + (p.hearts?.won ?? 0) + (p.spades?.won ?? 0);
+    const hasArcadeGame = Boolean(a.solitaire || a.freecell || a.tripeaks || a.spider || a.pyramid || a.ers || a.yukon || a.scoundrel || a.checkers || a.minesweeper || a.sudoku || a.hearts || a.spades);
     return a.guest && !a.played && !a.solo && !hasArcadeGame && !a.crm && !a.feedback && p.stats.games === 0 && (p.coachGames ?? 0) === 0 && (p.campaign ?? 0) === 0
       && !p.ranked && arcadeWins === 0 && !this.activity.played().has(a.id);
   }
@@ -239,9 +240,41 @@ export class AccountService {
     };
   }
 
-  async guest(token: unknown, name: unknown) {
-    const a = (await this.fromToken(token)) ?? (await this.create(typeof name === "string" ? name : "", true));
+  async guest(token: unknown, name: unknown, source?: unknown) {
+    const a = (await this.fromToken(token)) ?? (await this.create(typeof name === "string" ? name : "", true, [], source === "cg" ? { source: "cg" } : {}));
     return this.session(a);
+  }
+
+  /**
+   * Playing on CrazyGames while signed in to their site: their user token picks the Heist account. The
+   * first time, the account already playing on this device takes the CrazyGames login (keeping its
+   * progress), or a new guest is made for it. A guest stays a guest: no Heist sign-in is ever asked for
+   * there, and the same CrazyGames user lands on the same account on any device.
+   */
+  async crazyGames(credential: unknown, current?: unknown) {
+    let v;
+    try {
+      v = await this.oauth.verifyCrazyGames(credential);
+    } catch (e) {
+      if (e instanceof OAuthError) throw new ApiError(401, e.message);
+      throw e;
+    }
+    const login: Login = { provider: "crazygames", subject: v.subject };
+    const existing = await this.store.byLogin(login);
+    if (existing) return this.session(existing);
+    const cur = await this.fromToken(current);
+    // the account already playing on this device takes the login (a Heist sign-in made on CrazyGames
+    // stays signed in); one tied to another CrazyGames user is someone else's (a shared computer)
+    if (cur && !cur.logins.some((l) => l.provider === "crazygames")) {
+      const a = await this.update(cur.id, (a) => {
+        a.logins.push(login);
+        if (!a.source) a.source = "cg";
+        if (v.name && (a.name.startsWith("Guest") || a.name === "Player")) a.name = cleanName(v.name, a.name);
+        return a;
+      });
+      return this.session(a);
+    }
+    return this.session(await this.create(v.name ?? "", true, [login], { source: "cg" }));
   }
 
   /**
@@ -494,7 +527,8 @@ export class AccountService {
   /** Why this player can't queue for Ranked yet (null: they can). */
   async rankedLocked(userId: string): Promise<string | null> {
     const a = await this.store.get(userId);
-    if (!a || a.guest) return "Sign in to play Ranked";
+    // a CrazyGames login counts as signed in (their players never see Heist's own sign-in)
+    if (!a || (a.guest && !a.logins.some((l) => l.provider === "crazygames"))) return "Sign in to play Ranked";
     const lv = level(upgrade(a.progress));
     return lv >= RANKED_LEVEL ? null : `Ranked unlocks at level ${RANKED_LEVEL} (you're level ${lv})`;
   }
@@ -929,6 +963,232 @@ export class AccountService {
         return { me: this.me(x), reward: null };
       }
       const r = settleScoundrel(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Hearts game against three of the crew. */
+  heartsStart(a: Account, seed?: unknown, isDaily?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      x.hearts = { gameId: `hr_${randomBytes(6).toString("base64url")}`, seed: s, isDaily: this.isDailyDeal("hearts", s, isDaily), startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.hearts.gameId, seed: x.hearts.seed };
+    });
+  }
+
+  /**
+   * Pay for a Hearts game so far. The player only sends their own passes and plays: the server deals from
+   * the seed and replays every bot, so the scores (and the XP) are the server's own. `finish` is a win.
+   */
+  heartsBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.hearts;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallyHearts(g.seed, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = heartsPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (t.over) x.hearts = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      // no speed bonus: the bots set the pace of a trick game, not the player
+      const r = settleHearts(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Spades game: you and Ledger against two of the crew, to 500 (or 250 for a quick game; the daily is quick). */
+  spadesStart(a: Account, seed?: unknown, isDaily?: unknown, quick?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      const daily = this.isDailyDeal("spades", s, isDaily);
+      const target = spadesTarget(daily || quick === true);
+      x.spades = { gameId: `sp_${randomBytes(6).toString("base64url")}`, seed: s, target, isDaily: daily, startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.spades.gameId, seed: x.spades.seed, target };
+    });
+  }
+
+  /** Pay for a Spades game so far: the server replays every bid and play from the seed. `finish` is a win. */
+  spadesBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.spades;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallySpades(g.seed, moves, g.target);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = spadesPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (t.over) x.spades = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      const r = settleSpades(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Minesweeper board. The daily deal is always played on the daily board size. */
+  minesweeperStart(a: Account, seed?: unknown, isDaily?: unknown, level?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      const daily = this.isDailyDeal("minesweeper", s, isDaily);
+      const lv = daily ? MINES_DAILY_LEVEL : isMinesLevel(level) ? level : "beginner";
+      x.minesweeper = { gameId: `ms_${randomBytes(6).toString("base64url")}`, seed: s, level: lv, isDaily: daily, startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.minesweeper.gameId, seed: x.minesweeper.seed, level: lv };
+    });
+  }
+
+  /** Pay for the Minesweeper board so far: the server lays the field from the seed and replays the clicks. */
+  minesweeperBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.minesweeper;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallyMines(g.seed, g.level, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = minesPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (t.won) x.minesweeper = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      const r = settleMinesweeper(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Deal a Sudoku puzzle. The daily deal is always the daily level. */
+  sudokuStart(a: Account, seed?: unknown, isDaily?: unknown, level?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      const daily = this.isDailyDeal("sudoku", s, isDaily);
+      const lv = daily ? SUDOKU_DAILY_LEVEL : isSudokuLevel(level) ? level : "easy";
+      x.sudoku = { gameId: `su_${randomBytes(6).toString("base64url")}`, seed: s, level: lv, isDaily: daily, startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.sudoku.gameId, seed: x.sudoku.seed, level: lv };
+    });
+  }
+
+  /** Pay for the Sudoku so far: the server rebuilds the puzzle from the seed and replays the entries against its solution. */
+  sudokuBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.sudoku;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 5000) throw new ApiError(400, "Bad moves");
+      let t;
+      try {
+        t = tallySudoku(g.seed, g.level, moves);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      if (finish && !t.won) throw new ApiError(400, "That game isn't won yet");
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = sudokuPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const secondsTaken = g.startedAt ? Math.max(1, Math.round((this.now() - g.startedAt) / 1000)) : undefined;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (t.won) x.sudoku = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      const r = settleSudoku(x.progress, this.now(), pay.gained, pay.xp, g.isDaily, secondsTaken);
+      x.progress = r.progress;
+      this.quest(x, fresh, r.reward);
+      return { me: this.me(x), reward: r.reward };
+    });
+  }
+
+  /** Start a Checkers game against the bot. The daily is always against the Pro bot. */
+  checkersStart(a: Account, seed?: unknown, isDaily?: unknown, level?: unknown) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : randomInt(2 ** 31);
+    return this.update(a.id, (x) => {
+      const daily = this.isDailyDeal("checkers", s, isDaily);
+      const lv = daily ? "pro" : isCheckersLevel(level) ? level : "rookie";
+      x.checkers = { gameId: `ck_${randomBytes(6).toString("base64url")}`, seed: s, level: lv, isDaily: daily, startedAt: this.now() };
+      x.played ??= this.now();
+      return { gameId: x.checkers.gameId, seed: x.checkers.seed, level: lv };
+    });
+  }
+
+  /**
+   * Pay for a Checkers game so far: the server replays your moves against the same bot (it plays the same
+   * replies from the same seed), checks every move is legal and works out the result itself.
+   * Finishing needs the game to be over (won, lost or drawn).
+   */
+  checkersBank(a: Account, gameId: unknown, moves: unknown, finish = false, drain: unknown = 0) {
+    return this.update(a.id, (x) => {
+      const g = x.checkers;
+      if (!g || g.gameId !== gameId) throw new ApiError(409, "That game isn't running any more");
+      if (!Array.isArray(moves) || moves.length > 1000) throw new ApiError(400, "Bad moves");
+      let rep;
+      try {
+        rep = replayCheckers(g.seed, g.level, moves, g.plies);
+      } catch {
+        throw new ApiError(400, "That game doesn't check out");
+      }
+      const over = rep.state.winner !== null;
+      if (finish && !over) throw new ApiError(400, "That game isn't over yet");
+      const t = checkersTallyOf(rep.state, g.level);
+      g.plies = rep.plies;
+      g.drain = Math.max(g.drain ?? 0, typeof drain === "number" && Number.isFinite(drain) ? Math.min(1e6, Math.floor(drain)) : 0);
+      const pay = checkersPay(g.paid, g.paidXp, t, g.drain);
+      g.paid = pay.paid;
+      g.paidXp = pay.paidXp;
+      const fresh = Math.max(0, moves.length - (g.counted ?? 0));
+      g.counted = Math.max(g.counted ?? 0, moves.length);
+      if (over) x.checkers = null;
+      if (!pay.xp && !pay.gained.won) {
+        this.quest(x, fresh);
+        return { me: this.me(x), reward: null };
+      }
+      const r = settleCheckers(x.progress, this.now(), pay.gained, pay.xp, g.isDaily);
       x.progress = r.progress;
       this.quest(x, fresh, r.reward);
       return { me: this.me(x), reward: r.reward };

@@ -3,6 +3,7 @@
 // everything they've earned so far.
 
 import { useState } from "react";
+import { crazyGamesAccounts, crazyGamesSignIn } from "../crazygames";
 import { useAccount } from "./useAccount";
 import { t, tEn, tNodes } from "../i18n";
 
@@ -32,7 +33,7 @@ function script(src: string): Promise<void> {
 }
 
 export function SignIn() {
-  const { backend, act } = useAccount();
+  const { backend, act, me } = useAccount();
   const cfg = backend?.config;
   const has = (p: string) => !!cfg?.providers.includes(p);
   const [mode, setMode] = useState<"register" | "login">("register");
@@ -103,6 +104,23 @@ export function SignIn() {
     <div className="acct-signin">
       <h3>{t("signin.title")}</h3>
       <div className="dim">{t("signin.sub")}</div>
+      {/* on CrazyGames their own account does it: the portal's sign-in, linked to this guest by the server */}
+      {crazyGamesAccounts() &&
+        (me?.logins.includes("crazygames") ? (
+          <div className="dim">{t("cg.keeps")}</div>
+        ) : (
+          <div className="acct-provider-row">
+            <button
+              className="acct-provider"
+              disabled={busy}
+              onClick={async () => {
+                if (await crazyGamesSignIn()) void act((b) => b.me());
+              }}
+            >
+              {t("cg.signIn")}
+            </button>
+          </div>
+        ))}
       {(has("apple") || has("google") || has("facebook")) && (
         <div className="acct-provider-row">
           {has("apple") && (

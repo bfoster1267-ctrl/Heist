@@ -46,6 +46,31 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://playheist.net/minesweeper</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://playheist.net/sudoku</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://playheist.net/checkers</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://playheist.net/hearts</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://playheist.net/spades</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
     <loc>https://playheist.net/card-games</loc>
     <changefreq>daily</changefreq>
     <priority>0.95</priority>

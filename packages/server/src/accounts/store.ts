@@ -6,10 +6,10 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { BotLevel } from "@heist/engine";
-import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally } from "@heist/profile";
+import type { Progress, SolTally, FcTally, TpTally, ErsTally, SpiderTally, PyramidTally, YukonTally, ScoundrelTally, CheckersTally, CheckersLevel, MinesTally, MinesLevel, SudokuTally, SudokuLevel, HeartsTally, SpadesTally } from "@heist/profile";
 import type { PushSub } from "../push";
 
-export type Provider = "email" | "apple" | "google" | "facebook" | "dev";
+export type Provider = "email" | "apple" | "google" | "facebook" | "dev" | "crazygames";
 
 export interface Login {
   provider: Provider;
@@ -64,6 +64,16 @@ export interface Account {
   yukon?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: YukonTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
   /** the Scoundrel game in progress */
   scoundrel?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: ScoundrelTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Hearts game in progress */
+  hearts?: { gameId: string; seed: number; startedAt: number; isDaily?: boolean; paid?: HeartsTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Spades game in progress, and the score it plays to */
+  spades?: { gameId: string; seed: number; target: number; startedAt: number; isDaily?: boolean; paid?: SpadesTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Minesweeper board in progress (its level fixes the board size the field is laid on) */
+  minesweeper?: { gameId: string; seed: number; level: MinesLevel; startedAt: number; isDaily?: boolean; paid?: MinesTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Sudoku puzzle in progress (seed and level rebuild the exact puzzle) */
+  sudoku?: { gameId: string; seed: number; level: SudokuLevel; startedAt: number; isDaily?: boolean; paid?: SudokuTally; paidXp?: number; drain?: number; /** moves already counted toward the daily quests */ counted?: number } | null;
+  /** the Checkers game in progress; `plies` is the last replay (both sides), so the next one only searches new bot replies */
+  checkers?: { gameId: string; seed: number; level: CheckersLevel; startedAt: number; isDaily?: boolean; paid?: CheckersTally; paidXp?: number; drain?: number; counted?: number; plies?: number[][] } | null;
   /** when they first started a game against bots (untouched guests are cleaned up; see untouched()) */
   played?: number;
   /** bumping this signs the account out everywhere */
@@ -76,6 +86,8 @@ export interface Account {
   feedback?: Feedback;
   /** friends, and friend requests either way (see social.ts) */
   friends?: FriendLinks;
+  /** where the player first came from, when the app could tell ("cg": the CrazyGames portal) */
+  source?: string;
 }
 
 export interface FriendLinks {

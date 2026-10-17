@@ -1,0 +1,12 @@
+/* Hearts: the shared trick table (tricks/tricks.css) with a touch of crimson on the rail */
+.hearts .tt-oval {
+  border-color: rgba(214, 69, 43, 0.22);
+  box-shadow: 0 0 0 10px rgba(0, 0, 0, 0.08), inset 0 0 50px rgba(0, 0, 0, 0.25), 0 0 46px rgba(214, 69, 43, 0.08);
+}
+.hearts .tt-oval::after {
+  content: "♥ " attr(data-mark) " ♥";
+  color: rgba(255, 140, 120, 0.06);
+}
+.hearts .tt-score small {
+  color: #ff9c86;
+}

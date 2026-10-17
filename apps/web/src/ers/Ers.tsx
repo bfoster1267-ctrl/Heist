@@ -13,6 +13,7 @@ import {
 import { AnimatePresence } from "motion/react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAccount } from "../account/useAccount";
+import { startPath } from "../crazygames";
 import { buzz } from "../haptics";
 import { card as cardSound, cardSlam, click, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
@@ -65,7 +66,7 @@ export function Ers({
     if (initialPvp) return true;
     try {
       const p = new URLSearchParams(location.search);
-      return p.has("pvp") || p.has("join") || p.has("joinErs") || location.pathname.startsWith("/ers/pvp");
+      return p.has("pvp") || p.has("join") || p.has("joinErs") || startPath().startsWith("/ers/pvp");
     } catch {
       return false;
     }

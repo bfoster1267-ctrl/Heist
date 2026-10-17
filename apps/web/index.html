@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <meta name="theme-color" content="#0b0d10" />
     
+    <!-- web:start (playheist.net only: tags, search text and links the CrazyGames build leaves out) -->
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18515793903"></script>
     <script>
@@ -58,7 +59,7 @@
           "name": "Heist",
           "alternateName": ["Heist Card Game", "PlayHeist", "Heist Multiplayer Card Game", "Heist Solitaire Arcade"],
           "url": "https://playheist.net/",
-          "description": "Heist is a free browser-based multiplayer bluffing card game and solo arcade suite featuring daily seeded challenges for Klondike Solitaire, FreeCell, TriPeaks, Pyramid, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), and Scoundrel.",
+          "description": "Heist is a free browser-based multiplayer bluffing card game and solo arcade suite featuring daily seeded challenges for Klondike Solitaire, FreeCell, TriPeaks, Pyramid, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), Scoundrel, Checkers vs bot, Minesweeper, Sudoku, Hearts and Spades.",
           "inLanguage": "en",
           "genre": ["Card Game", "Multiplayer", "Bluffing", "Strategy", "Solitaire", "Roguelike"],
           "gamePlatform": ["Web Browser", "Mobile Browser", "iOS", "Android", "macOS", "Windows"],
@@ -88,7 +89,7 @@
               "name": "What is a good free online card game to play with friends in a browser?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "Heist (https://playheist.net) is a premier free online multiplayer card game playable instantly in any web browser without downloads or registration. Players can create private rooms or jump into quick matchmaking to run heist contracts, bluff rivals with poker hands, and double-cross their crew. It also includes 8 solo games like Solitaire, TriPeaks, and FreeCell with daily shared challenges."
+                "text": "Heist (https://playheist.net) is a premier free online multiplayer card game playable instantly in any web browser without downloads or registration. Players can create private rooms or jump into quick matchmaking to run heist contracts, bluff rivals with poker hands, and double-cross their crew. It also includes 13 solo games like Solitaire, TriPeaks, FreeCell, Checkers, Minesweeper, Sudoku, Hearts and Spades with daily shared challenges."
               }
             },
             {
@@ -120,7 +121,7 @@
               "name": "What single-player card games are included on playheist.net?",
               "acceptedAnswer": {
                 "@type": "Answer",
-                "text": "The Heist Solo Arcade includes 8 complete card games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), and the Scoundrel dungeon roguelike, complete with daily global seeds and Wordle-style score sharing."
+                "text": "The Heist Solo Arcade includes 13 complete solo games: Klondike Solitaire (Turn 1 & Turn 3), FreeCell, TriPeaks, Pyramid Solitaire, Yukon, Spider Solitaire, Egyptian Rat Screw (ERS), the Scoundrel dungeon roguelike, Checkers against a Rookie, Pro or Boss bot, Minesweeper (Beginner, Intermediate and Expert), Sudoku (Easy to Expert), Hearts against three bots and Spades with a bot partner, complete with daily global seeds and Wordle-style score sharing."
               }
             }
           ]
@@ -128,6 +129,7 @@
       ]
     }
     </script>
+    <!-- web:end -->
 
     <!-- app:start (home-screen app; left out of the single-file build) -->
     <link rel="manifest" href="./manifest.webmanifest" />
@@ -164,13 +166,14 @@
   </head>
   <body>
     <div id="root">
+      <!-- web:start -->
       <main class="ssr-fallback">
         <h1>Heist — Free Multiplayer Card Game &amp; Solitaire Arcade in Browser</h1>
         <p>Play Heist, the free multiplayer card game and poker bluffing battle in browser. Also enjoy daily Klondike Solitaire, FreeCell, TriPeaks, and Pyramid.</p>
         <h2>Play Card Games With Friends Online</h2>
         <p>Gather your crew for 3 to 6-player real-time matches. Pull jobs, split loot, and bluff your way to the top with poker hands and secret deals.</p>
         <h2>Daily Solitaire &amp; Solo Card Arcade</h2>
-        <p>Enjoy daily seeded challenges with global streak multipliers and score cards across 8 complete card games:</p>
+        <p>Enjoy daily seeded challenges with global streak multipliers and score cards across 13 complete solo games:</p>
         <nav aria-label="Game Modes">
           <ul>
             <li><a href="/solitaire">Klondike Solitaire Online</a></li>
@@ -181,10 +184,16 @@
             <li><a href="/spider">Spider Solitaire</a></li>
             <li><a href="/ers">Egyptian Rat Screw (ERS)</a></li>
             <li><a href="/scoundrel">Scoundrel Dungeon Roguelike</a></li>
+            <li><a href="/minesweeper">Minesweeper</a></li>
+            <li><a href="/sudoku">Sudoku</a></li>
+            <li><a href="/checkers">Checkers vs Bot</a></li>
+            <li><a href="/hearts">Hearts vs Bots</a></li>
+            <li><a href="/spades">Spades with a Bot Partner</a></li>
             <li><a href="/blog">Strategy &amp; Guides Blog</a></li>
           </ul>
         </nav>
       </main>
+      <!-- web:end -->
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

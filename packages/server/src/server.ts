@@ -9,7 +9,7 @@ import { WebSocketServer, type WebSocket } from "ws";
 import { DRINKS } from "@heist/profile";
 import { scrub } from "./accounts/activity";
 import { AdminAuth, AdminService, type AdminTeam } from "./accounts/admin";
-import { accountsApi } from "./accounts/api";
+import { accountsApi, originAllowed } from "./accounts/api";
 import { serveStatic } from "./static";
 import { clientIp } from "./ip";
 import { ApiError, type AccountService } from "./accounts/service";
@@ -296,7 +296,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
       o.compression === false
         ? false
         : { threshold: 1024, serverMaxWindowBits: 11, zlibDeflateOptions: { memLevel: 6, level: 6 }, concurrencyLimit: 4 },
-    verifyClient: ({ origin }: { origin: string }) => !o.allowedOrigins?.length || o.allowedOrigins.includes(origin),
+    verifyClient: ({ origin }: { origin: string }) => originAllowed(o.allowedOrigins, origin),
   });
   o.hosting?.start(() => wss.clients.size);
 

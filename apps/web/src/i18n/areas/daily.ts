@@ -11,6 +11,11 @@ export default strings({
   "dly.game.yukon": ["Yukon", "Yukon"],
   "dly.game.ers": ["Egyptian Rat Screw", "Tapa (Egyptian Rat Screw)"],
   "dly.game.scoundrel": ["Scoundrel", "Scoundrel"],
+  "dly.game.hearts": ["Hearts", "Copas"],
+  "dly.game.spades": ["Spades", "Espadas"],
+  "dly.game.minesweeper": ["Minesweeper", "Campo Minado"],
+  "dly.game.sudoku": ["Sudoku", "Sudoku"],
+  "dly.game.checkers": ["Checkers", "Damas"],
 
   // banner
   "dly.bannerAria": [
@@ -67,7 +72,7 @@ export default strings({
   "dly.beatGold": ["You beat Gold par today!", "Você bateu a meta ouro hoje!"],
   "dly.beatSome": ["You beat {name}. Beat {time} for Gold!", "Você bateu a {name}. Faça {time} pra pegar o ouro!"],
   "dly.yourTime": ["Your best is {time}. Beat {par} for Bronze par!", "Seu melhor é {time}. Faça {par} pra bater a meta bronze!"],
-  "dly.all": ["All 8 Daily Challenges ({n}/8 Done)", "Os 8 desafios do dia ({n}/8 feitos)"],
+  "dly.all": ["All {total} Daily Challenges ({n}/{total} Done)", "Os {total} desafios do dia ({n}/{total} feitos)"],
   "dly.each": ["+50 XP · +15 Coins each", "+50 XP · +15 moedas cada"],
   "dly.deal": ["Deal #{n}", "Mão nº {n}"],
   "dly.rowAria": ["{action} {game} challenge", "{action}: desafio de {game}"],

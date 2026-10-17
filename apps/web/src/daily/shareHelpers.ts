@@ -1,5 +1,7 @@
 // Helpers for generating Wordle-style share cards and asymmetric friend challenge links
+// (links go through shareUrl: on CrazyGames they are invite links to the game on their portal)
 
+import { shareUrl } from "../crazygames";
 import {
   formatDailyChallengeNumber,
   getDailyStreak,
@@ -107,6 +109,11 @@ export function getDailyLeaderboard(
     yukon: 128,
     ers: 68,
     scoundrel: 142,
+    hearts: 720,
+    spades: 540,
+    minesweeper: 150,
+    sudoku: 420,
+    checkers: 420,
   };
 
   const seedOffset = (seed % 17) - 8;
@@ -180,7 +187,7 @@ export function createDailyShareText({
   ].filter(Boolean).join(" · ");
 
   const streakLine = t("share.streak", { n: streak, x: multiplier });
-  const url = `${typeof window !== "undefined" ? window.location.origin : "https://playheist.net"}/?daily=1`;
+  const url = typeof window !== "undefined" ? shareUrl("/?daily=1") : "https://playheist.net/?daily=1";
 
   return [
     t("share.head", { no: String(challengeNumber) }),
@@ -193,7 +200,7 @@ export function createDailyShareText({
 
 export async function shareDailyResult(payload: DailySharePayload): Promise<boolean> {
   const text = createDailyShareText(payload);
-  const url = `${typeof window !== "undefined" ? window.location.origin : "https://playheist.net"}/?daily=1`;
+  const url = typeof window !== "undefined" ? shareUrl("/?daily=1") : "https://playheist.net/?daily=1";
 
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
@@ -227,6 +234,8 @@ export interface FriendChallengePayload {
   time?: string;
   moves?: number;
   score?: number;
+  /** the board size or puzzle level, for games where the seed alone isn't the whole deal */
+  level?: string;
 }
 
 export function createFriendChallengeUrl({
@@ -235,14 +244,15 @@ export function createFriendChallengeUrl({
   time,
   moves,
   score,
+  level,
 }: FriendChallengePayload): string {
-  const origin = typeof window !== "undefined" ? window.location.origin : "https://playheist.net";
-  const u = new URL(`${origin}/${game}`);
+  const u = new URL(`https://playheist.net/${game}`);
   u.searchParams.set("challenge", String(seed));
   if (time) u.searchParams.set("ctime", time);
   if (moves !== undefined) u.searchParams.set("cmoves", String(moves));
   if (score !== undefined) u.searchParams.set("cscore", String(score));
-  return u.toString();
+  if (level && /^[a-z]{1,16}$/.test(level)) u.searchParams.set("level", level);
+  return typeof window !== "undefined" ? shareUrl(u.pathname + u.search) : u.toString();
 }
 
 export function createFriendChallengeText(payload: FriendChallengePayload): string {

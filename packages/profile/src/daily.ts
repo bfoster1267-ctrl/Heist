@@ -1,4 +1,4 @@
-// Daily challenge and streak progression system for all 8 solo card games.
+// Daily challenge and streak progression system for all 13 solo games.
 // Ensures every player in the world shares the exact same daily challenge deal on any given day,
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
@@ -15,6 +15,11 @@ export const DAILY_GAMES = [
   "yukon",
   "ers",
   "scoundrel",
+  "hearts",
+  "spades",
+  "minesweeper",
+  "sudoku",
+  "checkers",
 ] as const;
 
 export type DailyGame = (typeof DAILY_GAMES)[number];
@@ -109,7 +114,7 @@ export function formatDailyChallengeNumber(dateStr?: string): number {
   return Math.max(1, daysBetween(DAILY_EPOCH_DATE, date) + 1);
 }
 
-/** Returns the featured daily game for a given date, rotating deterministically across all 8 games. */
+/** Returns the featured daily game for a given date, rotating deterministically across all the daily games. */
 export function getFeaturedDailyGame(timestamp?: number | Date): DailyGame {
   const date = todayUtc(timestamp);
   const num = formatDailyChallengeNumber(date);
@@ -243,6 +248,31 @@ const GAME_CHALLENGE_CONFIG: Record<
       const target = 8 + (seed % 4); // target 8 to 11 rooms
       return { type: "rooms", target, description: say("goal.scoundrel", { n: target }) };
     },
+  },
+  hearts: {
+    title: T["daily.hearts.title"],
+    description: T["daily.hearts.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.hearts"] }),
+  },
+  spades: {
+    title: T["daily.spades.title"],
+    description: T["daily.spades.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.spades"] }),
+  },
+  minesweeper: {
+    title: T["daily.minesweeper.title"],
+    description: T["daily.minesweeper.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.minesweeper"] }),
+  },
+  sudoku: {
+    title: T["daily.sudoku.title"],
+    description: T["daily.sudoku.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.sudoku"] }),
+  },
+  checkers: {
+    title: T["daily.checkers.title"],
+    description: T["daily.checkers.description"],
+    goal: () => ({ type: "win", target: 1, description: T["goal.checkers"] }),
   },
 };
 

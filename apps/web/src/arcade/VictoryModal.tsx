@@ -23,6 +23,7 @@ import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
 import { saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
+import { appUrl, onCrazyGames } from "../crazygames";
 import "./victory.css";
 import { t, tk } from "../i18n";
 
@@ -35,6 +36,11 @@ const DAILY_LABELS: Record<string, string> = {
   yukon: "Yukon",
   ers: "Egyptian Rat Screw",
   scoundrel: "Scoundrel",
+  hearts: "Hearts",
+  spades: "Spades",
+  minesweeper: "Minesweeper",
+  sudoku: "Sudoku",
+  checkers: "Checkers",
 };
 /** a daily game's name in the active language (the catalog's arcade title) */
 const dailyLabel = (g: string) => (DAILY_LABELS[g] ? tk(`arc.${g}.title`, DAILY_LABELS[g]) : g.toUpperCase());
@@ -223,7 +229,7 @@ export function VictoryModal({
     );
   };
 
-  const showPwaPrompt = !isStandalone() && !pwaDismissed;
+  const showPwaPrompt = !isStandalone() && !pwaDismissed && !onCrazyGames;
 
   const dismissPwa = () => {
     setPwaDismissed(true);
@@ -403,11 +409,11 @@ export function VictoryModal({
                 click();
                 buzz("tap");
                 // dailyGame + seed opens today's own deal; ?daily alone opened the Daily Hub over a random deal
-                window.location.href = `/${nextDailyGame}?dailyGame=1&seed=${getDailySeed(nextDailyGame)}`;
+                window.location.href = appUrl(`/${nextDailyGame}?dailyGame=1&seed=${getDailySeed(nextDailyGame)}`);
               }}
               autoFocus
             >
-              {t("vic.nextDaily", { game: dailyLabel(nextDailyGame), n: dailyCompletedCount })} ➔
+              {t("vic.nextDaily", { game: dailyLabel(nextDailyGame), n: dailyCompletedCount, total: DAILY_GAMES.length })} ➔
             </button>
           ) : isDaily && !nextDailyGame ? (
             <button
@@ -420,7 +426,7 @@ export function VictoryModal({
               }}
               autoFocus
             >
-              {t("vic.allDone")} ↺
+              {t("vic.allDone", { n: DAILY_GAMES.length })} ↺
             </button>
           ) : (
             <button

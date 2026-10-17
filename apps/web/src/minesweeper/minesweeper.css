@@ -1,0 +1,815 @@
+/* Minesweeper: the vault job. Brushed-steel deposit tiles on the Heist felt, gold trim, LED counters,
+   a tumbler cascade when the field opens, an alarm on a mine and a vault door that swings open on a win. */
+
+.ms {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "bar" "panel" "wrap" "tools";
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, var(--felt) 0%, var(--felt2) 65%, #041d13 100%);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  color: var(--paper);
+  font-family: var(--body);
+}
+
+/* the player's Wardrobe felt carries over */
+[data-felt="custom"] .ms {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--cfelt) 85%, #ffffff 8%) 0%, var(--cfelt2) 65%, color-mix(in srgb, var(--cfelt2) 70%, #000000) 100%);
+}
+
+.ms-felt-rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 140px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(231, 181, 60, 0.18);
+}
+
+/* ---- top bar ---- */
+.ms-bar {
+  grid-area: bar;
+  position: relative;
+  z-index: 20;
+  width: min(100% - 12px, 680px);
+  margin: 6px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ms-icon-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.35);
+  background: linear-gradient(180deg, rgba(28, 31, 38, 0.92), rgba(12, 14, 18, 0.92));
+  color: var(--gold2);
+  font-size: 17px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.12s, opacity 0.2s;
+}
+.ms-icon-btn:active {
+  transform: scale(0.92);
+}
+.ms-icon-btn.armed {
+  width: 56px;
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+}
+.ms-sure {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 14px;
+}
+
+.ms-hud {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(20, 22, 28, 0.88), rgba(10, 12, 15, 0.88));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  text-align: center;
+}
+.ms-hud-name {
+  font-family: var(--title);
+  font-size: 19px;
+  letter-spacing: 2px;
+  color: var(--gold2);
+  line-height: 1.05;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.ms-hud-stats {
+  font-family: var(--cond);
+  font-size: 12.5px;
+  color: rgba(242, 232, 211, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ms-dot {
+  margin: 0 5px;
+  opacity: 0.4;
+}
+.ms-xp {
+  color: var(--gold2);
+}
+
+.ms-banner {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 52px);
+  left: 0;
+  right: 0;
+  z-index: 590;
+  display: flex;
+  justify-content: center;
+}
+
+/* ---- counters and dial ---- */
+.ms-panel {
+  grid-area: panel;
+  position: relative;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 8px 0 4px;
+}
+
+.ms-led {
+  position: relative;
+  min-width: 76px;
+  padding: 4px 10px 13px;
+  border-radius: 10px;
+  background: linear-gradient(180deg, #0a0c0e, #151010);
+  border: 1px solid rgba(231, 181, 60, 0.35);
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.9), 0 3px 10px rgba(0, 0, 0, 0.4);
+  font-family: "Courier New", ui-monospace, monospace;
+  font-weight: 700;
+  font-size: 26px;
+  line-height: 1;
+  text-align: center;
+}
+.ms-led-ghost {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
+  color: rgba(255, 60, 40, 0.09);
+}
+.ms-led-val {
+  position: relative;
+  color: #ff4a32;
+  text-shadow: 0 0 8px rgba(255, 60, 30, 0.75), 0 0 2px rgba(255, 140, 120, 0.9);
+  letter-spacing: 2px;
+}
+.ms-led small {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  font-family: var(--cond);
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: rgba(231, 181, 60, 0.7);
+}
+
+.ms-dial {
+  position: relative;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: conic-gradient(from 0deg, #f6d77a, #b98a1f, #f0c552, #8a6514, #f6d77a);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5), inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s;
+}
+.ms-dial:active {
+  transform: scale(0.92) rotate(-30deg);
+}
+.ms-dial-ring {
+  position: absolute;
+  inset: 5px;
+  border-radius: 50%;
+  background: repeating-conic-gradient(from 0deg, rgba(0, 0, 0, 0.55) 0 2deg, transparent 2deg 15deg), radial-gradient(circle, #3a404b, #171a20 72%);
+}
+.ms-dial-face {
+  position: absolute;
+  inset: 15px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 40% 35%, #f6d77a, #b98a1f);
+  color: #1a1206;
+  font-weight: 900;
+  font-size: 14px;
+  box-shadow: inset 0 -2px 4px rgba(0, 0, 0, 0.35);
+}
+.ms-dial.lost .ms-dial-face {
+  background: radial-gradient(circle at 40% 35%, #ff7a5c, #8f1d0e);
+  color: #fff;
+}
+.ms-dial.won {
+  animation: msDialWin 1.2s ease-in-out infinite;
+}
+@keyframes msDialWin {
+  50% {
+    box-shadow: 0 0 26px rgba(246, 215, 122, 0.9), inset 0 0 0 2px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* ---- the field ---- */
+.ms-wrap {
+  grid-area: wrap;
+  position: relative;
+  min-height: 0;
+  min-width: 0;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+}
+
+.ms-field {
+  display: grid;
+  gap: 0;
+  padding: 7px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #0c0f12, #050607);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  box-shadow:
+    0 0 0 2px rgba(231, 181, 60, 0.55),
+    0 0 0 6px rgba(20, 16, 8, 0.9),
+    0 0 0 7px rgba(231, 181, 60, 0.3),
+    0 18px 40px rgba(0, 0, 0, 0.6);
+  touch-action: manipulation;
+  animation: msFieldIn 0.35s ease-out both;
+}
+@keyframes msFieldIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+.ms-field.is-lost {
+  box-shadow:
+    0 0 0 2px rgba(255, 74, 50, 0.8),
+    0 0 0 6px rgba(20, 8, 6, 0.9),
+    0 0 30px rgba(255, 60, 30, 0.45),
+    0 18px 40px rgba(0, 0, 0, 0.6);
+}
+.ms-field.is-won {
+  box-shadow:
+    0 0 0 2px var(--gold2),
+    0 0 0 6px rgba(20, 16, 8, 0.9),
+    0 0 40px rgba(246, 215, 122, 0.55),
+    0 18px 40px rgba(0, 0, 0, 0.6);
+}
+
+.ms-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  line-height: 1;
+  font-family: var(--title);
+}
+
+/* a shut tile: a brushed-steel deposit-box door with a bevel */
+.ms-cell.shut {
+  margin: 1px;
+  border-radius: max(2px, calc(var(--tile) * 0.14));
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 3px),
+    linear-gradient(160deg, #6a7280 0%, #444b57 45%, #2c313a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.45),
+    0 1px 2px rgba(0, 0, 0, 0.6);
+  transition: transform 0.08s, filter 0.12s;
+}
+.ms-cell.shut::after {
+  content: "";
+  position: absolute;
+  width: 18%;
+  height: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, rgba(246, 215, 122, 0.55), rgba(120, 90, 20, 0.3));
+  opacity: 0.55;
+}
+.ms-cell.shut.flag::after,
+.ms-cell.shut.mine-show::after {
+  display: none;
+}
+@media (hover: hover) {
+  .ms-field:not(.is-lost):not(.is-won) .ms-cell.shut:hover {
+    filter: brightness(1.25);
+  }
+  .ms-field.flag-mode .ms-cell.shut:hover {
+    filter: brightness(1.15) sepia(0.4) hue-rotate(-20deg);
+  }
+}
+.ms-field:not(.is-lost):not(.is-won) .ms-cell.shut:active {
+  transform: scale(0.9);
+}
+
+/* an open tile: the felt-lined well under the door */
+.ms-cell.open {
+  background: linear-gradient(180deg, rgba(10, 40, 28, 0.95), rgba(6, 28, 19, 0.95));
+  box-shadow: inset 0 0 0 0.5px rgba(231, 181, 60, 0.12), inset 0 2px 4px rgba(0, 0, 0, 0.5);
+  animation: msOpen 0.34s cubic-bezier(0.2, 0.9, 0.3, 1.25) both;
+}
+[data-felt="custom"] .ms-cell.open {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--cfelt2) 70%, #000000), color-mix(in srgb, var(--cfelt2) 55%, #000000));
+}
+@keyframes msOpen {
+  0% {
+    transform: scale(0.35) rotateX(75deg);
+    opacity: 0;
+    filter: brightness(2.2);
+  }
+  60% {
+    opacity: 1;
+    filter: brightness(1.4);
+  }
+  100% {
+    transform: none;
+    filter: none;
+  }
+}
+
+.ms-num {
+  font-size: 1.04em;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.7), 0 0 8px currentColor;
+  transform: translateY(0.04em);
+}
+.ms-cell.n1 { color: #63b6ff; }
+.ms-cell.n2 { color: #5fd38f; }
+.ms-cell.n3 { color: #ff6a55; }
+.ms-cell.n4 { color: #b994ff; }
+.ms-cell.n5 { color: #ffb347; }
+.ms-cell.n6 { color: #4fd8cb; }
+.ms-cell.n7 { color: #f6d77a; }
+.ms-cell.n8 { color: #e8e8e8; }
+
+.ms-mine-svg,
+.ms-flag-svg {
+  width: 72%;
+  height: 72%;
+}
+.ms-cell .ms-mine-svg {
+  color: #15171b;
+}
+.ms-cell.flag .ms-flag-svg {
+  animation: msFlag 0.28s cubic-bezier(0.2, 0.9, 0.3, 1.5) both;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.6));
+}
+@keyframes msFlag {
+  from {
+    transform: translateY(-40%) scale(0.4);
+    opacity: 0;
+  }
+}
+
+/* the mine that blew */
+.ms-cell.open.boom {
+  background: radial-gradient(circle, #ffdd66 0%, #ff4a20 45%, #7a0f05 100%);
+  animation: msBoom 0.6s ease-out both;
+  z-index: 2;
+}
+.ms-cell.open.boom::before {
+  content: "";
+  position: absolute;
+  inset: -100%;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 140, 60, 0.9);
+  animation: msWave 0.75s ease-out both;
+  pointer-events: none;
+}
+@keyframes msBoom {
+  0% {
+    transform: scale(2.2);
+    filter: brightness(3);
+  }
+  100% {
+    transform: none;
+  }
+}
+@keyframes msWave {
+  0% {
+    transform: scale(0.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+/* the rest of the mines, shown after the alarm */
+.ms-cell.mine-show {
+  background: radial-gradient(circle, #52343a, #2a1518);
+  animation: msMineShow 0.4s ease-out both;
+}
+.ms-cell.mine-show .ms-mine-svg {
+  color: #0d0e10;
+}
+@keyframes msMineShow {
+  0% {
+    transform: scale(0.5);
+    filter: brightness(3) saturate(2);
+  }
+}
+.ms-cell.flag.wrong {
+  background: linear-gradient(160deg, #6b2c25, #3a1310);
+}
+.ms-cell.flag.wrong::before {
+  content: "✕";
+  position: absolute;
+  color: #ffd1c8;
+  font-size: 0.9em;
+  z-index: 1;
+}
+.ms-cell.won-mine {
+  background: linear-gradient(160deg, #f6d77a, #b98a1f);
+  box-shadow: 0 0 10px rgba(246, 215, 122, 0.6);
+}
+
+/* ---- dig / flag switch ---- */
+.ms-tools {
+  grid-area: tools;
+  position: relative;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px 10px;
+}
+.ms-mode {
+  display: flex;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: rgba(8, 10, 12, 0.82);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+.ms-mode button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 108px;
+  justify-content: center;
+  height: 42px;
+  padding: 0 18px;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: rgba(242, 232, 211, 0.7);
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 16px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.12s;
+}
+.ms-mode button:active {
+  transform: scale(0.95);
+}
+.ms-mode button.on {
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+  box-shadow: 0 2px 10px rgba(231, 181, 60, 0.4);
+}
+.ms-mode button.on.flag {
+  background: linear-gradient(180deg, #ff6a4d, #b3240f);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(255, 74, 50, 0.45);
+}
+.ms-mode-ico {
+  display: inline-grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+}
+.ms-mode-ico .ms-flag-svg {
+  width: 18px;
+  height: 18px;
+}
+.ms-tip {
+  font-family: var(--cond);
+  font-size: 12px;
+  color: rgba(242, 232, 211, 0.55);
+  text-align: center;
+}
+
+/* ---- floating XP ---- */
+.ms-float {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 900;
+  pointer-events: none;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--title);
+  font-size: 22px;
+  color: var(--gold2);
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.8), 0 0 14px rgba(246, 215, 122, 0.5);
+  white-space: nowrap;
+}
+.ms-float-tag {
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--paper);
+}
+
+/* ---- the vault cracks open ---- */
+.ms-crack {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: radial-gradient(circle at 50% 45%, rgba(40, 30, 8, 0.55), rgba(0, 0, 0, 0.82));
+  pointer-events: none;
+}
+.ms-crack-rays {
+  position: absolute;
+  width: 140vmax;
+  height: 140vmax;
+  background: repeating-conic-gradient(from 0deg, rgba(246, 215, 122, 0.16) 0 6deg, transparent 6deg 18deg);
+  mask-image: radial-gradient(circle, #000 0%, transparent 55%);
+  -webkit-mask-image: radial-gradient(circle, #000 0%, transparent 55%);
+}
+.ms-crack-stage {
+  position: relative;
+  width: min(56vw, 230px);
+  aspect-ratio: 1;
+  perspective: 900px;
+}
+.ms-crack-gold {
+  position: absolute;
+  inset: 12%;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: min(22vw, 90px);
+  color: #fff6d6;
+  background: radial-gradient(circle, #fff3c4 0%, #f6d77a 35%, #b98a1f 75%, #2a1d05 100%);
+  box-shadow: 0 0 60px rgba(246, 215, 122, 0.85);
+  text-shadow: 0 0 20px #fff;
+}
+.ms-vault-door {
+  position: absolute;
+  inset: 0;
+  transform-origin: 2% 50%;
+  filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.7));
+}
+.ms-vault-door svg {
+  width: 100%;
+  height: 100%;
+}
+.ms-crack-title {
+  position: relative;
+  font-family: var(--title);
+  font-size: clamp(34px, 9vw, 60px);
+  letter-spacing: 4px;
+  color: var(--gold2);
+  text-shadow: 0 0 24px rgba(246, 215, 122, 0.7), 0 3px 0 #6b5216;
+  text-align: center;
+  line-height: 1;
+}
+.ms-crack-title small {
+  display: block;
+  margin-top: 8px;
+  font-family: var(--cond);
+  font-size: 15px;
+  letter-spacing: 1px;
+  color: var(--paper);
+  text-shadow: none;
+}
+
+/* ---- lost card ---- */
+.ms-lost {
+  position: fixed;
+  left: 50%;
+  bottom: calc(env(safe-area-inset-bottom) + 12px);
+  translate: -50% 0;
+  z-index: 800;
+  width: min(100% - 24px, 440px);
+  padding: 16px 16px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 74, 50, 0.55);
+  background: linear-gradient(180deg, rgba(36, 14, 12, 0.96), rgba(14, 8, 8, 0.97));
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.6), 0 0 30px rgba(255, 60, 30, 0.2);
+  text-align: center;
+}
+.ms-lost-title {
+  font-family: var(--title);
+  font-size: 32px;
+  letter-spacing: 3px;
+  color: #ff6a4d;
+  text-shadow: 0 0 16px rgba(255, 74, 50, 0.6);
+  animation: msAlarm 0.6s steps(2) 3;
+}
+@keyframes msAlarm {
+  50% {
+    color: #ffd1c8;
+  }
+}
+.ms-lost-sub {
+  margin: 4px 0 12px;
+  font-size: 14px;
+  color: rgba(242, 232, 211, 0.82);
+}
+.ms-lost-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.ms-btn {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.4);
+  background: linear-gradient(180deg, rgba(36, 39, 46, 0.95), rgba(16, 18, 22, 0.95));
+  color: var(--paper);
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 15px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+.ms-btn:active {
+  transform: scale(0.96);
+}
+.ms-btn.gold {
+  border-color: var(--gold);
+  background: linear-gradient(180deg, #f0c552, #b98a1f);
+  color: #1a1206;
+}
+
+/* ---- sheets: board picker, how to play ---- */
+.ms-sheet-wrap {
+  position: fixed;
+  inset: 0;
+  z-index: 960;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.ms-sheet {
+  width: min(100%, 420px);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: linear-gradient(180deg, #1b1e25, #0d0f13);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ms-sheet-title {
+  font-family: var(--title);
+  font-size: 26px;
+  letter-spacing: 3px;
+  color: var(--gold2);
+  text-align: center;
+}
+.ms-level {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(231, 181, 60, 0.22);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--paper);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+}
+.ms-level:active {
+  transform: scale(0.98);
+}
+.ms-level.on {
+  border-color: var(--gold);
+  background: rgba(231, 181, 60, 0.1);
+}
+.ms-level-mini {
+  flex: none;
+  width: 56px;
+  display: grid;
+  gap: 2px;
+}
+.ms-level-mini i {
+  aspect-ratio: 1;
+  border-radius: 2px;
+  background: linear-gradient(160deg, #6a7280, #2c313a);
+}
+.ms-level-text {
+  display: flex;
+  flex-direction: column;
+}
+.ms-level-text b {
+  font-family: var(--title);
+  font-size: 22px;
+  letter-spacing: 2px;
+  font-weight: 400;
+}
+.ms-level-text small {
+  font-family: var(--cond);
+  font-size: 13px;
+  color: rgba(242, 232, 211, 0.65);
+}
+.ms-howto {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 14.5px;
+  line-height: 1.35;
+  color: rgba(242, 232, 211, 0.9);
+}
+.ms-howto b {
+  color: var(--gold2);
+}
+
+/* ---- sideways phone: the counters and the switch move to the left so the field gets the height ---- */
+@media (orientation: landscape) and (max-height: 540px) {
+  .ms {
+    grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+    grid-template-areas: "bar bar" "panel wrap" "tools wrap";
+  }
+  .ms-bar {
+    margin-top: 4px;
+  }
+  .ms-icon-btn {
+    width: 36px;
+    height: 36px;
+  }
+  .ms-hud {
+    padding: 3px 10px;
+  }
+  .ms-hud-name {
+    font-size: 16px;
+  }
+  .ms-panel {
+    flex-direction: column;
+    gap: 10px;
+    padding: 6px 0;
+  }
+  .ms-tools {
+    padding-bottom: 8px;
+  }
+  .ms-mode {
+    flex-direction: column;
+    border-radius: 18px;
+  }
+  .ms-mode button {
+    border-radius: 14px;
+    height: 38px;
+  }
+  .ms-tip {
+    display: none;
+  }
+}
+
+@media (max-width: 380px) {
+  .ms-hud-name .arcade-trust-pill {
+    display: none;
+  }
+  .ms-led {
+    min-width: 64px;
+    font-size: 22px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ms-cell.open,
+  .ms-cell.mine-show,
+  .ms-field {
+    animation: none;
+  }
+}

@@ -132,6 +132,8 @@ export interface AccountRow {
   arcadeGames?: number;
   /** total games across all modes (heist + arcade) */
   totalGames?: number;
+  /** where they came from: "cg" for CrazyGames, null for playheist.net and everything else (older servers: missing) */
+  source?: string | null;
 }
 
 export interface Crm {
@@ -237,6 +239,8 @@ export interface Overview {
   gamesByType?: Record<string, number>;
   gamesTodayByType?: Record<string, number>;
   acquisitionToday?: { visitors: number; adLandings: number; active: number };
+  /** players who came through the CrazyGames portal */
+  crazyGames?: { players: number; newToday: number; activeToday: number; activeWeek: number };
   daily: { day: string; signups: number; people: number; games: number; active: number }[];
   today: { kind: string; count: number }[];
   newest: AccountRow[];

@@ -14,6 +14,7 @@ import { onlineSource } from "./useOnlineTable";
 import { dismissAlertsAsk, shouldAskForAlerts, turnOnAlerts, useAlertState } from "../alerts";
 import { Solitaire } from "../solitaire/Solitaire";
 import { ARCADE_GAMES, type ArcadeGameId } from "../arcade/ArcadeHub";
+import { shareUrl, useCrazyGamesPlay } from "../crazygames";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import "../arcade/arcade.css";
@@ -38,10 +39,8 @@ export function inviteCode(): string | null {
 }
 
 function inviteLink(code: string) {
-  const u = new URL(location.href);
-  u.search = `?table=${code}`;
-  u.hash = "";
-  return u.toString();
+  // on CrazyGames, their invite link to the game on their portal (see crazygames.ts)
+  return shareUrl(`/?table=${code}`);
 }
 
 export function OnlineLobby({
@@ -113,7 +112,11 @@ export function OnlineLobby({
     else if (room?.status === "over") forgetTable();
   }, [room, sess.seat]);
 
-  if (room && room.status !== "lobby" && sess.feed.game > 0) {
+  // CrazyGames: a dealt table (or Solitaire while queued) is gameplay; the lobby isn't
+  const atTable = !!room && room.status !== "lobby" && sess.feed.game > 0;
+  useCrazyGamesPlay(atTable || (sol && !room));
+
+  if (atTable) {
     return <OnlineTable sess={sess} onExit={leave} onWin={onWin} onEnd={onEnd} />;
   }
 

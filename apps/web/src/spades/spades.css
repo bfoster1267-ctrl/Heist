@@ -1,0 +1,59 @@
+/* Spades: the shared trick table (tricks/tricks.css), a cool steel rail and the bidding box */
+.spades .tt-oval {
+  border-color: rgba(150, 190, 230, 0.2);
+  box-shadow: 0 0 0 10px rgba(0, 0, 0, 0.08), inset 0 0 50px rgba(0, 0, 0, 0.25), 0 0 46px rgba(150, 190, 230, 0.06);
+}
+.spades .tt-oval::after {
+  content: "♠ " attr(data-mark) " ♠";
+}
+.tt-bidbox {
+  position: absolute;
+  z-index: 70;
+  width: min(360px, calc(100vw - 24px));
+  translate: -50% -50%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, rgba(31, 35, 43, 0.97), rgba(15, 17, 21, 0.97));
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.65), 0 0 30px rgba(231, 181, 60, 0.15);
+}
+.tt-bidbox-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--cond);
+  font-size: 13px;
+  color: rgba(242, 232, 211, 0.75);
+}
+.tt-bidbox-head > b {
+  font-family: var(--title);
+  font-weight: 400;
+  font-size: 22px;
+  letter-spacing: 2px;
+  color: var(--gold2);
+}
+.tt-bidbox-head span b {
+  color: var(--paper);
+}
+.tt-bidbox-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--cond);
+  font-size: 13px;
+  color: rgba(242, 232, 211, 0.7);
+}
+@media (max-height: 430px) {
+  .tt-bidbox {
+    padding: 8px;
+    gap: 5px;
+  }
+  .tt-bidbox .tt-bid {
+    height: 34px;
+  }
+}
