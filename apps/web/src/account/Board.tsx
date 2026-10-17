@@ -61,7 +61,6 @@ export const KINDS: Record<BoardKind, { readonly label: string; readonly ask: st
   other: kindText(
     "other",
     (
-
       <Icon>
         <path d="M4 5h16v10H9l-4 4v-4H4z" />
       </Icon>
