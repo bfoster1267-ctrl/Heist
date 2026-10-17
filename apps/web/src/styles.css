@@ -25,10 +25,13 @@ body,
 #root {
   margin: 0;
   height: 100%;
+  width: 100%;
+  max-width: 100vw;
   background: var(--ink);
   color: var(--paper);
   font-family: var(--body);
   overflow: hidden;
+  overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   -webkit-text-size-adjust: 100%;
@@ -40,6 +43,9 @@ html,
 body {
   position: fixed;
   inset: 0;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
 }
 button {
   font: inherit;
@@ -1802,7 +1808,10 @@ button:disabled {
 .lobby {
   position: fixed;
   inset: 0;
+  width: 100%;
+  max-width: 100vw;
   overflow-y: auto;
+  overflow-x: hidden;
   display: grid;
   place-items: center;
   padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
@@ -1818,6 +1827,8 @@ button:disabled {
   position: fixed;
   inset: 0;
   pointer-events: none;
+  overflow: hidden;
+  max-width: 100vw;
 }
 .lobby-float {
   position: absolute;
@@ -3536,12 +3547,17 @@ button:disabled {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 /* three modes (a new player's Learn to play is the big button): the last one takes the whole row */
 .lobby-modes > :last-child:nth-child(odd) {
   grid-column: 1 / -1;
 }
 .lobby-mode {
+  min-width: 0;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -3876,15 +3892,28 @@ button:disabled {
     display: none;
   }
   .lobby-gear {
-    width: 44px;
-    height: 44px;
-    font-size: 24px;
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    border-radius: 12px;
   }
   .lobby-lang-btn {
-    left: calc(62px + env(safe-area-inset-left));
-    height: 44px;
-    padding: 0 9px;
-    font-size: 13px;
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(54px + env(safe-area-inset-left));
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 12px;
+  }
+  .lobby-lang-code {
+    display: none;
+  }
+  .lobby-lang-flag {
+    font-size: 20px;
+    margin: 0;
   }
   .lobby-sheet {
     gap: 10px;

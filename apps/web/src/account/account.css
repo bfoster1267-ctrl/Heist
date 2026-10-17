@@ -1678,6 +1678,43 @@
   font-size: 17px;
   font-weight: 700;
 }
+@media (max-width: 600px) {
+  .acct-corner {
+    top: calc(10px + env(safe-area-inset-top));
+    right: calc(10px + env(safe-area-inset-right));
+    max-width: calc(100vw - 105px);
+  }
+  .acct-chip {
+    padding: 5px 9px 5px 6px;
+    gap: 7px;
+    max-width: 100%;
+    border-radius: 14px;
+    box-sizing: border-box;
+  }
+  .acct-chip-avatar {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 14px !important;
+  }
+  .acct-chip-body {
+    width: auto;
+    max-width: 95px;
+    min-width: 0;
+    flex: 1;
+    gap: 1px;
+  }
+  .acct-chip-name {
+    font-size: 14px;
+    line-height: 1.1;
+  }
+  .acct-chip-rank {
+    font-size: 9px;
+  }
+  .acct-chip-money {
+    font-size: 13px;
+    gap: 2px;
+  }
+}
 /* phone held sideways: a slimmer card */
 @media (max-height: 520px) {
   .acct-chip {
