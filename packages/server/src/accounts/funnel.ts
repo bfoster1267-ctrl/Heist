@@ -115,7 +115,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     if (e.name) t.name = e.name;
     t.last = e.at;
     // the API's own calls (config, /me) say little; taps, screens and game steps say where they were
-    if (e.kind !== "ui.ping" && (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel.") || e.kind.startsWith("hearts.") || e.kind.startsWith("spades."))) t.lastWhat = what(e);
+    if (e.kind !== "ui.ping" && (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel.") || e.kind.startsWith("checkers.") || e.kind.startsWith("minesweeper.") || e.kind.startsWith("sudoku.") || e.kind.startsWith("hearts.") || e.kind.startsWith("spades."))) t.lastWhat = what(e);
     if (e.at - t.first >= RETURN_AFTER) t.back = true;
     const d = (e.data ?? {}) as Record<string, unknown>;
     const ok = e.ok !== false;
@@ -159,6 +159,9 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
       case "scoundrel.start":
       case "hearts.start":
       case "spades.start":
+      case "minesweeper.start":
+      case "sudoku.start":
+      case "checkers.start":
         if (!ok) break;
         t.games++;
         t.arcadeStarted = true;
@@ -174,6 +177,9 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
       case "scoundrel.finish":
       case "hearts.finish":
       case "spades.finish":
+      case "minesweeper.finish":
+      case "sudoku.finish":
+      case "checkers.finish":
         t.arcadeWon = true;
         t.finished = true;
         t.gameTypes.add(e.kind.split(".")[0]);
@@ -188,6 +194,9 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
       case "scoundrel.bank":
       case "hearts.bank":
       case "spades.bank":
+      case "minesweeper.bank":
+      case "sudoku.bank":
+      case "checkers.bank":
         t.arcadeStarted = true;
         t.gameTypes.add(e.kind.split(".")[0]);
         break;

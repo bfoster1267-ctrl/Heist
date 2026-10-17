@@ -38,6 +38,8 @@ describe("bot visits", () => {
     expect(sourceOf(undefined, IPHONE)).toBe("Reddit app");
     expect(sourceOf("https://playheist.net/", undefined)).toBeNull();
     expect(sourceOf("", undefined)).toBeNull();
+    expect(sourceOf("https://www.crazygames.com/game/heist", undefined)).toBe("CrazyGames");
+    expect(sourceOf("https://games.crazygames.com/en_US/heist/index.html", undefined)).toBe("CrazyGames");
   });
 
   it("never calls someone who tapped, or signed up, a bot", () => {

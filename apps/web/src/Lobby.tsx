@@ -8,6 +8,7 @@ import { Rules } from "./table/Rules";
 import { Settings } from "./table/Settings";
 import { createPortal } from "react-dom";
 import { isIOS, isStandalone } from "./appShell";
+import { onCrazyGames } from "./crazygames";
 import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 import { ArcadeHub } from "./arcade/ArcadeHub";
@@ -60,6 +61,9 @@ export function Lobby({
   onScoundrel,
   onHearts,
   onSpades,
+  onMinesweeper,
+  onSudoku,
+  onCheckers,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -98,6 +102,12 @@ export function Lobby({
   onHearts?: () => void;
   /** open Spades */
   onSpades?: () => void;
+  /** open Minesweeper */
+  onMinesweeper?: () => void;
+  /** open Sudoku */
+  onSudoku?: () => void;
+  /** open Checkers vs bot */
+  onCheckers?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -237,11 +247,11 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label="Play online" sub={newbie ? "After your first lesson" : "Real people"} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
-          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onHearts || onSpades) && (
+          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onCheckers || onMinesweeper || onSudoku || onHearts || onSpades) && (
             <Mode
               icon="cards"
               label="Solo Arcade"
-              sub="10 Card Games · Solitaire, Hearts & Spades"
+              sub="13 Games · Solitaire, Hearts, Spades & Puzzles"
               onClick={() => setGames(true)}
             />
           )}
@@ -354,6 +364,15 @@ export function Lobby({
                   break;
                 case "spades":
                   onSpades?.();
+                  break;
+                case "minesweeper":
+                  onMinesweeper?.();
+                  break;
+                case "sudoku":
+                  onSudoku?.();
+                  break;
+                case "checkers":
+                  onCheckers?.();
                   break;
               }
             }}
@@ -602,7 +621,7 @@ function InstallHint() {
   });
   const [modalOpen, setModalOpen] = useState(false);
 
-  if (hidden || isStandalone() || location.protocol === "file:" || !isMobileDevice()) return null;
+  if (hidden || onCrazyGames || isStandalone() || location.protocol === "file:" || !isMobileDevice()) return null;
 
   const close = () => {
     setHidden(true);

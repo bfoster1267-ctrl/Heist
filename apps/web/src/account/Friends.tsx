@@ -9,11 +9,13 @@ import { Avatar, Stars } from "./bits";
 import { MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
 import { SYSTEM, badgeCount, friendsApi, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
+import { appUrl, onCrazyGames } from "../crazygames";
 import "./friends.css";
 
 /** Open a table from an invite: the app reloads into it (from the lobby, Solitaire or another table's lobby). */
 export function joinTable(code: string) {
-  location.assign(new URL(`./?table=${encodeURIComponent(code)}`, location.href).href);
+  // (on CrazyGames the address stays on the game's own file: see appUrl)
+  location.assign(onCrazyGames ? appUrl(`/?table=${encodeURIComponent(code)}`) : new URL(`./?table=${encodeURIComponent(code)}`, location.href).href);
 }
 
 function ago(t: number | null) {

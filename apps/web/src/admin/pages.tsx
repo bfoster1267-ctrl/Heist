@@ -112,6 +112,22 @@ const WIDGETS: Widget[] = [
       );
     },
   },
+  {
+    id: "crazygames",
+    label: "CrazyGames players",
+    group: "stat",
+    render: ({ d }) => {
+      const cg = d.crazyGames;
+      if (!cg) return null;
+      return (
+        <Stat
+          label="From CrazyGames"
+          value={<Link to="/players?source=cg">{num(cg.players)}</Link>}
+          sub={`${num(cg.newToday)} new today · ${num(cg.activeToday)} active today · ${num(cg.activeWeek)} this week`}
+        />
+      );
+    },
+  },
   { id: "games", label: "Games played", group: "stat", render: ({ d }) => <Stat label="Games played" value={num(d.economy.gamesPlayed)} sub={`all time, per player · ${num(sumDaily(d, "games"))} logged in 30 days`} /> },
   { id: "chips", label: "Chips held", group: "stat", render: ({ d }) => <Stat label="Chips held" value={num(d.economy.chips)} sub={`${num(d.economy.coins)} coins`} /> },
   { id: "packs", label: "Packs bought", group: "stat", render: ({ d }) => <Stat label="Packs bought" value={num(d.economy.packsBought)} sub={`${num(d.economy.drinksSent)} drinks sent`} /> },
@@ -161,6 +177,9 @@ const WIDGETS: Widget[] = [
         ["scoundrel", "Scoundrel"],
         ["hearts", "Hearts"],
         ["spades", "Spades"],
+        ["minesweeper", "Minesweeper"],
+        ["sudoku", "Sudoku"],
+        ["checkers", "Checkers"],
         ["heist_solo", "Heist (Solo)"],
         ["heist_online", "Heist (Online)"],
       ];
@@ -234,7 +253,7 @@ const WIDGETS: Widget[] = [
   { id: "tables", label: "Tables right now", group: "card", render: ({ d }) => d.live && <LiveTables live={d.live} /> },
 ];
 
-const DEFAULT_LAYOUT = ["people", "active", "online", "acquisition", "eco.added", "eco.up", "chips", "c.people", "c.active", "c.games", "games_by_type", "newest", "today", "tables"];
+const DEFAULT_LAYOUT = ["people", "active", "online", "acquisition", "crazygames", "eco.added", "eco.up", "chips", "c.people", "c.active", "c.games", "games_by_type", "newest", "today", "tables"];
 
 export function Dashboard({ s, onAuth }: PageProps) {
   const o = useAdmin<Overview>(s, "/overview", onAuth);
@@ -432,6 +451,8 @@ export function Players({ s, onAuth, query }: PageProps) {
   const sort = query.get("sort") ?? "seen";
   const show = query.get("show") ?? "people";
   const game = query.get("game") ?? "all";
+  // where they came from: "" everywhere, "cg" CrazyGames, "web" everywhere else
+  const source = query.get("source") ?? "";
   const mine = query.get("mine") === "1";
   const offset = Number(query.get("offset") ?? 0);
   const tag = query.get("tag") ?? "";
@@ -441,6 +462,7 @@ export function Players({ s, onAuth, query }: PageProps) {
       sort,
       show,
       game: game === "all" ? "" : game,
+      source,
       tag,
       mine: mine ? "1" : "",
       offset: String(offset),
@@ -456,6 +478,7 @@ export function Players({ s, onAuth, query }: PageProps) {
     sort,
     show: show === "all" ? "" : show,
     game: game === "all" ? "" : game,
+    source,
     offset: String(offset),
     tag,
     mine: mine ? "1" : "",
@@ -495,8 +518,16 @@ export function Players({ s, onAuth, query }: PageProps) {
           <option value="scoundrel">Scoundrel</option>
           <option value="hearts">Hearts</option>
           <option value="spades">Spades</option>
+          <option value="minesweeper">Minesweeper</option>
+          <option value="sudoku">Sudoku</option>
+          <option value="checkers">Checkers</option>
           <option value="heist_solo">Heist Solo</option>
           <option value="heist_online">Heist Online</option>
+        </select>
+        <select value={source} onChange={(e) => go(qs({ source: e.target.value, offset: 0 }))}>
+          <option value="">Every source</option>
+          <option value="cg">From CrazyGames</option>
+          <option value="web">playheist.net and the rest</option>
         </select>
         <select value={sort} onChange={(e) => go(qs({ sort: e.target.value, offset: 0 }))}>
           {SORTS.map(([k, v]) => (
@@ -517,6 +548,11 @@ export function Players({ s, onAuth, query }: PageProps) {
         {tag && (
           <button type="button" className="fam-chip on" onClick={() => go(qs({ tag: "", offset: 0 }))}>
             tag: {tag} ✕
+          </button>
+        )}
+        {source && (
+          <button type="button" className="fam-chip on" onClick={() => go(qs({ source: "", offset: 0 }))}>
+            source: {source === "cg" ? "CrazyGames" : "playheist.net"} ✕
           </button>
         )}
         {l.data && <span className="dim count">{num(l.data.total)} found</span>}
@@ -551,6 +587,9 @@ const GAME_LABELS: Record<string, string> = {
   scoundrel: "🗡 Scoundrel",
   hearts: "♥ Hearts",
   spades: "♠ Spades",
+  minesweeper: "✹ Minesweeper",
+  sudoku: "▦ Sudoku",
+  checkers: "⛀ Checkers",
   heist_solo: "Heist Solo",
   heist_online: "Heist PvP",
 };
@@ -561,6 +600,11 @@ function Badges({ r }: { r: AccountRow }) {
       {r.you && <span className="badge you">you</span>}
       {r.claude && <span className="badge claude">Claude</span>}
       {r.bot && <span className="badge bot" title={r.bot}>bot</span>}
+      {r.source === "cg" && (
+        <span className="badge cg" title="Came through CrazyGames">
+          CrazyGames
+        </span>
+      )}
       {r.personAccounts > 1 && <span className="badge note">+{r.personAccounts - 1} {r.personAccounts === 2 ? "account" : "accounts"}</span>}
       {r.banned && <span className="badge banned">suspended</span>}
       {r.flagged && <span className="badge flagged">⚑ flagged</span>}
@@ -681,7 +725,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         <div className="card">
           <div className="card-head">
             <h3>Recent games</h3>
-            <Link to={`/activity?user=${a.id}&kinds=game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,hearts.,spades.`}>All games →</Link>
+            <Link to={`/activity?user=${a.id}&kinds=game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,checkers.,minesweeper.,sudoku.,hearts.,spades.`}>All games →</Link>
           </div>
           <GameList s={s} onAuth={onAuth} userId={a.id} />
         </div>
@@ -735,7 +779,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
   );
 }
 
-const ALL_GAMES_KINDS = "game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,hearts.,spades.";
+const ALL_GAMES_KINDS = "game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,checkers.,minesweeper.,sudoku.,hearts.,spades.";
 
 function GameList({ s, onAuth, userId }: { s: Session; onAuth: (e: unknown) => void; userId: string }) {
   const l = useAdmin<{ events: ActivityEvent[] }>(s, `/activity?user=${userId}&kinds=${ALL_GAMES_KINDS}&limit=12`, onAuth);

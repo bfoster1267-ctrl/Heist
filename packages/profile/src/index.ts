@@ -23,4 +23,7 @@ export * from "./scoundrel";
 export * from "./tricks";
 export * from "./hearts";
 export * from "./spades";
+export * from "./minesweeper";
+export * from "./sudoku";
 export * from "./daily";
+export * from "./checkers";

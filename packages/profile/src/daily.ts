@@ -1,4 +1,4 @@
-// Daily challenge and streak progression system for every solo card game.
+// Daily challenge and streak progression system for all 13 solo games.
 // Ensures every player in the world shares the exact same daily challenge deal on any given day,
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
@@ -16,6 +16,9 @@ export const DAILY_GAMES = [
   "scoundrel",
   "hearts",
   "spades",
+  "minesweeper",
+  "sudoku",
+  "checkers",
 ] as const;
 
 export type DailyGame = (typeof DAILY_GAMES)[number];
@@ -110,7 +113,7 @@ export function formatDailyChallengeNumber(dateStr?: string): number {
   return Math.max(1, daysBetween(DAILY_EPOCH_DATE, date) + 1);
 }
 
-/** Returns the featured daily game for a given date, rotating deterministically across every daily game. */
+/** Returns the featured daily game for a given date, rotating deterministically across all the daily games. */
 export function getFeaturedDailyGame(timestamp?: number | Date): DailyGame {
   const date = todayUtc(timestamp);
   const num = formatDailyChallengeNumber(date);
@@ -254,6 +257,21 @@ const GAME_CHALLENGE_CONFIG: Record<
     title: "Daily Spades Syndicate",
     description: "Team up with Ledger on today's shared deal, a quick game to 250: bid tight, make your contract.",
     goal: () => ({ type: "win", target: 1, description: "Win the quick game to 250" }),
+  },
+  minesweeper: {
+    title: "Daily Minesweeper Vault",
+    description: "Crack today's shared 16x16 Intermediate minefield: 40 mines, one safe first click.",
+    goal: () => ({ type: "win", target: 1, description: "Clear the Intermediate minefield" }),
+  },
+  sudoku: {
+    title: "Daily Sudoku Safe",
+    description: "Crack today's shared Medium Sudoku combination: one unique solution, three mistakes allowed.",
+    goal: () => ({ type: "win", target: 1, description: "Solve the Medium Sudoku" }),
+  },
+  checkers: {
+    title: "Daily Checkers Showdown",
+    description: "Take on today's Pro bot: everyone faces the same opponent, move for move.",
+    goal: () => ({ type: "win", target: 1, description: "Beat the Pro bot" }),
   },
 };
 

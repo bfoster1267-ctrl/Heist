@@ -1,5 +1,5 @@
 // Daily Challenge Hub Modal
-// Displays today's worldwide daily challenges across all 8 solo games, active streak counter,
+// Displays today's worldwide daily challenges across all 9 solo games, active streak counter,
 // streak multipliers, milestone progress, countdown timers, and Wordle-style sharing.
 
 import {
@@ -40,6 +40,9 @@ export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
   scoundrel: { title: "Scoundrel", icon: "🗡️" },
   hearts: { title: "Hearts", icon: "♥" },
   spades: { title: "Spades", icon: "♠" },
+  minesweeper: { title: "Minesweeper", icon: "💣" },
+  sudoku: { title: "Sudoku", icon: "🔢" },
+  checkers: { title: "Checkers", icon: "⛀" },
 };
 
 export interface DailyHubProps {

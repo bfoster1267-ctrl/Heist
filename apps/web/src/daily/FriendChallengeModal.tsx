@@ -13,6 +13,8 @@ export interface FriendChallengeModalProps {
   time?: string;
   moves?: number;
   score?: number;
+  /** the board size or puzzle level, carried in the link */
+  level?: string;
   challengerTime?: string | null;
   challengerMoves?: number | null;
   challengerScore?: number | null;
@@ -26,6 +28,7 @@ export function FriendChallengeModal({
   time,
   moves,
   score,
+  level,
   challengerTime,
   challengerMoves,
   challengerScore,
@@ -59,6 +62,7 @@ export function FriendChallengeModal({
       time,
       moves,
       score,
+      level,
     });
     if (ok) {
       setCopied(true);

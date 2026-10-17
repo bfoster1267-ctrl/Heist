@@ -61,7 +61,12 @@ export interface AccountRow {
   arcadeGames: number;
   /** total games across all modes (heist + arcade) */
   totalGames: number;
+  /** where they came from: "cg" for CrazyGames, null for playheist.net and everything else */
+  source: string | null;
 }
+
+/** Where an account came from: what the app said at sign-up, or a CrazyGames login added later. */
+export const sourceOfAccount = (a: Account): string | null => a.source ?? (a.logins.some((l) => l.provider === "crazygames") ? "cg" : null);
 
 /** Accounts grouped into people. */
 export interface People {
@@ -279,6 +284,9 @@ export class AdminService {
     if ((p.scoundrel?.won ?? 0) > 0 || a.scoundrel) playedTypes.add("scoundrel");
     if ((p.hearts?.won ?? 0) > 0 || a.hearts) playedTypes.add("hearts");
     if ((p.spades?.won ?? 0) > 0 || a.spades) playedTypes.add("spades");
+    if ((p.minesweeper?.won ?? 0) > 0 || a.minesweeper) playedTypes.add("minesweeper");
+    if ((p.sudoku?.won ?? 0) > 0 || a.sudoku) playedTypes.add("sudoku");
+    if ((p.checkers?.won ?? 0) > 0 || a.checkers) playedTypes.add("checkers");
 
     for (const e of this.log.window()) {
       if (e.userId !== a.id) continue;
@@ -292,12 +300,16 @@ export class AdminService {
       else if (e.kind.startsWith("scoundrel.")) playedTypes.add("scoundrel");
       else if (e.kind.startsWith("hearts.")) playedTypes.add("hearts");
       else if (e.kind.startsWith("spades.")) playedTypes.add("spades");
+      else if (e.kind.startsWith("minesweeper.")) playedTypes.add("minesweeper");
+      else if (e.kind.startsWith("sudoku.")) playedTypes.add("sudoku");
+      else if (e.kind.startsWith("checkers.")) playedTypes.add("checkers");
       else if (e.kind === "game.online" || e.kind.startsWith("table.")) playedTypes.add("heist_online");
       else if (e.kind === "game.solo" || e.kind.startsWith("solo.")) playedTypes.add("heist_solo");
     }
 
     const arcadeWins = (p.solitaire?.won ?? 0) + (p.freecell?.won ?? 0) + (p.tripeaks?.won ?? 0) + (p.ers?.won ?? 0)
-      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0) + (p.hearts?.won ?? 0) + (p.spades?.won ?? 0);
+      + (p.spider?.won ?? 0) + (p.pyramid?.won ?? 0) + (p.yukon?.won ?? 0) + (p.scoundrel?.won ?? 0) + (p.checkers?.won ?? 0)
+      + (p.minesweeper?.won ?? 0) + (p.sudoku?.won ?? 0) + (p.hearts?.won ?? 0) + (p.spades?.won ?? 0);
     const gamesPlayed = [...playedTypes];
     const totalGames = p.stats.games + arcadeWins;
 
@@ -312,6 +324,7 @@ export class AdminService {
       gamesPlayed,
       arcadeGames: arcadeWins,
       totalGames,
+      source: sourceOfAccount(a),
     };
   }
 
@@ -361,7 +374,7 @@ export class AdminService {
     const sum = (f: (a: Account) => number) => everyone.reduce((s, a) => s + f(a), 0);
     const guests = all.filter((a) => a.guest);
     const gamesByType: Record<string, number> = {
-      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, hearts: 0, spades: 0, heist_solo: 0, heist_online: 0,
+      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, checkers: 0, minesweeper: 0, sudoku: 0, hearts: 0, spades: 0, heist_solo: 0, heist_online: 0,
     };
     for (const a of everyone) {
       const p = upgrade(a.progress);
@@ -375,10 +388,13 @@ export class AdminService {
       gamesByType.scoundrel += p.scoundrel?.won ?? 0;
       gamesByType.hearts += p.hearts?.won ?? 0;
       gamesByType.spades += p.spades?.won ?? 0;
+      gamesByType.minesweeper += p.minesweeper?.won ?? 0;
+      gamesByType.sudoku += p.sudoku?.won ?? 0;
+      gamesByType.checkers += p.checkers?.won ?? 0;
       gamesByType.heist_solo += p.stats.games;
     }
     const gamesTodayByType: Record<string, number> = {
-      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, hearts: 0, spades: 0, heist_solo: 0, heist_online: 0,
+      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, checkers: 0, minesweeper: 0, sudoku: 0, hearts: 0, spades: 0, heist_solo: 0, heist_online: 0,
     };
     let adLandingsToday = 0;
     let visitorsTodayCount = 0;
@@ -405,6 +421,9 @@ export class AdminService {
       else if (e.kind.startsWith("scoundrel.")) gamesTodayByType.scoundrel++;
       else if (e.kind.startsWith("hearts.")) gamesTodayByType.hearts++;
       else if (e.kind.startsWith("spades.")) gamesTodayByType.spades++;
+      else if (e.kind.startsWith("minesweeper.")) gamesTodayByType.minesweeper++;
+      else if (e.kind.startsWith("sudoku.")) gamesTodayByType.sudoku++;
+      else if (e.kind.startsWith("checkers.")) gamesTodayByType.checkers++;
     }
 
     const arcadeTotalWins = Object.entries(gamesByType).filter(([k]) => !k.startsWith("heist")).reduce((s, [, v]) => s + v, 0);
@@ -437,6 +456,12 @@ export class AdminService {
         adLandings: adLandingsToday,
         active: seenBy(now - DAY),
       },
+      // players who came through the CrazyGames portal (robots and your own accounts left out)
+      crazyGames: (() => {
+        const cg = everyone.filter((a) => sourceOfAccount(a) === "cg");
+        const seen = (since: number) => cg.filter((a) => (this.log.lastSeen(a.id) ?? a.createdAt) >= since).length;
+        return { players: cg.length, newToday: cg.filter((a) => a.createdAt >= now - DAY).length, activeToday: seen(now - DAY), activeWeek: seen(now - 7 * DAY) };
+      })(),
       daily: days.map((d) => ({ day: d, signups: signups[d], people: newPeople[d], games: games[d], active: active.get(d)!.size })),
       today: [...kinds].sort((x, y) => y[1] - x[1]).map(([kind, count]) => ({ kind, count })),
       newest: [...others].sort((x, y) => y.createdAt - x.createdAt).slice(0, 8).map((a) => this.row(a, ppl)),
@@ -609,6 +634,10 @@ export class AdminService {
       else if (game === "arcade") rows = rows.filter((r) => r.gamesPlayed.some((g) => g !== "heist_solo" && g !== "heist_online"));
       else rows = rows.filter((r) => r.gamesPlayed.includes(game));
     }
+    // where they came from: "cg" (CrazyGames) or "web" (everywhere else)
+    const source = q.get("source");
+    if (source === "cg") rows = rows.filter((r) => r.source === "cg");
+    else if (source === "web") rows = rows.filter((r) => r.source !== "cg");
     const tag = (q.get("tag") ?? "").trim().toLowerCase();
     if (tag) rows = rows.filter((r) => r.tags.some((t) => t.toLowerCase() === tag));
     if (text) rows = rows.filter((r) => r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text || r.tags.some((t) => t.toLowerCase() === text));

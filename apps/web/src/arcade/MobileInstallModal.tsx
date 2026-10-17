@@ -106,7 +106,7 @@ export function MobileInstallModal({
             <span className="install-benefit-icon">✈️</span>
             <div>
               <div className="install-benefit-title">Offline Capable</div>
-              <div className="install-benefit-desc">Play all 8 solo games anywhere</div>
+              <div className="install-benefit-desc">Play all 13 solo games anywhere</div>
             </div>
           </div>
           <div className="install-benefit-pill">

@@ -68,13 +68,26 @@ export function setMusicVolume(v: number) {
 if (typeof window !== "undefined") {
   const wake = () => {
     if (!ctx) ac();
-    else if (ctx.state !== "running" && !muted) void ctx.resume().catch(() => {});
+    else if (ctx.state !== "running" && !isMuted()) void ctx.resume().catch(() => {});
   };
   window.addEventListener("pointerdown", wake);
   window.addEventListener("keydown", wake);
 }
 
-export const isMuted = () => muted;
+/**
+ * Muted by the page Heist runs in, not the player: the CrazyGames portal's own mute, or an ad playing.
+ * Never saved, and the player's own setting is kept for when it lifts.
+ */
+let hostMuted = false;
+export function setHostMuted(m: boolean) {
+  if (m === hostMuted) return;
+  hostMuted = m;
+  if (m && ctx?.state === "running") void ctx.suspend().catch(() => {});
+  else if (!m && !muted && ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
+  watchers.forEach((f) => f());
+}
+
+export const isMuted = () => muted || hostMuted;
 export function setMuted(m: boolean) {
   muted = m;
   watchers.forEach((f) => f());
@@ -103,7 +116,7 @@ function room(a: BaseAudioContext) {
 }
 
 function ac(): AudioContext | null {
-  if (muted) return null;
+  if (isMuted()) return null;
   try {
     if (!ctx) {
       ctx = new AudioContext();
@@ -495,6 +508,34 @@ export const click = () => {
   if (!once("click", 30)) return;
   tock(0, 0.55);
 };
+/**
+ * The menus' tap: softer and shorter than `click`, a fingertip on a lacquered button. A rounded sine
+ * that dips a few cents, and a breath of felt under it, kept mostly dry so a run of taps stays tidy.
+ * It shares `click`'s debounce, so a button that also plays `click` itself sounds once.
+ */
+export const tap = () => {
+  const a = ac();
+  if (!a || !once("click", 40)) return;
+  const t = a.currentTime;
+  const o = out(a, rnd(0.2, 0.24), 0.06, rnd(-0.08, 0.08));
+  const f = rnd(1040, 1120);
+  const s = a.createOscillator();
+  s.type = "sine";
+  s.frequency.setValueAtTime(f, t);
+  s.frequency.exponentialRampToValueAtTime(f * 0.82, t + 0.04);
+  const e = a.createGain();
+  env(e.gain, t, 0.3, 0.002, 0.045);
+  s.connect(e).connect(o);
+  s.start(t);
+  s.stop(t + 0.07);
+  const n = hiss(a, t, 0.02);
+  const lp = a.createBiquadFilter();
+  lp.type = "lowpass";
+  lp.frequency.value = 2200;
+  const e2 = a.createGain();
+  env(e2.gain, t, 0.18, 0.001, 0.016);
+  n.connect(lp).connect(e2).connect(o);
+};
 /** A soft pop for a chat bubble. */
 export const pop = () => {
   const a = ac();
@@ -539,7 +580,14 @@ export const yourTurn = () => {
   keys(86, 0.12, 1.2, 0.08);
   bell(98, 0.12, 0.8, 0.012);
 };
+/** things that celebrate with the player (the CrazyGames build calls their happytime) */
+const winners = new Set<() => void>();
+export function onWin(f: () => void) {
+  winners.add(f);
+  return () => void winners.delete(f);
+}
 export const win = () => {
+  winners.forEach((f) => f());
   duck(2500);
   brush(0, 0.35, 0.1);
   bass(50, 0.05, 1.2, 0.2);

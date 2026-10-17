@@ -108,6 +108,9 @@ const PLAY_KINDS = new Set([
   "scoundrel.start", "scoundrel.bank", "scoundrel.finish",
   "hearts.start", "hearts.bank", "hearts.finish",
   "spades.start", "spades.bank", "spades.finish",
+  "minesweeper.start", "minesweeper.bank", "minesweeper.finish",
+  "sudoku.start", "sudoku.bank", "sudoku.finish",
+  "checkers.start", "checkers.bank", "checkers.finish",
 ]);
 export const startedGame = (e: ActivityEvent) => PLAY_KINDS.has(e.kind) && e.ok !== false;
 

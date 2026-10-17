@@ -21,6 +21,8 @@ export function sourceOf(ref: string | undefined, ua: string | undefined): strin
   try {
     const host = new URL(ref).hostname.replace(/^www\.|^old\.|^new\.|^m\./, "");
     if (host === "playheist.net" || host.endsWith(".playheist.net")) return null;
+    // the CrazyGames portal and the subdomains it serves the game from
+    if (host === "crazygames.com" || host.endsWith(".crazygames.com")) return "CrazyGames";
     return host === "out.reddit.com" || host === "redd.it" ? "reddit.com" : host;
   } catch {
     return null;
@@ -40,6 +42,9 @@ const HUMAN = new Set([
   "scoundrel.start", "scoundrel.finish", "scoundrel.bank",
   "hearts.start", "hearts.finish", "hearts.bank",
   "spades.start", "spades.finish", "spades.bank",
+  "minesweeper.start", "minesweeper.finish", "minesweeper.bank",
+  "sudoku.start", "sudoku.finish", "sudoku.bank",
+  "checkers.start", "checkers.finish", "checkers.bank",
   "table.chat", "lounge.say", "feedback", "board.post",
   "auth.login", "auth.register", "auth.google", "auth.apple", "me.name", "me.password",
 ]);

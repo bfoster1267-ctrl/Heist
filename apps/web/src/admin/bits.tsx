@@ -124,7 +124,7 @@ export function usePoll(load: () => void, ms: number, on = true) {
 /** Families of activity, for filters and badge colors. Prefixes match the server's kinds. */
 export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open"] },
-  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel.", "hearts.", "spades."] },
+  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel.", "checkers.", "minesweeper.", "sudoku.", "hearts.", "spades."] },
   { id: "solitaire", label: "Klondike Solitaire", kinds: ["solitaire."] },
   { id: "freecell", label: "FreeCell", kinds: ["freecell."] },
   { id: "spider", label: "Spider Solitaire", kinds: ["spider."] },
@@ -135,6 +135,9 @@ export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "scoundrel", label: "Scoundrel", kinds: ["scoundrel."] },
   { id: "hearts", label: "Hearts", kinds: ["hearts."] },
   { id: "spades", label: "Spades", kinds: ["spades."] },
+  { id: "minesweeper", label: "Minesweeper", kinds: ["minesweeper."] },
+  { id: "sudoku", label: "Sudoku", kinds: ["sudoku."] },
+  { id: "checkers", label: "Checkers", kinds: ["checkers."] },
   { id: "heist_solo", label: "Heist Solo", kinds: ["solo.", "game.solo"] },
   { id: "tables", label: "Heist Online Tables", kinds: ["table.", "online.", "game.online"] },
   { id: "money", label: "Shop, packs & chips", kinds: ["shop.", "season.", "chips.", "prestige", "solo.drink"] },
@@ -199,6 +202,15 @@ const LABELS: Record<string, string> = {
   "spades.start": "Started Spades",
   "spades.bank": "Banked Spades hands",
   "spades.finish": "Won Spades",
+  "minesweeper.start": "Started Minesweeper",
+  "minesweeper.bank": "Banked Minesweeper clicks",
+  "minesweeper.finish": "Won Minesweeper",
+  "sudoku.start": "Started Sudoku",
+  "sudoku.bank": "Banked Sudoku entries",
+  "sudoku.finish": "Solved Sudoku",
+  "checkers.start": "Started Checkers vs bot",
+  "checkers.bank": "Banked Checkers captures",
+  "checkers.finish": "Finished Checkers vs bot",
   "online.connect": "Connected to online play",
   "online.disconnect": "Disconnected",
   "table.create": "Opened a table",
@@ -301,6 +313,9 @@ export function detailOf(e: ActivityEvent): string {
       return d.isDaily ? "Daily challenge deal" : "Standard deal";
     case "spades.start":
       return d.isDaily ? "Daily challenge deal (to 250)" : d.quick ? "Quick game (to 250)" : "Full game (to 500)";
+    case "minesweeper.start":
+    case "sudoku.start":
+      return [d.isDaily ? "Daily challenge deal" : "Standard deal", typeof d.level === "string" ? d.level : ""].filter(Boolean).join(" · ");
     case "solitaire.finish":
     case "freecell.finish":
     case "spider.finish":
@@ -311,6 +326,8 @@ export function detailOf(e: ActivityEvent): string {
     case "scoundrel.finish":
     case "hearts.finish":
     case "spades.finish":
+    case "minesweeper.finish":
+    case "sudoku.finish":
       return [d.moves ? `${d.moves} moves` : "Won", d.reward ? `+${d.reward.xp} XP` : ""].filter(Boolean).join(" · ");
     case "solitaire.bank":
     case "freecell.bank":
@@ -322,7 +339,14 @@ export function detailOf(e: ActivityEvent): string {
     case "scoundrel.bank":
     case "hearts.bank":
     case "spades.bank":
+    case "minesweeper.bank":
+    case "sudoku.bank":
       return d.moves ? `${d.moves} moves banked` : "";
+    case "checkers.start":
+      return [d.isDaily ? "Daily challenge" : "", typeof d.level === "string" ? `${d.level} bot` : "Rookie bot"].filter(Boolean).join(" · ");
+    case "checkers.finish":
+    case "checkers.bank":
+      return [d.moves ? `${d.moves} moves` : "", d.reward ? `+${d.reward.xp} XP` : ""].filter(Boolean).join(" · ");
     case "table.chat":
     case "dm.send":
     case "lounge.say":

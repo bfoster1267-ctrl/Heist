@@ -22,8 +22,14 @@ function iosSwitch() {
 const PATTERNS = { tap: 8, bump: 18, win: [20, 60, 20, 60, 40], alert: [30, 40, 30] } as const;
 export type Buzz = keyof typeof PATTERNS;
 
+// a menu's own tap and a button's buzz land in the same click: one light tap, not two
+let lastTap = 0;
+
 export function buzz(kind: Buzz = "tap") {
   if (!getPrefs().haptics) return;
+  const now = Date.now();
+  if (kind === "tap" && now - lastTap < 60) return;
+  if (kind === "tap") lastTap = now;
   try {
     if ("vibrate" in navigator && typeof navigator.vibrate === "function") {
       navigator.vibrate(PATTERNS[kind] as number | number[]);
