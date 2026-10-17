@@ -482,6 +482,23 @@ export function Players({ s, onAuth, query }: PageProps) {
     mine: mine ? "1" : "",
   })}`;
   const l = useAdmin<{ total: number; rows: AccountRow[] }>(s, path, onAuth);
+
+  const exportOptIns = () => {
+    const optIns = (l.data?.rows ?? []).filter((r) => r.marketingConsent && r.email);
+    if (!optIns.length) {
+      alert("No opted-in emails in the currently loaded accounts.");
+      return;
+    }
+    const csv = "Name,Email,Joined\n" + optIns.map((r) => `"${r.name.replace(/"/g, '""')}","${r.email}","${new Date(r.createdAt).toISOString()}"`).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `heist-optin-emails-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="card">
       <form
@@ -552,6 +569,11 @@ export function Players({ s, onAuth, query }: PageProps) {
           </button>
         )}
         {l.data && <span className="dim count">{num(l.data.total)} found</span>}
+        {l.data && (
+          <button type="button" className="btn" style={{ marginLeft: "auto" }} onClick={exportOptIns} title="Download CSV of players who consented to email updates">
+            ✉️ Export Opt-in CSV
+          </button>
+        )}
       </form>
       <Problem error={l.error} />
       {l.data && <PlayerTable rows={l.data.rows} />}

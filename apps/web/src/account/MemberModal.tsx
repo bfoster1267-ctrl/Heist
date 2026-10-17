@@ -59,6 +59,13 @@ export function MemberModal({
       buzz("win");
       setEmail(cleanEmail);
       setStep("password");
+      try {
+        if (typeof window !== "undefined" && "gtag" in window && typeof (window as any).gtag === "function") {
+          (window as any).gtag("event", "sign_up", { method: "email" });
+        }
+      } catch {
+        // analytics blocked by adblock
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Couldn't save progress";
       setError(msg);
