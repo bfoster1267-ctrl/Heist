@@ -642,7 +642,7 @@ export class HeistGame {
       const p = (b + i) % s.n;
       const X = s.players[p].hand.find((c) => c.kind === "X");
       if (!X) continue;
-      const targets = s.players.map((q) => q.seat).filter((q) => q !== b && q !== mark && j.side.B[q] + j.side.M[q] > 0);
+      const targets = s.players.map((q) => q.seat).filter((q) => q !== b && q !== mark && j.side.B[q] !== j.side.M[q]);
       if (!targets.length) break;
       const a = yield* this.ask({ kind: "doubleCross", seat: p, targets });
       if (a.target === null) continue;
@@ -650,7 +650,7 @@ export class HeistGame {
       s.players[p].hand.splice(s.players[p].hand.indexOf(X), 1);
       s.discard.push(X);
       [j.side.B[t], j.side.M[t]] = [j.side.M[t], j.side.B[t]];
-      const to: Side = j.side.B[t] > 0 ? "B" : "M";
+      const to: Side = j.side.B[t] > j.side.M[t] ? "B" : "M";
       this.emit({ t: "doubleCross", seat: p, target: t, to }, `Double-Cross! ${this.name(p)} flips ${this.name(t)} to the ${to === "B" ? "Boss" : "Mark"}'s side.`);
     }
     const inJob = (q: number) => q === b || q === mark || j.side.B[q] + j.side.M[q] > 0;

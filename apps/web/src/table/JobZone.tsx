@@ -59,7 +59,16 @@ function JobBody({ s }: { s: GameState }) {
       <div className="job-sides">
         <div className={"job-side side-b" + (done && j.result === "B" ? " won" : "") + (done && j.result === "M" ? " lost" : "")} data-anchor="job-B">
           <div className="job-who">{bust ? P[j.boss].name : `Boss · ${P[j.boss].name}`}</div>
-          <CrewRow s={s} counts={bCounts} extra={j.backups.B ? <span className="bonus">+{j.backups.B} backup</span> : null} />
+          <CrewRow
+            s={s}
+            counts={bCounts}
+            extra={
+              <>
+                {!bust && P[j.boss].role === "muscle" && <span className="bonus">+1 muscle</span>}
+                {j.backups.B ? <span className="bonus">+{j.backups.B} backup</span> : null}
+              </>
+            }
+          />
           <FlipCard card={j.bossCard} revealed={j.revealed} size="sm" />
           <div className="job-total" data-tip={j.revealed ? "Boss total\nCard + crew + bonuses" : "Boss side so far\nCrew and bonuses. The card is still face down."}>{j.revealed ? <CountUp value={j.bTotal} /> : base.b}<span className="job-total-q">{j.revealed ? "" : " + ?"}</span></div>
         </div>
@@ -72,6 +81,8 @@ function JobBody({ s }: { s: GameState }) {
             extra={
               <>
                 {!bust && <span className="bonus">+{mastermind ? 2 : HOME_TURF} home</span>}
+                {!bust && P[j.mark].role === "muscle" && <span className="bonus">+1 muscle</span>}
+                {!bust && P[j.mark].role === "lookout" && <span className="bonus">+4 lookout</span>}
                 {j.backups.M ? <span className="bonus">+{j.backups.M} backup</span> : null}
               </>
             }
