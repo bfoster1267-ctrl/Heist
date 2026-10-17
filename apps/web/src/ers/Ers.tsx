@@ -20,6 +20,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { VictoryModal } from "../arcade/VictoryModal";
 import { ErsMultiplayer } from "./ErsMultiplayer";
 import "./ers.css";
+import { t, tEn, tNodes, tRich } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -102,7 +103,7 @@ export function Ers({
       setState(dealErs(seed));
       setMoves([]);
       setDone(false);
-      setToast("Ready! Tap Flip to start");
+      setToast(t("ers.ready"));
       setStarted(Date.now());
       setNow(Date.now());
       best.current = NOTHING;
@@ -113,7 +114,7 @@ export function Ers({
       setState(dealErs(seed));
       setMoves([]);
       setDone(false);
-      setToast("Ready! Tap Flip to start");
+      setToast(t("ers.ready"));
       setStarted(Date.now());
       setNow(Date.now());
       best.current = NOTHING;
@@ -123,8 +124,8 @@ export function Ers({
 
   useEffect(() => {
     if (done) return;
-    const t = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(t);
+    const tm = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tm);
   }, [done]);
 
   useEffect(() => {
@@ -156,7 +157,7 @@ export function Ers({
       if (gainedXp > 0) {
         banked.current = tallyErsXp(cur);
         const id = ++floatId.current;
-        setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: gainedXp, tag: "SLAP!" }]);
+        setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: gainedXp, tag: t("ers.slapTag") }]);
         setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1200);
       }
       if (game.gameId) {
@@ -172,7 +173,7 @@ export function Ers({
       setDone(true);
       winSound();
       buzz("win");
-      setToast("🏆 YOU WIN THE DECK! 🏆");
+      setToast(t("ers.youWin"));
       if (game?.gameId) {
         void act((x) => x.ersFinish(game.gameId!, moves, 0))
           .then((r) => {
@@ -183,7 +184,7 @@ export function Ers({
     } else if (state.winner === 1) {
       setDone(true);
       buzz("alert");
-      setToast("Viper swept the deck! Game Over.");
+      setToast(t("ers.botSwept"));
     }
   }, [state, done, game, moves, act, showReward]);
 
@@ -203,7 +204,7 @@ export function Ers({
           const next = applyErs(prev, "slap:1");
           setMoves((m) => [...m, "slap:1"]);
           buzz("bump");
-          setToast(`Viper slapped ${slapCond.toUpperCase()}! (+${prev.pot.length} cards)`);
+          setToast(t("ers.botSlap", { why: tEn(slapCond).toUpperCase(), n: prev.pot.length }));
           return next;
         });
       }, delay);
@@ -222,7 +223,7 @@ export function Ers({
           cardSound();
           const next = applyErs(prev, "play:1");
           setMoves((m) => [...m, "play:1"]);
-          if (next.lastEvent) setToast(next.lastEvent);
+          if (next.lastEvent) setToast(tEn(next.lastEvent));
           return next;
         });
       }, delay);
@@ -237,7 +238,7 @@ export function Ers({
     if (!state || done || state.winner !== null) return;
     if (state.turn !== 0) {
       buzz("tap");
-      setToast("Wait for Viper's flip!");
+      setToast(t("ers.wait"));
       return;
     }
     if (state.p0.length === 0) return;
@@ -247,7 +248,7 @@ export function Ers({
     const next = applyErs(state, "play:0");
     setMoves((m) => [...m, "play:0"]);
     setState(next);
-    if (next.lastEvent) setToast(next.lastEvent);
+    if (next.lastEvent) setToast(tEn(next.lastEvent));
   }, [state, done]);
 
   // Player slaps
@@ -272,7 +273,7 @@ export function Ers({
       const next = applyErs(state, "slap:0");
       setMoves((m) => [...m, "slap:0"]);
       setState(next);
-      setToast(`⚡ SLAP! You caught a ${slapCond.toUpperCase()}! (+${potCount} cards)`);
+      setToast(t("ers.caught", { why: tEn(slapCond).toUpperCase(), n: potCount }));
     } else {
       // False slap! Burn penalty
       buzz("alert");
@@ -280,9 +281,9 @@ export function Ers({
       setMoves((m) => [...m, "slap:0"]);
       setState(next);
       if (next.lastEvent) {
-        setToast(next.lastEvent);
+        setToast(tEn(next.lastEvent));
       } else {
-        setToast("⚠️ False slap! Burned 1 card to the pot.");
+        setToast(t("ers.falseSlap"));
       }
     }
   }, [state, done]);
@@ -324,19 +325,19 @@ export function Ers({
             type="button"
             className="ers-icon-btn"
             onClick={() => { click(); buzz("tap"); onExit(); }}
-            title="Leave ERS"
-            aria-label="Back to the lobby"
+            title={t("ers.leave")}
+            aria-label={t("solo.back")}
           >
             <Icon d="M15 19l-7-7 7-7" />
           </button>
 
           <div className="ers-hud">
             <span className="ers-hud-name">
-              EGYPTIAN RAT SCREW
-              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+              {t("dly.game.ers").toUpperCase()}
+              <span className="arcade-trust-pill">{t("solo.free")}</span>
             </span>
             <span className="ers-hud-stats">
-              DAILY CAP: <span className="ers-hud-val">{room} XP ROOM</span> • <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+              {t("ers.cap")}<span className="ers-hud-val">{t("solo.room", { n: room })}</span> • <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
             </span>
           </div>
 
@@ -344,8 +345,8 @@ export function Ers({
             type="button"
             className="ers-icon-btn"
             onClick={() => { click(); buzz("tap"); setShowRules(true); }}
-            title="Rules & Slap conditions"
-            aria-label="Rules & Slap conditions"
+            title={t("ers.rulesAria")}
+            aria-label={t("ers.rulesAria")}
           >
             <Icon d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2a2 2 0 011-3.73A2.5 2.5 0 0013 7a2.5 2.5 0 00-5 0h2a.5.5 0 011 0c0 .83-.67 1.5-1.5 1.5S8 9.17 8 10h2a1 1 0 001-1 1 1 0 012 0c0 .55-.45 1-1 1v3z" />
           </button>
@@ -355,10 +356,10 @@ export function Ers({
             className="ers-icon-btn"
             style={{ width: "auto", padding: "0 10px", fontSize: 13, fontFamily: "var(--cond)", fontWeight: 800, color: "var(--gold)" }}
             onClick={() => { click(); buzz("tap"); setPvp(true); }}
-            title="Play 2-Player Real-time PvP Duel"
-            aria-label="Play 2-Player Real-time PvP Duel"
+            title={t("ers.duelAria")}
+            aria-label={t("ers.duelAria")}
           >
-            ⚔️ 2P DUEL
+            {t("ers.duel")}
           </button>
 
           <button
@@ -375,10 +376,10 @@ export function Ers({
                 setTimeout(() => setArmed(false), 2600);
               }
             }}
-            title={armed ? "Confirm new deal" : "New deal"}
-            aria-label="New deal"
+            title={armed ? t("solo.newDealQ") : t("solo.newDeal")}
+            aria-label={t("solo.newDeal")}
           >
-            {armed ? <span className="ers-sure">NEW?</span> : <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />}
+            {armed ? <span className="ers-sure">{t("solo.NEWQ")}</span> : <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />}
           </button>
         </header>
 
@@ -388,8 +389,8 @@ export function Ers({
           <div className="ers-bot-zone">
             <div className={`ers-fighter-tag ${state?.turn === 1 ? "ers-active-turn-ring" : ""}`}>
               <span className="ers-avatar">🐍</span>
-              <span className="ers-fighter-name">VIPER</span>
-              <span className="ers-count-pill">{p1Count} CARDS</span>
+              <span className="ers-fighter-name">{t("ers.viper")}</span>
+              <span className="ers-count-pill">{t("ers.cards", { count: p1Count })}</span>
             </div>
 
             {/* Bot Deck stack */}
@@ -406,7 +407,7 @@ export function Ers({
           <div className="ers-center-zone">
             {state?.challenge && (
               <div className="ers-challenge-banner">
-                CHALLENGE! {state.challenge.chances} {state.challenge.chances === 1 ? "CHANCE" : "CHANCES"} LEFT
+                {t("ers.challenge", { count: state.challenge.chances })}
               </div>
             )}
 
@@ -415,7 +416,7 @@ export function Ers({
               onClick={handleSlap}
               role="button"
               tabIndex={0}
-              aria-label="Slap center pot"
+              aria-label={t("ers.slapPot")}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -455,12 +456,12 @@ export function Ers({
                     letterSpacing: 1.5,
                   }}
                 >
-                  EMPTY POT
+                  {t("ers.emptyPot")}
                 </div>
               )}
 
               <div className="ers-pot-badge">
-                POT: {pot.length} {pot.length === 1 ? "CARD" : "CARDS"}
+                {t("ers.pot", { count: pot.length })}
               </div>
             </div>
 
@@ -479,7 +480,7 @@ export function Ers({
               onClick={handleFlip}
               role="button"
               tabIndex={0}
-              aria-label="Flip card from your deck"
+              aria-label={t("ers.flipDeck")}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
@@ -498,8 +499,8 @@ export function Ers({
 
             <div className={`ers-fighter-tag ${state?.turn === 0 ? "ers-active-turn-ring" : ""}`}>
               <span className="ers-avatar">👤</span>
-              <span className="ers-fighter-name">YOU</span>
-              <span className="ers-count-pill">{p0Count} CARDS</span>
+              <span className="ers-fighter-name">{t("ers.you")}</span>
+              <span className="ers-count-pill">{t("ers.cards", { count: p0Count })}</span>
             </div>
 
             {/* Actions: Giant Slap & Flip */}
@@ -509,9 +510,9 @@ export function Ers({
                 className={`ers-flip-btn ${state?.turn === 0 ? "your-turn" : ""}`}
                 onClick={handleFlip}
                 disabled={done || state?.turn !== 0}
-                aria-label="Flip card"
+                aria-label={t("ers.flipAria")}
               >
-                <span>FLIP CARD</span>
+                <span>{t("ers.flip")}</span>
                 <span style={{ fontSize: 18 }}>🎴</span>
               </button>
 
@@ -520,9 +521,9 @@ export function Ers({
                 className="ers-slap-btn"
                 onClick={handleSlap}
                 disabled={done}
-                aria-label="Slap pot"
+                aria-label={t("ers.slapAria")}
               >
-                ⚡ SLAP! ⚡
+                ⚡ {t("ers.slap")} ⚡
               </button>
             </div>
           </div>
@@ -540,35 +541,35 @@ export function Ers({
       {showRules && (
         <div className="ers-rules-overlay" onClick={() => setShowRules(false)}>
           <div className="ers-rules-card" onClick={(e) => e.stopPropagation()}>
-            <div className="ers-rules-title">EGYPTIAN RAT SCREW RULES</div>
+            <div className="ers-rules-title">{t("ers.rulesTitle")}</div>
 
             <div className="ers-rules-section">
-              <div className="ers-rules-heading">⚡ SLAP CONDITIONS</div>
+              <div className="ers-rules-heading">{t("ers.slapHead")}</div>
               <div className="ers-rules-text">
-                • <b>Doubles:</b> Two cards in a row of the same rank (e.g. 7, 7).<br />
-                • <b>Sandwiches:</b> Two matching cards with one card between them (e.g. 9, K, 9).<br />
-                • <b>Marriages:</b> King and Queen played directly together (K-Q or Q-K).<br />
-                • <b>Tens:</b> Top two cards sum up to 10 (A=1, so 9+A, 8+2, 7+3, 6+4, 5+5).<br />
-                • <b>Top-Bottom:</b> Top card matches the very first card placed in the pot.
+                • {tRich("ers.r.double")}<br />
+                • {tRich("ers.r.sandwich")}<br />
+                • {tRich("ers.r.marriage")}<br />
+                • {tRich("ers.r.tens")}<br />
+                • {tRich("ers.r.topbottom")}
               </div>
             </div>
 
             <div className="ers-rules-section">
-              <div className="ers-rules-heading">👑 FACE CARD CHALLENGES</div>
+              <div className="ers-rules-heading">{t("ers.faceHead")}</div>
               <div className="ers-rules-text">
-                When a player flips a face card, the opponent must pay tribute with face-card chances:<br />
-                • <b>Ace:</b> 4 chances<br />
-                • <b>King:</b> 3 chances<br />
-                • <b>Queen:</b> 2 chances<br />
-                • <b>Jack:</b> 1 chance<br />
-                If the challenger's opponent flips another face card, the challenge switches! If they fail, the challenger wins the pot.
+                {t("ers.faceIntro")}<br />
+                • {tRich("ers.r.ace")}<br />
+                • {tRich("ers.r.king")}<br />
+                • {tRich("ers.r.queen")}<br />
+                • {tRich("ers.r.jack")}<br />
+                {t("ers.faceSwitch")}
               </div>
             </div>
 
             <div className="ers-rules-section">
-              <div className="ers-rules-heading">⚠️ BURNS</div>
+              <div className="ers-rules-heading">{t("ers.burnHead")}</div>
               <div className="ers-rules-text">
-                Slapping when there is no valid slap condition burns 1 of your cards to the bottom of the pot.
+                {t("ers.burnText")}
               </div>
             </div>
 
@@ -580,9 +581,9 @@ export function Ers({
                 buzz("tap");
                 setShowRules(false);
               }}
-              aria-label="Close rules"
+              aria-label={t("ers.closeRules")}
             >
-              GOT IT
+              {t("ers.gotIt")}
             </button>
           </div>
         </div>
@@ -598,15 +599,15 @@ export function Ers({
         <div className="ers-rules-overlay" onClick={() => {}}>
           <div className="ers-rules-card" style={{ textAlign: "center", maxWidth: 360 }} onClick={(e) => e.stopPropagation()}>
             <div className="ers-rules-title" style={{ fontSize: 26, color: "#ff5555" }}>
-              DEFEAT
+              {t("ers.defeat")}
             </div>
             <p style={{ margin: "12px 0 16px", color: "#ccc", fontSize: 14 }}>
-              Viper swept the deck. Better luck next deal!
+              {t("ers.botWon")}
             </p>
             <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 20, color: "#fff", fontSize: 16 }}>
-              <span><b>{moves.length}</b> moves</span>
-              <span><b>{clock}</b> time</span>
-              <span><b>{tally?.slaps ?? 0}</b> slaps</span>
+              <span>{tNodes("ers.nMoves", { b: <b>{moves.length}</b> })}</span>
+              <span>{tNodes("ers.nTime", { b: <b>{clock}</b> })}</span>
+              <span>{tNodes("ers.nSlaps", { b: <b>{tally?.slaps ?? 0}</b> })}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
@@ -615,7 +616,7 @@ export function Ers({
                 onClick={() => void deal()}
                 style={{ background: "#ffd700", color: "#000", fontWeight: 700 }}
               >
-                PLAY AGAIN
+                {t("ers.again")}
               </button>
               <button
                 type="button"
@@ -627,7 +628,8 @@ export function Ers({
                 }}
                 style={{ background: "transparent", border: "1px solid rgba(255,255,255,0.2)", color: "#888" }}
               >
-                LOBBY
+                {t("solo.lobby")}
+
               </button>
             </div>
           </div>

@@ -16,6 +16,7 @@ import { buzz } from "../haptics";
 import { serverUrl } from "../online/session";
 import { card as cardSound, click, win as winSound } from "../sound";
 import "./ers.css";
+import { t, tEn, tRich } from "../i18n";
 
 export function ersInviteLink(code: string) {
   const u = new URL(location.href);
@@ -85,7 +86,7 @@ export function ErsMultiplayer({
       setRoom(m.room);
       setSeat(m.room.you.seat);
       if (m.room.lastEvent) {
-        setToast(m.room.lastEvent);
+        setToast(tEn(m.room.lastEvent));
         setToastKey((k) => k + 1);
       }
     });
@@ -101,11 +102,11 @@ export function ErsMultiplayer({
         buzz("win");
         setShaking(true);
         setTimeout(() => setShaking(false), 240);
-        const reasonText = (m.reason || "SLAP").toUpperCase();
+        const reasonText = m.reason ? tEn(m.reason).toUpperCase() : t("ers.slap").replace(/!$/, "");
         triggerFloat(`⚡ ${reasonText}!`);
       } else {
         buzz("alert");
-        triggerFloat("⚠️ FALSE SLAP! -1");
+        triggerFloat(t("ers.falseFloat"));
       }
     });
 
@@ -115,7 +116,7 @@ export function ErsMultiplayer({
     });
 
     c.on("error", (m) => {
-      setToast(m.msg || "Table error");
+      setToast(tEn(m.msg) || t("ers.tableError"));
       setRoom(null);
       setMode("lobby");
     });
@@ -138,7 +139,7 @@ export function ErsMultiplayer({
         setMode("room");
       }
     }).catch(() => {
-      setToast("Failed to connect to server");
+      setToast(t("ers.noConnect"));
     });
 
     return () => {
@@ -224,8 +225,8 @@ export function ErsMultiplayer({
     try {
       if (navigator.share) {
         await navigator.share({
-          title: "Heist - Egyptian Rat Screw Duel",
-          text: `Duel me in Egyptian Rat Screw on Heist! Room code: ${room.code}`,
+          title: t("ers.shareTitle"),
+          text: t("ers.shareText", { code: room.code }),
           url,
         });
       } else if (navigator.clipboard?.writeText) {
@@ -256,7 +257,7 @@ export function ErsMultiplayer({
   const isMyTurn = room?.status === "playing" && room.turn === seat;
   const myCount = room?.you.cardCount ?? 0;
   const oppCount = room?.opponent?.cardCount ?? 0;
-  const oppName = room?.opponent?.name ?? "Waiting...";
+  const oppName = room?.opponent?.name ?? t("ers.waiting");
   const oppConnected = room?.opponent?.connected ?? false;
 
   return (
@@ -275,21 +276,21 @@ export function ErsMultiplayer({
               if (client) client.ersLeave();
               onExit();
             }}
-            title="Leave table"
-            aria-label="Leave table"
+            title={t("ers.leaveTable")}
+            aria-label={t("ers.leaveTable")}
           >
             <Icon d="M15 19l-7-7 7-7" />
           </button>
 
           <div className="ers-hud">
             <span className="ers-hud-name">
-              {room ? `ERS ROOM: ${room.code}` : "MULTIPLAYER ERS"}
+              {room ? t("ers.room", { code: room.code }) : t("ers.multi")}
             </span>
             <span className="ers-hud-stats">
               {connected ? (
-                <span style={{ color: "#2ecc71" }}>● LIVE SERVER</span>
+                <span style={{ color: "#2ecc71" }}>{t("ers.live")}</span>
               ) : (
-                <span style={{ color: "#e74c3c" }}>CONNECTING...</span>
+                <span style={{ color: "#e74c3c" }}>{t("ers.connecting")}</span>
               )}
             </span>
           </div>
@@ -302,8 +303,8 @@ export function ErsMultiplayer({
               buzz("tap");
               setShowRules(true);
             }}
-            title="Rules & Slap conditions"
-            aria-label="Rules & Slap conditions"
+            title={t("ers.rulesAria")}
+            aria-label={t("ers.rulesAria")}
           >
             <Icon d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 15h-2v-2h2v2zm0-4h-2a2 2 0 011-3.73A2.5 2.5 0 0013 7a2.5 2.5 0 00-5 0h2a.5.5 0 011 0c0 .83-.67 1.5-1.5 1.5S8 9.17 8 10h2a1 1 0 001-1 1 1 0 012 0c0 .55-.45 1-1 1v3z" />
           </button>
@@ -324,9 +325,9 @@ export function ErsMultiplayer({
               <span className="ers-fighter-name">{oppName}</span>
               <span
                 className={`ers-dot ${oppConnected ? "online" : "offline"}`}
-                title={oppConnected ? "Connected" : "Disconnected"}
+                title={oppConnected ? t("ers.connected") : t("ers.disconnected")}
               />
-              <span className="ers-count-pill">{oppCount} CARDS</span>
+              <span className="ers-count-pill">{t("ers.cards", { count: oppCount })}</span>
             </div>
 
             {/* Opponent Deck Stack */}
@@ -343,8 +344,7 @@ export function ErsMultiplayer({
           <div className="ers-center-zone">
             {room?.challenge && (
               <div className="ers-challenge-banner">
-                👑 CHALLENGE! {room.challenge.chances}{" "}
-                {room.challenge.chances === 1 ? "CHANCE" : "CHANCES"} LEFT
+                👑 {t("ers.challenge", { count: room.challenge.chances })}
               </div>
             )}
 
@@ -353,14 +353,14 @@ export function ErsMultiplayer({
               onClick={handleSlap}
               role="button"
               tabIndex={0}
-              aria-label="Slap center pot"
+              aria-label={t("ers.slapPot")}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
                   handleSlap();
                 }
               }}
-              title="Tap anywhere in pot to SLAP!"
+              title={t("ers.tapPot")}
             >
               {/* Stacked top cards in pot */}
               {room?.topCards && room.topCards.length > 0 ? (
@@ -404,13 +404,13 @@ export function ErsMultiplayer({
                     fontWeight: 800,
                   }}
                 >
-                  EMPTY POT
+                  {t("ers.emptyPot")}
                 </div>
               )}
 
               {/* Pot Card Count Badge */}
               <div className="ers-pot-badge">
-                POT: {room?.potCount ?? 0} CARDS
+                {t("ers.pot", { count: room?.potCount ?? 0 })}
               </div>
             </div>
 
@@ -432,8 +432,8 @@ export function ErsMultiplayer({
                 }`}
               >
                 {isMyTurn
-                  ? `⚡ YOUR TURN TO FLIP (${turnElapsed}s)`
-                  : `WAITING FOR ${oppName.toUpperCase()} (${turnElapsed}s)`}
+                  ? t("ers.yourTurn", { s: turnElapsed })
+                  : t("ers.waitingFor", { name: oppName.toUpperCase(), s: turnElapsed })}
               </div>
             )}
 
@@ -445,7 +445,7 @@ export function ErsMultiplayer({
             >
               <span className="ers-avatar">🤠</span>
               <span className="ers-fighter-name">{playerName}</span>
-              <span className="ers-count-pill">{myCount} CARDS</span>
+              <span className="ers-count-pill">{t("ers.cards", { count: myCount })}</span>
             </div>
 
             {/* Action buttons: FLIP and Giant SLAP */}
@@ -455,18 +455,18 @@ export function ErsMultiplayer({
                 className={`ers-flip-btn ${isMyTurn ? "your-turn" : ""}`}
                 onClick={handleFlip}
                 disabled={!isMyTurn || myCount === 0}
-                aria-label="Flip card"
+                aria-label={t("ers.flipAria")}
               >
-                <span>FLIP CARD</span>
+                <span>{t("ers.flip")}</span>
               </button>
 
               <button
                 type="button"
                 className="ers-slap-btn"
                 onClick={handleSlap}
-                aria-label="Slap pot"
+                aria-label={t("ers.slapAria")}
               >
-                SLAP!
+                {t("ers.slap")}
               </button>
             </div>
           </div>
@@ -476,19 +476,19 @@ export function ErsMultiplayer({
         {room && room.status === "waiting" && (
           <div className="ers-lobby-overlay">
             <div className="ers-lobby-box" style={{ maxWidth: 380 }}>
-              <div className="ers-lobby-title">WAITING FOR OPPONENT</div>
+              <div className="ers-lobby-title">{t("ers.waitOpp")}</div>
               <div className="ers-lobby-desc" style={{ marginBottom: 4 }}>
-                Share an invite link with a friend to duel head-to-head in real time:
+                {t("ers.shareInvite")}
               </div>
 
               <div className="tagline" style={{ textTransform: "uppercase", letterSpacing: 2, fontSize: 12, opacity: 0.7 }}>
-                Table code
+                {t("ers.tableCode")}
               </div>
               <div
                 className="room-code"
                 onClick={handleCopyRawCode}
-                title="Tap to copy code only"
-                aria-label={`Room code ${room.code}. Tap to copy code.`}
+                title={t("ers.tapCopy")}
+                aria-label={t("ers.codeAria", { code: room.code })}
               >
                 {room.code}
               </div>
@@ -501,9 +501,9 @@ export function ErsMultiplayer({
                 className="btn gold big"
                 style={{ width: "100%", height: 50, fontSize: 16 }}
                 onClick={handleShareInvite}
-                aria-label="Text an invite link"
+                aria-label={t("ers.textInvite")}
               >
-                {copied ? "Link copied" : "Text an invite link"}
+                {copied ? t("ers.linkCopied") : t("ers.textInvite")}
               </button>
 
               <button
@@ -511,13 +511,13 @@ export function ErsMultiplayer({
                 className="btn ghost small"
                 style={{ margin: "2px auto 0", display: "block" }}
                 onClick={handleCopyRawCode}
-                aria-label="Copy room code only"
+                aria-label={t("ers.copyCodeAria")}
               >
-                {copiedCode ? "Code copied to clipboard!" : "Copy code only"}
+                {copiedCode ? t("ers.codeCopied") : t("ers.copyCode")}
               </button>
 
               <div style={{ fontSize: 12, color: "#888", fontStyle: "italic", marginTop: 4 }}>
-                Game begins automatically when opponent joins. Works across mobile & desktop.
+                {t("ers.autoStart")}
               </div>
 
               <button
@@ -531,9 +531,9 @@ export function ErsMultiplayer({
                   setRoom(null);
                   setMode("lobby");
                 }}
-                aria-label="Cancel table and return to lobby"
+                aria-label={t("ers.cancelAria")}
               >
-                Cancel & Return to Lobby
+                {t("ers.cancel")}
               </button>
             </div>
           </div>
@@ -543,9 +543,9 @@ export function ErsMultiplayer({
         {mode === "lobby" && !room && (
           <div className="ers-lobby-overlay">
             <div className="ers-lobby-box" style={{ maxWidth: 380 }}>
-              <div className="ers-lobby-title">MULTIPLAYER DUEL</div>
+              <div className="ers-lobby-title">{t("ers.multiTitle")}</div>
               <div className="ers-lobby-desc">
-                Play real-time Egyptian Rat Screw head-to-head with live card flips, tributes, and instant slaps.
+                {t("ers.multiDesc")}
               </div>
 
               <button
@@ -554,17 +554,17 @@ export function ErsMultiplayer({
                 style={{ width: "100%", height: 50, fontSize: 16 }}
                 onClick={handleCreateRoom}
                 disabled={!connected}
-                aria-label="Create duel table"
+                aria-label={t("ers.createAria")}
               >
-                CREATE DUEL TABLE
+                {t("ers.create")}
               </button>
 
-              <div style={{ color: "#777", fontSize: 13, margin: "10px 0 6px" }}>— OR JOIN WITH CODE OR LINK —</div>
+              <div style={{ color: "#777", fontSize: 13, margin: "10px 0 6px" }}>{t("ers.or")}</div>
 
               <input
                 type="text"
                 className="ers-code-input"
-                placeholder="ENTER 5-LETTER CODE"
+                placeholder={t("ers.codePh")}
                 value={joinCodeInput}
                 onChange={(e) => {
                   const val = e.target.value.trim();
@@ -583,7 +583,7 @@ export function ErsMultiplayer({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && joinCodeInput.trim()) handleJoinRoom(joinCodeInput);
                 }}
-                aria-label="Enter room code or paste invite link"
+                aria-label={t("ers.codeInputAria")}
               />
 
               <button
@@ -592,9 +592,9 @@ export function ErsMultiplayer({
                 style={{ width: "100%", marginTop: 6 }}
                 onClick={() => handleJoinRoom(joinCodeInput)}
                 disabled={!connected || !joinCodeInput.trim()}
-                aria-label="Join duel with code"
+                aria-label={t("ers.joinAria")}
               >
-                JOIN DUEL
+                {t("ers.join")}
               </button>
 
               <button
@@ -606,9 +606,9 @@ export function ErsMultiplayer({
                   buzz("tap");
                   onExit();
                 }}
-                aria-label="Back to Solo Arcade"
+                aria-label={t("ers.backArcade")}
               >
-                Back to Solo Arcade
+                {t("ers.backArcade")}
               </button>
             </div>
           </div>
@@ -619,40 +619,40 @@ export function ErsMultiplayer({
           <div className="ers-lobby-overlay">
             <div className="ers-lobby-box">
               <div className="ers-lobby-title">
-                {room.winner === seat ? "🏆 YOU WIN! 🏆" : "DEFEAT"}
+                {room.winner === seat ? t("ers.youWinOnline") : t("ers.defeat")}
               </div>
 
               <div style={{ fontSize: 15, color: "#fff", fontWeight: 700 }}>
-                {room.winReason || (room.winner === seat ? "You swept the entire deck!" : "Opponent swept the deck!")}
+                {tEn(room.winReason) || (room.winner === seat ? t("ers.youSwept") : t("ers.oppSwept"))}
               </div>
 
               {/* Scorecard Table */}
               <table className="ers-scorecard-table">
                 <thead>
                   <tr>
-                    <th style={{ textAlign: "left" }}>METRIC</th>
-                    <th>YOU</th>
-                    <th>OPPONENT</th>
+                    <th style={{ textAlign: "left" }}>{t("ers.metric")}</th>
+                    <th>{t("ers.you")}</th>
+                    <th>{t("ers.opponent")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td style={{ textAlign: "left" }}>Cards Won</td>
+                    <td style={{ textAlign: "left" }}>{t("ers.cardsWon")}</td>
                     <td>{room.stats.cardsWon[seat ?? 0]}</td>
                     <td>{room.stats.cardsWon[(seat ?? 0) === 0 ? 1 : 0]}</td>
                   </tr>
                   <tr>
-                    <td style={{ textAlign: "left" }}>Valid Slaps</td>
+                    <td style={{ textAlign: "left" }}>{t("ers.validSlaps")}</td>
                     <td>{room.stats.slaps[seat ?? 0]}</td>
                     <td>{room.stats.slaps[(seat ?? 0) === 0 ? 1 : 0]}</td>
                   </tr>
                   <tr>
-                    <td style={{ textAlign: "left" }}>Challenges Won</td>
+                    <td style={{ textAlign: "left" }}>{t("ers.chWon")}</td>
                     <td>{room.stats.faceChallengesWon[seat ?? 0]}</td>
                     <td>{room.stats.faceChallengesWon[(seat ?? 0) === 0 ? 1 : 0]}</td>
                   </tr>
                   <tr>
-                    <td style={{ textAlign: "left" }}>False Slap Burns</td>
+                    <td style={{ textAlign: "left" }}>{t("ers.burns")}</td>
                     <td>{room.stats.falseSlaps[seat ?? 0]}</td>
                     <td>{room.stats.falseSlaps[(seat ?? 0) === 0 ? 1 : 0]}</td>
                   </tr>
@@ -663,9 +663,9 @@ export function ErsMultiplayer({
                 type="button"
                 className="ers-btn-primary"
                 onClick={handleRematch}
-                aria-label="Request rematch"
+                aria-label={t("ers.rematchAria")}
               >
-                REQUEST REMATCH
+                {t("ers.rematch")}
               </button>
 
               <button
@@ -677,9 +677,9 @@ export function ErsMultiplayer({
                   if (client) client.ersLeave();
                   onExit();
                 }}
-                aria-label="Exit to Menu"
+                aria-label={t("ers.exitMenu")}
               >
-                Exit to Menu
+                {t("ers.exitMenu")}
               </button>
             </div>
           </div>
@@ -689,42 +689,42 @@ export function ErsMultiplayer({
         {showRules && (
           <div className="ers-rules-overlay" onClick={() => setShowRules(false)}>
             <div className="ers-rules-card" onClick={(e) => e.stopPropagation()}>
-              <div className="ers-rules-title">HOW TO PLAY ERS</div>
+              <div className="ers-rules-title">{t("ers.howTitle")}</div>
 
               <div className="ers-rules-section">
-                <div className="ers-rules-heading">🎯 OBJECTIVE</div>
+                <div className="ers-rules-heading">{t("ers.objective")}</div>
                 <div className="ers-rules-text">
-                  Collect all 52 cards by slapping valid card combinations on the pot and winning face-card challenges.
+                  {t("ers.objectiveText")}
                 </div>
               </div>
 
               <div className="ers-rules-section">
-                <div className="ers-rules-heading">⚡ SLAP CONDITIONS</div>
+                <div className="ers-rules-heading">{t("ers.slapHead")}</div>
                 <div className="ers-rules-text">
-                  • <b>Doubles:</b> Two cards in a row of the same rank (e.g., 7, 7)<br />
-                  • <b>Sandwiches:</b> Two cards of the same rank separated by one card (e.g., 9, 3, 9)<br />
-                  • <b>Marriage:</b> King and Queen played right next to each other<br />
-                  • <b>Tens:</b> Two cards in a row whose ranks sum to 10 (e.g., 6+4, A+9)<br />
-                  • <b>Top-Bottom:</b> The top card matches the rank of the first card in the pot
+                  • {tRich("ers.r2.double")}<br />
+                  • {tRich("ers.r2.sandwich")}<br />
+                  • {tRich("ers.r2.marriage")}<br />
+                  • {tRich("ers.r2.tens")}<br />
+                  • {tRich("ers.r2.topbottom")}
                 </div>
               </div>
 
               <div className="ers-rules-section">
-                <div className="ers-rules-heading">👑 FACE CARD CHALLENGES</div>
+                <div className="ers-rules-heading">{t("ers.faceHead")}</div>
                 <div className="ers-rules-text">
-                  When a player plays a face card, the other player must play tribute cards:<br />
-                  • <b>Ace:</b> 4 chances<br />
-                  • <b>King:</b> 3 chances<br />
-                  • <b>Queen:</b> 2 chances<br />
-                  • <b>Jack:</b> 1 chance<br />
-                  If a face card is answered with another face card, the challenge switches!
+                  {t("ers.faceIntro2")}<br />
+                  • {tRich("ers.r.ace")}<br />
+                  • {tRich("ers.r.king")}<br />
+                  • {tRich("ers.r.queen")}<br />
+                  • {tRich("ers.r.jack")}<br />
+                  {t("ers.faceSwitch2")}
                 </div>
               </div>
 
               <div className="ers-rules-section">
-                <div className="ers-rules-heading">⚠️ BURNS</div>
+                <div className="ers-rules-heading">{t("ers.burnHead")}</div>
                 <div className="ers-rules-text">
-                  A false slap penalty burns 1 card from your draw pile to the bottom of the pot.
+                  {t("ers.burnText2")}
                 </div>
               </div>
 
@@ -736,9 +736,10 @@ export function ErsMultiplayer({
                   buzz("tap");
                   setShowRules(false);
                 }}
-                aria-label="Close rules"
+                aria-label={t("ers.closeRules")}
               >
-                GOT IT
+                {t("ers.gotIt")}
+
               </button>
             </div>
           </div>

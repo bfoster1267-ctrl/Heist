@@ -20,5 +20,6 @@ import arcade from "./arcade";
 import victory from "./victory";
 import daily from "./daily";
 import solo from "./solo";
+import ers from "./ers";
 
-export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback, server, online, arcade, victory, daily, solo] as const;
+export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback, server, online, arcade, victory, daily, solo, ers] as const;
