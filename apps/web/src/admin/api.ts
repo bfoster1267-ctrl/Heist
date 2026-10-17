@@ -103,6 +103,7 @@ export interface AccountRow {
   id: string;
   name: string;
   email: string | null;
+  marketingConsent?: boolean;
   guest: boolean;
   providers: string[];
   createdAt: number;

@@ -29,6 +29,7 @@ export interface AccountRow {
   id: string;
   name: string;
   email: string | null;
+  marketingConsent?: boolean;
   guest: boolean;
   providers: string[];
   createdAt: number;
@@ -315,7 +316,7 @@ export class AdminService {
     const totalGames = p.stats.games + arcadeWins;
 
     return {
-      id: a.id, name: a.name, email: a.email ?? null, guest: a.guest, providers: a.logins.map((l) => l.provider), createdAt: a.createdAt,
+      id: a.id, name: a.name, email: a.email ?? null, marketingConsent: Boolean(a.marketingConsent), guest: a.guest, providers: a.logins.map((l) => l.provider), createdAt: a.createdAt,
       lastSeen: this.log.lastSeen(a.id) ?? null, level: levelInfo(p.xp).level, prestige: p.prestige, chips: p.chips, coins: p.coins,
       games: p.stats.games, wins: p.stats.wins, winnings: p.stats.winnings, rating: Math.round(p.rating),
       tags: a.crm?.tags ?? [], flagged: !!a.crm?.flag, banned: !!this.accounts.banOf(a), notes: a.crm?.notes.length ?? 0,

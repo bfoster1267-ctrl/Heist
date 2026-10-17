@@ -241,7 +241,8 @@ export interface Backend {
   /** another player's public card */
   player(id: string): Promise<PublicProfile>;
   // signing in (server only)
-  register(email: string, password: string, name: string): Promise<Me>;
+  register(email: string, password?: string, name?: string, consent?: boolean): Promise<Me>;
+  setPassword?(password: string): Promise<Me>;
   login(email: string, password: string): Promise<Me>;
   oauth(provider: string, credential: string, name?: string): Promise<Me>;
   dev(name: string): Promise<Me>;
@@ -574,14 +575,17 @@ export class ServerBackend implements Backend {
   changePassword(current: string, password: string) {
     return this.call<Me>("/api/me/password", { current, password });
   }
+  setPassword(password: string) {
+    return this.call<Me>("/api/me/password", { password });
+  }
   async leaderboard(by: string) {
     return (await this.call<{ rows: LeaderRow[] }>(`/api/leaderboard?by=${by}`)).rows;
   }
   player(id: string) {
     return this.call<PublicProfile>(`/api/players/${encodeURIComponent(id)}`);
   }
-  async register(email: string, password: string, name: string) {
-    return this.signedIn(await this.call("/api/auth/register", { email, password, name }));
+  async register(email: string, password?: string, name?: string, consent = true) {
+    return this.signedIn(await this.call("/api/auth/register", { email, password, name, consent }));
   }
   async login(email: string, password: string) {
     return this.signedIn(await this.call("/api/auth/login", { email, password }));

@@ -292,6 +292,8 @@ export class AccountService {
         a.logins.push(login);
         if (extra.email) a.email = extra.email;
         if (extra.password) a.password = extra.password;
+        if (extra.marketingConsent !== undefined) a.marketingConsent = extra.marketingConsent;
+        if (extra.marketingConsentAt) a.marketingConsentAt = extra.marketingConsentAt;
         if (extra.name && (a.name.startsWith("Guest") || a.name === "Player")) a.name = cleanName(extra.name, a.name);
         return a;
       });
@@ -301,14 +303,23 @@ export class AccountService {
     return this.session(await this.create(name, false, [login], extra));
   }
 
-  async register(email: unknown, password: unknown, name: unknown, current?: unknown) {
+  async register(email: unknown, password: unknown, name: unknown, current?: unknown, consent?: unknown) {
     if (typeof email !== "string" || !EMAIL.test(email.trim())) throw new ApiError(400, "That email doesn't look right");
-    if (typeof password !== "string" || password.length < 8 || password.length > 200) throw new ApiError(400, "Use a password of at least 8 characters");
     const addr = email.trim().toLowerCase();
     const login: Login = { provider: "email", subject: addr };
     if (await this.store.byLogin(login)) throw new ApiError(409, "There's already an account with that email. Sign in instead.");
-    const hash = await hashPassword(password);
-    return this.signIn(login, current, () => ({ name: typeof name === "string" && name.trim() ? name : addr.split("@")[0], email: addr, password: hash }));
+    let hash: string | undefined = undefined;
+    if (typeof password === "string" && password.trim().length > 0) {
+      if (password.length < 8 || password.length > 200) throw new ApiError(400, "Use a password of at least 8 characters");
+      hash = await hashPassword(password);
+    }
+    return this.signIn(login, current, () => ({
+      name: typeof name === "string" && name.trim() ? name : addr.split("@")[0],
+      email: addr,
+      password: hash,
+      marketingConsent: consent !== undefined ? Boolean(consent) : true,
+      marketingConsentAt: Date.now(),
+    }));
   }
 
   async login(email: unknown, password: unknown) {
@@ -399,10 +410,11 @@ export class AccountService {
     a.progress = r;
   }
 
-  /** Email accounts: change the password (needs the current one). Other devices stay signed in. */
+  /** Email accounts: set or change the password (needs the current one if already set). Other devices stay signed in. */
   async changePassword(a: Account, current: unknown, next: unknown) {
-    if (!a.password) throw new ApiError(400, "This account doesn't sign in with a password");
-    if (typeof current !== "string" || !(await checkPassword(current, a.password))) throw new ApiError(401, "That's not your current password");
+    if (a.password) {
+      if (typeof current !== "string" || !(await checkPassword(current, a.password))) throw new ApiError(401, "That's not your current password");
+    }
     if (typeof next !== "string" || next.length < 8 || next.length > 200) throw new ApiError(400, "Use a password of at least 8 characters");
     const hash = await hashPassword(next);
     return this.update(a.id, (x) => ((x.password = hash), this.me(x)));

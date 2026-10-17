@@ -2,6 +2,7 @@
 // Lets players challenge friends to the exact same seed and displays head-to-head comparisons.
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { buzz } from "../haptics";
 import { click } from "../sound";
 import { shareFriendChallenge, type FriendChallengePayload } from "./shareHelpers";
@@ -70,7 +71,7 @@ export function FriendChallengeModal({
     }
   };
 
-  return (
+  return createPortal(
     <div className="daily-hub-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Challenge a Friend">
       <div className="daily-hub-box" style={{ maxWidth: 440 }} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
@@ -200,6 +201,7 @@ export function FriendChallengeModal({
           Done
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -43,6 +43,8 @@ export interface Account {
   guest: boolean;
   logins: Login[];
   email?: string;
+  marketingConsent?: boolean;
+  marketingConsentAt?: number;
   /** scrypt hash, for email sign-in */
   password?: string;
   progress: Progress;

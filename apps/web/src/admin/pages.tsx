@@ -599,6 +599,11 @@ function Badges({ r }: { r: AccountRow }) {
           CrazyGames
         </span>
       )}
+      {r.marketingConsent && (
+        <span className="badge" style={{ background: "rgba(34, 197, 94, 0.15)", color: "#4ade80", border: "1px solid rgba(34, 197, 94, 0.3)" }} title="Consented to email updates">
+          ✉️ opt-in
+        </span>
+      )}
       {r.personAccounts > 1 && <span className="badge note">+{r.personAccounts - 1} {r.personAccounts === 2 ? "account" : "accounts"}</span>}
       {r.banned && <span className="badge banned">suspended</span>}
       {r.flagged && <span className="badge flagged">⚑ flagged</span>}
@@ -691,7 +696,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
             {r.name} <Badges r={r} />
           </h2>
           <div className="dim">
-            {a.email ?? "no email"} · {a.guest ? "guest" : a.logins.map((x) => x.provider).join(", ")} · joined {day(a.createdAt)} · last seen {ago(r.lastSeen)}
+            {a.email ?? "no email"} {r.marketingConsent ? "· ✉️ marketing opt-in" : ""} · {a.guest ? "guest" : a.logins.map((x) => x.provider).join(", ")} · joined {day(a.createdAt)} · last seen {ago(r.lastSeen)}
           </div>
           <div className="dim small mono">{a.id}</div>
         </div>

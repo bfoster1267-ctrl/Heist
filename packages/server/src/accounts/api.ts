@@ -302,7 +302,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     }),
     "POST /api/auth/guest": async (b) => svc.guest(b.token, b.name, b.src),
     "POST /api/auth/crazygames": async (b, t) => svc.crazyGames(b.credential, t),
-    "POST /api/auth/register": async (b, t) => svc.register(b.email, b.password, b.name, t),
+    "POST /api/auth/register": async (b, t) => svc.register(b.email, b.password, b.name, t, b.consent),
     "POST /api/auth/login": async (b) => svc.login(b.email, b.password),
     "POST /api/auth/oauth": async (b, t) => svc.oauthSignIn(b.provider, b.credential, b.name, t),
     "POST /api/auth/dev": async (b, t) => svc.dev(b.name, t),

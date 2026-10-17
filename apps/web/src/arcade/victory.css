@@ -489,3 +489,65 @@
   gap: 0.35rem;
 }
 
+/* Guest Member Onboarding Card */
+.vic-member-card {
+  background: linear-gradient(135deg, rgba(231, 181, 60, 0.16) 0%, rgba(246, 215, 122, 0.08) 100%);
+  border: 1.5px solid rgba(231, 181, 60, 0.6);
+  box-shadow: 0 4px 20px rgba(231, 181, 60, 0.18), inset 0 1px 0 rgba(255, 240, 195, 0.2);
+  border-radius: 16px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+}
+.vic-member-card:hover {
+  transform: translateY(-1px);
+  border-color: #ffd466;
+  box-shadow: 0 6px 24px rgba(231, 181, 60, 0.28);
+}
+.vic-member-icon {
+  font-size: 2.2rem;
+  line-height: 1;
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 6px rgba(231, 181, 60, 0.5));
+}
+.vic-member-content {
+  flex: 1;
+  min-width: 0;
+}
+.vic-member-title {
+  font-family: var(--cond, sans-serif);
+  font-weight: 800;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  color: #fff;
+  line-height: 1.2;
+}
+.vic-member-sub {
+  font-size: 0.78rem;
+  color: #cbd5e1;
+  line-height: 1.3;
+  margin-top: 0.2rem;
+}
+.vic-member-btn {
+  background: linear-gradient(180deg, #f6d77a 0%, #e7b53c 100%);
+  border: 1px solid #ffd466;
+  color: #0c0e14;
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  padding: 0.45rem 0.85rem;
+  border-radius: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(231, 181, 60, 0.35);
+  transition: transform 0.15s, filter 0.15s;
+}
+.vic-member-btn:hover {
+  transform: scale(1.04);
+  filter: brightness(1.08);
+}
+

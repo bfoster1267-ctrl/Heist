@@ -90,8 +90,10 @@ export function TriPeaks({
   const [hint, setHint] = useState<number | null>(null);
   const [armed, setArmed] = useState(false);
   const [done, setDone] = useState(false);
-  const [started, setStarted] = useState(Date.now());
+  const [started, setStarted] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
+  const [finalTime, setFinalTime] = useState<string | null>(null);
+  const startedRef = useRef<number | null>(null);
   const b = useBoard();
   const board = useRef<HTMLDivElement>(null);
   const k = hist[hist.length - 1];
@@ -164,7 +166,9 @@ export function TriPeaks({
     setDone(false);
     setHint(null);
     setArmed(false);
-    setStarted(Date.now());
+    startedRef.current = null;
+    setStarted(null);
+    setFinalTime(null);
     lastAct.current = Date.now();
     cardSound(3);
   }, [backend, bank, initialSeed, isDaily]);
@@ -174,9 +178,10 @@ export function TriPeaks({
   }, [deal]);
 
   useEffect(() => {
+    if (done) return;
     const t = window.setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [done]);
 
   const stalled = (at: number) =>
     !!game?.gameId && !!k && !done && !tpWon(k) && document.visibilityState === "visible" && at - lastAct.current >= TP_IDLE_S * 1000 && tpHasMoves(k);
@@ -189,6 +194,10 @@ export function TriPeaks({
     (m: TpMove) => {
       const n = k && applyTp(k, m);
       if (!n) return false;
+      if (!startedRef.current) {
+        startedRef.current = Date.now();
+        setStarted(startedRef.current);
+      }
       setHist((h) => [...h, n]);
       setMoves((ms) => [...ms, m]);
       setHint(null);
@@ -208,6 +217,10 @@ export function TriPeaks({
   useEffect(() => {
     if (!k || done || !tpWon(k)) return;
     setDone(true);
+    if (startedRef.current) {
+      const elapsed = Math.floor((Date.now() - startedRef.current) / 1000);
+      setFinalTime(`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`);
+    }
     winSound();
     buzz("win");
     const id = game?.gameId;
@@ -318,8 +331,9 @@ export function TriPeaks({
     play("d");
   };
 
-  const secs = Math.floor((now - started) / 1000);
-  const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  const secs = started ? Math.floor((now - started) / 1000) : 0;
+  const liveClock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  const clock = finalTime ?? liveClock;
   const won = tpWon(k);
   const isStuck = !done && stuckSeen !== hist.length && !tpHasMoves(k);
   const shownXp = Math.min(pot(best.current), dayLeft.current);

@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount } from "../account/useAccount";
+import { MemberModal } from "../account/MemberModal";
 import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
 import { parseSpeedBonus, saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
@@ -73,8 +74,9 @@ export function VictoryModal({
   onHeist,
 }: VictoryModalProps) {
   useLanguage();
-  const { act } = useAccount();
+  const { act, me } = useAccount();
   const [copied, setCopied] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
   const [welcomePackClaimed, setWelcomePackClaimed] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [reminderError, setReminderError] = useState<string | null>(null);
@@ -301,6 +303,46 @@ export function VictoryModal({
           </div>
         </div>
 
+        {/* Guest Member Onboarding Hook */}
+        {me?.guest && !onCrazyGames && (
+          <div
+            className="vic-member-card"
+            role="button"
+            tabIndex={0}
+            onClick={() => {
+              click();
+              setShowMemberModal(true);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                click();
+                setShowMemberModal(true);
+              }
+            }}
+          >
+            <span className="vic-member-icon" aria-hidden="true">👑</span>
+            <div className="vic-member-content">
+              <div className="vic-member-title">
+                SAVE YOUR XP &amp; {streak}-DAY STREAK
+              </div>
+              <div className="vic-member-sub">
+                Lock in your Battle Pass &amp; skins before cache clears. Free.
+              </div>
+            </div>
+            <button
+              type="button"
+              className="vic-member-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                click();
+                setShowMemberModal(true);
+              }}
+            >
+              SAVE ➔
+            </button>
+          </div>
+        )}
+
         {/* Streak Reminder (Web Push) */}
         <div className="vic-reminder-row">
           {reminderSet ? (
@@ -508,6 +550,16 @@ export function VictoryModal({
       </div>
       {showInstallModal && (
         <MobileInstallModal isOpen={showInstallModal} onClose={() => setShowInstallModal(false)} />
+      )}
+      {showMemberModal && (
+        <MemberModal
+          isOpen={showMemberModal}
+          onClose={() => setShowMemberModal(false)}
+          streak={streak}
+          xp={Math.round((isDaily ? 100 : 50) * multiplier) + speedBonusXp}
+          multiplier={multiplier}
+          source="victory_modal"
+        />
       )}
     </div>,
     document.body

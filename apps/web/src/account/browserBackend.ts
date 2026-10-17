@@ -569,7 +569,10 @@ export class BrowserBackend implements Backend {
   private offline(): never {
     throw new BackendError("Accounts turn on when the game server is live.");
   }
-  async register() {
+  async register(_email?: string, _password?: string, _name?: string, _consent?: boolean) {
+    return this.offline();
+  }
+  async setPassword(_password?: string) {
     return this.offline();
   }
   async login() {

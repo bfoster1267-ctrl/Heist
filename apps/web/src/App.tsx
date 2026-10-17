@@ -1,10 +1,11 @@
 import type { Answer } from "@heist/engine";
-import { ALL_DRINKS, FIRST_HAND, currentPass, lessonFor, type Reward } from "@heist/profile";
+import { ALL_DRINKS, FIRST_HAND, currentPass, getDailyStreak, getStreakMultiplier, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { joinTable, useFriends, useFriendsSync } from "./account/social";
 import { Rewards } from "./account/Rewards";
+import { MemberModal } from "./account/MemberModal";
 import type { LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
@@ -67,6 +68,7 @@ function Game() {
     return () => clearInterval(t);
   }, [failed]);
   const [table, setTable] = useState<Seated | null>(null);
+  const [memberModalOpen, setMemberModalOpen] = useState(false);
   const [round, setRound] = useState(0);
   // the profile sheet and which tab it opens on (false = closed)
   const [profile, setProfile] = useState<false | LobbyPage | "account" | "friends">(() => (opened().friends ? "friends" : false));
@@ -1099,7 +1101,7 @@ function Game() {
             onOnline={(n) => enter(() => setOnline(n))}
             onOpen={setProfile}
             onSignIn={() => setProfile("account")}
-            onSave={me.guest && !onCrazyGames ? () => setProfile("account") : undefined}
+            onSave={me.guest && !onCrazyGames ? () => setMemberModalOpen(true) : undefined}
             onSolitaire={() => setSol(true)}
             onFreeCell={() => setFc(true)}
             onTriPeaks={() => setTp(true)}
@@ -1193,7 +1195,17 @@ function Game() {
         </button>
       )}
       {/* no "save your progress" sign-in nudge on CrazyGames: their own account keeps it */}
-      <Rewards onSave={onCrazyGames ? undefined : () => setProfile("account")} />
+      <Rewards onSave={onCrazyGames || !me?.guest ? undefined : () => setMemberModalOpen(true)} />
+      {memberModalOpen && (
+        <MemberModal
+          isOpen={memberModalOpen}
+          onClose={() => setMemberModalOpen(false)}
+          streak={me?.progress ? Math.max(1, getDailyStreak(me.progress, Date.now())) : 1}
+          xp={me?.progress?.xp ?? 150}
+          multiplier={me?.progress ? getStreakMultiplier(Math.max(1, getDailyStreak(me.progress, Date.now()))) : 1}
+          source="lobby_save"
+        />
+      )}
       <Suspense fallback={null}>
         {!!friendsView?.invites.length && <InviteToast busy={!!table} />}
         <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>
