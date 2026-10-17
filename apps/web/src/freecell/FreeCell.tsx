@@ -210,6 +210,17 @@ export function FreeCell({
     if (stalled(now)) setDrain((d) => Math.min(d + 1, tallyFcXp(best.current)));
   }, [now]);
 
+  const won = Boolean(k && fcWon(k));
+  const secs = started ? Math.floor((now - started) / 1000) : 0;
+  const liveClock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  const clock = finalTime ?? liveClock;
+
+  useEffect(() => {
+    if (won && !finalTime) {
+      setFinalTime(liveClock);
+    }
+  }, [won, finalTime, liveClock]);
+
   const play = useCallback(
     (m: FcMove) => {
       const n = k && applyFc(k, m);
@@ -474,17 +485,6 @@ export function FreeCell({
     const moveStr = `${d.from}>${to}${d.depth > 1 ? `:${d.depth}` : ""}`;
     if (!play(moveStr)) buzz("tap");
   };
-
-  const secs = Math.floor((now - started) / 1000);
-  const liveClock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-  const won = fcWon(k);
-  const clock = finalTime ?? liveClock;
-
-  useEffect(() => {
-    if (won && !finalTime) {
-      setFinalTime(liveClock);
-    }
-  }, [won, finalTime, liveClock]);
 
   const isStuck = !done && !dealAt && stuckSeen !== hist.length && !fcHasMoves(k);
   const shownXp = Math.min(pot(best.current), dayLeft.current);

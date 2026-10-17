@@ -241,6 +241,17 @@ export function Solitaire({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [now]);
 
+  const won = Boolean(k && solWon(k));
+  const secs = started ? Math.floor((now - started) / 1000) : 0;
+  const liveClock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  const clock = finalTime ?? liveClock;
+
+  useEffect(() => {
+    if (won && !finalTime) {
+      setFinalTime(liveClock);
+    }
+  }, [won, finalTime, liveClock]);
+
   const play = useCallback(
     (m: SolMove) => {
       const n = k && applySol(k, m);
@@ -482,17 +493,6 @@ export function Solitaire({
     if (dealAt || done) return;
     if (!play("d")) nope("s");
   };
-
-  const secs = Math.floor((now - started) / 1000);
-  const liveClock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
-  const won = solWon(k);
-  const clock = finalTime ?? liveClock;
-
-  useEffect(() => {
-    if (won && !finalTime) {
-      setFinalTime(liveClock);
-    }
-  }, [won, finalTime, liveClock]);
 
   const isStuck = !done && !dealAt && stuckSeen !== hist.length && stuck(k);
   const shownXp = Math.min(pot(best.current), dayLeft.current);
