@@ -15,6 +15,7 @@ import { buzz } from "../haptics";
 import { click } from "../sound";
 import "./daily.css";
 import { GAME_LABELS } from "./DailyHub";
+import { t } from "../i18n";
 
 export function ChallengeBanner({
   progress,
@@ -49,7 +50,7 @@ export function ChallengeBanner({
       }}
       role="button"
       tabIndex={0}
-      aria-label={`Daily Challenge #${challengeNo}: ${info.title}. Streak: ${streak} days. Resets in ${formatCountdown(msLeft)}.`}
+      aria-label={t("dly.bannerAria", { no: String(challengeNo), game: info.title, streak, time: formatCountdown(msLeft) })}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
@@ -61,17 +62,17 @@ export function ChallengeBanner({
         <span className="daily-banner-flame" aria-hidden="true">🔥</span>
         <div className="daily-banner-text">
           <span className="daily-banner-headline">
-            {streak > 0 ? `${streak}-Day Streak!` : "Daily Challenge #"}
-            {streak === 0 ? challengeNo : ""} · {info.title}
+            {streak > 0 ? t("dly.bannerStreak", { count: streak }) : t("dly.bannerNo", { no: String(challengeNo) })} · {info.title}
           </span>
           <span className="daily-banner-sub">
-            {isDone ? "Completed Today ✅" : `Resets in ${formatCountdown(msLeft)} · +50 XP Bonus`}
+            {isDone ? t("dly.doneToday") : t("dly.bannerSub", { time: formatCountdown(msLeft) })}
           </span>
         </div>
       </div>
 
       <button type="button" className="daily-banner-btn" aria-hidden="true" tabIndex={-1}>
-        {isDone ? "VIEW" : "PLAY"}
+        {isDone ? t("dly.view") : t("dly.play")}
+
       </button>
     </div>
   );

@@ -28,16 +28,26 @@ import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import "./daily.css";
 import { getDailyBest, getDailyLeaderboard, shareDailyResult } from "./shareHelpers";
+import { num, t, tEn, tk, tNodes, type TKey } from "../i18n";
+import { dailyText } from "../i18n/data";
 
-export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
-  solitaire: { title: "Klondike Solitaire", icon: "♠" },
-  freecell: { title: "FreeCell", icon: "♦" },
-  spider: { title: "Spider Solitaire", icon: "🕷️" },
-  tripeaks: { title: "TriPeaks", icon: "⛰️" },
-  pyramid: { title: "Pyramid", icon: "🔺" },
-  yukon: { title: "Yukon", icon: "🐺" },
-  ers: { title: "Egyptian Rat Screw", icon: "⚡" },
-  scoundrel: { title: "Scoundrel", icon: "🗡️" },
+/** a daily game's label; the title is read in the active language each time */
+const label = (id: DailyGame, icon: string) => ({
+  get title() {
+    return t(`dly.game.${id}` as TKey);
+  },
+  icon,
+});
+
+export const GAME_LABELS: Record<DailyGame, { readonly title: string; icon: string }> = {
+  solitaire: label("solitaire", "♠"),
+  freecell: label("freecell", "♦"),
+  spider: label("spider", "🕷️"),
+  tripeaks: label("tripeaks", "⛰️"),
+  pyramid: label("pyramid", "🔺"),
+  yukon: label("yukon", "🐺"),
+  ers: label("ers", "⚡"),
+  scoundrel: label("scoundrel", "🗡️"),
 };
 
 export interface DailyHubProps {
@@ -88,7 +98,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
       await act((b) => b.buyStreakFreeze());
       buzz("bump");
     } catch (err: unknown) {
-      alert((err as Error).message || "Could not buy streak freeze");
+      alert(tEn((err as Error).message || "") || t("dly.buyFail"));
     } finally {
       setBuyingFreeze(false);
     }
@@ -104,7 +114,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
       await act((b) => b.claimDailyVault());
       buzz("win");
     } catch (err: unknown) {
-      alert((err as Error).message || "Could not claim vault");
+      alert(tEn((err as Error).message || "") || t("dly.vaultFail"));
     } finally {
       setClaimingVault(false);
     }
@@ -150,19 +160,19 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
   };
 
   return createPortal(
-    <div className="daily-hub-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Daily Challenges">
+    <div className="daily-hub-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label={t("dly.aria")}>
       <div className="daily-hub-box" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="daily-hub-header">
           <div className="daily-title-group">
             <span className="daily-super">
-              <span>✦</span> Daily Challenge #{challengeNo}
+              <span>✦</span> {t("dly.no", { no: String(challengeNo) })}
             </span>
             <h2 className="daily-title">
-              WORLDWIDE <span>DAILY DEALS</span>
+              {t("dly.title1")} <span>{t("dly.title2")}</span>
             </h2>
           </div>
-          <button className="daily-close-btn" onClick={onClose} aria-label="Close Daily Challenges">
+          <button className="daily-close-btn" onClick={onClose} aria-label={t("dly.close")}>
             ✕
           </button>
         </div>
@@ -172,12 +182,12 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
           <div className="daily-streak-left">
             <span className="daily-flame" aria-hidden="true">🔥</span>
             <div className="daily-streak-stats">
-              <span className="daily-streak-count">{streak} DAY STREAK</span>
-              <span className="daily-multiplier-pill">{multiplier}x BONUS MULTIPLIER</span>
+              <span className="daily-streak-count">{t("dly.streak", { count: streak })}</span>
+              <span className="daily-multiplier-pill">{t("dly.mult", { x: multiplier })}</span>
             </div>
           </div>
           <div className="daily-countdown-wrap">
-            <span className="daily-countdown-label">Resets In</span>
+            <span className="daily-countdown-label">{t("dly.resetsIn")}</span>
             <span className="daily-countdown-val">{formatCountdown(msLeft)}</span>
           </div>
         </div>
@@ -188,10 +198,10 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
             <span style={{ fontSize: 22 }} aria-hidden="true">🧊</span>
             <div>
               <div style={{ fontWeight: 800, fontSize: 13, color: "#38bdf8", letterSpacing: "0.5px" }}>
-                {freezes > 0 ? `${freezes} STREAK FREEZE EQUIPPED` : "NO STREAK FREEZE EQUIPPED"}
+                {freezes > 0 ? t("dly.freezeOn", { count: freezes }) : t("dly.freezeOff")}
               </div>
               <div style={{ fontSize: 11, color: "#94a3b8" }}>
-                {freezes > 0 ? "Protected! Streak won't break if you miss 1 day." : "Miss a day and streak resets. Equip protection!"}
+                {freezes > 0 ? t("dly.freezeOnText") : t("dly.freezeOffText")}
               </div>
             </div>
           </div>
@@ -202,7 +212,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
               onClick={handleBuyFreeze}
               disabled={buyingFreeze || (progress?.coins ?? 0) < 200}
             >
-              {buyingFreeze ? "Equipping..." : "+ Equip (200 🪙)"}
+              {buyingFreeze ? t("dly.equipping") : t("dly.equip")}
             </button>
           )}
         </div>
@@ -211,9 +221,9 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
         {questsSummary && (
           <div className="daily-quests-box">
             <div className="daily-quests-header">
-              <span style={{ fontWeight: 800, letterSpacing: "1px" }}>🎯 TODAY'S DAILY QUESTS</span>
+              <span style={{ fontWeight: 800, letterSpacing: "1px" }}>{t("dly.quests")}</span>
               <span style={{ color: "#fbbf24", fontWeight: 700 }}>
-                {questsSummary.quests.filter((q) => q.done).length}/3 Done
+                {t("dly.questsDone", { n: questsSummary.quests.filter((q) => q.done).length })}
               </span>
             </div>
             <div className="daily-quests-list">
@@ -222,12 +232,12 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
                   <span style={{ fontSize: 22 }}>{q.icon}</span>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-                      <span>{q.title}</span>
+                      <span>{tk(`quest.${q.id}.title`, q.title)}</span>
                       <span style={{ color: q.done ? "#22c55e" : "#94a3b8" }}>
-                        {q.done ? "COMPLETED ✓" : `${q.current}/${q.target}`}
+                        {q.done ? t("dly.questDone") : `${num(q.current)}/${num(q.target)}`}
                       </span>
                     </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>{q.desc}</div>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 4 }}>{tk(`quest.${q.id}.desc`, q.desc)}</div>
                     <div className="daily-progress-track" style={{ height: 4 }}>
                       <div
                         className="daily-progress-fill"
@@ -250,12 +260,12 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
                 onClick={handleClaimVault}
                 disabled={claimingVault}
               >
-                <span>🏆</span> CRACK DAILY VAULT (+100 🪙 &amp; +250 XP)
+                <span>🏆</span> {t("dly.vault")}
               </button>
             )}
             {questsSummary.vaultClaimed && (
               <div className="daily-vault-done">
-                <span>✓</span> Daily Loot Vault Claimed Today!
+                <span>✓</span> {t("dly.vaultDone")}
               </div>
             )}
           </div>
@@ -265,8 +275,8 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
         {nextMilestoneBonus && (
           <div className="daily-milestone-wrap">
             <div className="daily-milestone-head">
-              <span>Next Milestone: {nextMilestoneDays}-Day Streak</span>
-              <span className="daily-milestone-reward">+{nextMilestoneBonus.xp} XP & +{nextMilestoneBonus.coins} Coins</span>
+              <span>{t("dly.milestone", { n: nextMilestoneDays })}</span>
+              <span className="daily-milestone-reward">{t("dly.milestoneReward", { xp: nextMilestoneBonus.xp, coins: nextMilestoneBonus.coins })}</span>
             </div>
             <div className="daily-progress-track">
               <div className="daily-progress-fill" style={{ width: `${progressPercent}%` }} />
@@ -276,11 +286,11 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
 
         {/* Featured Challenge Card */}
         <div className="daily-featured-card">
-          <span className="daily-featured-badge">⭐ TODAY'S FEATURED CHALLENGE</span>
+          <span className="daily-featured-badge">{t("dly.featured")}</span>
           <div className="daily-featured-body">
             <div className="daily-featured-info">
               <h3 className="daily-featured-name">{GAME_LABELS[featuredGame].title}</h3>
-              <p className="daily-featured-desc">{featuredChallenge.description}</p>
+              <p className="daily-featured-desc">{dailyText(featuredChallenge).description}</p>
             </div>
             <button
               type="button"
@@ -291,9 +301,9 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
                 buzz("tap");
                 onPlayChallenge(featuredGame, featuredChallenge.seed);
               }}
-              aria-label={featuredCompleted ? "Completed" : `Play ${GAME_LABELS[featuredGame].title} Daily Challenge`}
+              aria-label={featuredCompleted ? t("dly.completed") : t("dly.playAria", { game: GAME_LABELS[featuredGame].title })}
             >
-              {featuredCompleted ? "COMPLETED ✅" : "PLAY DEAL"}
+              {featuredCompleted ? t("dly.completedBtn") : t("dly.playDeal")}
             </button>
           </div>
         </div>
@@ -302,9 +312,9 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
         <div className="daily-leaderboard-card">
           <div className="daily-leaderboard-header">
             <div className="daily-leaderboard-title">
-              <span>⚡</span> TODAY'S PAR TIMES ({GAME_LABELS[featuredGame].title})
+              <span>⚡</span> {t("dly.parTimes", { game: GAME_LABELS[featuredGame].title })}
             </div>
-            <div className="daily-speed-badge">Speed XP Active</div>
+            <div className="daily-speed-badge">{t("dly.speedXp")}</div>
           </div>
 
           <div className="daily-leaderboard-list">
@@ -315,7 +325,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
               >
                 <div className="daily-solver-left">
                   <span className="daily-solver-rank">{entry.medal}</span>
-                  <span className="daily-solver-name">{entry.isUser ? "Your best" : entry.name}</span>
+                  <span className="daily-solver-name">{entry.isUser ? t("dly.yourBest") : entry.name}</span>
                 </div>
                 <div className="daily-solver-right">
                   <span className="daily-solver-time">⏱️ {entry.time}</span>
@@ -332,17 +342,17 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
             if (!mine)
               return (
                 <div className="daily-leaderboard-hint">
-                  <span>💡</span> Beat <strong>{pars[0]?.time ?? "1:30"}</strong> for Gold par and the most speed bonus XP!
+                  <span>💡</span> {tNodes("dly.hintBeat", { time: <strong>{pars[0]?.time ?? "1:30"}</strong> })}
                 </div>
               );
             return (
               <div className={`daily-leaderboard-hint ${beaten ? "podium-win" : ""}`}>
                 <span>{beaten ? beaten.medal : "👤"}</span>{" "}
                 {beaten === pars[0]
-                  ? "You beat Gold par today!"
+                  ? t("dly.beatGold")
                   : beaten
-                    ? `You beat ${beaten.name}. Beat ${pars[0]?.time} for Gold!`
-                    : `Your best is ${mine.time}. Beat ${pars[2]?.time} for Bronze par!`}
+                    ? t("dly.beatSome", { name: beaten.name.toLowerCase(), time: pars[0]?.time ?? "" })
+                    : t("dly.yourTime", { time: mine.time, par: pars[2]?.time ?? "" })}
               </div>
             );
           })()}
@@ -352,9 +362,9 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
 
         {/* 8-Game Grid */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h4 className="daily-grid-title">All 8 Daily Challenges ({completedCount}/8 Done)</h4>
+          <h4 className="daily-grid-title">{t("dly.all", { n: completedCount })}</h4>
           <span style={{ fontSize: 11, color: "var(--gold)", fontFamily: "var(--cond)" }}>
-            +50 XP · +15 Coins each
+            {t("dly.each")}
           </span>
         </div>
 
@@ -371,7 +381,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
                   <div>
                     <div className="daily-game-name">{info.title}</div>
                     <div className="daily-game-payout">
-                      {isDone ? "Completed Today ✅" : `Deal #${ch.seed % 1000}`}
+                      {isDone ? t("dly.doneToday") : t("dly.deal", { n: String(ch.seed % 1000) })}
                     </div>
                   </div>
                 </div>
@@ -384,9 +394,9 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
                     buzz("tap");
                     onPlayChallenge(gameId, ch.seed);
                   }}
-                  aria-label={`${isDone ? "Replay" : "Play"} ${info.title} challenge`}
+                  aria-label={t("dly.rowAria", { action: isDone ? t("dly.replayWord") : t("dly.playWord"), game: info.title })}
                 >
-                  {isDone ? "REPLAY" : "PLAY"}
+                  {isDone ? t("dly.replay") : t("dly.play")}
                 </button>
               </div>
             );
@@ -400,12 +410,13 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
             className="btn gold big"
             style={{ width: "100%", height: 48, fontSize: 16 }}
             onClick={handleShare}
-            aria-label="Share Daily Challenge Scorecard"
+            aria-label={t("dly.shareAria")}
           >
-            {copiedShare ? "Result Copied to Clipboard! 📋" : "Share Daily Challenge Result 📲"}
+            {copiedShare ? t("dly.copied") : t("dly.share")}
           </button>
           <div style={{ fontSize: 12, color: "#8a909b", textAlign: "center", fontStyle: "italic" }}>
-            Share your daily streak with friends on iMessage, WhatsApp, or Twitter.
+            {t("dly.shareHint")}
+
           </div>
         </div>
       </div>

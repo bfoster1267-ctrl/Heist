@@ -8,6 +8,10 @@ import {
   type DailyGame,
   type Progress,
 } from "@heist/profile";
+import { t, tk } from "../i18n";
+
+/** the game's name in the active language, the caller's title as the fallback */
+const gameName = (game: string, title: string) => tk(`dly.game.${game}`, title);
 
 export interface DailySharePayload {
   game: DailyGame;
@@ -112,9 +116,9 @@ export function getDailyLeaderboard(
 
   // par times to aim for, not players: there's no shared board yet, so no names that read like people
   const topSolvers = [
-    { rank: 1, name: "Gold par", medal: "🥇", seconds: t1 },
-    { rank: 2, name: "Silver par", medal: "🥈", seconds: t2 },
-    { rank: 3, name: "Bronze par", medal: "🥉", seconds: t3 },
+    { rank: 1, name: t("dly.par1"), medal: "🥇", seconds: t1 },
+    { rank: 2, name: t("dly.par2"), medal: "🥈", seconds: t2 },
+    { rank: 3, name: t("dly.par3"), medal: "🥉", seconds: t3 },
   ];
 
   const formatTime = (sec: number) =>
@@ -137,7 +141,7 @@ export function getDailyLeaderboard(
     ...rivalEntries,
     {
       rank: 99,
-      name: "You",
+      name: t("dly.you"),
       medal: "👤",
       seconds: userRecord.seconds,
       time: userRecord.time,
@@ -157,6 +161,7 @@ export function getDailyLeaderboard(
 }
 
 export function createDailyShareText({
+  game,
   gameTitle,
   won,
   time,
@@ -166,23 +171,23 @@ export function createDailyShareText({
   multiplier = 1.0,
   challengeNumber = formatDailyChallengeNumber(),
 }: DailySharePayload): string {
-  const resultIcon = won ? "🏆 WON" : "⚔️ PLAYED";
+  const resultIcon = won ? t("share.won") : t("share.played");
   const speed = parseSpeedBonus(time);
   const metrics = [
     time ? `⏱️ ${time}${speed > 0 ? ` (⚡ +${speed} XP)` : ""}` : null,
-    moves !== undefined ? `🎯 ${moves} moves` : null,
-    score !== undefined ? `⭐ ${score} pts` : null,
+    moves !== undefined ? t("share.moves", { n: moves }) : null,
+    score !== undefined ? t("share.pts", { n: score }) : null,
   ].filter(Boolean).join(" · ");
 
-  const streakLine = `🔥 ${streak}-Day Streak (${multiplier}x Multiplier)`;
+  const streakLine = t("share.streak", { n: streak, x: multiplier });
   const url = `${typeof window !== "undefined" ? window.location.origin : "https://playheist.net"}/?daily=1`;
 
   return [
-    `🃏 HEIST DAILY CHALLENGE #${challengeNumber}`,
-    `${resultIcon}: ${gameTitle}`,
+    t("share.head", { no: String(challengeNumber) }),
+    `${resultIcon}: ${gameName(game, gameTitle)}`,
     metrics,
     streakLine,
-    `Can you beat my record? 👉 ${url}`,
+    t("share.beat", { url }),
   ].filter(Boolean).join("\n");
 }
 
@@ -193,7 +198,7 @@ export async function shareDailyResult(payload: DailySharePayload): Promise<bool
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
       await navigator.share({
-        title: `Heist Daily Challenge #${payload.challengeNumber ?? formatDailyChallengeNumber()}`,
+        title: t("share.title", { no: String(payload.challengeNumber ?? formatDailyChallengeNumber()) }),
         text,
         url,
       });
@@ -244,16 +249,16 @@ export function createFriendChallengeText(payload: FriendChallengePayload): stri
   const url = createFriendChallengeUrl(payload);
   const speed = parseSpeedBonus(payload.time);
   const metrics = [
-    payload.time ? `⏱️ Time: ${payload.time}${speed > 0 ? ` (⚡ +${speed} XP Speed Bonus!)` : ""}` : null,
-    payload.moves !== undefined ? `🎯 Moves: ${payload.moves}` : null,
-    payload.score !== undefined ? `⭐ Score: ${payload.score}` : null,
+    payload.time ? t("share.time", { time: payload.time }) + (speed > 0 ? t("share.speed", { n: speed }) : "") : null,
+    payload.moves !== undefined ? t("share.movesL", { n: payload.moves }) : null,
+    payload.score !== undefined ? t("share.scoreL", { n: payload.score }) : null,
   ].filter(Boolean).join(" | ");
 
   return [
-    `🃏 Can you beat my deal on Heist?`,
-    `🎮 ${payload.gameTitle} · Deal #${payload.seed}`,
+    t("share.fcHead"),
+    t("share.fcDeal", { game: gameName(payload.game, payload.gameTitle), n: String(payload.seed) }),
     metrics,
-    `Play the exact same cards: 👉 ${url}`,
+    t("share.fcPlay", { url }),
   ].filter(Boolean).join("\n");
 }
 
@@ -264,7 +269,8 @@ export async function shareFriendChallenge(payload: FriendChallengePayload): Pro
   if (typeof navigator !== "undefined" && navigator.share) {
     try {
       await navigator.share({
-        title: `Challenge: Beat my score in ${payload.gameTitle}!`,
+        title: t("share.fcTitle", { game: gameName(payload.game, payload.gameTitle) }),
+
         text,
         url,
       });
