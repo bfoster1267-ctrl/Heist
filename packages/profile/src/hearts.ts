@@ -234,10 +234,32 @@ export function applyHearts(s: HeartsState, m: unknown): HeartsState | null {
   return play(s, m);
 }
 
+/**
+ * How often a bot slips and plays a looser card than its best (out of 1000). The crew are casual
+ * players, not a solver: without it, sensible play wins about one game in four; with it, closer to three in ten.
+ */
+export const HEARTS_SLIP = 80;
+
+/** The same answer for the same deal and the same moment of it, so the server's replay agrees. */
+function slips(s: HeartsState): boolean {
+  let h = (s.seed ^ Math.imul(s.hand + 1, 0x85ebca6b) ^ Math.imul(s.t.count * 4 + s.t.trick.length + 1, 0xc2b2ae35)) >>> 0;
+  h = Math.imul(h ^ (h >>> 16), 0x7feb352d) >>> 0;
+  h = Math.imul(h ^ (h >>> 15), 0x846ca68b) >>> 0;
+  return ((h ^ (h >>> 16)) >>> 0) % 1000 < HEARTS_SLIP;
+}
+
+/** A bot's card: its best play, but now and then any legal card, the way a person at a kitchen table might. */
+export function heartsBotCard(s: HeartsState): PlayingCard {
+  if (!slips(s)) return heartsPickCard(s);
+  const legal = heartsLegal(s);
+  const h = Math.imul(s.seed ^ (s.t.count * 7 + s.t.trick.length), 0x9e3779b1) >>> 0;
+  return legal[(h >>> 8) % legal.length];
+}
+
 /** One bot plays its card (nothing happens on the player's move or after the game). */
 export function heartsBotStep(s: HeartsState): HeartsState {
   if (s.phase !== "play" || s.t.turn === 0) return s;
-  return play(s, heartsPickCard(s));
+  return play(s, heartsBotCard(s));
 }
 
 /** Let the bots play until it's the player's move or the game is over. */
