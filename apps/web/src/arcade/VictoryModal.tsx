@@ -112,6 +112,26 @@ export function VictoryModal({
     }
   }, [progress, act]);
 
+  // Auto-prompt member progress saving modal on victory for guests (once per session)
+  useEffect(() => {
+    if (!me?.guest || onCrazyGames) return undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const prompted = sessionStorage.getItem("heist.memberPrompted");
+      if (!prompted) {
+        sessionStorage.setItem("heist.memberPrompted", "1");
+        timer = setTimeout(() => {
+          setShowMemberModal(true);
+        }, 850);
+      }
+    } catch {
+      // ignore storage errors
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [me?.guest]);
+
   // Record user's best time for today's daily challenge
   useEffect(() => {
     if (isDaily && time) {

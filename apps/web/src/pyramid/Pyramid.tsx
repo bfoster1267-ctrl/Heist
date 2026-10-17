@@ -87,6 +87,7 @@ export function Pyramid({
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
+  const [finalTime, setFinalTime] = useState<string | null>(null);
   const b = useBoard();
   const board = useRef<HTMLDivElement>(null);
   const k = hist[hist.length - 1];
@@ -155,6 +156,7 @@ export function Pyramid({
     setHint(null);
     setArmed(false);
     setDone(false);
+    setFinalTime(null);
     setStarted(Date.now());
     setNow(Date.now());
     best.current = NOTHING;
@@ -366,7 +368,15 @@ export function Pyramid({
   const elapsed = Math.max(0, Math.floor((now - started) / 1000));
   const mins = Math.floor(elapsed / 60);
   const secs = elapsed % 60;
-  const timeStr = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  const liveTime = `${mins}:${secs < 10 ? "0" : ""}${secs}`;
+  const won = Boolean(k?.won);
+  const timeStr = finalTime ?? liveTime;
+
+  useEffect(() => {
+    if (won && !finalTime) {
+      setFinalTime(liveTime);
+    }
+  }, [won, finalTime, liveTime]);
 
   const currentXp = Math.max(0, tallyPyramidXp(tally ?? NOTHING) - drain);
   const clearedCount = k?.pyramid.filter((c) => c === null).length ?? 0;

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useAccount } from "./useAccount";
 import { buzz } from "../haptics";
@@ -31,11 +31,21 @@ export function MemberModal({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !email.includes("@")) {
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
       setError(t("auth.email_invalid", "Please enter a valid email address."));
       return;
     }
@@ -45,8 +55,9 @@ export function MemberModal({
     buzz("tap");
 
     try {
-      await act((b) => b.register(email.trim(), undefined, undefined, consent));
+      await act((b) => b.register(cleanEmail, undefined, undefined, consent));
       buzz("win");
+      setEmail(cleanEmail);
       setStep("password");
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Couldn't save progress";

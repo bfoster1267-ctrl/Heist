@@ -97,6 +97,7 @@ export function FreeCell({
   const [done, setDone] = useState(false);
   const [started, setStarted] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
+  const [finalTime, setFinalTime] = useState<string | null>(null);
   const b = useBoard();
   const board = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
@@ -185,6 +186,7 @@ export function FreeCell({
     setDone(false);
     setHint(null);
     setArmed(false);
+    setFinalTime(null);
     setStarted(Date.now());
     lastAct.current = Date.now() + (reduce ? 0 : DEAL_MS);
     setDealT(0);
@@ -474,8 +476,16 @@ export function FreeCell({
   };
 
   const secs = Math.floor((now - started) / 1000);
-  const clock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
+  const liveClock = `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, "0")}`;
   const won = fcWon(k);
+  const clock = finalTime ?? liveClock;
+
+  useEffect(() => {
+    if (won && !finalTime) {
+      setFinalTime(liveClock);
+    }
+  }, [won, finalTime, liveClock]);
+
   const isStuck = !done && !dealAt && stuckSeen !== hist.length && !fcHasMoves(k);
   const shownXp = Math.min(pot(best.current), dayLeft.current);
   const draining = stalled(now) && shownXp > 0;

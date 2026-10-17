@@ -318,3 +318,27 @@
   font-size: 12.5px;
   text-align: left;
 }
+
+@media (max-width: 480px) {
+  .member-box {
+    padding: 20px 16px 16px;
+    border-radius: 16px;
+  }
+  .member-title {
+    font-size: 27px;
+  }
+  .member-perk-row {
+    padding: 8px 10px;
+    gap: 10px;
+  }
+  .member-perk-text b {
+    font-size: 12.5px;
+  }
+  .member-perk-text span {
+    font-size: 11px;
+  }
+  .member-btn-primary {
+    font-size: 18px;
+    height: 46px;
+  }
+}

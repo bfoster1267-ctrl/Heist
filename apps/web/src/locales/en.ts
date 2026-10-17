@@ -794,4 +794,23 @@ export const en: Record<string, string> = {
   "board.fine_device": "We'll attach your screen size and browser so we can reproduce it.",
   "board.reward_note": "Your bug gets confirmed or your post ships? You get {reward} coins{voterReward}.",
   "board.voter_reward_note": ", and everyone who voted it up gets {voterReward}",
+
+  // Member Onboarding & Progress Save
+  "member.badge": "FREE MEMBERSHIP",
+  "member.title_prefix": "LOCK IN YOUR",
+  "member.title_highlight": "PROGRESS",
+  "member.subtitle": "Never lose your daily streak, Battle Pass XP, or wardrobe skins across your devices.",
+  "member.email_placeholder": "Enter your email",
+  "member.consent_text": "I agree to receive daily challenge deals, streak alerts & secret loot drops (unsubscribe anytime).",
+  "member.cta_button": "★ SAVE MY STREAK & PASS (FREE)",
+  "member.maybe_later": "Maybe later (continue as guest)",
+  "member.saved_title": "PROGRESS SECURED!",
+  "member.saved_sub": "Your streak, XP, and skins are safely anchored. You can log in via 1-tap email link anytime.",
+  "member.optional_pass_title": "Optional: Lock with a Password",
+  "member.optional_pass_sub": "Add a password now if you prefer password sign-in over email links.",
+  "member.password_placeholder": "Create password (optional, min 8 chars)",
+  "member.set_password_btn": "Set Password",
+  "member.continue_playing": "Keep Playing ➔",
+  "member.all_set_title": "YOU'RE ALL SET!",
+  "member.all_set_sub": "Password saved. Your account is fully protected. Have fun!",
 };

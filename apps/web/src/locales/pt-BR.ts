@@ -794,4 +794,23 @@ export const ptBR: Record<string, string> = {
   "board.fine_device": "Anexaremos o tamanho de tela e navegador para reproduzir o problema.",
   "board.reward_note": "Seu bug foi confirmado ou sua ideia lançada? Você ganha {reward} moedas{voterReward}.",
   "board.voter_reward_note": ", e todos que votaram a favor ganham {voterReward}",
+
+  // Member Onboarding & Progress Save
+  "member.badge": "MEMBRO GRATUITO",
+  "member.title_prefix": "SALVE SEU",
+  "member.title_highlight": "PROGRESSO",
+  "member.subtitle": "Nunca perca sua sequência diária, XP do Passe de Batalha ou skins entre seus aparelhos.",
+  "member.email_placeholder": "Digite seu e-mail",
+  "member.consent_text": "Concordo em receber alertas de desafios diários, aviso de sequência e recompensas exclusivas (cancele quando quiser).",
+  "member.cta_button": "★ SALVAR MINHA SEQUÊNCIA E PASSE (GRÁTIS)",
+  "member.maybe_later": "Talvez mais tarde (continuar como convidado)",
+  "member.saved_title": "PROGRESSO SALVO!",
+  "member.saved_sub": "Sua sequência, XP e skins estão salvos. Você pode entrar pelo link de e-mail a qualquer momento.",
+  "member.optional_pass_title": "Opcional: Proteger com Senha",
+  "member.optional_pass_sub": "Adicione uma senha agora se preferir entrar com senha em vez de link por e-mail.",
+  "member.password_placeholder": "Criar senha (opcional, mín 8 caracteres)",
+  "member.set_password_btn": "Definir Senha",
+  "member.continue_playing": "Continuar Jogando ➔",
+  "member.all_set_title": "TUDO PRONTO!",
+  "member.all_set_sub": "Senha salva. Sua conta está totalmente protegida. Divirta-se!",
 };
