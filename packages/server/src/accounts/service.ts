@@ -317,8 +317,8 @@ export class AccountService {
       name: typeof name === "string" && name.trim() ? name : addr.split("@")[0],
       email: addr,
       password: hash,
-      marketingConsent: consent !== undefined ? Boolean(consent) : true,
-      marketingConsentAt: Date.now(),
+      marketingConsent: Boolean(consent),
+      marketingConsentAt: consent ? Date.now() : undefined,
     }));
   }
 

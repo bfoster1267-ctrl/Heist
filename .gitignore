@@ -4,3 +4,4 @@ dist
 dist-single
 data
 dist-crazygames
+*.command

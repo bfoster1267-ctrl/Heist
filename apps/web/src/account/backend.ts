@@ -584,7 +584,7 @@ export class ServerBackend implements Backend {
   player(id: string) {
     return this.call<PublicProfile>(`/api/players/${encodeURIComponent(id)}`);
   }
-  async register(email: string, password?: string, name?: string, consent = true) {
+  async register(email: string, password?: string, name?: string, consent = false) {
     return this.signedIn(await this.call("/api/auth/register", { email, password, name, consent }));
   }
   async login(email: string, password: string) {

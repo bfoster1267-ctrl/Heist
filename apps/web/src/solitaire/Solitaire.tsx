@@ -99,6 +99,7 @@ export function Solitaire({
   challengerTime,
   challengerMoves,
   challengerScore,
+  onSave,
 }: {
   onExit: () => void;
   /** the win card's "Heist" button (left out while waiting in the online queue) */
@@ -110,6 +111,7 @@ export function Solitaire({
   challengerTime?: string | null;
   challengerMoves?: number | null;
   challengerScore?: number | null;
+  onSave?: () => void;
 }) {
   const { backend, act, showReward, me } = useAccount();
   const initialDeal = useRef(true);
@@ -523,7 +525,14 @@ export function Solitaire({
               </>
             )}
             {" "}<span className="sol-dot">·</span>{" "}
-            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+            <span
+              className="arcade-streak-pill"
+              onClick={me?.guest ? onSave : undefined}
+              style={{ cursor: me?.guest && onSave ? "pointer" : "default" }}
+              title={me?.guest ? "Save streak & XP" : undefined}
+            >
+              {streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}
+            </span>
           </span>
         </div>
         <button className="sol-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">
@@ -650,6 +659,18 @@ export function Solitaire({
             <button className="btn primary" onClick={() => void deal()}>
               New deal
             </button>
+            {me?.guest && onSave && (
+              <button
+                className="btn"
+                style={{ borderColor: "#c9a24a", color: "#f8e287" }}
+                onClick={() => {
+                  click();
+                  onSave();
+                }}
+              >
+                👑 Save {streak > 1 ? `${streak}-Day` : "Day 1"} Streak
+              </button>
+            )}
             <button className="sol-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label="Keep playing">
               ✕
             </button>

@@ -119,10 +119,12 @@ export function VictoryModal({
     try {
       const prompted = sessionStorage.getItem("heist.memberPrompted");
       if (!prompted) {
-        sessionStorage.setItem("heist.memberPrompted", "1");
         timer = setTimeout(() => {
+          try {
+            sessionStorage.setItem("heist.memberPrompted", "1");
+          } catch {}
           setShowMemberModal(true);
-        }, 850);
+        }, 1200);
       }
     } catch {
       // ignore storage errors

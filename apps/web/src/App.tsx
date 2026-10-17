@@ -610,7 +610,7 @@ function Game() {
       turnRef.current = 0;
       setFirstReward(null);
       if (me && !firstGame.current)
-        firstGame.current = backend?.kind === "server" && !me.asked && !lostAsked() && !me.progress.coachGames && !me.progress.stats.games && !me.progress.xp;
+        firstGame.current = backend?.kind === "server" && !me.asked && !lostAsked() && !me.progress.coachGames && !me.progress.stats.games;
       setTable({
         players: t.players ?? c.players,
         name: c.name,
@@ -752,6 +752,7 @@ function Game() {
                 }
               : undefined
           }
+          onSave={me.guest && !onCrazyGames ? () => setMemberModalOpen(true) : undefined}
         />
         <Rewards />
       </Suspense>

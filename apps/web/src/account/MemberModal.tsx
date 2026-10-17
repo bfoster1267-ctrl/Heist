@@ -4,6 +4,7 @@ import { useAccount } from "./useAccount";
 import { buzz } from "../haptics";
 import { click } from "../sound";
 import { t } from "../i18n";
+import { trackSignUp } from "./telemetry";
 import "./memberModal.css";
 
 export interface MemberModalProps {
@@ -15,6 +16,8 @@ export interface MemberModalProps {
   source?: string;
 }
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 export function MemberModal({
   isOpen,
   onClose,
@@ -24,15 +27,20 @@ export function MemberModal({
   source = "game_victory",
 }: MemberModalProps) {
   const { act, me } = useAccount();
-  const [step, setStep] = useState<"email" | "password" | "done">("email");
+  const [step, setStep] = useState<"email" | "password" | "signin" | "done">("email");
   const [email, setEmail] = useState("");
-  const [consent, setConsent] = useState(true);
+  const [consent, setConsent] = useState(false);
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setStep("email");
+      setPassword("");
+      setError(null);
+      return;
+    }
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };
@@ -45,7 +53,7 @@ export function MemberModal({
   const handleEmailSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
-    if (!cleanEmail || !cleanEmail.includes("@") || !cleanEmail.includes(".")) {
+    if (!cleanEmail || !EMAIL_REGEX.test(cleanEmail)) {
       setError(t("auth.email_invalid", "Please enter a valid email address."));
       return;
     }
@@ -55,21 +63,25 @@ export function MemberModal({
     buzz("tap");
 
     try {
-      await act((b) => b.register(cleanEmail, undefined, undefined, consent));
+      const wasGuest = me?.guest;
+      const res = await act((b) => b.register(cleanEmail, undefined, undefined, consent), { inline: true });
+      if (!res) throw new Error("Could not create account");
       buzz("win");
       setEmail(cleanEmail);
       setStep("password");
-      try {
-        if (typeof window !== "undefined" && "gtag" in window && typeof (window as any).gtag === "function") {
-          (window as any).gtag("event", "sign_up", { method: "email" });
-        }
-      } catch {
-        // analytics blocked by adblock
-      }
+      if (wasGuest) trackSignUp("email", source);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Couldn't save progress";
-      setError(msg);
-      buzz("alert");
+      // If the email already has an account, switch straight to sign in
+      if (/sign in instead|already an account/i.test(msg)) {
+        setEmail(cleanEmail);
+        setStep("signin");
+        setError(null);
+        buzz("tap");
+      } else {
+        setError(msg);
+        buzz("alert");
+      }
     } finally {
       setBusy(false);
     }
@@ -88,13 +100,14 @@ export function MemberModal({
 
     try {
       if (act) {
-        await act((b) => b.setPassword ? b.setPassword(password) : b.changePassword("", password));
+        const res = await act((b) => (b.setPassword ? b.setPassword(password) : b.changePassword("", password)), { inline: true });
+        if (!res) throw new Error("Couldn't save password");
       }
       buzz("win");
       setStep("done");
       setTimeout(() => {
         onClose();
-      }, 1200);
+      }, 1000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Couldn't set password";
       setError(msg);
@@ -104,8 +117,42 @@ export function MemberModal({
     }
   };
 
+  const handleSignInSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+    if (!cleanEmail || !password) {
+      setError(t("auth.enter_both", "Enter your email and password."));
+      return;
+    }
+    setError(null);
+    setBusy(true);
+    click();
+    buzz("tap");
+
+    try {
+      const res = await act((b) => b.login(cleanEmail, password), { inline: true });
+      if (!res) throw new Error("Sign-in failed");
+      buzz("win");
+      onClose();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Sign-in failed";
+      setError(msg);
+      buzz("alert");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return createPortal(
-    <div className="member-overlay" role="dialog" aria-modal="true" aria-label="Become a Member">
+    <div
+      className="member-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Become a Member"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="member-box" onClick={(e) => e.stopPropagation()}>
         <button
           type="button"
@@ -190,10 +237,88 @@ export function MemberModal({
                 </span>
               </label>
 
-              {error && <div className="member-error-text">{error}</div>}
+              {error && <div className="member-error-text" role="alert">{error}</div>}
 
               <button type="submit" className="member-btn-primary" disabled={busy}>
                 {busy ? "SAVING..." : t("member.cta_button", "★ SAVE MY STREAK & PASS (FREE)")}
+              </button>
+
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                <button
+                  type="button"
+                  className="member-skip-btn"
+                  onClick={() => {
+                    click();
+                    onClose();
+                  }}
+                >
+                  {t("member.maybe_later", "Maybe later (continue as guest)")}
+                </button>
+
+                <button
+                  type="button"
+                  className="member-skip-btn"
+                  style={{ textDecoration: "underline" }}
+                  onClick={() => {
+                    click();
+                    setError(null);
+                    setStep("signin");
+                  }}
+                >
+                  Already have an account? Sign in
+                </button>
+              </div>
+            </form>
+          </>
+        ) : step === "signin" ? (
+          <>
+            <div className="member-badge-row">
+              <span className="member-badge">
+                <span>🔑</span> SIGN IN TO ACCOUNT
+              </span>
+            </div>
+
+            <h2 className="member-title">
+              <span>WELCOME BACK</span>
+            </h2>
+
+            <p className="member-sub">
+              Enter your password to sign in and restore your saved account on this device.
+            </p>
+
+            <form className="member-form" onSubmit={handleSignInSubmit}>
+              <div className="member-input-wrap">
+                <span className="member-input-icon">✉️</span>
+                <input
+                  type="email"
+                  className="member-input"
+                  placeholder="Your account email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={busy}
+                  required
+                />
+              </div>
+
+              <div className="member-input-wrap">
+                <span className="member-input-icon">🔒</span>
+                <input
+                  type="password"
+                  className="member-input"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={busy}
+                  autoComplete="current-password"
+                  autoFocus
+                  required
+                />
+              </div>
+
+              {error && <div className="member-error-text" role="alert">{error}</div>}
+
+              <button type="submit" className="member-btn-primary" disabled={busy}>
+                {busy ? "SIGNING IN..." : "SIGN IN TO ACCOUNT ➔"}
               </button>
 
               <button
@@ -201,10 +326,11 @@ export function MemberModal({
                 className="member-skip-btn"
                 onClick={() => {
                   click();
-                  onClose();
+                  setError(null);
+                  setStep("email");
                 }}
               >
-                {t("member.maybe_later", "Maybe later (continue as guest)")}
+                ← Back to create account
               </button>
             </form>
           </>
@@ -220,55 +346,55 @@ export function MemberModal({
             <p className="member-sub">
               {t(
                 "member.saved_sub",
-                "Your streak, XP, and skins are safely anchored. You can log in via 1-tap email link anytime."
+                "Choose a password so you can sign in and recover your streak across any device if your browser cache clears."
               )}
             </p>
 
             <form className="member-form" onSubmit={handlePasswordSubmit}>
               <div className="member-opt-box">
                 <div className="member-opt-title">
-                  {t("member.optional_pass_title", "Optional: Lock with a Password")}
+                  {t("member.optional_pass_title", "Set Account Password")}
                 </div>
                 <div className="member-opt-sub">
-                  {t(
-                    "member.optional_pass_sub",
-                    "Add a password now if you prefer password sign-in over email links."
-                  )}
+                  Required to sign in on other devices or restore if your cache clears.
                 </div>
                 <div className="member-input-wrap">
                   <span className="member-input-icon">🔒</span>
                   <input
                     type="password"
                     className="member-input"
-                    placeholder={t("member.password_placeholder", "Create password (optional, min 8 chars)")}
+                    placeholder={t("member.password_placeholder", "Create password (min 8 characters)")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={busy}
+                    autoComplete="new-password"
+                    minLength={8}
                     autoFocus
+                    required
                   />
                 </div>
               </div>
 
-              {error && <div className="member-error-text">{error}</div>}
+              {error && <div className="member-error-text" role="alert">{error}</div>}
 
               <div className="member-actions-row">
                 <button
                   type="submit"
-                  className="member-btn-secondary"
+                  className="member-btn-primary"
+                  style={{ flex: 1.2 }}
                   disabled={busy || password.length < 8}
                 >
-                  {busy ? "Saving..." : t("member.set_password_btn", "Set Password")}
+                  {busy ? "Saving..." : t("member.set_password_btn", "★ Lock With Password")}
                 </button>
                 <button
                   type="button"
-                  className="member-btn-primary"
-                  style={{ flex: 1.2 }}
+                  className="member-btn-secondary"
                   onClick={() => {
                     click();
                     onClose();
                   }}
                 >
-                  {t("member.continue_playing", "Keep Playing ➔")}
+                  {t("member.continue_playing", "Skip For Now ➔")}
                 </button>
               </div>
             </form>
@@ -280,7 +406,7 @@ export function MemberModal({
               <span>{t("member.all_set_title", "YOU'RE ALL SET!")}</span>
             </h2>
             <p className="member-sub">
-              {t("member.all_set_sub", "Password saved. Your account is fully protected. Have fun!")}
+              {t("member.all_set_sub", "Password saved. Your account is fully protected across all your devices. Have fun!")}
             </p>
           </>
         )}

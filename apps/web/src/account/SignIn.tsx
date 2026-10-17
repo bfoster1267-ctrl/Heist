@@ -6,6 +6,7 @@ import { useState } from "react";
 import { crazyGamesAccounts, crazyGamesSignIn } from "../crazygames";
 import { useAccount } from "./useAccount";
 import { t } from "../i18n";
+import { trackSignUp } from "./telemetry";
 
 declare global {
   interface Window {
@@ -66,18 +67,26 @@ export function SignIn() {
       const r = await window.AppleID!.auth.signIn();
       // Apple only sends the name the very first time someone signs in
       const n = [r.user?.name?.firstName, r.user?.name?.lastName].filter(Boolean).join(" ");
-      await act((b) => b.oauth("apple", r.authorization.id_token, n || undefined));
+      const wasGuest = me?.guest;
+      const res = await act((b) => b.oauth("apple", r.authorization.id_token, n || undefined), { inline: true });
+      if (res && wasGuest) trackSignUp("apple", "signin");
     });
 
   const google = () =>
     run(async () => {
       await script("https://accounts.google.com/gsi/client");
-      await new Promise<void>((res) => {
+      await new Promise<void>((res, rej) => {
         window.google!.accounts.id.initialize({
           client_id: cfg!.google,
           callback: async (r: { credential: string }) => {
-            await act((b) => b.oauth("google", r.credential));
-            res();
+            try {
+              const wasGuest = me?.guest;
+              const resAct = await act((b) => b.oauth("google", r.credential), { inline: true });
+              if (resAct && wasGuest) trackSignUp("google", "signin");
+              res();
+            } catch (err) {
+              rej(err);
+            }
           },
         });
         window.google!.accounts.id.prompt();
@@ -89,7 +98,9 @@ export function SignIn() {
       await script("https://connect.facebook.net/en_US/sdk.js");
       window.FB!.init({ appId: cfg!.facebook, version: "v19.0", cookie: false, xfbml: false });
       const token = await new Promise<string>((res, rej) => window.FB!.login((r) => (r.authResponse ? res(r.authResponse.accessToken) : rej(new Error("Facebook sign-in was cancelled"))), { scope: "public_profile,email" }));
-      await act((b) => b.oauth("facebook", token));
+      const wasGuest = me?.guest;
+      const res = await act((b) => b.oauth("facebook", token), { inline: true });
+      if (res && wasGuest) trackSignUp("facebook", "signin");
     });
 
   if (backend?.kind !== "server")
@@ -144,7 +155,10 @@ export function SignIn() {
         className="acct-email"
         onSubmit={(e) => {
           e.preventDefault();
-          run(() => act((b) => (mode === "register" ? b.register(email, password, name) : b.login(email, password)), { inline: true }));
+          run(async () => {
+            await act((b) => (mode === "register" ? b.register(email, password, name) : b.login(email, password)), { inline: true });
+            if (mode === "register") trackSignUp("email", "signin");
+          });
         }}
       >
         <div className="seg">
