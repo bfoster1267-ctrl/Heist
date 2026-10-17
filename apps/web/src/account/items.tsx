@@ -2,12 +2,13 @@ import { cosmetic, rarityOf, type Cosmetic, type Rarity } from "@heist/profile";
 import type { CSSProperties } from "react";
 import { Avatar } from "./bits";
 import { VaultGlass, isVault } from "../vault";
+import { t } from "../i18n";
 
 export function RarityBadge({ rarity }: { rarity: Rarity }) {
   const icon = rarity === "legendary" ? "✦" : rarity === "epic" ? "★" : rarity === "rare" ? "◆" : "•";
   return (
     <span className={`rarity-pill ${rarity}`}>
-      {icon} {rarity}
+      {icon} {t(`rarity.${rarity}` as any) || rarity}
     </span>
   );
 }
@@ -71,7 +72,7 @@ export function Preview({ c, name }: { c: Cosmetic; name: string }) {
       return (
         <div className="acct-prev acct-prev-title">
           <span className="acct-prev-chat" style={chatStyle(c)}>
-            Nice hit.
+            {t("wardrobe.preview_chat")}
           </span>
         </div>
       );

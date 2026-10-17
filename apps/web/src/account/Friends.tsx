@@ -9,6 +9,7 @@ import { Avatar, Stars } from "./bits";
 import { Lounge, MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
 import { SYSTEM, badgeCount, friendsApi, joinTable, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
+import { t } from "../i18n";
 import "./friends.css";
 
 export { joinTable };
@@ -33,17 +34,17 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       <AlertsNudge />
       {!!v?.invites.length && (
         <section>
-          <h3>Invites</h3>
+          <h3>{t("friends.invites")}</h3>
           {v.invites.map((i) => (
             <div key={i.code + i.from} className="fr-row invite">
               <span className="fr-who">
-                <b>{i.name}</b> invited you to table <b>{i.code}</b>
+                <b>{i.name}</b> {t("friends.invited_you", { name: "", code: i.code }).trim()}
                 <span className="dim"> · {ago(i.at)}</span>
               </span>
               <button className="btn primary small" onClick={() => joinTable(i.code)}>
-                Join
+                {t("friends.join")}
               </button>
-              <button className="btn ghost small" aria-label="Dismiss invite" onClick={() => void friendsApi.dismiss(i.code)}>
+              <button className="btn ghost small" aria-label={t("friends.dismiss_invite")} onClick={() => void friendsApi.dismiss(i.code)}>
                 ✕
               </button>
             </div>
@@ -52,15 +53,15 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       )}
       {!!v?.incoming.length && (
         <section>
-          <h3>Friend requests</h3>
+          <h3>{t("friends.requests")}</h3>
           {v.incoming.map((p) => (
             <div key={p.id} className="fr-row">
               <PersonTag p={p} onPlayer={onPlayer} />
               <button className="btn gold small" onClick={() => void friendsApi.accept(p.id)}>
-                Accept
+                {t("friends.accept")}
               </button>
               <button className="btn ghost small" onClick={() => void friendsApi.remove(p.id)}>
-                No thanks
+                {t("friends.no_thanks")}
               </button>
             </div>
           ))}
@@ -69,11 +70,11 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       <Groups meId={meId} onOpen={setChat} />
       <AddFriend />
       <section>
-        <h3>Friends{v?.friends.length ? ` (${v.friends.length})` : ""}</h3>
+        <h3>{t("profile.tab.friends")}{v?.friends.length ? ` (${v.friends.length})` : ""}</h3>
         {!v ? (
-          <div className="dim">Loading…</div>
+          <div className="dim">{t("common.loading") || "Loading…"}</div>
         ) : !v.friends.length ? (
-          <div className="dim fr-empty">No friends yet. Find someone by name above, or tap a player's name at a table and add them.</div>
+          <div className="dim fr-empty">{t("friends.empty_list")}</div>
         ) : (
           v.friends.map((f) => (
             <button key={f.id} className="fr-row fr-friend" onClick={() => setChat(f.id)}>
@@ -81,13 +82,13 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
               <span className="fr-last">
                 {f.last ? (
                   <>
-                    {f.last.mine ? "You: " : ""}
+                    {f.last.mine ? t("friends.you") : ""}
                     {f.last.text}
                   </>
                 ) : f.online ? (
-                  "Online"
+                  t("career.online")
                 ) : f.seen ? (
-                  `Seen ${ago(f.seen)}`
+                  t("friends.seen_ago", { ago: ago(f.seen) })
                 ) : (
                   ""
                 )}
@@ -99,12 +100,12 @@ export function Friends({ meId, chat: start = null, onPlayer }: { meId: string; 
       </section>
       {!!v?.outgoing.length && (
         <section>
-          <h3>Requests you sent</h3>
+          <h3>{t("friends.outgoing_requests")}</h3>
           {v.outgoing.map((p) => (
             <div key={p.id} className="fr-row">
               <PersonTag p={p} onPlayer={onPlayer} />
               <button className="btn ghost small" onClick={() => void friendsApi.remove(p.id)}>
-                Cancel
+                {t("account.cancel")}
               </button>
             </div>
           ))}
@@ -123,16 +124,16 @@ function Groups({ meId, onOpen }: { meId: string; onOpen: (id: string) => void }
   return (
     <section>
       <div className="fr-head">
-        <h3>Group chats</h3>
+        <h3>{t("friends.group_chats")}</h3>
         {!making && (
           <button className="btn gold small" onClick={() => setMaking(true)}>
-            New group
+            {t("friends.new_group")}
           </button>
         )}
       </div>
       {making && (
         <PickFriends
-          label="Start chat"
+          label={t("friends.start_chat")}
           withName
           onPick={async (ids, name) => {
             try {
@@ -213,8 +214,8 @@ function AddFriend() {
   }, [q]);
   return (
     <section>
-      <h3>Add a friend</h3>
-      <input className="fr-search" value={q} placeholder="Search by player name" maxLength={20} onChange={(e) => setQ(e.target.value)} aria-label="Search players by name" />
+      <h3>{t("friends.add")}</h3>
+      <input className="fr-search" value={q} placeholder={t("friends.search_placeholder")} maxLength={20} onChange={(e) => setQ(e.target.value)} aria-label={t("friends.search_placeholder")} />
       {people &&
         (people.length ? (
           people.map((p) => (

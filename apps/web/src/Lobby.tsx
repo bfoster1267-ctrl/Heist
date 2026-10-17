@@ -276,8 +276,8 @@ export function Lobby({
               onClick={() => setGames(true)}
             />
           )}
-          <Mode icon="map" label={t("lobby.campaign")} sub={newbie ? t("lobby.first_lesson_sub") : `${Math.min(cleared, STAGES.length)} of ${STAGES.length} stages`} disabled={newbie} onClick={() => setCamp(true)} />
-          <Mode icon="book" label={t("lobby.how_to_play")} sub={newbie ? t("lobby.the_rules") : nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length} next` : t("lobby.coach_rules")} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
+          <Mode icon="map" label={t("lobby.campaign")} sub={newbie ? t("lobby.first_lesson_sub") : t("campaign.stages_count", { cleared: Math.min(cleared, STAGES.length), total: STAGES.length })} disabled={newbie} onClick={() => setCamp(true)} />
+          <Mode icon="book" label={t("lobby.how_to_play")} sub={newbie ? t("lobby.the_rules") : nextLesson ? t("lobby.lesson_next", { lesson: lessonNo(nextLesson) ?? 1, total: LESSONS.length }) : t("lobby.coach_rules")} onClick={() => (newbie ? setRules(true) : setLearn(true))} />
         </div>
         <InstallHint />
         <div className="fine">
@@ -677,7 +677,7 @@ function InstallHint() {
     <>
       <div className="install" role="note" onClick={() => setModalOpen(true)} style={{ cursor: "pointer" }}>
         <span>
-          <b>📱 Looks like you're playing on a mobile device!</b> Tap to install Heist for full-screen play.
+          <b>📱 {t("install.banner_text")}</b>
         </span>
         <button
           type="button"
@@ -688,7 +688,7 @@ function InstallHint() {
           }}
           style={{ whiteSpace: "nowrap", marginLeft: "auto" }}
         >
-          How to Install ➔
+          {t("install.banner_btn")}
         </button>
         <button
           className="x"
@@ -696,7 +696,7 @@ function InstallHint() {
             e.stopPropagation();
             close();
           }}
-          aria-label="Hide"
+          aria-label={t("profile.close")}
         >
           ✕
         </button>

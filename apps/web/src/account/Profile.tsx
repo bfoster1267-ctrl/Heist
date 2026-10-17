@@ -19,6 +19,7 @@ import { SignIn } from "./SignIn";
 import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
+import { t } from "../i18n";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
@@ -51,12 +52,12 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
       // a tap on the dimmed backdrop closes it, like any sheet
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <motion.div className="acct-panel" initial={{ y: 30, scale: 0.98 }} animate={{ y: 0, scale: 1 }} role="dialog" aria-label="Your profile">
+      <motion.div className="acct-panel" initial={{ y: 30, scale: 0.98 }} animate={{ y: 0, scale: 1 }} role="dialog" aria-label={t("profile.title")}>
         <div className="acct-topbar">
           <button className="acct-back" onClick={onClose}>
-            <span aria-hidden>←</span> Lobby
+            <span aria-hidden>←</span> {t("common.back")}
           </button>
-          <button className="acct-x" onClick={onClose} aria-label="Close profile">
+          <button className="acct-x" onClick={onClose} aria-label={t("profile.close")}>
             ✕
           </button>
         </div>
@@ -64,13 +65,13 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
         <nav className="acct-tabs">
           {(
             [
-              ["career", "Career"],
-              ["wardrobe", "Wardrobe"],
-              ["season", "Season"],
-              ["shop", "Shop"],
-              ["board", "Leaderboard"],
-              ...(friends || tab === "friends" ? [["friends", "Friends"] as [Tab, string]] : []),
-              ["account", me.guest ? "Sign in" : "Account"],
+              ["career", t("profile.tab.career")],
+              ["wardrobe", t("profile.tab.wardrobe")],
+              ["season", t("profile.tab.season")],
+              ["shop", t("profile.tab.shop")],
+              ["board", t("profile.tab.board")],
+              ...(friends || tab === "friends" ? [["friends", t("profile.tab.friends")] as [Tab, string]] : []),
+              ["account", me.guest ? t("profile.tab.signin") : t("profile.tab.account")],
             ] as [Tab, string][]
           ).map(([k, label]) => (
             <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>
@@ -116,7 +117,7 @@ function Header({ me }: { me: Me }) {
           {me.name} <Stars prestige={p.prestige} />
         </div>
         <div className="acct-head-rank">
-          Level {li.level} · {rankName(li.level)}
+          {t("profile.level", { level: li.level })} · {rankLabel(li.level)}
           {cosmetic(p.equipped.title)?.text ? ` · “${cosmetic(p.equipped.title)!.text}”` : ""}
         </div>
         <XpBar xp={p.xp} />
@@ -127,7 +128,7 @@ function Header({ me }: { me: Me }) {
         <Coins amount={p.coins} big />
         {canPrestige && (
           <button className="btn warn" onClick={() => setConfirm(true)}>
-            Prestige ★
+            {t("profile.prestige")}
           </button>
         )}
       </div>
@@ -135,14 +136,17 @@ function Header({ me }: { me: Me }) {
         {confirm && (
           <motion.div className="acct-confirm" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
             <div>
-              Go back to level 1 with <b>{prestigeName(p.prestige + 1)}</b>, <Coins amount={prestigeCoins(p.prestige + 1)} /> coins and prestige-only cosmetics. Your stats and items stay.
+              {t("profile.prestige_confirm", {
+                prestige: prestigeLabel(p.prestige + 1),
+                coins: String(prestigeCoins(p.prestige + 1)),
+              })}
             </div>
             <div className="btns center">
               <button className="btn ghost" onClick={() => setConfirm(false)}>
-                Not yet
+                {t("profile.not_yet")}
               </button>
               <button className="btn warn" onClick={doPrestige}>
-                Prestige
+                {t("profile.prestige")}
               </button>
             </div>
           </motion.div>
@@ -152,8 +156,26 @@ function Header({ me }: { me: Me }) {
   );
 }
 
+const ROMAN_NUMS = ["", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+export const prestigeLabel = (p: number) => (p > 0 ? `${t("profile.prestige_label")} ${ROMAN_NUMS[Math.min(p, 10)]}` : "");
+
+const rankKey = (level: number) => {
+  if (level >= 50) return "rank.legend";
+  if (level >= 45) return "rank.godfather";
+  if (level >= 40) return "rank.kingpin";
+  if (level >= 35) return "rank.underboss";
+  if (level >= 30) return "rank.lieutenant";
+  if (level >= 25) return "rank.enforcer";
+  if (level >= 20) return "rank.con_artist";
+  if (level >= 15) return "rank.cracksman";
+  if (level >= 10) return "rank.wheelman";
+  if (level >= 5) return "rank.runner";
+  return "rank.rookie";
+};
+export const rankLabel = (level: number) => t(rankKey(level)) || rankName(level);
+
 const pct = (x: number) => `${Math.round(x * 100)}%`;
-const roleName = (r: string) => ROLES.find((x) => x.id === r)?.name.replace(/^The /, "") ?? r;
+const roleName = (r: string) => t("role." + r) || (ROLES.find((x) => x.id === r)?.name.replace(/^The /, "") ?? r);
 
 function Career({ me }: { me: Me }) {
   const level = levelInfo(me.progress.xp).level;
@@ -162,7 +184,7 @@ function Career({ me }: { me: Me }) {
       stats={me.progress.stats}
       drinksSent={me.progress.drinksSent}
       ranked={rankedPublic(me.progress.ranked, Date.now())}
-      rankedNote={me.guest ? "Sign in to play Ranked." : level < RANKED_LEVEL ? `Ranked unlocks at level ${RANKED_LEVEL}.` : "Play Ranked from Play online."}
+      rankedNote={me.guest ? t("career.ranked_guest") : level < RANKED_LEVEL ? t("career.ranked_unlocks", { level: RANKED_LEVEL }) : t("career.ranked_play")}
     />
   );
 }
@@ -172,21 +194,21 @@ function RankedBox({ r, note }: { r: RankedPublic | null; note?: string }) {
   if (!r)
     return (
       <div className="acct-ranked none">
-        <span className="acct-ranked-label">Ranked</span>
-        <span className="dim">{note ?? "No ranked games yet."}</span>
+        <span className="acct-ranked-label">{t("career.ranked_title")}</span>
+        <span className="dim">{note ?? t("career.ranked_empty")}</span>
       </div>
     );
   const rank = rankOf(r.rp);
   return (
     <div className={`acct-ranked tier-${r.tier}`}>
-      <span className="acct-ranked-label">Ranked</span>
+      <span className="acct-ranked-label">{t("career.ranked_title")}</span>
       <b className="acct-ranked-rank">{r.label}</b>
       <span>
         {r.rp.toLocaleString()} RP{r.games && rank.of ? ` · ${rank.into}/${rank.of} to the next` : ""}
       </span>
       <span>MMR {r.mmr.toLocaleString()}</span>
       <span className="dim">
-        {r.games} games · {r.wins} wins this season · best {r.peak}
+        {t("career.ranked_record", { games: r.games, wins: r.wins, peak: r.peak })}
         {r.last ? ` · ${r.last}` : ""}
       </span>
     </div>
@@ -201,35 +223,35 @@ function CareerView({ stats: s, drinksSent, ranked, rankedNote }: { stats: Caree
       <>
         {ranked && <RankedBox r={ranked} />}
         <div className="acct-empty">
-          <div className="acct-empty-big">No games yet</div>
-          Play a table and the career starts here: wins, winnings, streaks and every job pulled.
+          <div className="acct-empty-big">{t("career.empty_title")}</div>
+          {t("career.empty_desc")}
         </div>
       </>
     );
   const tiles: [string, string, string?][] = [
-    ["Games", s.games.toLocaleString()],
-    ["Wins", s.wins.toLocaleString(), "good"],
-    ["Losses", s.losses.toLocaleString(), "bad"],
-    ["Win rate", pct(winRate(s)), "good"],
-    ["Loss rate", pct(s.losses / s.games), "bad"],
-    ["Winnings", s.winnings.toLocaleString(), "gold"],
-    ["Buy-ins lost", s.lost.toLocaleString()],
-    ["Net", (net >= 0 ? "+" : "") + net.toLocaleString(), net >= 0 ? "good" : "bad"],
-    ["Biggest pot", s.biggestPot.toLocaleString(), "gold"],
-    ["Streak", s.streak > 0 ? `${s.streak}W` : s.streak < 0 ? `${-s.streak}L` : "–", s.streak > 0 ? "good" : s.streak < 0 ? "bad" : undefined],
-    ["Best streak", `${s.bestStreak}W`],
-    ["Drinks sent", drinksSent.toLocaleString()],
+    [t("career.games"), s.games.toLocaleString()],
+    [t("career.wins"), s.wins.toLocaleString(), "good"],
+    [t("career.losses"), s.losses.toLocaleString(), "bad"],
+    [t("career.win_rate"), pct(winRate(s)), "good"],
+    [t("career.loss_rate"), pct(s.losses / s.games), "bad"],
+    [t("career.winnings"), s.winnings.toLocaleString(), "gold"],
+    [t("career.lost_buyins"), s.lost.toLocaleString()],
+    [t("career.net"), (net >= 0 ? "+" : "") + net.toLocaleString(), net >= 0 ? "good" : "bad"],
+    [t("career.biggest_pot"), s.biggestPot.toLocaleString(), "gold"],
+    [t("career.streak"), s.streak > 0 ? `${s.streak}W` : s.streak < 0 ? `${-s.streak}L` : "–", s.streak > 0 ? "good" : s.streak < 0 ? "bad" : undefined],
+    [t("career.best_streak"), `${s.bestStreak}W`],
+    [t("career.drinks_sent"), drinksSent.toLocaleString()],
   ];
   const trackers: [string, number][] = [
-    ["Footholds taken", s.footholds],
-    ["Jobs run as Boss", s.jobsLed],
-    ["Jobs pulled off", s.jobsWon],
-    ["Jobs fought off", s.defenses],
-    ["Double-crosses", s.doubleCrosses],
-    ["Loot collected", s.loot],
-    ["Busts won", s.bustsWon],
-    ["Bets won", s.betsWon],
-    ["Games abandoned", s.quits],
+    [t("career.footholds"), s.footholds],
+    [t("career.jobs_led"), s.jobsLed],
+    [t("career.jobs_won"), s.jobsWon],
+    [t("career.defenses"), s.defenses],
+    [t("career.double_crosses"), s.doubleCrosses],
+    [t("career.loot"), s.loot],
+    [t("career.busts_won"), s.bustsWon],
+    [t("career.bets_won"), s.betsWon],
+    [t("career.quits"), s.quits],
   ];
   const roles = Object.entries(s.byRole).sort((a, b) => b[1]!.g - a[1]!.g) as [RoleId, { g: number; w: number }][];
   return (
@@ -246,7 +268,7 @@ function CareerView({ stats: s, drinksSent, ranked, rankedNote }: { stats: Caree
 
       <div className="acct-cols">
         <section>
-          <h3>Trackers</h3>
+          <h3>{t("career.trackers")}</h3>
           <div className="acct-trackers">
             {trackers.map(([k, v]) => (
               <div key={k}>
@@ -255,20 +277,20 @@ function CareerView({ stats: s, drinksSent, ranked, rankedNote }: { stats: Caree
               </div>
             ))}
           </div>
-          <h3>By table</h3>
-          <Bars rows={[["vs bots", s.byMode.bots], ["Online", s.byMode.online], ...[3, 4, 5, 6].map((n) => [`${n} players`, s.byPlayers[n] ?? { g: 0, w: 0 }] as [string, { g: number; w: number }])]} />
+          <h3>{t("career.by_table")}</h3>
+          <Bars rows={[[t("career.vs_bots"), s.byMode.bots], [t("career.online"), s.byMode.online], ...[3, 4, 5, 6].map((n) => [t("career.players_count", { n }), s.byPlayers[n] ?? { g: 0, w: 0 }] as [string, { g: number; w: number }])]} />
         </section>
         <section>
-          <h3>By Role</h3>
-          {roles.length ? <Bars rows={roles.map(([r, v]) => [roleName(r), v])} /> : <div className="dim">Roles show up after your first game.</div>}
-          <h3>Recent games</h3>
+          <h3>{t("career.by_role")}</h3>
+          {roles.length ? <Bars rows={roles.map(([r, v]) => [roleName(r), v])} /> : <div className="dim">{t("career.roles_empty")}</div>}
+          <h3>{t("career.recent_games")}</h3>
           {s.recent.length > 1 && <Trend games={s.recent} />}
           <div className="acct-recent">
             {s.recent.map((g, i) => (
               <div key={i} className={g.won ? "won" : "lost"}>
-                <span className="acct-recent-wl">{g.quit ? "QUIT" : g.won ? "WIN" : "LOSS"}</span>
+                <span className="acct-recent-wl">{g.quit ? t("career.quit") : g.won ? t("career.win") : t("career.loss")}</span>
                 <span>
-                  {g.players}p {g.mode === "online" ? "online" : "vs bots"}
+                  {t("career.players_count", { n: g.players })} {g.mode === "online" ? t("career.online") : t("career.vs_bots")}
                   {g.role ? ` · ${roleName(g.role)}` : ""}
                 </span>
                 <span className={g.net >= 0 ? "good" : "bad"}>{(g.net >= 0 ? "+" : "") + g.net.toLocaleString()}</span>
@@ -303,10 +325,16 @@ function Trend({ games }: { games: CareerStats["recent"] }) {
       </svg>
       <div className="acct-trend-k">
         <span>
-          Last {games.length} games · {avg >= 0 ? "+" : ""}
-          {avg.toLocaleString()} a game
+          {t("career.last_games", {
+            count: games.length,
+            avg: (avg >= 0 ? "+" : "") + avg.toLocaleString(),
+          })}
         </span>
-        <b className={end >= 0 ? "good" : "bad"}>{(end >= 0 ? "+" : "") + end.toLocaleString()} chips</b>
+        <b className={end >= 0 ? "good" : "bad"}>
+          {t("career.chips_count", {
+            chips: (end >= 0 ? "+" : "") + end.toLocaleString(),
+          })}
+        </b>
       </div>
     </div>
   );
@@ -340,11 +368,11 @@ function Bars({ rows }: { rows: [string, { g: number; w: number }][] }) {
 
 // the shop sells these; season items live in the Season tab
 const SLOTS: [EquipSlot, string][] = [
-  ["cardBack", "Card Decks"],
-  ["frame", "Avatar Frames"],
-  ["felt", "Table Felt"],
-  ["title", "Titles"],
-  ["cigar", "Cigars & Finery"],
+  ["cardBack", "shop.decks"],
+  ["frame", "shop.frames"],
+  ["felt", "shop.felt"],
+  ["title", "shop.titles"],
+  ["cigar", "shop.cigar"],
 ];
 
 function Shop({ me }: { me: Me }) {
@@ -358,16 +386,16 @@ function Shop({ me }: { me: Me }) {
     setBusy(null);
   };
   const lockText = (c: Cosmetic) =>
-    c.unlock?.prestige ? `${prestigeName(c.unlock.prestige)}` : c.unlock?.level ? `Level ${c.unlock.level}` : "";
+    c.unlock?.prestige ? t("shop.locked_prestige", { name: prestigeLabel(c.unlock.prestige) }) : c.unlock?.level ? t("shop.locked_level", { level: c.unlock.level }) : "";
   return (
     <div className="acct-shop">
       <div className="acct-shop-top">
         <Coins amount={p.coins} big />
-        <span className="dim">Earn coins by playing, winning, daily challenges and leveling up. Coins can't be bought.</span>
+        <span className="dim">{t("shop.coins_desc")}</span>
       </div>
-      {SLOTS.map(([slot, label]) => (
+      {SLOTS.map(([slot, labelKey]) => (
         <section key={slot}>
-          <h3>{label}</h3>
+          <h3>{t(labelKey)}</h3>
           <div className="acct-items">
             {COSMETICS.filter((c) => c.slot === slot).map((c) => {
               const have = owns(p, c.id);
@@ -386,13 +414,13 @@ function Shop({ me }: { me: Me }) {
                   <div className="acct-item-name">{c.name}</div>
                   <RarityBadge rarity={rarity} />
                   {on ? (
-                    <div className="acct-item-tag">Equipped</div>
+                    <div className="acct-item-tag">{t("shop.equipped")}</div>
                   ) : have ? (
                     <button className="btn small gold" disabled={busy === c.id} onClick={() => run(c.id, "equip")}>
-                      Equip
+                      {t("shop.equip")}
                     </button>
                   ) : !open ? (
-                    <div className="acct-item-lock">🔒 {lockText(c)}</div>
+                    <div className="acct-item-lock">{lockText(c)}</div>
                   ) : (
                     <button className="btn small primary" disabled={busy === c.id || p.coins < c.price} onClick={() => run(c.id, "buy")}>
                       <span className="acct-coin" /> {c.price.toLocaleString()}
@@ -420,8 +448,8 @@ function Board({ me }: { me: Me }) {
   if (backend?.kind !== "server")
     return (
       <div className="acct-empty">
-        <div className="acct-empty-big">Leaderboards go live with online play</div>
-        They rank signed-in players by winnings, level and wins across every device.
+        <div className="acct-empty-big">{t("board.empty_online")}</div>
+        {t("board.empty_desc")}
       </div>
     );
   return (
@@ -429,14 +457,14 @@ function Board({ me }: { me: Me }) {
       <div className="seg">
         {(["winnings", "level", "wins", "ranked"] as const).map((k) => (
           <button key={k} className={by === k ? "on" : ""} onClick={() => setBy(k)}>
-            {k === "winnings" ? "Winnings" : k === "level" ? "Level" : k === "wins" ? "Wins" : "Ranked"}
+            {k === "winnings" ? t("board.winnings") : k === "level" ? t("board.level") : k === "wins" ? t("board.wins") : t("board.ranked")}
           </button>
         ))}
       </div>
       {!rows ? (
-        <div className="dim">Loading…</div>
+        <div className="dim">{t("common.loading") || "Loading…"}</div>
       ) : !rows.length ? (
-        <div className="dim">{by === "ranked" ? "Nobody has played Ranked this season yet." : "Nobody's on the board yet. Sign in and play to be first."}</div>
+        <div className="dim">{by === "ranked" ? t("board.no_ranked") : t("board.nobody")}</div>
       ) : (
         <ol className="acct-board-rows">
           {rows.map((r, i) => (
@@ -446,13 +474,23 @@ function Board({ me }: { me: Me }) {
               <span className="acct-board-name">
                 {r.name} <Stars prestige={r.prestige} size={10} />
               </span>
-              <span className="acct-board-v">{by === "winnings" ? r.winnings.toLocaleString() : by === "level" ? `Lv ${r.level}` : by === "ranked" ? `${r.rank} · ${r.rp?.toLocaleString()} RP · MMR ${r.mmr}` : `${r.wins} wins`}</span>
+              <span className="acct-board-v">
+                {by === "winnings"
+                  ? r.winnings.toLocaleString()
+                  : by === "level"
+                  ? `Lv ${r.level}`
+                  : by === "ranked"
+                  ? `${r.rank} · ${r.rp?.toLocaleString()} RP · MMR ${r.mmr}`
+                  : `${r.wins} ${t("board.wins").toLowerCase()}`}
+              </span>
             </li>
           ))}
         </ol>
       )}
       {rows && rows.length > 0 && !rows.some((r) => r.id === me.id) && (
-        <div className="dim acct-board-you">{me.guest ? "Guests aren't ranked. Save your career to an account to get on the board." : me.progress.stats.games ? "You're not in the top 100 yet. Keep playing." : "Play a game to get on the board."}</div>
+        <div className="dim acct-board-you">
+          {me.guest ? t("board.guests_unranked") : me.progress.stats.games ? t("board.not_top_100") : t("board.play_to_rank")}
+        </div>
       )}
       <AnimatePresence>{open && <PlayerCard id={open} onClose={() => setOpen(null)} />}</AnimatePresence>
     </div>
@@ -461,7 +499,12 @@ function Board({ me }: { me: Me }) {
 
 /** The next cosmetic the player's level (or prestige) will open up, to aim for. */
 function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
-  const slotName: Partial<Record<Slot, string>> = { felt: "felt", cardBack: "card back", frame: "frame", title: "title" };
+  const slotName: Partial<Record<Slot, string>> = {
+    felt: t("wardrobe.cat.felt"),
+    cardBack: t("wardrobe.cat.cardBack"),
+    frame: t("wardrobe.cat.frame"),
+    title: t("wardrobe.cat.title"),
+  };
   const next =
     prestige === 0
       ? COSMETICS.filter((c) => c.unlock?.level !== undefined && c.unlock.prestige === undefined && c.unlock.level > level).sort((a, b) => a.unlock!.level! - b.unlock!.level!)[0]
@@ -471,7 +514,11 @@ function NextUnlock({ level, prestige }: { level: number; prestige: number }) {
   if (!c) return null;
   return (
     <div className="acct-next">
-      Next: {c.name} {slotName[c.slot]} at {next ? `level ${c.unlock!.level}` : prestigeName(c.unlock!.prestige!)}
+      {t("profile.next_unlock", {
+        name: c.name,
+        slot: slotName[c.slot] ?? c.slot,
+        at: next ? `${t("profile.level", { level: c.unlock!.level! })}` : prestigeLabel(c.unlock!.prestige!),
+      })}
     </div>
   );
 }
@@ -516,14 +563,14 @@ export function PlayerCard({ id, onClose }: { id: string; onClose: () => void })
   // portalled to <body>: inside the sliding profile panel, "fixed" would pin it to the panel, not the screen
   return createPortal(
     <motion.div className="acct-card-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <motion.div className="acct-card acct-card-full" initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, opacity: 0 }} role="dialog" aria-label="Player card">
-        <button className="acct-x acct-card-x" onClick={onClose} aria-label="Close player card">
+      <motion.div className="acct-card acct-card-full" initial={{ y: 24, scale: 0.97 }} animate={{ y: 0, scale: 1 }} exit={{ y: 24, opacity: 0 }} role="dialog" aria-label={t("profile.title")}>
+        <button className="acct-x acct-card-x" onClick={onClose} aria-label={t("profile.close")}>
           ✕
         </button>
         {err ? (
           <div className="dim">{err}</div>
         ) : !p || !s ? (
-          <div className="dim">Loading…</div>
+          <div className="dim">{t("common.loading") || "Loading…"}</div>
         ) : (
           <>
             <div className="acct-card-head" style={bannerStyle(p.equipped.banner)}>
@@ -533,10 +580,14 @@ export function PlayerCard({ id, onClose }: { id: string; onClose: () => void })
                   {p.name} <Stars prestige={p.prestige} size={12} />
                 </div>
                 <div className="dim">
-                  Level {p.level} · {p.rank}
+                  {t("profile.level", { level: p.level })} · {rankLabel(p.level)}
                   {title?.text ? ` · ${title.text}` : ""}
                 </div>
-                <div className="dim acct-card-joined">Playing since {new Date(p.joined).toLocaleDateString(undefined, { month: "short", year: "numeric" })}</div>
+                <div className="dim acct-card-joined">
+                  {t("profile.playing_since", {
+                    date: new Date(p.joined).toLocaleDateString(undefined, { month: "short", year: "numeric" }),
+                  })}
+                </div>
                 {friends && me && me.id !== id && (
                   <div className="acct-card-friend">
                     <AddFriendButton id={id} small />
@@ -568,35 +619,38 @@ function Account({ me }: { me: Me }) {
         <SignIn />
       ) : (
         <div className="acct-signed">
-          Signed in{me.email ? ` as ${me.email}` : ""} with {me.logins.map((l) => (l === "email" ? "email" : l[0].toUpperCase() + l.slice(1))).join(", ")}.
+          {t("account.signed_in", {
+            email: me.email ? ` ${me.email}` : "",
+            providers: me.logins.map((l) => (l === "email" ? "email" : l[0].toUpperCase() + l.slice(1))).join(", "),
+          })}
         </div>
       )}
       <label className="field">
-        <span>Display name</span>
+        <span>{t("account.display_name")}</span>
         <div className="btns">
           <input value={name} maxLength={20} onChange={(e) => setName(e.target.value)} />
           <button className="btn gold" disabled={!name.trim() || name === me.name} onClick={() => act((b) => b.rename(name))}>
-            Save
+            {t("account.save")}
           </button>
         </div>
       </label>
       {!me.guest && me.logins.includes("email") && <ChangePassword />}
       <div className="btns wrap">
         <button className="btn" disabled={p.dailyDay === today} onClick={() => act((b) => b.daily())}>
-          {p.dailyDay === today ? "Daily chips collected" : `Collect ${DAILY_CHIPS} daily chips`}
+          {p.dailyDay === today ? t("account.daily_chips_done") : t("account.collect_daily", { amount: DAILY_CHIPS.toLocaleString() })}
         </button>
         {!me.guest && (
           <button className="btn ghost" onClick={() => act((b) => b.signOut())}>
-            Sign out
+            {t("account.sign_out")}
           </button>
         )}
       </div>
       <div className="acct-danger">
         {sure ? (
           <>
-            <span>{backend?.kind === "server" ? "Delete your account, career and items for good?" : "Wipe this browser's career and items?"}</span>
+            <span>{backend?.kind === "server" ? t("account.delete_confirm_server") : t("account.delete_confirm_local")}</span>
             <button className="btn ghost small" onClick={() => setSure(false)}>
-              Keep it
+              {t("account.keep_it")}
             </button>
             <button
               className="btn danger small"
@@ -605,12 +659,12 @@ function Account({ me }: { me: Me }) {
                 await act((b) => b.deleteAccount());
               }}
             >
-              Delete
+              {t("account.delete_account")}
             </button>
           </>
         ) : (
           <button className="btn ghost small" onClick={() => setSure(true)}>
-            {me.guest && backend?.kind !== "server" ? "Reset career" : "Delete account"}
+            {me.guest && backend?.kind !== "server" ? t("account.reset_career") : t("account.delete_account")}
           </button>
         )}
       </div>
@@ -628,7 +682,7 @@ function ChangePassword() {
   if (!open)
     return (
       <button className="btn ghost small" onClick={() => (setOpen(true), setDone(false))}>
-        {done ? "Password changed" : "Change password"}
+        {done ? t("account.password_changed") : t("account.change_password")}
       </button>
     );
   return (
@@ -646,13 +700,13 @@ function ChangePassword() {
         }
       }}
     >
-      <input type="password" autoComplete="current-password" placeholder="Current password" value={current} onChange={(e) => setCurrent(e.target.value)} required />
-      <input type="password" autoComplete="new-password" placeholder="New password (8+ characters)" value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
+      <input type="password" autoComplete="current-password" placeholder={t("account.current_password")} value={current} onChange={(e) => setCurrent(e.target.value)} required />
+      <input type="password" autoComplete="new-password" placeholder={t("account.new_password")} value={next} onChange={(e) => setNext(e.target.value)} required minLength={8} />
       {note && <div className="acct-note">{note}</div>}
       <div className="btns">
-        <button className="btn gold">Save password</button>
+        <button className="btn gold">{t("account.save_password")}</button>
         <button type="button" className="btn ghost" onClick={() => setOpen(false)}>
-          Cancel
+          {t("account.cancel")}
         </button>
       </div>
     </form>

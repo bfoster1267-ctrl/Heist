@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { crazyGamesAccounts, crazyGamesSignIn } from "../crazygames";
 import { useAccount } from "./useAccount";
+import { t } from "../i18n";
 
 declare global {
   interface Window {
@@ -94,19 +95,19 @@ export function SignIn() {
   if (backend?.kind !== "server")
     return (
       <div className="acct-signin">
-        <h3>Save your career to an account</h3>
-        <div className="dim">Email sign-up turns on when the game server is live. Until then your level, coins and stats are saved in this browser.</div>
+        <h3>{t("auth.save_career_title")}</h3>
+        <div className="dim">{t("auth.offline_desc")}</div>
       </div>
     );
 
   return (
     <div className="acct-signin">
-      <h3>Save your career to an account</h3>
-      <div className="dim">Keep your level, coins, items and stats on every device. Everything you've earned as a guest comes with you.</div>
+      <h3>{t("auth.save_career_title")}</h3>
+      <div className="dim">{t("auth.save_career_desc")}</div>
       {/* on CrazyGames their own account does it: the portal's sign-in, linked to this guest by the server */}
       {crazyGamesAccounts() &&
         (me?.logins.includes("crazygames") ? (
-          <div className="dim">Your CrazyGames account keeps your career: sign in there on any device to pick it up.</div>
+          <div className="dim">{t("auth.crazygames_desc")}</div>
         ) : (
           <div className="acct-provider-row">
             <button
@@ -116,7 +117,7 @@ export function SignIn() {
                 if (await crazyGamesSignIn()) void act((b) => b.me());
               }}
             >
-              Sign in with CrazyGames
+              {t("auth.crazygames_btn")}
             </button>
           </div>
         ))}
@@ -124,17 +125,17 @@ export function SignIn() {
         <div className="acct-provider-row">
           {has("apple") && (
             <button className="acct-provider apple" disabled={busy} onClick={apple}>
-              Sign in with Apple
+              {t("auth.apple")}
             </button>
           )}
           {has("google") && (
             <button className="acct-provider google" disabled={busy} onClick={google}>
-              Sign in with Google
+              {t("auth.google")}
             </button>
           )}
           {has("facebook") && (
             <button className="acct-provider facebook" disabled={busy} onClick={facebook}>
-              Continue with Facebook
+              {t("auth.facebook")}
             </button>
           )}
         </div>
@@ -148,40 +149,47 @@ export function SignIn() {
       >
         <div className="seg">
           <button type="button" className={mode === "register" ? "on" : ""} onClick={() => setMode("register")}>
-            Create account
+            {t("auth.create_account")}
           </button>
           <button type="button" className={mode === "login" ? "on" : ""} onClick={() => setMode("login")}>
-            I have one
+            {t("auth.have_account")}
           </button>
         </div>
-        <input type="email" name="email" autoComplete="username" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <input type="email" name="email" autoComplete="username" placeholder={t("auth.email")} value={email} onChange={(e) => setEmail(e.target.value)} required />
         <div className="acct-pw">
-          <input type={show ? "text" : "password"} name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? "Password (8+ characters)" : "Password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
-          <button type="button" className="acct-pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? "Hide password" : "Show password"}>
-            {show ? "Hide" : "Show"}
+          <input type={show ? "text" : "password"} name="password" autoComplete={mode === "register" ? "new-password" : "current-password"} placeholder={mode === "register" ? t("auth.password_reg") : t("auth.password")} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={mode === "register" ? 8 : 1} />
+          <button type="button" className="acct-pw-eye" onClick={() => setShow((v) => !v)} aria-label={show ? t("auth.hide") : t("auth.show")}>
+            {show ? t("auth.hide") : t("auth.show")}
           </button>
         </div>
-        {mode === "register" && <input placeholder="Display name" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />}
+        {mode === "register" && <input placeholder={t("auth.display_name")} maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />}
         <button className="btn primary big" disabled={busy}>
-          {mode === "register" ? "Create account" : "Sign in"}
+          {mode === "register" ? t("auth.create_account") : t("auth.sign_in")}
         </button>
         {mode === "register" && (
           <div className="dim acct-privacy">
-            By creating an account you agree that the game records what you do in it (games, purchases, chat, taps) as described in the{" "}
-            <a href="./privacy.html" target="_blank" rel="noreferrer">
-              privacy policy
-            </a>
-            .
+            {t("auth.privacy_agree", { link: "___LINK___" }).split("___LINK___").map((part, i) => (
+              i === 0 ? (
+                <span key={i}>
+                  {part}
+                  <a href="./privacy.html" target="_blank" rel="noreferrer">
+                    {t("auth.privacy_link")}
+                  </a>
+                </span>
+              ) : (
+                <span key={i}>{part}</span>
+              )
+            ))}
           </div>
         )}
         {mode === "login" && (
           <button type="button" className="acct-link" onClick={() => setForgot((v) => !v)}>
-            Forgot your password?
+            {t("auth.forgot_password")}
           </button>
         )}
         {mode === "login" && forgot && (
           <div className="dim acct-forgot">
-            Reset by email is coming soon. For now, open the game on a device where you're still signed in and change it under Account.
+            {t("auth.forgot_desc")}
           </div>
         )}
       </form>
@@ -193,10 +201,10 @@ export function SignIn() {
             run(() => act((b) => b.dev(name), { inline: true }));
           }}
         >
-          <div className="dim">Test server: sign in with just a name.</div>
-          <input placeholder="Name" maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />
+          <div className="dim">{t("auth.dev_desc")}</div>
+          <input placeholder={t("auth.display_name")} maxLength={20} value={name} onChange={(e) => setName(e.target.value)} />
           <button className="btn" disabled={busy || !name.trim()}>
-            Test sign-in
+            {t("auth.dev_btn")}
           </button>
         </form>
       )}

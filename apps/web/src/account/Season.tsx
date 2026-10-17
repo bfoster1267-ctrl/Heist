@@ -14,19 +14,23 @@ import type { Me } from "./backend";
 import { Coins } from "./bits";
 import { Preview, RarityBadge } from "./items";
 import { useAccount } from "./useAccount";
+import { t } from "../i18n";
 
 const SLOT_NAMES: [Slot, string][] = [
-  ["felt", "Table felt"],
-  ["cardBack", "Card backs"],
-  ["frame", "Avatar frames"],
-  ["title", "Titles"],
-  ["chat", "Chat bubbles"],
-  ["banner", "Banners"],
-  ["cigar", "Cigars"],
-  ["emote", "Emotes"],
-  ["drink", "Drinks"],
+  ["felt", "wardrobe.cat.felt"],
+  ["cardBack", "wardrobe.cat.cardBack"],
+  ["frame", "wardrobe.cat.frame"],
+  ["title", "wardrobe.cat.title"],
+  ["chat", "wardrobe.cat.finery"],
+  ["banner", "wardrobe.cat.finery"],
+  ["cigar", "shop.cigar"],
+  ["emote", "wardrobe.cat.collected"],
+  ["drink", "wardrobe.cat.collected"],
 ];
-export const slotLabel = (s: Slot) => SLOT_NAMES.find(([k]) => k === s)?.[1] ?? s;
+export const slotLabel = (s: Slot) => {
+  const k = SLOT_NAMES.find(([slot]) => slot === s)?.[1];
+  return k ? t(k) : s;
+};
 
 export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) {
   const { act } = useAccount();
@@ -40,8 +44,8 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
   if (!season)
     return (
       <div className="acct-empty">
-        <div className="acct-empty-big">Between seasons</div>
-        The next season starts soon. Everything you earned stays in your Wardrobe.
+        <div className="acct-empty-big">{t("season.between_seasons_title")}</div>
+        {t("season.between_seasons_desc")}
       </div>
     );
   const pass = currentPass(p, now)!;
@@ -63,45 +67,50 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
     <div className="season">
       <div className="season-top">
         <div className="season-top-copy">
-          <div className="season-kicker">★ VIP VAULT PASS · INCLUDED FREE</div>
-          <div className="season-name">Season {season.id}: {season.name}</div>
+          <div className="season-kicker">{t("season.vip_pass")}</div>
+          <div className="season-name">{t("season.name", { id: season.id, name: season.name })}</div>
           <div className="dim">
-            {days} day{days === 1 ? "" : "s"} left · {owned.have} of {owned.of} items collected · Season items can only be earned this season
+            {t("season.days_left", {
+              days,
+              plural: days === 1 ? "" : "s",
+              have: owned.have,
+              total: owned.of,
+            })}
           </div>
         </div>
         <div className="season-tier">
-          <span className="season-tier-lbl">TIER</span>
+          <span className="season-tier-lbl">{t("season.tier")}</span>
           <span className="season-tier-n">{tier}</span>
-          <span className="dim">of {PASS_TIERS}</span>
+          <span className="dim">{t("season.of_tiers", { total: PASS_TIERS })}</span>
         </div>
       </div>
       <div className="acct-xp season-xp" title={`${into} / ${TIER_XP} season XP`}>
         <motion.div className="acct-xp-fill season-xp-fill" initial={{ width: 0 }} animate={{ width: `${(into / TIER_XP) * 100}%` }} transition={{ duration: 0.9 }} />
-        <span className="acct-xp-text">{maxed ? "Pass complete" : `${into} / ${TIER_XP} season XP to tier ${tier + 1}`}</span>
+        <span className="acct-xp-text">{maxed ? t("season.pass_complete") : t("season.xp_to_tier", { into, need: TIER_XP, next: tier + 1 })}</span>
       </div>
-      <div className="dim season-how">Every game earns season XP: 150 for playing, +100 for a win, +50 online, +200 for your first win of the day.</div>
+      <div className="dim season-how">{t("season.xp_rules")}</div>
       {season.prize && (
         <div className="season-prize-line">
-          <span className="season-prize-tag">TIER {PASS_TIERS} GRAND PRIZE</span>
-          <span><b>{cosmetic(season.prize)?.name}</b> — a legendary drink you can send to anyone at the table.</span>
+          <span className="season-prize-tag">{t("season.grand_prize_tag", { tier: PASS_TIERS })}</span>
+          <span><b>{cosmetic(season.prize)?.name}</b> {t("season.grand_prize_desc")}</span>
         </div>
       )}
 
       <Track rewards={passTrack(season)} tier={tier} name={me.name} sweep={sweep} />
 
       <section className="season-packs">
-        <h3>Packs</h3>
+        <h3>{t("season.packs_title")}</h3>
         <div className="season-pack-row">
           <div className="season-pack">
             <div className="season-pack-art" aria-hidden>
               <span>H</span>
             </div>
             <div>
-              <b>Free packs: {pass.packs}</b>
-              <div className="dim">Every 10 tiers of the pass gives one.</div>
+              <b>{t("season.free_packs_count", { count: pass.packs })}</b>
+              <div className="dim">{t("season.free_packs_desc")}</div>
             </div>
             <button className="btn gold" disabled={busy || pass.packs < 1} onClick={() => open(false)}>
-              Open
+              {t("season.open_btn")}
             </button>
           </div>
           <div className="season-pack">
@@ -109,22 +118,22 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
               <span>H</span>
             </div>
             <div>
-              <b>Common pack</b>
+              <b>{t("season.common_pack_title")}</b>
               <div className="dim">
-                3 items for <Chips amount={PACK_PRICE} />. You need {PACK_KEEP.toLocaleString()} chips left after buying.
+                {t("season.common_pack_desc", { price: PACK_PRICE, keep: PACK_KEEP.toLocaleString() })}
               </div>
             </div>
             <button className="btn primary" disabled={busy || !canBuy} onClick={() => open(true)}>
-              Buy & open
+              {t("season.buy_open_btn")}
             </button>
           </div>
         </div>
-        <div className="dim">Packs only hold items you don't have yet. Once you have them all, a pack pays out season XP instead.</div>
+        <div className="dim">{t("season.packs_info")}</div>
       </section>
 
       {onWardrobe && (
         <button className="btn ghost season-wardrobe" onClick={onWardrobe}>
-          Wear your season items in the Wardrobe
+          {t("season.wear_in_wardrobe")}
         </button>
       )}
 
@@ -134,8 +143,8 @@ export function Season({ me, onWardrobe }: { me: Me; onWardrobe?: () => void }) 
 }
 
 function rewardText(r: TierReward) {
-  if (r.kind === "coins") return `${r.coins} coins`;
-  if (r.kind === "packs") return r.packs > 1 ? `${r.packs} packs` : "Free pack";
+  if (r.kind === "coins") return t("season.coins_reward", { coins: r.coins });
+  if (r.kind === "packs") return r.packs > 1 ? t("season.free_packs_reward", { packs: r.packs }) : t("season.free_pack_reward");
   return cosmetic(r.id)?.name ?? r.id;
 }
 
@@ -242,8 +251,8 @@ function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp:
   // Portaled to <body>: inside the profile screen it sat under the header on phones.
   return createPortal(
     <motion.div className="acct-card-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <motion.div className="season-reveal" initial={{ scale: 0.9 }} animate={{ scale: 1 }} role="dialog" aria-label="Pack opened">
-        <div className="season-reveal-title">Pack opened</div>
+      <motion.div className="season-reveal" initial={{ scale: 0.9 }} animate={{ scale: 1 }} role="dialog" aria-label={t("season.pack_opened")}>
+        <div className="season-reveal-title">{t("season.pack_opened")}</div>
         <div className="season-reveal-items">
           {items.map((id, i) => {
             const c = cosmetic(id)!;
@@ -265,9 +274,9 @@ function PackReveal({ items, dupeXp, name, onClose }: { items: string[]; dupeXp:
             );
           })}
         </div>
-        {dupeXp > 0 && <div className="dim">You already had everything else: +{dupeXp} season XP.</div>}
+        {dupeXp > 0 && <div className="dim">{t("season.dupe_xp", { xp: dupeXp })}</div>}
         <button className="btn gold" onClick={onClose}>
-          Nice
+          {t("season.nice_btn")}
         </button>
       </motion.div>
     </motion.div>,

@@ -9,6 +9,8 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { Coins } from "./bits";
 import { useAccount } from "./useAccount";
+import { t } from "../i18n";
+import { rankLabel } from "./Profile";
 
 export function Rewards({ onSave }: { onSave?: () => void }) {
   const { reward, showReward, me, backend } = useAccount();
@@ -58,9 +60,9 @@ function RankMoment({ r, onClose }: { r: RankedResult; onClose: () => void }) {
     return () => clearTimeout(t);
   }, [up, onClose]);
   return (
-    <motion.div className={"rank-moment " + (up ? "up" : "down")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} role="dialog" aria-label={up ? "Rank up" : "Rank down"}>
+    <motion.div className={"rank-moment " + (up ? "up" : "down")} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} role="dialog" aria-label={up ? t("rewards.rank_up") : t("rewards.rank_down")}>
       <motion.div className="rank-moment-kicker" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.1 }}>
-        {up ? "RANK UP" : "RANK DOWN"}
+        {up ? t("rewards.rank_up") : t("rewards.rank_down")}
       </motion.div>
       <div className="rank-moment-badges">
         <motion.div
@@ -87,7 +89,7 @@ function RankMoment({ r, onClose }: { r: RankedResult; onClose: () => void }) {
       <motion.div className="rank-moment-line" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.4 }}>
         {signed(r.rpAfter - r.rpBefore)} RP · MMR {r.mmrAfter.toLocaleString()} ({signed(r.mmrAfter - r.mmrBefore)}) · finished {ordinal(r.place)} of {r.players}
       </motion.div>
-      <div className="rank-moment-tap">Tap to continue</div>
+      <div className="rank-moment-tap">{t("rewards.tap_to_continue")}</div>
     </motion.div>
   );
 }
@@ -128,7 +130,7 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
   const to = leveled && stage === 0 ? 1 : r.xpAfter / xpToNext(r.levelAfter);
   return (
     <motion.div className="acct-reward" initial={{ y: -140, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -140, opacity: 0 }} transition={{ type: "spring", stiffness: 260, damping: 24 }} role="status">
-      <button className="acct-close" onClick={onClose} aria-label="Close">
+      <button className="acct-close" onClick={onClose} aria-label={t("profile.close")}>
         ✕
       </button>
       <div className="acct-reward-top">
@@ -138,7 +140,7 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
         {r.coins > 0 && <Coins amount={r.coins} big />}
       </div>
       <div className="acct-reward-level">
-        <span className="acct-reward-lv">Lv {lvl}</span>
+        <span className="acct-reward-lv">{t("profile.level", { level: lvl })}</span>
         <div className="acct-xp">
           <motion.div key={stage} className="acct-xp-fill" initial={{ width: `${from * 100}%` }} animate={{ width: `${Math.min(1, to) * 100}%` }} transition={{ duration: 1.1, ease: "easeOut" }} />
         </div>
@@ -147,7 +149,7 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
         {leveled && stage === 1 && (
           <motion.div className="acct-levelup" initial={{ scale: 0.4, opacity: 0 }} animate={{ scale: [0.4, 1.15, 1], opacity: 1 }} transition={{ duration: 0.6 }}>
             <span className="acct-levelup-burst" />
-            LEVEL {r.levelAfter} · {rankName(r.levelAfter).toUpperCase()}
+            {t("rewards.level_up", { level: r.levelAfter, rank: rankLabel(r.levelAfter).toUpperCase() })}
           </motion.div>
         )}
       </AnimatePresence>
@@ -164,29 +166,28 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
       </ul>
       {r.unlocked.length > 0 && (
         <div className="acct-reward-unlock">
-          Unlocked: {r.unlocked.map((id) => cosmetic(id)?.name).filter(Boolean).join(", ")}. Wear it in the Wardrobe.
+          {t("rewards.unlocked", { items: r.unlocked.map((id) => cosmetic(id)?.name).filter(Boolean).join(", ") })}
         </div>
       )}
       {r.pass && r.pass.xp > 0 && (
         <div className="acct-reward-season">
           <span>
-            Season pass +{r.pass.xp} XP{r.pass.tierAfter > r.pass.tierBefore ? ` · tier ${r.pass.tierAfter}!` : ` · tier ${r.pass.tierAfter}`}
+            {t("rewards.season_progress", { xp: r.pass.xp, tier: r.pass.tierAfter })}
           </span>
           {r.pass.rewards.length > 0 && (
             <span className="acct-reward-season-got">
               Got:{" "}
               {r.pass.rewards
-                .map((x) => (x.kind === "item" ? cosmetic(x.id)?.name : x.kind === "coins" ? `${x.coins} coins` : x.packs > 1 ? `${x.packs} free packs` : "a free pack"))
+                .map((x) => (x.kind === "item" ? cosmetic(x.id)?.name : x.kind === "coins" ? t("season.coins_reward", { coins: x.coins }) : x.packs > 1 ? t("season.free_packs_reward", { packs: x.packs }) : t("season.free_pack_reward")))
                 .join(", ")}
-              . See the Season tab.
             </span>
           )}
         </div>
       )}
-      {r.canPrestige && <div className="acct-reward-unlock">Level 50! You can prestige from your profile.</div>}
+      {r.canPrestige && <div className="acct-reward-unlock">{t("profile.prestige")}</div>}
       {onSave && (
         <button className="btn primary acct-reward-save" onClick={onSave}>
-          Save my career: free account
+          {t("rewards.save_prompt")}
         </button>
       )}
     </motion.div>

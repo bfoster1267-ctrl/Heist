@@ -19,22 +19,24 @@ import { useAccount } from "./useAccount";
 import { VaultGlass, isVault } from "../vault";
 import { buzz } from "../haptics";
 import { card as cardSound, click, win as winSound } from "../sound";
+import { t } from "../i18n";
 import "./wardrobe.css";
 
 const CATEGORIES = [
-  { id: "all", label: "All Items" },
-  { id: "felt", label: "Table Felt" },
-  { id: "cardBack", label: "Card Decks" },
-  { id: "frame", label: "Avatar Frames" },
-  { id: "title", label: "Titles" },
-  { id: "finery", label: "Banners & Cigars" },
-  { id: "collected", label: "Drinks & Emotes" },
+  { id: "all", labelKey: "wardrobe.cat.all" },
+  { id: "felt", labelKey: "wardrobe.cat.felt" },
+  { id: "cardBack", labelKey: "wardrobe.cat.cardBack" },
+  { id: "frame", labelKey: "wardrobe.cat.frame" },
+  { id: "title", labelKey: "wardrobe.cat.title" },
+  { id: "finery", labelKey: "wardrobe.cat.finery" },
+  { id: "collected", labelKey: "wardrobe.cat.collected" },
 ] as const;
 
 type CategoryId = (typeof CATEGORIES)[number]["id"];
 
-const THEME_METAS: Record<Theme, { name: string; main: string; edge: string; rail: string; rarity: "rare" | "epic" | "legendary" }> = {
+const THEME_METAS: Record<Theme, { nameKey: string; name: string; main: string; edge: string; rail: string; rarity: "rare" | "epic" | "legendary" }> = {
   classic: {
+    nameKey: "wardrobe.theme.classic",
     name: "Classic Casino Felt",
     main: "#187a50",
     edge: "#083822",
@@ -42,6 +44,7 @@ const THEME_METAS: Record<Theme, { name: string; main: string; edge: string; rai
     rarity: "rare",
   },
   vault: {
+    nameKey: "wardrobe.theme.vault",
     name: "The Vault Steel Felt",
     main: "#3a4656",
     edge: "#161c26",
@@ -49,6 +52,7 @@ const THEME_METAS: Record<Theme, { name: string; main: string; edge: string; rai
     rarity: "epic",
   },
   neon: {
+    nameKey: "wardrobe.theme.neon",
     name: "Neon Vegas Cyber Felt",
     main: "#3b1670",
     edge: "#10072a",
@@ -58,13 +62,13 @@ const THEME_METAS: Record<Theme, { name: string; main: string; edge: string; rai
 };
 
 const SLOTS: [EquipSlot, string, "shop" | "season"][] = [
-  ["felt", "Table Felt", "shop"],
-  ["cardBack", "Card Decks", "shop"],
-  ["frame", "Avatar Frames", "shop"],
-  ["title", "Titles", "shop"],
-  ["banner", "Banners", "season"],
-  ["cigar", "Cigars", "season"],
-  ["chat", "Chat Bubbles", "season"],
+  ["felt", "wardrobe.cat.felt", "shop"],
+  ["cardBack", "wardrobe.cat.cardBack", "shop"],
+  ["frame", "wardrobe.cat.frame", "shop"],
+  ["title", "wardrobe.cat.title", "shop"],
+  ["banner", "wardrobe.cat.finery", "season"],
+  ["cigar", "shop.cigar", "season"],
+  ["chat", "wardrobe.cat.finery", "season"],
 ];
 
 export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") => void }) {
@@ -159,7 +163,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
   const feltMain = currentThemeMeta ? currentThemeMeta.main : (previewedFelt?.colors?.[0] ?? "#1f6b45");
   const feltEdge = currentThemeMeta ? currentThemeMeta.edge : (previewedFelt?.colors?.[1] ?? "#0b3322");
   const feltRail = currentThemeMeta ? currentThemeMeta.rail : "rgba(255, 215, 0, 0.4)";
-  const feltDisplayName = currentThemeMeta ? currentThemeMeta.name : (previewedFelt?.name ?? "Table Felt");
+  const feltDisplayName = currentThemeMeta ? t(currentThemeMeta.nameKey) : (previewedFelt?.name ?? t("wardrobe.cat.felt"));
   const feltThemeClass = currentThemeMeta && activePreviewTheme ? ` theme-${activePreviewTheme}` : "";
 
   const [backMain, backAccent] = previewedBack?.colors ?? ["#232832", "#e7b53c"];
@@ -173,22 +177,22 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
         <div className="fitting-room-ambient-glow" />
         <div className="fitting-room-top">
           <div className="fitting-room-title">
-            <span>✨</span> THE FITTING ROOM
+            <span>✨</span> {t("wardrobe.fitting_room")}
           </div>
           {isPreviewing ? (
             <div className="fitting-room-status previewing">
-              <span>● Previewing Custom Look</span>
+              <span>{t("wardrobe.previewing")}</span>
               <button
                 type="button"
                 className="btn small ghost"
                 style={{ fontSize: 10, padding: "2px 8px", height: "auto" }}
                 onClick={resetLook}
               >
-                Reset
+                {t("wardrobe.reset")}
               </button>
             </div>
           ) : (
-            <div className="fitting-room-status">Active Setup</div>
+            <div className="fitting-room-status">{t("wardrobe.active_setup")}</div>
           )}
         </div>
 
@@ -208,7 +212,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
                 {me.name} <Stars prestige={p.prestige} size={12} />
               </div>
               <div className="fitting-player-title">
-                {previewedTitle?.text ? `“${previewedTitle.text}”` : "Contender"}
+                {previewedTitle?.text ? `“${previewedTitle.text}”` : t("wardrobe.contender")}
               </div>
               <div className="fitting-player-cigar">
                 <Cigar id={previewLook.cigar} size={50} />
@@ -249,7 +253,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
               </div>
             </div>
             <span className="fitting-felt-label">
-              {feltDisplayName} · {previewedBack?.name ?? "Cards"}
+              {feltDisplayName} · {previewedBack?.name ?? t("wardrobe.cat.cardBack")}
             </span>
           </div>
         </div>
@@ -270,7 +274,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
             role="tab"
             aria-selected={tab === cat.id}
           >
-            {cat.label}
+            {t(cat.labelKey)}
           </button>
         ))}
       </div>
@@ -280,23 +284,23 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
       ------------------------------------------------------------- */}
       {(tab === "all" || tab === "felt") && (
         <section>
-          <h3>Casino Classic Felts</h3>
+          <h3>{t("wardrobe.casino_classic_felts")}</h3>
           <div className="acct-items">
-            {THEMES.map((t) => {
-              const meta = THEME_METAS[t.id];
-              const on = p.equipped.felt === "felt.classic" && prefs.theme === t.id;
-              const isPreview = activePreviewTheme === t.id && (previewTheme !== null || (isHouseFeltPreviewed && !on));
+            {THEMES.map((th) => {
+              const meta = THEME_METAS[th.id];
+              const on = p.equipped.felt === "felt.classic" && prefs.theme === th.id;
+              const isPreview = activePreviewTheme === th.id && (previewTheme !== null || (isHouseFeltPreviewed && !on));
 
               return (
                 <div
-                  key={t.id}
+                  key={th.id}
                   className={"acct-item" + (on ? " on" : "") + (isPreview ? " previewing-card" : "")}
                   data-rarity={meta.rarity}
-                  onClick={() => previewClassicTheme(t.id)}
+                  onClick={() => previewClassicTheme(th.id)}
                   style={{ cursor: "pointer" }}
                 >
                   <div
-                    className={`acct-prev acct-prev-felt theme-card-preview theme-card-${t.id}`}
+                    className={`acct-prev acct-prev-felt theme-card-preview theme-card-${th.id}`}
                     style={{
                       background: `radial-gradient(ellipse at 50% 45%, ${meta.main} 0%, ${meta.edge} 100%)`,
                       borderColor: meta.rail,
@@ -304,20 +308,20 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
                   >
                     <span className="theme-card-watermark">HEIST</span>
                   </div>
-                  <div className="acct-item-name">{meta.name}</div>
+                  <div className="acct-item-name">{t(meta.nameKey)}</div>
                   <RarityBadge rarity={meta.rarity} />
                   {on ? (
-                    <div className="acct-item-tag">Equipped</div>
+                    <div className="acct-item-tag">{t("wardrobe.equipped")}</div>
                   ) : (
                     <button
                       className="btn small gold"
-                      disabled={busy === `theme-${t.id}`}
+                      disabled={busy === `theme-${th.id}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        void wearClassicTheme(t.id);
+                        void wearClassicTheme(th.id);
                       }}
                     >
-                      Wear
+                      {t("wardrobe.wear")}
                     </button>
                   )}
                 </div>
@@ -338,11 +342,11 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
         if (tab === "title") return slot === "title";
         if (tab === "finery") return slot === "banner" || slot === "cigar" || slot === "chat";
         return false;
-      }).map(([slot, label, from]) => {
+      }).map(([slot, labelKey, from]) => {
         const house = DEFAULT_EQUIPPED[slot];
         const mine = ALL_COSMETICS.filter((c) => c.slot === slot && c.id !== house && owns(p, c.id));
         const list: Cosmetic[] = slot === "felt" ? mine : [...ALL_COSMETICS.filter((c) => c.id === house), ...mine];
-        const sectionTitle = slot === "felt" ? "Collector's Felts" : label;
+        const sectionTitle = slot === "felt" ? t("wardrobe.collector_felts") : t(labelKey);
 
         return (
           <section key={slot}>
@@ -365,7 +369,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
                     <div className="acct-item-name">{c.name}</div>
                     <RarityBadge rarity={rarity} />
                     {on ? (
-                      <div className="acct-item-tag">Equipped</div>
+                      <div className="acct-item-tag">{t("wardrobe.equipped")}</div>
                     ) : (
                       <button
                         className="btn small gold"
@@ -375,7 +379,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
                           void wear(c.id, slot);
                         }}
                       >
-                        Wear
+                        {t("wardrobe.wear")}
                       </button>
                     )}
                   </div>
@@ -387,7 +391,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
                     +
                   </span>
                   <span className="acct-item-name">
-                    {from === "shop" ? "Find more in the Shop" : "Earn more in the Season pass"}
+                    {from === "shop" ? t("wardrobe.find_more_shop") : t("wardrobe.earn_more_season")}
                   </span>
                 </button>
               )}
@@ -401,10 +405,10 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
       ------------------------------------------------------------- */}
       {(tab === "all" || tab === "collected") && (emotes.length > 0 || drinks.length > 0) && (
         <section>
-          <h3>Collected Finery</h3>
+          <h3>{t("wardrobe.collected_finery")}</h3>
           {emotes.length > 0 && (
             <div className="wardrobe-collected">
-              <span className="dim">In your chat tray</span>
+              <span className="dim">{t("wardrobe.in_chat")}</span>
               {emotes.map((c) => (
                 <span key={c.id} title={c.name} className="acct-collected-emoji">
                   {c.emoji}
@@ -414,7 +418,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
           )}
           {drinks.length > 0 && (
             <div className="wardrobe-collected">
-              <span className="dim">On your drink menu</span>
+              <span className="dim">{t("wardrobe.in_drinks")}</span>
               {drinks.map((c) => (
                 <span key={c.id} title={c.name} className="acct-collected-emoji">
                   {c.emoji && isVault(c.emoji) ? <VaultGlass size={24} /> : c.emoji}

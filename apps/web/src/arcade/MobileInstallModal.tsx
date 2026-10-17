@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { isIOS, isStandalone } from "../appShell";
 import { buzz } from "../haptics";
 import { click } from "../sound";
+import { t } from "../i18n";
 import "./mobileInstall.css";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -78,12 +79,12 @@ export function MobileInstallModal({
         </button>
 
         <div className="install-badge">
-          <span>📲</span> FULL SCREEN APP
+          <span>📲</span> {t("install.badge")}
         </div>
 
-        <h2 className="install-title">INSTALL HEIST</h2>
+        <h2 className="install-title">{t("install.title")}</h2>
         <p className="install-subtitle">
-          Play in <b>immersive full-screen</b> with no browser address bars, instant loading, and offline access!
+          {t("install.subtitle")}
         </p>
 
         {/* Benefits Grid */}
@@ -91,29 +92,29 @@ export function MobileInstallModal({
           <div className="install-benefit-pill">
             <span className="install-benefit-icon">✨</span>
             <div>
-              <div className="install-benefit-title">Zero Browser Bars</div>
-              <div className="install-benefit-desc">Maximum screen space for cards</div>
+              <div className="install-benefit-title">{t("install.b1_title")}</div>
+              <div className="install-benefit-desc">{t("install.b1_desc")}</div>
             </div>
           </div>
           <div className="install-benefit-pill">
             <span className="install-benefit-icon">⚡</span>
             <div>
-              <div className="install-benefit-title">Instant App Launch</div>
-              <div className="install-benefit-desc">Tap once from your home screen</div>
+              <div className="install-benefit-title">{t("install.b2_title")}</div>
+              <div className="install-benefit-desc">{t("install.b2_desc")}</div>
             </div>
           </div>
           <div className="install-benefit-pill">
             <span className="install-benefit-icon">✈️</span>
             <div>
-              <div className="install-benefit-title">Offline Capable</div>
-              <div className="install-benefit-desc">Play all 9 solo games anywhere</div>
+              <div className="install-benefit-title">{t("install.b3_title")}</div>
+              <div className="install-benefit-desc">{t("install.b3_desc")}</div>
             </div>
           </div>
           <div className="install-benefit-pill">
             <span className="install-benefit-icon">🔥</span>
             <div>
-              <div className="install-benefit-title">Never Lose Streak</div>
-              <div className="install-benefit-desc">Get daily challenge reminders</div>
+              <div className="install-benefit-title">{t("install.b4_title")}</div>
+              <div className="install-benefit-desc">{t("install.b4_desc")}</div>
             </div>
           </div>
         </div>
@@ -122,13 +123,13 @@ export function MobileInstallModal({
         {isApple ? (
           <div className="install-guide-box ios">
             <div className="install-guide-head">
-              <span className="install-guide-os">🍎 SAFARI ON IPHONE / IPAD</span>
+              <span className="install-guide-os">{t("install.ios_header")}</span>
             </div>
             <ol className="install-steps-list">
               <li>
                 <div className="install-step-num">1</div>
                 <div className="install-step-text">
-                  Tap the <b>Share</b> button in Safari's bottom toolbar:
+                  {t("install.ios_step1")}
                   <span className="install-inline-icon share-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.2">
                       <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
@@ -141,7 +142,7 @@ export function MobileInstallModal({
               <li>
                 <div className="install-step-num">2</div>
                 <div className="install-step-text">
-                  Scroll down the menu and tap <b>"Add to Home Screen"</b>:
+                  {t("install.ios_step2")}
                   <span className="install-inline-icon plus-icon" aria-hidden="true">
                     ⊞
                   </span>
@@ -150,24 +151,24 @@ export function MobileInstallModal({
               <li>
                 <div className="install-step-num">3</div>
                 <div className="install-step-text">
-                  Tap <b>"Add"</b> in the top right corner. Done!
+                  {t("install.ios_step3")}
                 </div>
               </li>
             </ol>
             <div className="install-ios-pointer">
-              <span>👇</span> Look for the Share icon at the bottom of your screen
+              <span>👇</span> {t("install.ios_pointer")}
             </div>
           </div>
         ) : (
           <div className="install-guide-box android">
             <div className="install-guide-head">
-              <span className="install-guide-os">🤖 ANDROID / CHROME</span>
+              <span className="install-guide-os">{t("install.android_header")}</span>
             </div>
 
             {deferred && !installed ? (
               <div style={{ marginBottom: "1rem" }}>
                 <button type="button" className="install-action-btn" onClick={handleInstallClick}>
-                  <span>📲</span> 1-TAP INSTALL APP NOW
+                  <span>📲</span> {t("install.android_btn")}
                 </button>
               </div>
             ) : null}
@@ -176,19 +177,19 @@ export function MobileInstallModal({
               <li>
                 <div className="install-step-num">1</div>
                 <div className="install-step-text">
-                  Tap the <b>Menu (⋮)</b> in the top right corner of Chrome.
+                  {t("install.android_step1")}
                 </div>
               </li>
               <li>
                 <div className="install-step-num">2</div>
                 <div className="install-step-text">
-                  Tap <b>"Install app"</b> or <b>"Add to Home screen"</b>.
+                  {t("install.android_step2")}
                 </div>
               </li>
               <li>
                 <div className="install-step-num">3</div>
                 <div className="install-step-text">
-                  Confirm <b>"Install"</b>. The app icon will appear on your home screen!
+                  {t("install.android_step3")}
                 </div>
               </li>
             </ol>
@@ -196,7 +197,7 @@ export function MobileInstallModal({
         )}
 
         <button type="button" className="install-modal-dismiss" onClick={onClose}>
-          Got it, let's play!
+          {t("install.dismiss")}
         </button>
       </div>
     </div>

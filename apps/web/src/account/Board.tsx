@@ -10,6 +10,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 import type { Backend, BoardComment, BoardKind, BoardRow, BoardStatus, BoardVote, BoardVoted } from "./backend";
 import { Avatar } from "./bits";
 import { MessageRow } from "./Lounge";
+import { t } from "../i18n";
 import "./board.css";
 
 const REFRESH_MS = 30_000;
@@ -64,6 +65,15 @@ export const KINDS: Record<BoardKind, { label: string; ask: string; hint: string
   },
 };
 
+export function getKindInfo(k: BoardKind): { label: string; ask: string; hint: string; icon: ReactNode } {
+  return {
+    label: t(`board.kind_${k}` as any) || KINDS[k].label,
+    ask: t(`board.kind_${k}_ask` as any) || KINDS[k].ask,
+    hint: t(`board.kind_${k}_hint` as any) || KINDS[k].hint,
+    icon: KINDS[k].icon,
+  };
+}
+
 export const STATUS: Record<BoardStatus, string> = {
   new: "",
   review: "Looking at it",
@@ -72,6 +82,11 @@ export const STATUS: Record<BoardStatus, string> = {
   shipped: "Shipped",
   wont: "Not now",
 };
+
+export function getStatusLabel(s: BoardStatus): string {
+  if (s === "new") return "";
+  return t(`board.status_${s}` as any) || STATUS[s] || "";
+}
 
 const ago = (at: number) => {
   const m = Math.round((Date.now() - at) / 60_000);
@@ -144,16 +159,16 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
               <div className="board-sort" role="tablist" aria-label="Sort">
                 {(["top", "new"] as const).map((s) => (
                   <button key={s} role="tab" aria-selected={sort === s} className={sort === s ? "on" : ""} onClick={() => setSort(s)}>
-                    {s === "top" ? "Top" : "New"}
+                    {s === "top" ? t("board.top") : t("board.new")}
                   </button>
                 ))}
               </div>
               <button className="btn gold board-post-btn" onClick={() => (can.canPost ? setView({ at: "new" }) : setErr(can.why ?? "Finish your first game to post"))}>
-                <span aria-hidden>+</span> Post
+                <span aria-hidden>+</span> {t("board.post")}
               </button>
             </div>
             <p className="board-lede">
-              Vote up what matters to you, down what doesn't. The top posts are what we work on next{can.voterReward ? `, and if we do one you backed, you get ${can.voterReward} coins` : ""}.
+              {t("board.lede", { reward: can.voterReward ? t("board.lede_reward", { reward: can.voterReward }) : "" })}
             </p>
             {err && (
               <div className="board-err" onClick={() => setErr(null)}>
@@ -161,8 +176,8 @@ export function FeedbackBoard({ backend, me, onPlayer }: { backend: Backend; me:
               </div>
             )}
             <div className="board-list">
-              {posts === null && <p className="lounge-empty">Opening the board...</p>}
-              {posts?.length === 0 && <p className="lounge-empty">Nothing here yet. Spotted a bug or got an idea? Be the first to post.</p>}
+              {posts === null && <p className="lounge-empty">{t("board.opening")}</p>}
+              {posts?.length === 0 && <p className="lounge-empty">{t("board.empty")}</p>}
               {posts?.map((p) => (
                 <PostCard key={p.id} p={p} onVote={(d) => void vote(p, d)} onOpen={() => setView({ at: "post", id: p.id })} />
               ))}
@@ -223,19 +238,19 @@ const Arrow = ({ down }: { down?: boolean }) => (
 
 /** Up, the score, down. Tapping your own vote again takes it back. */
 function VoteButton({ p, onVote, big }: { p: BoardRow; onVote: (dir: BoardVote) => void; big?: boolean }) {
-  const up = p.kind === "bug" ? "Me too" : "Vote up";
+  const up = p.kind === "bug" ? t("board.me_too") : t("board.vote_up");
   const press = (dir: 1 | -1) => (e: { stopPropagation: () => void }) => {
     e.stopPropagation();
     onVote(p.mine === dir ? 0 : dir);
   };
   return (
     <div className={"board-vote" + (p.mine === 1 ? " up" : p.mine === -1 ? " down" : "") + (big ? " big" : "")} onClick={(e) => e.stopPropagation()}>
-      <button className="board-vote-up" onClick={press(1)} aria-pressed={p.mine === 1} aria-label={p.mine === 1 ? "Take back your upvote" : up}>
+      <button className="board-vote-up" onClick={press(1)} aria-pressed={p.mine === 1} aria-label={p.mine === 1 ? up : up}>
         <Arrow />
-        {big && <span>{p.mine === 1 ? (p.kind === "bug" ? "You too" : "Voted") : up}</span>}
+        {big && <span>{p.mine === 1 ? (p.kind === "bug" ? t("board.you_too") : t("board.voted")) : up}</span>}
       </button>
       <b aria-label={`Score ${p.score}: ${p.ups} up, ${p.downs} down`}>{p.score}</b>
-      <button className="board-vote-down" onClick={press(-1)} aria-pressed={p.mine === -1} aria-label={p.mine === -1 ? "Take back your downvote" : "Vote down"}>
+      <button className="board-vote-down" onClick={press(-1)} aria-pressed={p.mine === -1} aria-label={t("board.vote_down")}>
         <Arrow down />
       </button>
     </div>
@@ -243,11 +258,12 @@ function VoteButton({ p, onVote, big }: { p: BoardRow; onVote: (dir: BoardVote) 
 }
 
 function StatusPill({ s }: { s: BoardStatus }) {
-  return STATUS[s] ? <span className={`board-status s-${s}`}>{STATUS[s]}</span> : null;
+  const label = getStatusLabel(s);
+  return label ? <span className={`board-status s-${s}`}>{label}</span> : null;
 }
 
 function PostCard({ p, onVote, onOpen }: { p: BoardRow; onVote: (dir: BoardVote) => void; onOpen: () => void }) {
-  const k = KINDS[p.kind];
+  const k = getKindInfo(p.kind);
   return (
     <div className={`board-card k-${p.kind}` + (p.status === "shipped" || p.status === "wont" ? " done" : "")} role="button" tabIndex={0} onClick={onOpen} onKeyDown={(e) => e.key === "Enter" && onOpen()}>
       <VoteButton p={p} onVote={onVote} />
@@ -264,8 +280,8 @@ function PostCard({ p, onVote, onOpen }: { p: BoardRow; onVote: (dir: BoardVote)
         <div className="board-meta">
           <span>{p.name}</span>
           <span>· {ago(p.at)}</span>
-          {p.comments > 0 && <span>· {p.comments === 1 ? "1 comment" : `${p.comments} comments`}</span>}
-          {p.answered && <span className="board-team-tag">Heist team replied</span>}
+          {p.comments > 0 && <span>· {p.comments === 1 ? t("board.one_comment") : t("board.many_comments", { count: p.comments })}</span>}
+          {p.answered && <span className="board-team-tag">{t("board.team_replied")}</span>}
         </div>
       </div>
     </div>
@@ -333,25 +349,25 @@ function PostView({
     if (!window.confirm(c ? `Report this comment from ${c.name}?` : "Report this post? It's taken down if others report it too.")) return;
     await backend.boardReport(post.id, c?.id).catch(() => {});
     if (c) setPost({ ...post, thread: post.thread.filter((x) => x.id !== c.id) });
-    setNote("Thanks. We'll take a look.");
+    setNote(t("lounge.report_thanks"));
   };
 
   return (
     <>
       <div className="board-bar">
         <button className="board-back" onClick={onBack}>
-          <span aria-hidden>‹</span> All posts
+          <span aria-hidden>‹</span> {t("board.all_posts")}
         </button>
       </div>
-      {gone && <p className="lounge-empty">That post is gone.</p>}
-      {!post && !gone && <p className="lounge-empty">Opening...</p>}
+      {gone && <p className="lounge-empty">{t("board.post_gone")}</p>}
+      {!post && !gone && <p className="lounge-empty">{t("board.opening")}</p>}
       {post && (
         <div className="board-list board-thread">
           <article className={`board-full k-${post.kind}`}>
             <div className="board-card-top">
               <span className={`board-kind k-${post.kind}`}>
-                {KINDS[post.kind].icon}
-                {KINDS[post.kind].label}
+                {getKindInfo(post.kind).icon}
+                {getKindInfo(post.kind).label}
               </span>
               <StatusPill s={post.status} />
             </div>
@@ -360,18 +376,18 @@ function PostView({
             <div className="board-by">
               <button className="board-by-who" onClick={() => onPlayer(post.userId)}>
                 <Avatar name={post.name} frame={post.badge?.frame ?? "frame.none"} level={post.badge?.level} size={26} />
-                <span>{post.userId === me ? "You" : post.name}</span>
+                <span>{post.userId === me ? t("lounge.you") : post.name}</span>
               </button>
               <span>{ago(post.at)}</span>
               {post.userId !== me && (
                 <button className="board-report" onClick={() => void report()}>
-                  Report
+                  {t("lounge.report")}
                 </button>
               )}
             </div>
             <VoteButton p={post} onVote={(d) => void vote(d)} big />
           </article>
-          <div className="board-comments-head">{post.thread.length ? (post.thread.length === 1 ? "1 comment" : `${post.thread.length} comments`) : "No comments yet"}</div>
+          <div className="board-comments-head">{post.thread.length ? (post.thread.length === 1 ? t("board.one_comment") : t("board.many_comments", { count: post.thread.length })) : t("board.no_comments")}</div>
           {post.thread.map((c, i) =>
             c.team ? (
               <div key={c.id} className="board-team">
@@ -379,7 +395,7 @@ function PostView({
                   <span className="board-team-mark" aria-hidden>
                     H
                   </span>
-                  Heist team
+                  {t("board.team_replied")}
                 </div>
                 <div className="board-team-text">{c.text}</div>
               </div>
@@ -408,13 +424,13 @@ function PostView({
       {post &&
         (canPost ? (
           <form className="lounge-form" onSubmit={send}>
-            <input className="lounge-input" value={text} maxLength={500} placeholder="Add a comment" aria-label="Add a comment" enterKeyHint="send" onChange={(e) => setText(e.target.value)} />
+            <input className="lounge-input" value={text} maxLength={500} placeholder={t("board.add_comment")} aria-label={t("board.add_comment")} enterKeyHint="send" onChange={(e) => setText(e.target.value)} />
             <button className="btn gold" type="submit" disabled={busy || !text.trim()}>
-              Send
+              {t("lounge.send")}
             </button>
           </form>
         ) : (
-          <div className="lounge-locked">{why ?? "Commenting opens after your first game."}</div>
+          <div className="lounge-locked">{why ?? t("lounge.locked")}</div>
         ))}
     </>
   );
@@ -468,26 +484,29 @@ function NewPost({
     <>
       <div className="board-bar">
         <button className="board-back" onClick={kind ? () => setKind(null) : onCancel}>
-          <span aria-hidden>‹</span> {kind ? "Back" : "Cancel"}
+          <span aria-hidden>‹</span> {kind ? t("board.back") : t("board.cancel")}
         </button>
       </div>
       {!kind ? (
         <div className="board-list">
-          <h3 className="board-ask">What's this about?</h3>
+          <h3 className="board-ask">{t("board.whats_this_about")}</h3>
           <div className="board-kinds">
-            {(Object.keys(KINDS) as BoardKind[]).map((k) => (
-              <button key={k} className={`board-kind-pick k-${k}`} onClick={() => setKind(k)}>
-                <span className="board-kind-pick-icon">{KINDS[k].icon}</span>
-                <span>
-                  <b>{KINDS[k].ask}</b>
-                  <small>{KINDS[k].hint}</small>
-                </span>
-              </button>
-            ))}
+            {(Object.keys(KINDS) as BoardKind[]).map((k) => {
+              const ki = getKindInfo(k);
+              return (
+                <button key={k} className={`board-kind-pick k-${k}`} onClick={() => setKind(k)}>
+                  <span className="board-kind-pick-icon">{ki.icon}</span>
+                  <span>
+                    <b>{ki.ask}</b>
+                    <small>{ki.hint}</small>
+                  </span>
+                </button>
+              );
+            })}
           </div>
           {reward > 0 && (
             <p className="board-lede">
-              Your bug gets confirmed or your post ships? You get {reward} coins{voterReward ? `, and everyone who voted it up gets ${voterReward}` : ""}.
+              {t("board.reward_note", { reward, voterReward: voterReward ? t("board.voter_reward_note", { voterReward }) : "" })}
             </p>
           )}
         </div>
@@ -495,17 +514,17 @@ function NewPost({
         <form className="board-list board-form" onSubmit={send}>
           <h3 className="board-ask">
             <span className={`board-kind k-${kind}`}>
-              {KINDS[kind].icon}
-              {KINDS[kind].label}
+              {getKindInfo(kind).icon}
+              {getKindInfo(kind).label}
             </span>
           </h3>
           <label className="board-field">
-            <span>{kind === "bug" ? "What went wrong?" : kind === "idea" ? "Your idea in a line" : "In a line"}</span>
+            <span>{kind === "bug" ? t("board.what_wrong") : kind === "idea" ? t("board.idea_line") : t("board.in_a_line")}</span>
             <input value={title} maxLength={80} autoFocus placeholder={kind === "bug" ? "e.g. Cards overlap my hand on iPhone" : kind === "idea" ? "e.g. Let me rematch the same table" : kind === "balance" ? "e.g. The Inside Man wins too often" : "Say it in a line"} onChange={(e) => setTitle(e.target.value)} />
           </label>
           {like.length > 0 && (
             <div className="board-like">
-              <div className="board-like-head">Already posted? Vote instead</div>
+              <div className="board-like-head">{t("board.already_posted")}</div>
               {like.map((p) => (
                 <div key={p.id} className="board-like-row">
                   <VoteButton p={p} onVote={(d) => onVote(p, d)} />
@@ -517,13 +536,13 @@ function NewPost({
             </div>
           )}
           <label className="board-field">
-            <span>{kind === "bug" ? "What were you doing when it happened? (optional)" : "More detail (optional)"}</span>
+            <span>{kind === "bug" ? t("board.what_doing") : t("board.more_detail")}</span>
             <textarea value={body} maxLength={1000} rows={5} onChange={(e) => setBody(e.target.value)} />
           </label>
-          {kind === "bug" && <p className="board-fine">We'll attach your screen size and browser so we can reproduce it.</p>}
+          {kind === "bug" && <p className="board-fine">{t("board.fine_device")}</p>}
           {err && <div className="board-err">{err}</div>}
           <button className="btn gold big board-submit" type="submit" disabled={busy || title.trim().length < 4}>
-            {busy ? "Posting..." : "Post it"}
+            {busy ? t("board.posting") : t("board.post_it")}
           </button>
         </form>
       )}
