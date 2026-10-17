@@ -121,6 +121,21 @@ export function tk(key: string, fallback: string, vars?: Vars): string {
   return tpl === undefined ? fill(fallback, fmtVars(vars, locale)) : fill(tpl, fmtVars(vars, locale));
 }
 
+/**
+ * Make some string fields of a data object read their text from the catalog, so a table of games or items
+ * written in English shows in the active language wherever it's read. `prefix.field` is the key; the
+ * English value stays as the fallback.
+ *   localize(game, "arc.solitaire", ["title", "subtitle"])   // game.title -> t("arc.solitaire.title")
+ */
+export function localize<T extends object>(obj: T, prefix: string, fields: (keyof T & string)[]): T {
+  for (const f of fields) {
+    const fallback = obj[f];
+    if (typeof fallback !== "string") continue;
+    Object.defineProperty(obj, f, { get: () => tk(`${prefix}.${f}`, fallback), enumerable: true, configurable: true });
+  }
+  return obj;
+}
+
 /** Say a `Say` (a key and values from the engine or server) in the active language; `fallback` if unknown. */
 export function tSay(s: Say | undefined | null, fallback = ""): string {
   if (!s) return fallback;

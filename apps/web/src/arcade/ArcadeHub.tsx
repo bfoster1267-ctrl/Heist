@@ -5,6 +5,7 @@ import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import { ChallengeBanner } from "../daily/ChallengeBanner";
 import "./arcade.css";
+import { localize, t, tk, type TKey } from "../i18n";
 
 export type ArcadeGameId =
   | "solitaire"
@@ -236,6 +237,15 @@ export const ARCADE_GAMES: ArcadeGame[] = [
   },
 ];
 
+// every game's words come from the catalog (arc.<id>.title, arc.<id>.rules.goal...), English as the fallback
+for (const g of ARCADE_GAMES) {
+  localize(g, `arc.${g.id}`, ["title", "subtitle", "tagline", "deckInfo"]);
+  localize(g.rules, `arc.${g.id}.rules`, ["overview", "goal", "keyRule", "tip"]);
+}
+/** a mechanic tag or difficulty in the active language */
+export const arcadeTag = (tag: string) => tk(`arc.tag.${tag}`, tag);
+export const arcadeDifficulty = (d: ArcadeDifficulty) => t(`arc.diff.${d}` as TKey);
+
 export interface ArcadeHubProps {
   onClose: () => void;
   onSelectGame: (gameId: ArcadeGameId, pvp?: boolean) => void;
@@ -272,8 +282,8 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
     try {
       if (navigator.share) {
         await navigator.share({
-          title: `Heist Solo Arcade - ${game.title}`,
-          text: `Play ${game.title} on Heist Solo Arcade!`,
+          title: t("arc.shareTitle", { game: game.title }),
+          text: t("arc.shareText", { game: game.title }),
           url,
         });
       } else if (navigator.clipboard?.writeText) {
@@ -299,7 +309,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
         game.title.toLowerCase().includes(q) ||
         game.subtitle.toLowerCase().includes(q) ||
         game.tagline.toLowerCase().includes(q) ||
-        game.tags.some((t) => t.toLowerCase().includes(q))
+        game.tags.some((tag) => tag.toLowerCase().includes(q) || arcadeTag(tag).toLowerCase().includes(q))
       );
     });
   }, [tab, search]);
@@ -314,22 +324,20 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
   );
 
   return createPortal(
-    <div className="arcade-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label="Solo Arcade Hub">
+    <div className="arcade-backdrop" onClick={onClose} role="dialog" aria-modal="true" aria-label={t("arc.aria")}>
       <div className="arcade-modal" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="arcade-header">
           <div className="arcade-title-group">
             <div className="arcade-badge-row">
               <span className="arcade-pill-badge">
-                <span className="sparkle">✦</span> Heist Solo Arcade
+                <span className="sparkle">✦</span> {t("arc.badge")}
               </span>
             </div>
             <h2 className="arcade-title">
-              CASINO <span>ARCADE HUB</span>
+              {t("arc.title1")} <span>{t("arc.title2")}</span>
             </h2>
-            <p className="arcade-tagline">
-              8 single-player card games & roguelike challenges. Instant action, anytime.
-            </p>
+            <p className="arcade-tagline">{t("arc.tagline")}</p>
           </div>
           <button
             className="arcade-close-btn"
@@ -338,7 +346,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               buzz("tap");
               onClose();
             }}
-            aria-label="Close Arcade Hub"
+            aria-label={t("arc.close")}
           >
             ✕
           </button>
@@ -363,7 +371,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "all"}
             >
-              All Games <span className="arcade-tab-count">{ARCADE_GAMES.length}</span>
+              {t("arc.all")} <span className="arcade-tab-count">{ARCADE_GAMES.length}</span>
             </button>
             <button
               className={`arcade-tab-btn ${tab === "solitaire" ? "active" : ""}`}
@@ -375,7 +383,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "solitaire"}
             >
-              Solitaire <span className="arcade-tab-count">{solitaireCount}</span>
+              {t("arc.solitaires")} <span className="arcade-tab-count">{solitaireCount}</span>
             </button>
             <button
               className={`arcade-tab-btn ${tab === "action" ? "active" : ""}`}
@@ -387,7 +395,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               role="tab"
               aria-selected={tab === "action"}
             >
-              Roguelike & Fast Action <span className="arcade-tab-count">{actionCount}</span>
+              {t("arc.action")} <span className="arcade-tab-count">{actionCount}</span>
             </button>
           </div>
 
@@ -396,10 +404,10 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
             <input
               type="text"
               className="arcade-search-input"
-              placeholder="Filter by name or mechanic..."
+              placeholder={t("arc.filter")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              aria-label="Filter arcade games"
+              aria-label={t("arc.filterAria")}
             />
           </div>
         </div>
@@ -443,9 +451,9 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                         <h3 className="arcade-game-name">{game.title}</h3>
                         <span
                           className={`arcade-difficulty ${game.difficulty.toLowerCase()}`}
-                          title={`Difficulty: ${game.difficulty}`}
+                          title={t("arc.difficulty", { d: arcadeDifficulty(game.difficulty) })}
                         >
-                          {game.difficulty}
+                          {arcadeDifficulty(game.difficulty)}
                         </span>
                       </div>
                       <span className="arcade-game-subtitle">{game.subtitle}</span>
@@ -460,7 +468,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                     </span>
                     {game.tags.map((tag) => (
                       <span key={tag} className="arcade-mechanic-tag">
-                        {tag}
+                        {arcadeTag(tag)}
                       </span>
                     ))}
                   </div>
@@ -471,24 +479,24 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                     className={`arcade-how-to-toggle ${isOpen ? "open" : ""}`}
                     onClick={() => toggleRules(game.id)}
                     aria-expanded={isOpen}
-                    aria-label={`How to play and rules for ${game.title}`}
+                    aria-label={t("arc.howAria", { game: game.title })}
                   >
-                    <span>How to play & Rules</span>
+                    <span>{t("arc.how")}</span>
                     <span className="arrow" aria-hidden>▼</span>
                   </button>
 
                   {isOpen && (
                     <div className="arcade-rules-drawer">
                       <div className="arcade-rule-item">
-                        <span className="arcade-rule-label">🎯 Goal</span>
+                        <span className="arcade-rule-label">🎯 {t("arc.goal")}</span>
                         <p className="arcade-rule-text">{game.rules.goal}</p>
                       </div>
                       <div className="arcade-rule-item">
-                        <span className="arcade-rule-label">📜 Core Rule</span>
+                        <span className="arcade-rule-label">📜 {t("arc.core")}</span>
                         <p className="arcade-rule-text">{game.rules.keyRule}</p>
                       </div>
                       <div className="arcade-rule-item tip">
-                        <span className="arcade-rule-label">💡 Winning Tip</span>
+                        <span className="arcade-rule-label">💡 {t("arc.tip")}</span>
                         <p className="arcade-rule-text">{game.rules.tip}</p>
                       </div>
                     </div>
@@ -500,11 +508,11 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                       type="button"
                       className="arcade-link-btn"
                       onClick={() => copyGameLink(game)}
-                      title={`Direct link: ${game.path} (Click to copy)`}
-                      aria-label={`Copy direct link for ${game.title}`}
+                      title={t("arc.linkTip", { path: game.path })}
+                      aria-label={t("arc.linkAria", { game: game.title })}
                     >
                       <span className="chain-icon" aria-hidden>🔗</span>
-                      <span>{isCopied ? "Link Copied!" : game.path}</span>
+                      <span>{isCopied ? t("arc.copied") : game.path}</span>
                     </button>
 
                     {game.id === "ers" && (
@@ -516,10 +524,10 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                           buzz("tap");
                           onSelectGame(game.id, true);
                         }}
-                        aria-label="Play 2-Player Real-time PvP Duel"
-                        title="2-Player PvP with Invite Link"
+                        aria-label={t("arc.duelAria")}
+                        title={t("arc.duelTip")}
                       >
-                        ⚔️ 2P DUEL
+                        ⚔️ {t("arc.duel")}
                       </button>
                     )}
 
@@ -531,9 +539,10 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                         buzz("tap");
                         onSelectGame(game.id, false);
                       }}
-                      aria-label={`${isCurrent ? "Resume" : "Play"} ${game.title}`}
+                      aria-label={t(isCurrent ? "arc.resumeAria" : "arc.playAria", { game: game.title })}
                     >
-                      {isCurrent ? "RESUME" : "PLAY"}
+                      {isCurrent ? t("arc.resume") : t("arc.play")}
+
                     </button>
                   </div>
                 </article>
