@@ -18,6 +18,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import { VictoryModal } from "../arcade/VictoryModal";
 import "./yukon.css";
+import { t, tNodes } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -458,27 +459,27 @@ export function Yukon({
         <button
           className="yk-icon-btn"
           onClick={() => { click(); buzz("tap"); onExit(); }}
-          title="Exit"
-          aria-label="Exit"
+          title={t("solo.exit")}
+          aria-label={t("solo.exit")}
         >
           ✕
         </button>
 
         <div className="yk-hud">
           <div className="yk-hud-name">
-            YUKON
-            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            {t("arc.yukon.title").toUpperCase()}
+            <span className="arcade-trust-pill">{t("solo.free")}</span>
           </div>
           <div className="yk-hud-stats">
             <span>{timeStr}</span>
             <span className="yk-dot">•</span>
-            <span>Foundations: <b>{foundationTotal}/52</b></span>
+            <span>{tNodes("yk.found", { b: <b>{foundationTotal}/52</b> })}</span>
             <span className="yk-dot">•</span>
-            <span>Moves: <b>{moves.length}</b></span>
+            <span>{tNodes("solo.movesL", { b: <b>{moves.length}</b> })}</span>
             <span className="yk-dot">•</span>
             <b className="yk-xp">+{currentXp} XP</b>
             <span className="yk-dot">•</span>
-            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+            <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
           </div>
         </div>
 
@@ -486,8 +487,8 @@ export function Yukon({
           className="yk-icon-btn"
           onClick={onHint}
           disabled={done}
-          title="Hint (-2 XP)"
-          aria-label="Hint"
+          title={t("solo.hintCost")}
+          aria-label={t("solo.hint")}
         >
           💡
         </button>
@@ -496,8 +497,8 @@ export function Yukon({
           className="yk-icon-btn"
           onClick={onUndo}
           disabled={hist.length <= 1 || done}
-          title="Undo"
-          aria-label="Undo"
+          title={t("solo.undo")}
+          aria-label={t("solo.undo")}
         >
           ↶
         </button>
@@ -513,10 +514,10 @@ export function Yukon({
               setTimeout(() => setArmed(false), 3000);
             }
           }}
-          title={armed ? "Deal new game?" : "New Game"}
-          aria-label="New Game"
+          title={armed ? t("solo.newGameQ") : t("solo.newGame")}
+          aria-label={t("solo.newGame")}
         >
-          {armed ? <span className="yk-sure">NEW?</span> : "↻"}
+          {armed ? <span className="yk-sure">{t("solo.NEWQ")}</span> : "↻"}
         </button>
       </div>
 
@@ -561,7 +562,7 @@ export function Yukon({
                   onClick={(e) => onFoundationClick(suit, e)}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${SUITS[suit]} foundation pile (${pile.length} cards)`}
+                  aria-label={t("yk.pile", { suit: SUITS[suit], n: pile.length })}
                 >
                   {topCard !== null ? (
                     (() => {
@@ -617,7 +618,8 @@ export function Yukon({
                       onClick={(e) => onEmptyColClick(colIdx, e)}
                       role="button"
                       tabIndex={0}
-                      aria-label={`Empty column ${colIdx + 1}, Kings can be placed here`}
+                      aria-label={t("yk.emptyCol", { n: colIdx + 1 })}
+
                     >
                       K
                     </div>

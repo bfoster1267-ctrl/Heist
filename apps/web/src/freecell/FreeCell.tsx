@@ -18,6 +18,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import { VictoryModal } from "../arcade/VictoryModal";
 import "./freecell.css";
+import { t, tNodes } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -370,7 +371,7 @@ export function FreeCell({
       x = colX(i);
       y = tabY + Math.max(0, col.length - 1) * offsets[i];
     }
-    const tag = maxed ? "MAXED TODAY · HEIST PAYS MORE" : gained.stacks ? "SUIT DONE" : gained.aces ? "ACE" : null;
+    const tag = maxed ? t("solo.maxed") : gained.stacks ? t("solo.suitDone") : gained.aces ? t("solo.ace") : null;
     const id = ++floatId.current;
     setFloats((f) => [...f.slice(-5), { id, x: x + b.cw / 2, y, xp, tag }]);
     window.setTimeout(() => setFloats((f) => f.filter((q) => q.id !== id)), tag ? 1400 : 900);
@@ -481,16 +482,16 @@ export function FreeCell({
       <div className="fc-board" ref={board}>
         {banner && <div className="fc-banner">{banner}</div>}
         <div className="fc-bar" style={{ height: 52 }}>
-          <button className="fc-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
+          <button className="fc-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label={t("solo.back")}>
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="fc-hud">
             <span className="fc-hud-name">
-              FREECELL
-              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+              {t("arc.freecell.title").toUpperCase()}
+              <span className="arcade-trust-pill">{t("solo.free")}</span>
             </span>
             <span className="fc-hud-stats">
-              <b>{moves.length}</b> moves <span className="fc-dot">·</span> <b>{clock}</b>
+              {tNodes("solo.moves", { b: <b>{moves.length}</b> }, { count: moves.length })} <span className="fc-dot">·</span> <b>{clock}</b>
               {game?.gameId && (shownXp > 0 || drain > 0) && (
                 <>
                   {" "}<span className="fc-dot">·</span>{" "}
@@ -500,30 +501,31 @@ export function FreeCell({
                 </>
               )}
               {" "}<span className="fc-dot">·</span>{" "}
-              <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+              <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
             </span>
           </div>
-          <button className="fc-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">
+          <button className="fc-icon-btn" onClick={showHint} disabled={done} aria-label={t("solo.hint")}>
             <Icon d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3Z" />
           </button>
-          <button className="fc-icon-btn" onClick={undo} disabled={hist.length < 2 || done} aria-label="Undo">
+          <button className="fc-icon-btn" onClick={undo} disabled={hist.length < 2 || done} aria-label={t("solo.undo")}>
             <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" />
           </button>
-          <button className={"fc-icon-btn" + (armed ? " armed" : "")} onClick={newDeal} aria-label="New deal">
-            {armed ? <span className="fc-sure">New?</span> : <Icon d="M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 12.4 2M18.5 9A7 7 0 0 0 6.1 7" />}
+          <button className={"fc-icon-btn" + (armed ? " armed" : "")} onClick={newDeal} aria-label={t("solo.newDeal")}>
+            {armed ? <span className="fc-sure">{t("solo.newQ")}</span> : <Icon d="M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 12.4 2M18.5 9A7 7 0 0 0 6.1 7" />}
           </button>
         </div>
 
         {k && !done && !fcWon(k) && fcSolved(k) && (
           <button className="fc-autocomplete-btn" onClick={autoComplete}>
-            ⚡ Auto Complete
+            ⚡ {t("solo.auto")}
           </button>
         )}
 
         {/* 4 Free Cell slots (left cols 0..3) */}
         {[0, 1, 2, 3].map((i) => (
           <div key={`cell-${i}`} className="fc-slot fc-cell-slot" style={{ left: colX(i), top: rowY, width: b.cw, height: b.ch }}>
-            <span className="fc-slot-cellmark">FREE</span>
+            <span className="fc-slot-cellmark">{t("fc2.free")}</span>
+
           </div>
         ))}
 
@@ -598,17 +600,17 @@ export function FreeCell({
         <AnimatePresence>
           {isStuck && (
             <motion.div key="stuck" className="fc-stuck" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
-              <span className="fc-stuck-title">No moves left</span>
+              <span className="fc-stuck-title">{t("solo.stuck")}</span>
               <button className="btn" onClick={undo}>
-                Undo
+                {t("solo.undo")}
               </button>
               <button className="btn gold" onClick={() => void deal(game?.seed)}>
-                ↺ Retry Deal
+                ↺ {t("solo.retry")}
               </button>
               <button className="btn primary" onClick={() => void deal()}>
-                New deal
+                {t("solo.newDeal")}
               </button>
-              <button className="fc-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label="Keep playing">
+              <button className="fc-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label={t("solo.keep")}>
                 ✕
               </button>
             </motion.div>

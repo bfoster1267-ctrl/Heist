@@ -18,6 +18,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import { VictoryModal } from "../arcade/VictoryModal";
 import "./tripeaks.css";
+import { t, tNodes } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -282,13 +283,13 @@ export function TriPeaks({
     const x = colX(5.5) + b.cw / 2;
     const y = bottomY;
     const tag = maxed
-      ? "MAXED TODAY · HEIST PAYS MORE"
+      ? t("solo.maxed")
       : gained.peaks
-        ? "PEAK CLEARED"
+        ? t("tp.peak")
         : (gained.streak10 || gained.maxStreak >= 10)
-          ? "10x STREAK"
+          ? t("tp.streak", { n: 10 })
           : (gained.streak5 || gained.maxStreak >= 5)
-            ? "5x STREAK"
+            ? t("tp.streak", { n: 5 })
             : null;
     const id = ++floatId.current;
     setFloats((f) => [...f.slice(-5), { id, x, y, xp, tag }]);
@@ -332,16 +333,16 @@ export function TriPeaks({
       <div className="tp-board" ref={board}>
         {banner && <div className="tp-banner">{banner}</div>}
         <div className="tp-bar" style={{ height: 52 }}>
-          <button className="tp-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
+          <button className="tp-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label={t("solo.back")}>
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="tp-hud">
             <span className="tp-hud-name">
-              TRIPEAKS
-              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+              {t("arc.tripeaks.title").toUpperCase()}
+              <span className="arcade-trust-pill">{t("solo.free")}</span>
             </span>
             <span className="tp-hud-stats">
-              <b>{moves.length}</b> moves <span className="tp-dot">·</span> <b>{clock}</b>
+              {tNodes("solo.moves", { b: <b>{moves.length}</b> }, { count: moves.length })} <span className="tp-dot">·</span> <b>{clock}</b>
               {game?.gameId && (shownXp > 0 || drain > 0) && (
                 <>
                   {" "}<span className="tp-dot">·</span>{" "}
@@ -351,17 +352,17 @@ export function TriPeaks({
                 </>
               )}
               {" "}<span className="tp-dot">·</span>{" "}
-              <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+              <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
             </span>
           </div>
-          <button className="tp-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">
+          <button className="tp-icon-btn" onClick={showHint} disabled={done} aria-label={t("solo.hint")}>
             <Icon d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3Z" />
           </button>
-          <button className="tp-icon-btn" onClick={undo} disabled={hist.length < 2 || done} aria-label="Undo">
+          <button className="tp-icon-btn" onClick={undo} disabled={hist.length < 2 || done} aria-label={t("solo.undo")}>
             <Icon d="M9 14 4 9l5-5M4 9h10a6 6 0 0 1 0 12h-3" />
           </button>
-          <button className={"tp-icon-btn" + (armed ? " armed" : "")} onClick={newDeal} aria-label="New deal">
-            {armed ? <span className="tp-sure">New?</span> : <Icon d="M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 12.4 2M18.5 9A7 7 0 0 0 6.1 7" />}
+          <button className={"tp-icon-btn" + (armed ? " armed" : "")} onClick={newDeal} aria-label={t("solo.newDeal")}>
+            {armed ? <span className="tp-sure">{t("solo.newQ")}</span> : <Icon d="M4 4v6h6M20 20v-6h-6M5.5 15a7 7 0 0 0 12.4 2M18.5 9A7 7 0 0 0 6.1 7" />}
           </button>
         </div>
 
@@ -409,7 +410,7 @@ export function TriPeaks({
           onClick={drawStock}
           role="button"
           tabIndex={0}
-          aria-label={k.stock.length > 0 ? `Draw card (${k.stock.length} left)` : "Stock empty"}
+          aria-label={k.stock.length > 0 ? t("tp.drawLeft", { n: k.stock.length }) : t("tp.stockEmpty")}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
@@ -452,7 +453,8 @@ export function TriPeaks({
             initial={{ scale: 0.6, y: -10 }}
             animate={{ scale: 1, y: 0 }}
           >
-            🔥 {k.streak}x STREAK
+            🔥 {t("tp.streak", { n: k.streak })}
+
           </motion.div>
         )}
 
@@ -481,14 +483,14 @@ export function TriPeaks({
         <AnimatePresence>
           {isStuck && (
             <motion.div key="stuck" className="tp-stuck" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
-              <span className="tp-stuck-title">No moves left</span>
+              <span className="tp-stuck-title">{t("solo.stuck")}</span>
               <button className="btn" onClick={undo}>
-                Undo
+                {t("solo.undo")}
               </button>
               <button className="btn primary" onClick={() => void deal()}>
-                New deal
+                {t("solo.newDeal")}
               </button>
-              <button className="tp-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label="Keep playing">
+              <button className="tp-stuck-x" onClick={() => { click(); buzz("tap"); setStuckSeen(hist.length); }} aria-label={t("solo.keep")}>
                 ✕
               </button>
             </motion.div>

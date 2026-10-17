@@ -18,6 +18,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import { VictoryModal } from "../arcade/VictoryModal";
 import "./spider.css";
+import { t } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -146,7 +147,7 @@ export function Spider({
       if (gainedXp > 0) {
         banked.current = tallySpiderXp(cur);
         const id = ++floatId.current;
-        setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: gainedXp, tag: "RUN CLEARED!" }]);
+        setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: gainedXp, tag: t("sp.run") }]);
         setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1200);
       }
       if (game.gameId) {
@@ -182,7 +183,7 @@ export function Spider({
     if (!canDealSpider(k)) {
       buzz("bump");
       const id = ++floatId.current;
-      setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 0, tag: "NO EMPTY COLUMNS TO DEAL!" }]);
+      setFloats((f) => [...f, { id, x: window.innerWidth / 2, y: window.innerHeight / 2, xp: 0, tag: t("sp.noEmpty") }]);
       setTimeout(() => setFloats((f) => f.filter((x) => x.id !== id)), 1200);
       return;
     }
@@ -344,19 +345,19 @@ export function Spider({
             type="button"
             className="spider-icon-btn"
             onClick={() => { click(); buzz("tap"); onExit(); }}
-            title="Leave Spider"
-            aria-label="Back to the lobby"
+            title={t("sp.leave")}
+            aria-label={t("solo.back")}
           >
             <Icon d="M15 19l-7-7 7-7" />
           </button>
 
           <div className="spider-hud">
             <span className="spider-hud-name">
-              SPIDER SOLITAIRE
-              <span className="arcade-trust-pill">✓ Free · No Ads</span>
+              {t("arc.spider.title").toUpperCase()}
+              <span className="arcade-trust-pill">{t("solo.free")}</span>
             </span>
             <span className="spider-hud-stats">
-              {mode} SUIT • RUNS: <span className="spider-hud-val">{completed}/8</span> • <span className="spider-hud-val">{room} XP ROOM</span> • <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+              {t("sp.hud", { n: mode, count: mode })}<span className="spider-hud-val">{completed}/8</span> • <span className="spider-hud-val">{t("solo.room", { n: room })}</span> • <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
             </span>
           </div>
 
@@ -365,8 +366,8 @@ export function Spider({
             className="spider-icon-btn"
             onClick={handleHint}
             disabled={done}
-            title="Show hint"
-            aria-label="Hint"
+            title={t("solo.showHint")}
+            aria-label={t("solo.hint")}
           >
             <Icon d="M12 2a7 7 0 00-7 7c0 2.38 1.19 4.47 3 5.74V17a1 1 0 001 1h6a1 1 0 001-1v-2.26c1.81-1.27 3-3.36 3-5.74a7 7 0 00-7-7zm-2 18a1 1 0 001 1h2a1 1 0 001-1v-1h-4v1z" />
           </button>
@@ -376,8 +377,8 @@ export function Spider({
             className="spider-icon-btn"
             onClick={handleUndo}
             disabled={hist.length <= 1 || done}
-            title="Undo last move"
-            aria-label="Undo"
+            title={t("solo.undoLast")}
+            aria-label={t("solo.undo")}
           >
             <Icon d="M3 10h10a5 5 0 015 5v2m-15-7l4-4m-4 4l4 4" />
           </button>
@@ -396,10 +397,10 @@ export function Spider({
                 setTimeout(() => setArmed(false), 2600);
               }
             }}
-            title={armed ? "Confirm new deal" : "New deal"}
-            aria-label="New deal"
+            title={armed ? t("solo.newDealQ") : t("solo.newDeal")}
+            aria-label={t("solo.newDeal")}
           >
-            {armed ? <span className="spider-sure">NEW?</span> : <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />}
+            {armed ? <span className="spider-sure">{t("solo.NEWQ")}</span> : <Icon d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />}
           </button>
         </header>
 
@@ -428,7 +429,7 @@ export function Spider({
             onClick={handleDealStock}
             role="button"
             tabIndex={dealsLeft > 0 ? 0 : -1}
-            aria-label={dealsLeft > 0 ? `Deal cards (${dealsLeft} deals remaining)` : "No deals remaining"}
+            aria-label={dealsLeft > 0 ? t("sp.deal", { n: dealsLeft }) : t("sp.noDeals")}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
@@ -436,7 +437,8 @@ export function Spider({
               }
             }}
           >
-            <span className="spider-stock-count">{dealsLeft} DEALS</span>
+            <span className="spider-stock-count">{t("sp.deals", { n: dealsLeft })}</span>
+
             <div
               style={{
                 position: "relative",

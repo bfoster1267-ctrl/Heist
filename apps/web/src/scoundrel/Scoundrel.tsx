@@ -19,6 +19,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { VictoryModal } from "../arcade/VictoryModal";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import "./scoundrel.css";
+import { t, tNodes } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -210,14 +211,14 @@ export function Scoundrel({
       cardSound();
       buzz("tap");
       const heals = !k.potionUsedThisRoom ? Math.min(val, k.maxHp - k.hp) : 0;
-      applyMove({ kind: "pick", roomIndex }, pos, heals > 0 ? `+${heals} HP` : "Discarded");
+      applyMove({ kind: "pick", roomIndex }, pos, heals > 0 ? t("sc.hp", { n: heals }) : t("sc.discarded"));
       return;
     }
 
     if (kind === "weapon") {
       cardSound();
       buzz("bump");
-      applyMove({ kind: "pick", roomIndex }, pos, `Weapon ${val}`);
+      applyMove({ kind: "pick", roomIndex }, pos, t("sc.weaponTag", { n: val }));
       return;
     }
 
@@ -229,7 +230,7 @@ export function Scoundrel({
         // Barehanded fight
         cardSound();
         buzz("bump");
-        applyMove({ kind: "pick", roomIndex, useWeapon: false }, pos, "Monster");
+        applyMove({ kind: "pick", roomIndex, useWeapon: false }, pos, t("sc.monsterTag"));
       }
     }
   };
@@ -270,27 +271,27 @@ export function Scoundrel({
             buzz("tap");
             onExit();
           }}
-          title="Exit"
-          aria-label="Exit"
+          title={t("solo.exit")}
+          aria-label={t("solo.exit")}
         >
           ✕
         </button>
 
         <div className="sc-hud">
           <div className="sc-hud-name">
-            SCOUNDREL
-            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            {t("arc.scoundrel.title").toUpperCase()}
+            <span className="arcade-trust-pill">{t("solo.free")}</span>
           </div>
           <div className="sc-hud-stats">
             <span>{timeStr}</span>
             <span className="sc-dot">•</span>
-            <span>Rooms: <b>{k?.roomsCleared ?? 0}</b></span>
+            <span>{tNodes("sc.rooms", { b: <b>{k?.roomsCleared ?? 0}</b> })}</span>
             <span className="sc-dot">•</span>
-            <span>Monsters: <b>{k?.monstersSlayed ?? 0}</b></span>
+            <span>{tNodes("sc.monsters", { b: <b>{k?.monstersSlayed ?? 0}</b> })}</span>
             <span className="sc-dot">•</span>
             <b className="sc-xp">+{currentXp} XP</b>
             <span className="sc-dot">•</span>
-            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+            <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
           </div>
         </div>
 
@@ -298,8 +299,8 @@ export function Scoundrel({
           className="sc-icon-btn"
           onClick={onUndo}
           disabled={hist.length <= 1 || done}
-          title="Undo"
-          aria-label="Undo"
+          title={t("solo.undo")}
+          aria-label={t("solo.undo")}
         >
           ↶
         </button>
@@ -315,10 +316,10 @@ export function Scoundrel({
               setTimeout(() => setArmed(false), 3000);
             }
           }}
-          title={armed ? "Deal new dungeon?" : "New Dungeon"}
-          aria-label={armed ? "Confirm deal new dungeon" : "New Dungeon"}
+          title={armed ? t("sc.newQ") : t("sc.new")}
+          aria-label={armed ? t("sc.newConfirm") : t("sc.new")}
         >
-          {armed ? <span className="sc-sure">NEW?</span> : "↻"}
+          {armed ? <span className="sc-sure">{t("solo.NEWQ")}</span> : "↻"}
         </button>
       </div>
 
@@ -337,7 +338,7 @@ export function Scoundrel({
               {/* HP Bar */}
               <div className="sc-hp-box">
                 <div className="sc-hp-label">
-                  <span>❤️ HEALTH</span>
+                  <span>{t("sc.health")}</span>
                 </div>
                 <div className="sc-hp-track">
                   <div
@@ -356,21 +357,21 @@ export function Scoundrel({
                   <span className="sc-weapon-icon">⚔️</span>
                   <div className="sc-weapon-info">
                     <span className="sc-weapon-title">
-                      {k.weapon ? `EQUIPPED: ♦ ${k.weapon.power}` : "BARE HANDS"}
+                      {k.weapon ? t("sc.equipped", { n: k.weapon.power }) : t("sc.bare")}
                     </span>
                     <span className="sc-weapon-sub">
                       {k.weapon
                         ? k.weapon.lastDefeated !== undefined
-                          ? `Can attack monsters <= ${k.weapon.lastDefeated}`
-                          : `Power ${k.weapon.power} (fresh weapon)`
-                        : "Take full monster damage"}
+                          ? t("sc.canAttack", { n: k.weapon.lastDefeated })
+                          : t("sc.fresh", { n: k.weapon.power })
+                        : t("sc.fullDmg")}
                     </span>
                   </div>
                 </div>
 
                 <div className="sc-dungeon-count">
-                  <span>Dungeon:</span>
-                  <b>{k.dungeon.length} left</b>
+                  <span>{t("sc.dungeon")}</span>
+                  <b>{t("sc.left", { n: k.dungeon.length })}</b>
                 </div>
               </div>
             </div>
@@ -378,9 +379,9 @@ export function Scoundrel({
             {/* Dungeon Room Cards */}
             <div className="sc-room-wrap">
               <div className="sc-room-header">
-                <span>{k.dungeon.length === 0 ? "ROOM (CLEAR ALL CARDS):" : "ROOM (PICK 3 CARDS):"}</span>
+                <span>{k.dungeon.length === 0 ? t("sc.roomAll") : t("sc.roomPick")}</span>
                 <span>
-                  Resolved: <b>{k.cardsResolvedInRoom} / {k.dungeon.length === 0 ? k.room.filter((c) => c !== null).length + k.cardsResolvedInRoom : 3}</b>
+                  {tNodes("sc.resolved", { b: <b>{k.cardsResolvedInRoom} / {k.dungeon.length === 0 ? k.room.filter((c) => c !== null).length + k.cardsResolvedInRoom : 3}</b> })}
                 </span>
               </div>
 
@@ -397,10 +398,10 @@ export function Scoundrel({
                   const red = cardRed(card);
 
                   let badgeLabel = "";
-                  if (kind === "monster") badgeLabel = `MONSTER ${val}`;
-                  else if (kind === "weapon") badgeLabel = `WEAPON ${val}`;
+                  if (kind === "monster") badgeLabel = t("sc.monster", { n: val });
+                  else if (kind === "weapon") badgeLabel = t("sc.weapon", { n: val });
                   else if (kind === "potion") {
-                    badgeLabel = k.potionUsedThisRoom ? "DISCARD" : `HEAL +${val}`;
+                    badgeLabel = k.potionUsedThisRoom ? t("sc.discard") : t("sc.heal", { n: val });
                   }
 
                   return (
@@ -410,7 +411,7 @@ export function Scoundrel({
                         onClick={(e) => onCardClick(idx, card, e)}
                         role="button"
                         tabIndex={0}
-                        aria-label={`${badgeLabel}, ${RANKS[rank]} of ${SUITS[suit]}`}
+                        aria-label={t("sc.cardAria", { label: badgeLabel, rank: RANKS[rank], suit: SUITS[suit] })}
                         onKeyDown={(e) => {
                           if (e.key === "Enter" || e.key === " ") {
                             e.preventDefault();
@@ -431,12 +432,12 @@ export function Scoundrel({
 
                         <div className="sc-card-desc">
                           {kind === "monster"
-                            ? `ATK ${val}`
+                            ? t("sc.atk", { n: val })
                             : kind === "weapon"
-                            ? `PWR ${val}`
+                            ? t("sc.pwr", { n: val })
                             : k.potionUsedThisRoom
-                            ? "DISCARD"
-                            : `+${val} HP`}
+                            ? t("sc.discard")
+                            : t("sc.hp", { n: val })}
                         </div>
                       </div>
                     </div>
@@ -451,18 +452,18 @@ export function Scoundrel({
                 className="sc-action-btn flee"
                 onClick={onFlee}
                 disabled={!k.canFlee || k.cardsResolvedInRoom > 0 || k.dungeon.length === 0 || k.room.filter((c) => c !== null).length < 4}
-                aria-label="Run away / Flee room"
+                aria-label={t("sc.fleeAria")}
                 title={
                   !k.canFlee
-                    ? "Cannot flee twice in a row"
+                    ? t("sc.noFleeTwice")
                     : k.cardsResolvedInRoom > 0
-                    ? "Can only flee before picking any cards"
+                    ? t("sc.fleeBefore")
                     : k.dungeon.length === 0
-                    ? "Cannot flee when dungeon deck is empty"
-                    : "Put 4 cards to bottom of dungeon & deal 4 fresh"
+                    ? t("sc.fleeEmpty")
+                    : t("sc.fleeHow")
                 }
               >
-                🏃 RUN AWAY / FLEE
+                {t("sc.flee")}
               </button>
             </div>
           </>
@@ -473,7 +474,7 @@ export function Scoundrel({
       {combatChoice && k && (
         <div className="sc-choice-overlay" onClick={() => setCombatChoice(null)}>
           <div className="sc-choice-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="sc-choice-title">FIGHT MONSTER</div>
+            <div className="sc-choice-title">{t("sc.fight")}</div>
             {(() => {
               const val = scoundrelCardValue(combatChoice.card);
               const weapon = k.weapon;
@@ -484,14 +485,14 @@ export function Scoundrel({
               return (
                 <>
                   <div className="sc-choice-sub">
-                    Monster has <b>{val} power</b>.
+                    {tNodes("sc.monsterHas", { b: <b>{t("sc.power", { n: val })}</b> })}
                   </div>
 
                   <div className="sc-choice-btns">
                     <button
                       className="sc-choice-btn primary"
                       disabled={!canUseWeapon}
-                      aria-label={`Use weapon with power ${weapon?.power ?? 0}`}
+                      aria-label={t("sc.useAria", { n: weapon?.power ?? 0 })}
                       onClick={() => {
                         cardSound();
                         buzz("bump");
@@ -502,22 +503,22 @@ export function Scoundrel({
                             useWeapon: true,
                           },
                           combatChoice.pos,
-                          "Slayed!"
+                          t("sc.slayed")
                         );
                       }}
                     >
-                      <span>USE WEAPON (PWR {weapon?.power})</span>
-                      <span>Take -{weaponDmg} HP</span>
+                      <span>{t("sc.use", { n: weapon?.power ?? 0 })}</span>
+                      <span>{t("sc.take", { n: weaponDmg })}</span>
                     </button>
                     {!canUseWeapon && weapon && (
                       <small style={{ color: "#ff8a80", fontSize: "11px" }}>
-                        Weapon durability limit: can only fight monsters ≤ {weapon.lastDefeated}.
+                        {t("sc.durability", { n: weapon.lastDefeated ?? 0 })}
                       </small>
                     )}
 
                     <button
                       className="sc-choice-btn"
-                      aria-label={`Fight barehanded, take ${val} damage`}
+                      aria-label={t("sc.bareAria", { n: val })}
                       onClick={() => {
                         cardSound();
                         buzz("bump");
@@ -528,12 +529,12 @@ export function Scoundrel({
                             useWeapon: false,
                           },
                           combatChoice.pos,
-                          "Barehanded"
+                          t("sc.barehandedTag")
                         );
                       }}
                     >
-                      <span>FIGHT BAREHANDED</span>
-                      <span>Take -{val} HP</span>
+                      <span>{t("sc.bareBtn")}</span>
+                      <span>{t("sc.take", { n: val })}</span>
                     </button>
                   </div>
 
@@ -544,9 +545,9 @@ export function Scoundrel({
                       buzz("tap");
                       setCombatChoice(null);
                     }}
-                    aria-label="Cancel combat choice"
+                    aria-label={t("sc.cancelAria")}
                   >
-                    Cancel
+                    {t("common.cancel")}
                   </button>
                 </>
               );
@@ -580,19 +581,21 @@ export function Scoundrel({
           animate={{ opacity: 1 }}
         >
           <div className="sc-result-card">
-            <div className="sc-result-title dead">YOU DIED</div>
+            <div className="sc-result-title dead">{t("sc.died")}</div>
             <div className="sc-result-sub">
-              Slain in the dungeon. You defeated <b>{k.monstersSlayed} monsters</b> and cleared{" "}
-              <b>{k.roomsCleared} rooms</b>.
+              {tNodes("sc.slain", {
+                m: <b>{t("sc.nMonsters", { count: k.monstersSlayed })}</b>,
+                r: <b>{t("sc.nRooms", { count: k.roomsCleared })}</b>,
+              })}
             </div>
             <div className="sc-result-btns">
               {hist.length > 1 && (
                 <button
                   className="sc-result-btn secondary"
                   onClick={onUndo}
-                  aria-label="Undo move"
+                  aria-label={t("sc.undoAria")}
                 >
-                  UNDO MOVE
+                  {t("sc.undo")}
                 </button>
               )}
               <button
@@ -602,9 +605,9 @@ export function Scoundrel({
                   buzz("tap");
                   void deal();
                 }}
-                aria-label="Try dungeon again"
+                aria-label={t("sc.againAria")}
               >
-                TRY AGAIN
+                {t("sc.again")}
               </button>
               <button
                 className="sc-result-btn secondary"
@@ -613,9 +616,10 @@ export function Scoundrel({
                   buzz("tap");
                   onExit();
                 }}
-                aria-label="Back to Lobby"
+                aria-label={t("solo.back")}
               >
-                LOBBY
+                {t("solo.lobby")}
+
               </button>
             </div>
           </div>

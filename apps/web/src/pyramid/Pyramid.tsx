@@ -18,6 +18,7 @@ import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
 import { VictoryModal } from "../arcade/VictoryModal";
 import "./pyramid.css";
+import { t, tNodes } from "../i18n";
 
 const SUITS = ["♠", "♥", "♦", "♣"];
 const RANKS = ["", "A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"];
@@ -380,27 +381,27 @@ export function Pyramid({
         <button
           className="pyr-icon-btn"
           onClick={() => { click(); buzz("tap"); onExit(); }}
-          title="Exit"
-          aria-label="Exit"
+          title={t("solo.exit")}
+          aria-label={t("solo.exit")}
         >
           ✕
         </button>
 
         <div className="pyr-hud">
           <div className="pyr-hud-name">
-            PYRAMID
-            <span className="arcade-trust-pill">✓ Free · No Ads</span>
+            {t("arc.pyramid.title").toUpperCase()}
+            <span className="arcade-trust-pill">{t("solo.free")}</span>
           </div>
           <div className="pyr-hud-stats">
             <span>{timeStr}</span>
             <span className="pyr-dot">•</span>
-            <span>Cleared: <b>{clearedCount}/28</b></span>
+            <span>{tNodes("pyr.cleared", { b: <b>{clearedCount}/28</b> })}</span>
             <span className="pyr-dot">•</span>
-            <span>Moves: <b>{moves.length}</b></span>
+            <span>{tNodes("solo.movesL", { b: <b>{moves.length}</b> })}</span>
             <span className="pyr-dot">•</span>
             <b className="pyr-xp">+{currentXp} XP</b>
             <span className="pyr-dot">•</span>
-            <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
+            <span className="arcade-streak-pill">{streak > 0 ? t("solo.streakD", { n: streak }) : t("solo.day1")}</span>
           </div>
         </div>
 
@@ -408,8 +409,8 @@ export function Pyramid({
           className="pyr-icon-btn"
           onClick={onHint}
           disabled={done}
-          title="Hint (-2 XP)"
-          aria-label="Hint"
+          title={t("solo.hintCost")}
+          aria-label={t("solo.hint")}
         >
           💡
         </button>
@@ -418,8 +419,8 @@ export function Pyramid({
           className="pyr-icon-btn"
           onClick={onUndo}
           disabled={hist.length <= 1 || done}
-          title="Undo"
-          aria-label="Undo"
+          title={t("solo.undo")}
+          aria-label={t("solo.undo")}
         >
           ↶
         </button>
@@ -435,10 +436,10 @@ export function Pyramid({
               setTimeout(() => setArmed(false), 3000);
             }
           }}
-          title={armed ? "Deal new game?" : "New Game"}
-          aria-label="New Game"
+          title={armed ? t("solo.newGameQ") : t("solo.newGame")}
+          aria-label={t("solo.newGame")}
         >
-          {armed ? <span className="pyr-sure">NEW?</span> : "↻"}
+          {armed ? <span className="pyr-sure">{t("solo.NEWQ")}</span> : "↻"}
         </button>
       </div>
 
@@ -532,7 +533,7 @@ export function Pyramid({
                     onClick={onStockClick}
                     role="button"
                     tabIndex={0}
-                    aria-label={k.stock.length > 0 ? `Draw from stock (${k.stock.length} left)` : k.waste.length > 0 ? "Recycle waste pile" : "Stock and waste are empty"}
+                    aria-label={k.stock.length > 0 ? t("pyr.draw", { n: k.stock.length }) : k.waste.length > 0 ? t("pyr.recycleAria") : t("solo.stockEmpty")}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" || e.key === " ") {
                         e.preventDefault();
@@ -552,12 +553,12 @@ export function Pyramid({
                     ) : k.waste.length > 0 ? (
                       <div className={`pyr-recycle-btn ${recycleHinted ? "hinted" : ""}`}>
                         <span style={{ fontSize: "16px" }}>↻</span>
-                        <span>RECYCLE</span>
+                        <span>{t("pyr.recycle")}</span>
                       </div>
                     ) : (
-                      <span style={{ fontSize: "12px", opacity: 0.5 }}>EMPTY</span>
+                      <span style={{ fontSize: "12px", opacity: 0.5 }}>{t("pyr.empty")}</span>
                     )}
-                    <span className="pyr-stock-count">{k.stock.length} left</span>
+                    <span className="pyr-stock-count">{t("solo.left", { n: k.stock.length })}</span>
                   </div>
 
                   {/* Waste slot */}
@@ -606,7 +607,8 @@ export function Pyramid({
                         );
                       })()
                     ) : (
-                      <span style={{ fontSize: "12px", opacity: 0.4 }}>WASTE</span>
+                      <span style={{ fontSize: "12px", opacity: 0.4 }}>{t("pyr.waste")}</span>
+
                     )}
                   </div>
                 </>
