@@ -5,7 +5,7 @@ import { shareUrl } from "../crazygames";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import { ChallengeBanner } from "../daily/ChallengeBanner";
-import { t } from "../i18n";
+import { t, useLanguage } from "../i18n";
 import "./arcade.css";
 
 export type ArcadeGameId =
@@ -19,7 +19,9 @@ export type ArcadeGameId =
   | "scoundrel"
   | "checkers"
   | "minesweeper"
-  | "sudoku";
+  | "sudoku"
+  | "hearts"
+  | "spades";
 
 export type ArcadeCategory = "all" | "solitaire" | "action" | "puzzle";
 export type ArcadeDifficulty = "Casual" | "Medium" | "Expert";
@@ -311,6 +313,54 @@ export const ARCADE_GAMES: ArcadeGame[] = [
       tip: "Keep your back row home as long as you can: it stops the bot crowning kings behind your lines.",
     },
   },
+  {
+    id: "hearts",
+    title: "Hearts",
+    subtitle: "Dodge the Queen",
+    tagline: "The casino 4-player trick-taker: dodge penalty hearts and the Queen of Spades, or shoot the moon for the grand heist.",
+    category: "action",
+    difficulty: "Medium",
+    tags: ["4 Players", "Vs Bot", "Trick-Taking", "Shoot the Moon"],
+    deckInfo: "Standard 52-card deck, 4 hands of 13",
+    path: "/hearts",
+    art: {
+      cards: [
+        { rank: "Q", suit: "♠", red: false },
+        { rank: "A", suit: "♥", red: true },
+      ],
+      badge: "4-Player",
+    },
+    rules: {
+      overview: "4-player trick-taking game against Rookie, Pro, or Boss house bots. Pass 3 cards to start, then play 13 tricks.",
+      goal: "Finish with the lowest penalty score. Hearts are 1 point each, and the Queen of Spades is 13 points.",
+      keyRule: "Must follow suit if possible. Hearts cannot lead until broken. Win all 26 penalty points to Shoot the Moon and give 26 points to every opponent instead!",
+      tip: "Dump high spades early so you don't get stuck taking the Queen of Spades when a spade is led.",
+    },
+  },
+  {
+    id: "spades",
+    title: "Spades",
+    subtitle: "Call Your Contract",
+    tagline: "4-player trick-taking card battle: bid your books accurately, use spades as trump, and avoid the bag penalties.",
+    category: "action",
+    difficulty: "Medium",
+    tags: ["4 Players", "Vs Bot", "Trick-Taking", "Bidding"],
+    deckInfo: "Standard 52-card deck, 4 hands of 13",
+    path: "/spades",
+    art: {
+      cards: [
+        { rank: "A", suit: "♠", red: false },
+        { rank: "K", suit: "♠", red: false },
+      ],
+      badge: "4-Player",
+    },
+    rules: {
+      overview: "Classic 4-player Spades against Rookie, Pro, or Boss house bots. Each player bids how many books (tricks) they will win.",
+      goal: "Meet your exact bid contract. Spades are always trump.",
+      keyRule: "Must follow suit if you have it. If void, you can trump with a Spade. Spades cannot be led until spades are broken.",
+      tip: "A Nil bid (0 books) scores 50 bonus points if made, but carries a 50-point penalty if broken.",
+    },
+  },
 ];
 
 export interface ArcadeHubProps {
@@ -322,6 +372,7 @@ export interface ArcadeHubProps {
 }
 
 export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenDaily }: ArcadeHubProps) {
+  useLanguage();
   const [tab, setTab] = useState<ArcadeCategory>("all");
   const [search, setSearch] = useState("");
   const [openRules, setOpenRules] = useState<Record<string, boolean>>({});
@@ -347,10 +398,11 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
     buzz("tap");
     click();
     try {
+      const title = t(`arcade.game.${game.id}.title`, game.title);
       if (navigator.share) {
         await navigator.share({
-          title: `Heist Solo Arcade - ${game.title}`,
-          text: `Play ${game.title} on Heist Solo Arcade!`,
+          title: `Heist Solo Arcade - ${title}`,
+          text: `Play ${title} on Heist Solo Arcade!`,
           url,
         });
       } else if (navigator.clipboard?.writeText) {
@@ -373,7 +425,13 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
 
       if (!search.trim()) return true;
       const q = search.toLowerCase();
+      const locTitle = t(`arcade.game.${game.id}.title`, game.title).toLowerCase();
+      const locSubtitle = t(`arcade.game.${game.id}.subtitle`, game.subtitle).toLowerCase();
+      const locTagline = t(`arcade.game.${game.id}.tagline`, game.tagline).toLowerCase();
       return (
+        locTitle.includes(q) ||
+        locSubtitle.includes(q) ||
+        locTagline.includes(q) ||
         game.title.toLowerCase().includes(q) ||
         game.subtitle.toLowerCase().includes(q) ||
         game.tagline.toLowerCase().includes(q) ||
@@ -544,6 +602,15 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
               const isCurrent = activeGame === game.id;
               const isCopied = copiedId === game.id;
 
+              const title = t(`arcade.game.${game.id}.title`, game.title);
+              const subtitle = t(`arcade.game.${game.id}.subtitle`, game.subtitle);
+              const tagline = t(`arcade.game.${game.id}.tagline`, game.tagline);
+              const deckInfo = t(`arcade.game.${game.id}.deckInfo`, game.deckInfo);
+              const goal = t(`arcade.game.${game.id}.goal`, game.rules.goal);
+              const keyRule = t(`arcade.game.${game.id}.keyRule`, game.rules.keyRule);
+              const tip = t(`arcade.game.${game.id}.tip`, game.rules.tip);
+              const diffLabel = t(`arcade.diff_${game.difficulty.toLowerCase()}`, game.difficulty);
+
               return (
                 <article
                   key={game.id}
@@ -572,23 +639,23 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                     {/* Metadata */}
                     <div className="arcade-card-meta">
                       <div className="arcade-card-row-1">
-                        <h3 className="arcade-game-name">{game.title}</h3>
+                        <h3 className="arcade-game-name">{title}</h3>
                         <span
                           className={`arcade-difficulty ${game.difficulty.toLowerCase()}`}
-                          title={`Difficulty: ${game.difficulty}`}
+                          title={`Difficulty: ${diffLabel}`}
                         >
-                          {game.difficulty}
+                          {diffLabel}
                         </span>
                       </div>
-                      <span className="arcade-game-subtitle">{game.subtitle}</span>
-                      <p className="arcade-game-tagline">{game.tagline}</p>
+                      <span className="arcade-game-subtitle">{subtitle}</span>
+                      <p className="arcade-game-tagline">{tagline}</p>
                     </div>
                   </div>
 
                   {/* Core Mechanic Tags */}
                   <div className="arcade-tags-row">
                     <span className="arcade-mechanic-tag arcade-deck-tag">
-                      🂠 {game.deckInfo}
+                      🂠 {deckInfo}
                     </span>
                     {game.tags.map((tag) => (
                       <span key={tag} className="arcade-mechanic-tag">
@@ -603,25 +670,25 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                     className={`arcade-how-to-toggle ${isOpen ? "open" : ""}`}
                     onClick={() => toggleRules(game.id)}
                     aria-expanded={isOpen}
-                    aria-label={`How to play and rules for ${game.title}`}
+                    aria-label={`${t("arcade.how_to_play")} - ${title}`}
                   >
-                    <span>How to play & Rules</span>
+                    <span>{t("arcade.how_to_play")}</span>
                     <span className="arrow" aria-hidden>▼</span>
                   </button>
 
                   {isOpen && (
                     <div className="arcade-rules-drawer">
                       <div className="arcade-rule-item">
-                        <span className="arcade-rule-label">🎯 Goal</span>
-                        <p className="arcade-rule-text">{game.rules.goal}</p>
+                        <span className="arcade-rule-label">{t("arcade.rule_goal")}</span>
+                        <p className="arcade-rule-text">{goal}</p>
                       </div>
                       <div className="arcade-rule-item">
-                        <span className="arcade-rule-label">📜 Core Rule</span>
-                        <p className="arcade-rule-text">{game.rules.keyRule}</p>
+                        <span className="arcade-rule-label">{t("arcade.rule_core")}</span>
+                        <p className="arcade-rule-text">{keyRule}</p>
                       </div>
                       <div className="arcade-rule-item tip">
-                        <span className="arcade-rule-label">💡 Winning Tip</span>
-                        <p className="arcade-rule-text">{game.rules.tip}</p>
+                        <span className="arcade-rule-label">{t("arcade.rule_tip")}</span>
+                        <p className="arcade-rule-text">{tip}</p>
                       </div>
                     </div>
                   )}
@@ -633,10 +700,10 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                       className="arcade-link-btn"
                       onClick={() => copyGameLink(game)}
                       title={`Direct link: ${game.path} (Click to copy)`}
-                      aria-label={`Copy direct link for ${game.title}`}
+                      aria-label={`Copy direct link for ${title}`}
                     >
                       <span className="chain-icon" aria-hidden>🔗</span>
-                      <span>{isCopied ? "Link Copied!" : game.path}</span>
+                      <span>{isCopied ? t("arcade.link_copied") : game.path}</span>
                     </button>
 
                     {game.id === "ers" && (
@@ -651,7 +718,7 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                         aria-label="Play 2-Player Real-time PvP Duel"
                         title="2-Player PvP with Invite Link"
                       >
-                        ⚔️ 2P DUEL
+                        {t("arcade.duel_2p")}
                       </button>
                     )}
 
@@ -663,9 +730,9 @@ export function ArcadeHub({ onClose, onSelectGame, activeGame, progress, onOpenD
                         buzz("tap");
                         onSelectGame(game.id, false);
                       }}
-                      aria-label={`${isCurrent ? "Resume" : "Play"} ${game.title}`}
+                      aria-label={`${isCurrent ? t("arcade.resume") : t("arcade.play")} ${title}`}
                     >
-                      {isCurrent ? "RESUME" : "PLAY"}
+                      {isCurrent ? t("arcade.resume") : t("arcade.play")}
                     </button>
                   </div>
                 </article>

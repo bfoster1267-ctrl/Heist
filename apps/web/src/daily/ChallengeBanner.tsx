@@ -28,6 +28,8 @@ export const GAME_LABELS: Record<DailyGame, { title: string; icon: string }> = {
   minesweeper: { title: "Minesweeper", icon: "💣" },
   sudoku: { title: "Sudoku", icon: "🔢" },
   checkers: { title: "Checkers", icon: "⛀" },
+  hearts: { title: "Hearts", icon: "♥️" },
+  spades: { title: "Spades", icon: "♠️" },
 };
 
 export function ChallengeBanner({

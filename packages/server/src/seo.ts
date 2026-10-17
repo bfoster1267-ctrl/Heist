@@ -202,6 +202,24 @@ const PAGES: Record<string, Page> = {
 <p>Draws come after 40 moves each without a capture, or when a position repeats three times. Take on the daily Pro bot to keep your streak going.</p>
 <p>Try our other games: <a href="/">Heist Multiplayer</a> · <a href="/solitaire">Solitaire</a></p>`,
   },
+  "/hearts": {
+    title: "Hearts Card Game: Play Free Online Hearts vs Bots, No Download",
+    description:
+      "Play classic 4-player Hearts free in your browser against Rookie, Pro, and Boss bots. Pass 3 cards, dodge the Queen of Spades, or Shoot the Moon. No download, no ads.",
+    keywords: "hearts card game online, play hearts free, hearts browser game, queen of spades card game, shoot the moon hearts",
+    text: `<h1>Free Online Hearts Card Game</h1>
+<p>Play classic 4-player Hearts against smart house bots right in your browser. Pass three cards before the opening lead of the 2 of Clubs, avoid taking Hearts (1 point each) and the Queen of Spades (13 points), or capture all 26 penalty points to Shoot the Moon!</p>
+<p>Try our other games: <a href="/spades">Spades</a> · <a href="/solitaire">Solitaire</a> · <a href="/">Heist Multiplayer</a></p>`,
+  },
+  "/spades": {
+    title: "Spades Card Game: Play Free Online Spades in Browser, No Download",
+    description:
+      "Play classic 4-player Spades free in your browser against Rookie, Pro, and Boss bots. Bid your contract or go Nil, trump with Spades, and outscore the table. No ads.",
+    keywords: "spades card game online, play spades free, spades browser game, cutthroat spades online",
+    text: `<h1>Free Online Spades Card Game</h1>
+<p>Play classic trick-taking Spades free in your browser. Bid the number of books your hand can take (or bid Nil for a 50-point bonus), manage your Spades trumps, and fulfill your contract to beat the table.</p>
+<p>Try our other games: <a href="/hearts">Hearts</a> · <a href="/solitaire">Solitaire</a> · <a href="/">Heist Multiplayer</a></p>`,
+  },
 };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");

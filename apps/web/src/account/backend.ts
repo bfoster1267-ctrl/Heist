@@ -4,7 +4,7 @@
 // all work in the offline build too.
 
 import type {
-  Badge, CheckersLevel, MinesLevel, Progress, PublicProfile, Reward, SudokuLevel,
+  Badge, CheckersLevel, HeartsLevel, MinesLevel, Progress, PublicProfile, Reward, SpadesLevel, SudokuLevel,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 import { crazyGamesLinked, crazyGamesSource, crazyGamesToken } from "../crazygames";
@@ -210,6 +210,18 @@ export interface Backend {
   checkersFinish(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   /** pay a Checkers game's captures so far */
   checkersBank(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** start a Hearts hand against bots (the daily is always the Pro table) */
+  heartsStart(seed?: number, isDaily?: boolean, level?: HeartsLevel): Promise<{ gameId: string; seed: number; level: HeartsLevel }>;
+  /** settle a finished Hearts hand */
+  heartsFinish(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** pay a Hearts hand's points/tricks so far */
+  heartsBank(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** start a Spades hand against bots (the daily is always the Pro table) */
+  spadesStart(seed?: number, isDaily?: boolean, level?: SpadesLevel): Promise<{ gameId: string; seed: number; level: SpadesLevel }>;
+  /** settle a finished Spades hand */
+  spadesFinish(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
+  /** pay a Spades hand's books so far */
+  spadesBank(gameId: string, moves: number[][], drain: number): Promise<{ me: Me; reward: Reward | null }>;
   soloQuit(): Promise<Me>;
   buy(id: string): Promise<Me>;
   equip(id: string): Promise<Me>;
@@ -504,6 +516,24 @@ export class ServerBackend implements Backend {
   }
   checkersBank(gameId: string, moves: number[][], drain: number) {
     return this.call<{ me: Me; reward: Reward | null }>("/api/checkers/bank", { gameId, moves, drain });
+  }
+  heartsStart(seed?: number, isDaily?: boolean, level?: HeartsLevel) {
+    return this.call<{ gameId: string; seed: number; level: HeartsLevel }>("/api/hearts/start", { seed, isDaily, level });
+  }
+  heartsFinish(gameId: string, moves: number[][], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/hearts/finish", { gameId, moves, drain });
+  }
+  heartsBank(gameId: string, moves: number[][], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/hearts/bank", { gameId, moves, drain });
+  }
+  spadesStart(seed?: number, isDaily?: boolean, level?: SpadesLevel) {
+    return this.call<{ gameId: string; seed: number; level: SpadesLevel }>("/api/spades/start", { seed, isDaily, level });
+  }
+  spadesFinish(gameId: string, moves: number[][], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/spades/finish", { gameId, moves, drain });
+  }
+  spadesBank(gameId: string, moves: number[][], drain: number) {
+    return this.call<{ me: Me; reward: Reward | null }>("/api/spades/bank", { gameId, moves, drain });
   }
   async soloQuit() {
     return (await this.call<{ me: Me }>("/api/solo/quit", {})).me;

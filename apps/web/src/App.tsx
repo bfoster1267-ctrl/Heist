@@ -30,6 +30,8 @@ const Scoundrel = lazy(() => import("./scoundrel/Scoundrel").then((m) => ({ defa
 const Minesweeper = lazy(() => import("./minesweeper/Minesweeper").then((m) => ({ default: m.Minesweeper })));
 const Sudoku = lazy(() => import("./sudoku/Sudoku").then((m) => ({ default: m.Sudoku })));
 const Checkers = lazy(() => import("./checkers/Checkers").then((m) => ({ default: m.Checkers })));
+const Hearts = lazy(() => import("./hearts/Hearts").then((m) => ({ default: m.Hearts })));
+const Spades = lazy(() => import("./spades/Spades").then((m) => ({ default: m.Spades })));
 const Profile = lazy(() => import("./account/Profile").then((m) => ({ default: m.Profile })));
 const LoungeDock = lazy(() => import("./account/Friends").then((m) => ({ default: m.LoungeDock })));
 const InviteToast = lazy(() => import("./account/Friends").then((m) => ({ default: m.InviteToast })));
@@ -304,6 +306,44 @@ function Game() {
       /* fine without */
     }
   }, []);
+  // Hearts vs bots: from the lobby, or straight in at playheist.net/hearts
+  const [hearts, setHeartsState] = useState(() => {
+    const on = startPath() === "/hearts";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setHearts = useCallback((on: boolean) => {
+    setHeartsState(on);
+    try {
+      history.replaceState(null, "", on ? "/hearts" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
+  // Spades vs bots: from the lobby, or straight in at playheist.net/spades
+  const [spades, setSpadesState] = useState(() => {
+    const on = startPath() === "/spades";
+    try {
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+    return on;
+  });
+  const setSpades = useCallback((on: boolean) => {
+    setSpadesState(on);
+    try {
+      history.replaceState(null, "", on ? "/spades" + location.search : "/" + location.search);
+      if (on) localStorage.setItem("heist.welcomed", "1");
+    } catch {
+      /* fine without */
+    }
+  }, []);
   // the lobby tour a new player gets after their one-hand first lesson (kept, so a reload picks it up)
   const [tour, setTourState] = useState<TourStep | null>(savedTour);
   const setTour = useCallback((t: TourStep | null) => {
@@ -338,8 +378,10 @@ function Game() {
       setMinesweeper(id === "minesweeper");
       setSudoku(id === "sudoku");
       setCheckers(id === "checkers");
+      setHearts(id === "hearts");
+      setSpades(id === "spades");
     },
-    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel, setCheckers, setMinesweeper, setSudoku],
+    [setSol, setFc, setTp, setErs, setSpider, setPyramid, setYukon, setScoundrel, setCheckers, setMinesweeper, setSudoku, setHearts, setSpades],
   );
   const activeSoloGame: ArcadeGameId | null =
     sol ? "solitaire"
@@ -353,6 +395,8 @@ function Game() {
     : minesweeper ? "minesweeper"
     : sudoku ? "sudoku"
     : checkers ? "checkers"
+    : hearts ? "hearts"
+    : spades ? "spades"
     : null;
   const [arcadeHubOpen, setArcadeHubOpenState] = useState(() => {
     try {
@@ -517,23 +561,27 @@ function Game() {
         ? "Sudoku"
         : checkers
         ? "Checkers"
+        : hearts
+        ? "Hearts"
+        : spades
+        ? "Spades"
         : dailyHubOpen
         ? "Daily Challenge Hub"
         : arcadeHubOpen
         ? "Card Games Hub"
         : "Lobby";
     trackScreen(screen);
-  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, checkers, minesweeper, sudoku, dailyHubOpen, arcadeHubOpen]);
+  }, [profile, table, online, sol, fc, tp, spider, pyramid, ers, ersPvp, yukon, scoundrel, checkers, minesweeper, sudoku, hearts, spades, dailyHubOpen, arcadeHubOpen]);
   // a soft tap on the menus' buttons (the lobby and the sheets over it); never on a game screen, which
   // has its own sounds, nor online, where the lobby and table already play theirs
-  const inMenu = !!profile || (!table && online === null && !sol && !fc && !tp && !spider && !pyramid && !ers && !yukon && !scoundrel && !checkers && !minesweeper && !sudoku);
+  const inMenu = !!profile || (!table && online === null && !sol && !fc && !tp && !spider && !pyramid && !ers && !yukon && !scoundrel && !checkers && !minesweeper && !sudoku && !hearts && !spades);
   useEffect(() => (inMenu ? menuTaps() : undefined), [inMenu]);
   // CrazyGames (does nothing elsewhere): loading ends with the account, gameplay is a table or solo game
   // (online tables tell it from OnlineLobby), and signing in to CrazyGames mid-visit links that account
   useEffect(() => {
     if (me) crazyGamesLoaded();
   }, [me]);
-  useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel || checkers || minesweeper || sudoku));
+  useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel || checkers || minesweeper || sudoku || hearts || spades));
   useEffect(() => onCrazyGamesSignIn(() => void act((b) => b.me())), [act]);
   const chatOff = useCrazyGamesChatOff();
   const onlineTableEnded = useCallback(() => {
@@ -987,6 +1035,56 @@ function Game() {
       </Suspense>
     );
 
+  if (hearts && !table)
+    return (
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
+        <Hearts
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          onExit={() => {
+            setHearts(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="hearts" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setHearts(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </Suspense>
+    );
+
+  if (spades && !table)
+    return (
+      <Suspense fallback={<div className="loading">Opening the vault…</div>}>
+        <Spades
+          initialSeed={gameConfig.seed}
+          isDaily={gameConfig.isDaily}
+          onExit={() => {
+            setSpades(false);
+            setGameConfig({});
+          }}
+          banner={away !== null ? <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame="spades" onOpenArcade={() => setArcadeHubOpen(true)} inline /> : undefined}
+          onHeist={
+            me.guest && !me.progress.coachGames && !me.progress.stats.games
+              ? () => {
+                  setSpades(false);
+                  setGameConfig({});
+                  void sit({ players: 3, name: me.name, stakes: 0, coached: true });
+                }
+              : undefined
+          }
+        />
+        <Rewards />
+      </Suspense>
+    );
+
   return (
     <>
       {!table ? (
@@ -1013,6 +1111,8 @@ function Game() {
             onMinesweeper={() => setMinesweeper(true)}
             onSudoku={() => setSudoku(true)}
             onCheckers={() => setCheckers(true)}
+            onHearts={() => setHearts(true)}
+            onSpades={() => setSpades(true)}
             cleared={me.progress.campaign ?? 0}
             newbie={!me.progress.coachGames && !me.progress.xp && !me.progress.prestige}
             nextLesson={lessonFor(me.progress.coachGames ?? 0)}

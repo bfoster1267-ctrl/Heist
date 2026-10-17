@@ -45,6 +45,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
   const [copiedShare, setCopiedShare] = useState(false);
   const [buyingFreeze, setBuyingFreeze] = useState(false);
   const [claimingVault, setClaimingVault] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   // Countdown timer ticker
   useEffect(() => {
@@ -76,11 +77,12 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
     buzz("tap");
     if (!act) return;
     setBuyingFreeze(true);
+    setActionError(null);
     try {
       await act((b) => b.buyStreakFreeze());
       buzz("bump");
     } catch (err: unknown) {
-      alert((err as Error).message || "Could not buy streak freeze");
+      setActionError((err as Error).message || "Could not buy streak freeze");
     } finally {
       setBuyingFreeze(false);
     }
@@ -92,11 +94,12 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
     buzz("tap");
     if (!act) return;
     setClaimingVault(true);
+    setActionError(null);
     try {
       await act((b) => b.claimDailyVault());
       buzz("win");
     } catch (err: unknown) {
-      alert((err as Error).message || "Could not claim vault");
+      setActionError((err as Error).message || "Could not claim vault");
     } finally {
       setClaimingVault(false);
     }
@@ -342,11 +345,19 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
 
 
 
-        {/* 8-Game Grid */}
+        {actionError && (
+          <div style={{ color: "#f87171", fontSize: 12, textAlign: "center", marginBottom: 8 }} role="alert">
+            {actionError}
+          </div>
+        )}
+
+        {/* All Daily Challenges Grid */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h4 className="daily-grid-title">All 8 Daily Challenges ({completedCount}/8 Done)</h4>
+          <h4 className="daily-grid-title">
+            All {DAILY_GAMES.length} Daily Challenges ({completedCount}/{DAILY_GAMES.length} Done)
+          </h4>
           <span style={{ fontSize: 11, color: "var(--gold)", fontFamily: "var(--cond)" }}>
-            +50 XP · +15 Coins each
+            +{DAILY_BASE_BONUS_XP} XP · +{DAILY_BASE_BONUS_COINS} Coins each
           </span>
         </div>
 

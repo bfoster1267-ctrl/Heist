@@ -7,6 +7,7 @@ import { useLayoutEffect, useState } from "react";
 import { markSeen, setPrefs, usePrefs } from "../prefs";
 import { boxIn } from "../turn";
 import { Crew } from "./pieces";
+import { t, useLanguage } from "../i18n";
 
 interface Step {
   anchor?: string;
@@ -16,25 +17,26 @@ interface Step {
 
 const steps = (s: GameState, lessonOn: boolean): Step[] => [
   {
-    title: "Welcome to the table",
-    text: `Heist is a game of crews, jobs and betrayal. Plant ${s.target} Footholds in rival hideouts and the pot is yours.`,
+    title: t("coach.walk.step1.title", "Welcome to the table"),
+    text: t("coach.walk.step1.text", { target: s.target }, `Heist is a game of crews, jobs and betrayal. Plant ${s.target} Footholds in rival hideouts and the pot is yours.`),
   },
   {
     anchor: "my-fh",
-    title: "Footholds win the game",
-    text: `A Foothold is one of your crew living in a rival's hideout. Fill these ${s.target} diamonds first and you win.`,
+    title: t("coach.walk.step2.title", "Footholds win the game"),
+    text: t("coach.walk.step2.text", { target: s.target }, `A Foothold is one of your crew living in a rival's hideout. Fill these ${s.target} diamonds first and you win.`),
   },
   {
     anchor: "my-hand",
-    title: "Your turn, in short",
+    title: t("coach.walk.step3.title", "Your turn, in short"),
     text: lessonOn
-      ? "Hit rivals with your crew and a card from this hand. This first game, the coach plays most of your turn; each hand you take over one more move. Long-press anything to see what it is."
-      : "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is.",
+      ? t("coach.walk.step3.text_lesson", "Hit rivals with your crew and a card from this hand. This first game, the coach plays most of your turn; each hand you take over one more move. Long-press anything to see what it is.")
+      : t("coach.walk.step3.text_regular", "Bank cards for cash, hire crew, then hit a rival with your crew and a card from this hand. Long-press anything on the table to see what it is."),
   },
 ];
 
 /** The walkthrough. Shows on the first game, or when replayed from settings. */
 export function Walkthrough({ s, lessonOn = false, canvas, scale, open, onClose }: { s: GameState; lessonOn?: boolean; canvas: React.RefObject<HTMLDivElement | null>; scale: number; open: boolean; onClose: () => void }) {
+  useLanguage();
   const [i, setI] = useState(0);
   const [box, setBox] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
   const list = steps(s, lessonOn);
@@ -63,7 +65,7 @@ export function Walkthrough({ s, lessonOn = false, canvas, scale, open, onClose 
       : { left: Math.min(Math.max(box.x + box.w / 2, 230), 1050), top: box.y + box.h + 14, transform: "translateX(-50%)" }
     : { left: "50%", top: "42%", transform: "translate(-50%, -50%)" };
   return (
-    <div className="walk" role="dialog" aria-modal="true" aria-label="How the table works">
+    <div className="walk" role="dialog" aria-modal="true" aria-label={t("rules.title", "How the table works")}>
       <motion.div
         className="walk-hole"
         initial={false}
@@ -78,16 +80,16 @@ export function Walkthrough({ s, lessonOn = false, canvas, scale, open, onClose 
         <div className="walk-text">{st.text}</div>
         <div className="btns">
           <button className="btn ghost small" onClick={done}>
-            Skip tour
+            {t("common.skip_tour", "Skip tour")}
           </button>
           <span style={{ flex: 1 }} />
           {i > 0 && (
             <button className="btn" onClick={() => setI(i - 1)}>
-              Back
+              {t("common.back", "Back")}
             </button>
           )}
           <button className="btn primary" autoFocus onClick={() => (last ? done() : setI(i + 1))}>
-            {last ? "Let's go" : "Next"}
+            {last ? t("common.lets_go", "Let's go") : t("common.next", "Next")}
           </button>
         </div>
       </div>
@@ -138,56 +140,60 @@ function CoachCard({ tone, title, tag, label, children, actions, delay = 0 }: { 
 
 /** One coach tip, the first time each kind of decision comes up. */
 export function Coach({ ask, blocked }: { ask: Ask | null; blocked: boolean }) {
+  useLanguage();
   const prefs = usePrefs();
   const tip = ask && !blocked && prefs.tips && !prefs.seen.includes(ask.kind) ? COACH[ask.kind] : undefined;
+  if (!tip || !ask) return null;
+  const tipTitle = t(`coach.tip.${ask.kind}.title`, tip.title);
+  const tipText = t(`coach.tip.${ask.kind}.text`, tip.text);
+
   return (
     <AnimatePresence>
-      {tip && ask && (
-        <CoachCard
-          key={ask.kind}
-          tone="tip"
-          title={tip.title}
-          label={tip.title}
-          delay={0.25}
-          actions={
-            <>
-              <button className="btn ghost" onClick={() => setPrefs({ tips: false })}>
-                No more tips
-              </button>
-              <span style={{ flex: 1 }} />
-              <button className="btn primary" autoFocus onClick={() => markSeen(ask.kind)}>
-                Next
-              </button>
-            </>
-          }
-        >
-          {tip.text}
-        </CoachCard>
-      )}
+      <CoachCard
+        key={ask.kind}
+        tone="tip"
+        title={tipTitle}
+        label={tipTitle}
+        delay={0.25}
+        actions={
+          <>
+            <button className="btn ghost" onClick={() => setPrefs({ tips: false })}>
+              {t("coach.btn_no_tips", "No more tips")}
+            </button>
+            <span style={{ flex: 1 }} />
+            <button className="btn primary" autoFocus onClick={() => markSeen(ask.kind)}>
+              {t("common.next", "Next")}
+            </button>
+          </>
+        }
+      >
+        {tipText}
+      </CoachCard>
     </AnimatePresence>
   );
 }
 
 /** Coached play: a new idea gets the whole screen once. Next hands the decision back to you. */
 export function CoachIdea({ idea, onNext, onOff }: { idea: Idea | undefined; onNext: () => void; onOff: () => void }) {
+  useLanguage();
   return (
     <AnimatePresence>
       {idea && (
         <CoachCard
           key={idea.title}
           tone="live"
-          tag="New"
+          tag={t("coach.tag_new", "New")}
           title={idea.title}
           label={`New idea: ${idea.title}`}
           delay={0.35}
           actions={
             <>
               <button className="btn ghost" onClick={onOff}>
-                Skip coaching
+                {t("coach.btn_skip_coaching", "Skip coaching")}
               </button>
               <span style={{ flex: 1 }} />
               <button className="btn primary" autoFocus onClick={onNext}>
-                Next
+                {t("common.next", "Next")}
               </button>
             </>
           }
@@ -205,6 +211,7 @@ export function CoachIdea({ idea, onNext, onOff }: { idea: Idea | undefined; onN
  * ask for a hint, and a good move gets a cheer.
  */
 export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState; ask: Ask; idea?: Idea; pick: Answer | null; cheer: string | null; onIdea: () => void }) {
+  useLanguage();
   const tip = coachTip(s, ask);
   const said = pick ? describePick(s, ask, pick) : "";
   const [hint, setHint] = useState(false);
@@ -214,12 +221,12 @@ export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState;
       {cheer && <div className="coach-cheer">{cheer}</div>}
       {tip && (
         <div className="coach-line-text">
-          <b>Coach:</b> {tip}
+          <b>{t("lobby.coach_rules", "Coach")}:</b> {tip}
         </div>
       )}
       {hint && said ? (
         <div className="coach-pick">
-          <b>Hint:</b> {said}
+          <b>{t("common.hint", "Hint")}:</b> {said}
           {pick?.kind === "action" && (pick.choice === "bust" || pick.choice === "wanted") && (
             // the same shape and number the button shows, so the pick is easy to find
             <span className="move-target" aria-hidden>
@@ -233,13 +240,13 @@ export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState;
         <div className="coach-line-btns">
           {idea && (
             <button className="coach-hint" onClick={onIdea}>
-              <span className="coach-new-tag">New</span>
+              <span className="coach-new-tag">{t("coach.tag_new", "New")}</span>
               {idea.title}
             </button>
           )}
           {said && !hint && (
             <button className="coach-hint" onClick={() => setHint(true)}>
-              Get a hint
+              {t("common.get_hint", "Get a hint")}
             </button>
           )}
         </div>
@@ -250,25 +257,28 @@ export function CoachLine({ s, ask, idea, pick, cheer, onIdea }: { s: GameState;
 
 /** Coached play: a rookie mistake is caught before it's played. You can still play it. */
 export function MistakeCheck({ id, before, onAnyway, onChange }: { id: MistakeId; before: number; onAnyway: () => void; onChange: () => void }) {
+  useLanguage();
   const m = MISTAKES[id];
+  const mTitle = t(`coach.mistake.${id}.title`, m.title);
+  const mWhy = t(`coach.mistake.${id}.why`, m.why);
   return (
     <CoachCard
       tone="mistake"
-      title={`Hold on: ${m.title.toLowerCase()}`}
-      label={m.title}
+      title={`Hold on: ${mTitle.toLowerCase()}`}
+      label={mTitle}
       actions={
         <>
           <button className="btn ghost" onClick={onAnyway}>
-            Do it anyway
+            {t("coach.btn_do_anyway", "Do it anyway")}
           </button>
           <span style={{ flex: 1 }} />
           <button className="btn primary" autoFocus onClick={onChange}>
-            Change my move
+            {t("coach.btn_change_move", "Change my move")}
           </button>
         </>
       }
     >
-      {m.why}
+      {mWhy}
       {before > 0 && <> You've made this one {before} time{before === 1 ? "" : "s"} before.</>}
     </CoachCard>
   );

@@ -1,4 +1,4 @@
-// Daily challenge and streak progression system for all 11 solo games.
+// Daily challenge and streak progression system for all 13 solo games.
 // Ensures every player in the world shares the exact same daily challenge deal on any given day,
 // and rewards consistent daily play with scaling multipliers and milestone bonuses.
 
@@ -17,6 +17,8 @@ export const DAILY_GAMES = [
   "minesweeper",
   "sudoku",
   "checkers",
+  "hearts",
+  "spades",
 ] as const;
 
 export type DailyGame = (typeof DAILY_GAMES)[number];
@@ -260,6 +262,16 @@ const GAME_CHALLENGE_CONFIG: Record<
     title: "Daily Checkers Showdown",
     description: "Take on today's Pro bot: everyone faces the same opponent, move for move.",
     goal: () => ({ type: "win", target: 1, description: "Beat the Pro bot" }),
+  },
+  hearts: {
+    title: "Daily Hearts Syndicate",
+    description: "Pass smart, dodge the Queen of Spades, and finish with the lowest score at today's Pro table.",
+    goal: () => ({ type: "win", target: 1, description: "Win today's Hearts hand" }),
+  },
+  spades: {
+    title: "Daily Spades Contract",
+    description: "Bid your hand, manage your trumps, and outscore today's Pro table.",
+    goal: () => ({ type: "win", target: 1, description: "Win today's Spades hand" }),
   },
 };
 

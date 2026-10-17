@@ -16,14 +16,15 @@ import {
   type DailyGame,
   type Progress,
 } from "@heist/profile";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
-import { saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
+import { parseSpeedBonus, saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
 import { appUrl, onCrazyGames } from "../crazygames";
+import { t, useLanguage } from "../i18n";
 import "./victory.css";
 
 const DAILY_LABELS: Record<string, string> = {
@@ -38,6 +39,8 @@ const DAILY_LABELS: Record<string, string> = {
   minesweeper: "Minesweeper",
   sudoku: "Sudoku",
   checkers: "Checkers",
+  hearts: "Hearts",
+  spades: "Spades",
 };
 
 export interface VictoryModalProps {
@@ -69,10 +72,12 @@ export function VictoryModal({
   onExit,
   onHeist,
 }: VictoryModalProps) {
+  useLanguage();
   const { act } = useAccount();
   const [copied, setCopied] = useState(false);
   const [welcomePackClaimed, setWelcomePackClaimed] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
+  const [reminderError, setReminderError] = useState<string | null>(null);
   const [reminderSet, setReminderSet] = useState(() => {
     try {
       return typeof Notification !== "undefined" && Notification.permission === "granted";
@@ -88,10 +93,12 @@ export function VictoryModal({
       return false;
     }
   });
+  const giftClaimedRef = useRef(false);
 
-  // Automatically award Day 1 Welcome Starter Pack if not yet claimed
+  // Automatically award Day 1 Welcome Starter Pack if not yet claimed (once per mount)
   useEffect(() => {
-    if (progress && !progress.daily?.welcomeClaimed && act) {
+    if (progress && !progress.daily?.welcomeClaimed && act && !giftClaimedRef.current) {
+      giftClaimedRef.current = true;
       act((b) => b.claimWelcomeGift())
         .then((res) => {
           if (res && "claimed" in res && res.claimed) {
@@ -113,8 +120,9 @@ export function VictoryModal({
   const handleSetReminder = async () => {
     click();
     buzz("tap");
+    setReminderError(null);
     if (typeof window === "undefined" || !("Notification" in window)) {
-      alert("Browser push notifications are not supported on this device/browser.");
+      setReminderError("Push notifications not supported on this browser.");
       return;
     }
     try {
@@ -123,10 +131,10 @@ export function VictoryModal({
         setReminderSet(true);
         buzz("win");
       } else {
-        alert("Notifications were disabled. Please allow notifications in browser settings.");
+        setReminderError("Notifications blocked in browser settings.");
       }
     } catch {
-      /* ignore */
+      setReminderError("Could not enable notifications.");
     }
   };
 
@@ -135,18 +143,9 @@ export function VictoryModal({
   const multiplier = getStreakMultiplier(streak);
   const freezes = progress?.daily?.freezes ?? 0;
 
-  // Speed bonus: wins under 5 mins (300s) award +1 XP per second remaining
-  let speedBonusXp = 0;
-  if (time) {
-    const parts = time.split(":").map((p) => parseInt(p, 10));
-    if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-      const s = parts[0] * 60 + parts[1];
-      if (s > 0 && s < 300) speedBonusXp = 300 - s;
-    } else if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
-      const s = parts[0] * 3600 + parts[1] * 60 + parts[2];
-      if (s > 0 && s < 300) speedBonusXp = 300 - s;
-    }
-  }
+  // Turn-based board & trick-taking card games don't award a speed bonus on the server
+  const noSpeedGames = new Set(["checkers", "hearts", "spades"]);
+  const speedBonusXp = noSpeedGames.has(game) ? 0 : parseSpeedBonus(time);
 
   // Level info
   const lvl = progress ? levelInfo(progress.xp) : { level: 1, pct: 0, into: 0, need: 100, maxed: false };
@@ -244,14 +243,14 @@ export function VictoryModal({
             <span>🏆</span> {isDaily ? "DAILY CHALLENGE SOLVED" : "CLEAN JOB"}
           </span>
         </div>
-        <h2 className="vic-title">VICTORY!</h2>
+        <h2 className="vic-title">{t("victory.title", "VICTORY!")}</h2>
 
         {/* Quick Stats Row */}
         <div className="vic-stats-row">
           {time && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{time}</span>
-              <span className="vic-stat-lbl">Time</span>
+              <span className="vic-stat-lbl">{t("common.time", "Time")}</span>
             </div>
           )}
           {speedBonusXp > 0 && (
@@ -263,13 +262,13 @@ export function VictoryModal({
           {moves !== undefined && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{moves}</span>
-              <span className="vic-stat-lbl">Moves</span>
+              <span className="vic-stat-lbl">{t("common.moves", "Moves")}</span>
             </div>
           )}
           {score !== undefined && (
             <div className="vic-stat-pill">
               <span className="vic-stat-val">{score}</span>
-              <span className="vic-stat-lbl">Score</span>
+              <span className="vic-stat-lbl">{t("common.score", "Score")}</span>
             </div>
           )}
         </div>
@@ -312,6 +311,9 @@ export function VictoryModal({
             <button type="button" className="vic-reminder-btn" onClick={handleSetReminder}>
               <span>🔔</span> Remind Me Tomorrow
             </button>
+          )}
+          {reminderError && (
+            <div style={{ color: "#f87171", fontSize: "0.75rem", marginTop: 4 }}>{reminderError}</div>
           )}
         </div>
 
@@ -438,7 +440,7 @@ export function VictoryModal({
               }}
               autoFocus
             >
-              PLAY NEXT DEAL 🃏
+              {t("victory.deal_again", "PLAY NEXT DEAL 🃏")}
             </button>
           )}
 
@@ -447,7 +449,7 @@ export function VictoryModal({
             className="vic-btn-share"
             onClick={handleShare}
           >
-            <span>🔥</span> {copied ? "COPIED TO CLIPBOARD! ✓" : "SHARE SCORE CARD"}
+            <span>🔥</span> {copied ? t("victory.copied", "COPIED TO CLIPBOARD! ✓") : t("victory.share_result", "SHARE SCORE CARD")}
           </button>
 
           <div className="vic-sub-actions">
@@ -461,7 +463,7 @@ export function VictoryModal({
                   onDealAgain();
                 }}
               >
-                ↺ Replay Deal
+                ↺ {t("victory.deal_again", "Replay Deal")}
               </button>
             )}
             {onChallengeFriend && (
@@ -474,7 +476,7 @@ export function VictoryModal({
                   onChallengeFriend();
                 }}
               >
-                🏆 Challenge Friend
+                🏆 {t("victory.challenge_friend", "Challenge Friend")}
               </button>
             )}
             {onHeist && (

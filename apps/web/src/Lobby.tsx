@@ -64,6 +64,8 @@ export function Lobby({
   onMinesweeper,
   onSudoku,
   onCheckers,
+  onHearts,
+  onSpades,
   defaultName,
   cleared = 0,
   newbie = false,
@@ -104,6 +106,10 @@ export function Lobby({
   onSudoku?: () => void;
   /** open Checkers vs bot */
   onCheckers?: () => void;
+  /** open Hearts vs bots */
+  onHearts?: () => void;
+  /** open Spades vs bots */
+  onSpades?: () => void;
   defaultName?: string;
   /** campaign stages cleared */
   cleared?: number;
@@ -262,11 +268,11 @@ export function Lobby({
 
         <div className="lobby-modes">
           <Mode icon="online" label={t("lobby.play_online")} sub={newbie ? t("lobby.first_lesson_sub") : t("lobby.real_people")} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
-          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onCheckers || onMinesweeper || onSudoku) && (
+          {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onCheckers || onMinesweeper || onSudoku || onHearts || onSpades) && (
             <Mode
               icon="cards"
               label={t("lobby.solo_arcade")}
-              sub={`11 ${t("arcade.tab_all")} · ${t("lobby.arcade_sub")}`}
+              sub={t("lobby.arcade_count_sub", { count: 13 }, `13 ${t("arcade.tab_all")} · ${t("lobby.arcade_sub")}`)}
               onClick={() => setGames(true)}
             />
           )}
@@ -284,13 +290,13 @@ export function Lobby({
 
       <AnimatePresence>
         {options && (
-          <Sheet title="Your table" onClose={() => setOptions(false)}>
+          <Sheet title={t("table.your_table", "Your table")} onClose={() => setOptions(false)}>
             <label className="field">
-              <span>Your name</span>
+              <span>{t("table.your_name", "Your name")}</span>
               <input value={name} maxLength={14} placeholder="Ace" onChange={(e) => setName(e.target.value)} />
             </label>
             <div className="field">
-              <span>Players</span>
+              <span>{t("table.players", "Players")}</span>
               <div className="seg">
                 {[3, 4, 5, 6].map((n) => (
                   <button key={n} className={players === n ? "on" : ""} onClick={() => setPlayers(n)}>
@@ -300,20 +306,20 @@ export function Lobby({
               </div>
             </div>
             <div className="field">
-              <span>Table</span>
+              <span>{t("table.table", "Table")}</span>
               <div className="stakes-grid">
                 {STAKES.map((st, i) => (
                   <button key={st.name} className={"stake" + (table === i ? " on" : "")} disabled={chips < st.buyIn} onClick={() => setStake(i)}>
                     <span className="stake-name">{st.name}</span>
-                    <span className="stake-buy">Buy-in {st.buyIn.toLocaleString()}</span>
-                    <span className="stake-pot">Pot {(st.buyIn * players).toLocaleString()}</span>
+                    <span className="stake-buy">{t("table.buy_in", "Buy-in")} {st.buyIn.toLocaleString()}</span>
+                    <span className="stake-pot">{t("table.pot", "Pot")} {(st.buyIn * players).toLocaleString()}</span>
                   </button>
                 ))}
               </div>
             </div>
             {chips < REFILL_TO && !broke && (
               <button className="btn ghost" onClick={onRefill}>
-                Free refill to {REFILL_TO.toLocaleString()} chips
+                {t("lobby.free_chips")} ({REFILL_TO.toLocaleString()})
               </button>
             )}
             <button
@@ -324,7 +330,7 @@ export function Lobby({
                 go(table);
               }}
             >
-              Deal me in
+              {t("table.deal_me_in", "Deal me in")}
             </button>
           </Sheet>
         )}
@@ -384,6 +390,12 @@ export function Lobby({
                   case "checkers":
                     onCheckers?.();
                     break;
+                  case "hearts":
+                    onHearts?.();
+                    break;
+                  case "spades":
+                    onSpades?.();
+                    break;
                 }
               }}
             />
@@ -393,7 +405,7 @@ export function Lobby({
       </Suspense>
       <AnimatePresence>
         {learn && (
-          <Sheet title="How to play" onClose={() => setLearn(false)}>
+          <Sheet title={t("lobby.how_to_play", "How to play")} onClose={() => setLearn(false)}>
             <button
               className="btn primary lobby-big"
               onClick={() => {
@@ -401,8 +413,16 @@ export function Lobby({
                 coach();
               }}
             >
-              Play with a coach
-              <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A short game with tips on every move. Free."}</span>
+              {t("lobby.play_with_coach", "Play with a coach")}
+              <span className="lobby-sub">
+                {nextLesson
+                  ? t("lobby.lesson_sub", {
+                      num: lessonNo(nextLesson) ?? 1,
+                      total: LESSONS.length,
+                      name: t(`lesson.${nextLesson}.name`, lesson(nextLesson)?.name || ""),
+                    })
+                  : t("lobby.coached_short_sub", "A short game with tips on every move. Free.")}
+              </span>
             </button>
             <button
               className="btn lobby-big"
@@ -411,7 +431,7 @@ export function Lobby({
                 setRules(true);
               }}
             >
-              Read the rules
+              {t("lobby.the_rules", "Read the rules")}
             </button>
           </Sheet>
         )}
@@ -484,8 +504,8 @@ function TourSpot({ onTap }: { onTap: () => void }) {
         animate={{ y: 0, opacity: 1 }}
         style={r ? (below ? { top: r.bottom + 18 } : { bottom: window.innerHeight - r.top + 18 }) : undefined}
       >
-        <b>Your stuff lives here</b>
-        <span>The Season pass, your look, the shop and your stats. Tap your card to see the prize at the top of the pass.</span>
+        <b>{t("tour.spot_title", "Your stuff lives here")}</b>
+        <span>{t("tour.spot_desc", "The Season pass, your look, the shop and your stats. Tap your card to see the prize at the top of the pass.")}</span>
       </motion.div>
     </motion.div>,
     document.body,
@@ -505,21 +525,29 @@ function TourNext({ nextLesson, onCoach, onSave, onLobby }: { nextLesson?: numbe
   return createPortal(
     <motion.div className="welcome tour-next" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="What's next">
       <div className="logo">HEIST</div>
-      <p className="welcome-q">You're all set. What's next?</p>
+      <p className="welcome-q">{t("lobby.tour_all_set", "You're all set. What's next?")}</p>
       <div className="welcome-choices">
         <button className="btn primary lobby-big" data-track="tour-coach" onClick={onCoach}>
-          Continue coaching
-          <span className="lobby-sub">{nextLesson ? `Lesson ${lessonNo(nextLesson)} of ${LESSONS.length}: ${lesson(nextLesson)?.name}. Free.` : "A game with tips on every move. Free."}</span>
+          {t("lobby.continue_coaching", "Continue coaching")}
+          <span className="lobby-sub">
+            {nextLesson
+              ? t("lobby.lesson_sub", {
+                  num: lessonNo(nextLesson) ?? 1,
+                  total: LESSONS.length,
+                  name: t(`lesson.${nextLesson}.name`, lesson(nextLesson)?.name || ""),
+                })
+              : t("lobby.coached_short_sub", "A game with tips on every move. Free.")}
+          </span>
         </button>
         {onSave && (
           <button className="btn lobby-big" data-track="tour-save" onClick={onSave}>
-            Save your progress
+            {t("lobby.save_progress", "Save your progress")}
             <span className="lobby-sub">{prize ? `Free. Keeps your XP and the ${prize} you just won.` : "Free. Keeps your XP and everything you've won."}</span>
           </button>
         )}
       </div>
       <button className="lobby-change" data-track="tour-lobby" onClick={onLobby}>
-        Go to lobby
+        {t("common.back_to_lobby", "Go to lobby")}
       </button>
     </motion.div>,
     document.body,

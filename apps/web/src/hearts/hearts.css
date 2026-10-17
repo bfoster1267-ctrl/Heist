@@ -1,0 +1,600 @@
+/* Casino-noir 4-player table for Hearts: emerald felt, gold rim, satin cards, trick felt */
+.ht-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.07), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse at 50% 30%, var(--felt, #0e3d2f) 0%, var(--felt2, #07251c) 65%, #03140f 100%);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: var(--font-sans, system-ui, -apple-system, sans-serif);
+  color: #fff;
+}
+
+.ht-rim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 160px rgba(0, 0, 0, 0.75), inset 0 0 0 1px rgba(231, 181, 60, 0.22);
+  z-index: 50;
+}
+
+/* Header bar */
+.ht-bar {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(calc(100% - 16px), 880px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  z-index: 500;
+}
+
+.ht-bar-left, .ht-bar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ht-btn-icon {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  border: 1px solid rgba(231, 181, 60, 0.38);
+  background: linear-gradient(180deg, rgba(32, 36, 46, 0.95) 0%, rgba(14, 16, 21, 0.98) 100%);
+  color: var(--gold2, #f6d77a);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 3px 8px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s;
+}
+
+.ht-btn-icon:hover {
+  border-color: var(--gold2, #f6d77a);
+  transform: translateY(-1px);
+}
+
+.ht-btn-icon:active {
+  transform: scale(0.95);
+}
+
+.ht-title-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(10, 14, 18, 0.85);
+  border: 1px solid rgba(231, 181, 60, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.ht-title-text {
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: 1.45rem;
+  letter-spacing: 0.08em;
+  color: #fff;
+  line-height: 1;
+}
+
+.ht-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+  background: rgba(231, 181, 60, 0.15);
+  color: var(--gold2, #f6d77a);
+  border: 1px solid rgba(231, 181, 60, 0.3);
+}
+
+.ht-badge.daily {
+  background: linear-gradient(135deg, rgba(231, 181, 60, 0.3), rgba(245, 158, 11, 0.4));
+  color: #fffae8;
+  border-color: #f6d77a;
+}
+
+.ht-badge.broken {
+  background: rgba(239, 68, 68, 0.25);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+/* Stage / Table Felt */
+.ht-table {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: max(56px, calc(env(safe-area-inset-top) + 48px)) 12px max(12px, env(safe-area-inset-bottom)) 12px;
+}
+
+/* Opponents Area */
+.ht-north {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  z-index: 40;
+}
+
+.ht-middle-row {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.ht-west, .ht-east {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 40;
+  width: 80px;
+}
+
+/* Seat Badges */
+.ht-seat-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  background: rgba(14, 18, 24, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  min-width: 76px;
+  transition: all 0.2s;
+}
+
+.ht-seat-card.active-turn {
+  border-color: var(--gold2, #f6d77a);
+  box-shadow: 0 0 16px rgba(231, 181, 60, 0.45), 0 4px 14px rgba(0, 0, 0, 0.6);
+  transform: scale(1.04);
+}
+
+.ht-seat-name {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+.ht-seat-pts {
+  font-size: 0.7rem;
+  font-weight: 800;
+  color: #f87171;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ht-seat-tricks {
+  font-size: 0.65rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Opponent Mini Cards Fan */
+.ht-opp-fan {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.ht-opp-card-back {
+  width: 28px;
+  height: 40px;
+  border-radius: 4px;
+  border: 1px solid rgba(231, 181, 60, 0.4);
+  background: linear-gradient(160deg, #781c22, #440c11 75%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  margin-left: -18px;
+}
+
+.ht-opp-card-back:first-child {
+  margin-left: 0;
+}
+
+.ht-opp-fan.vertical {
+  flex-direction: column;
+}
+
+.ht-opp-fan.vertical .ht-opp-card-back {
+  width: 40px;
+  height: 24px;
+  margin-left: 0;
+  margin-top: -15px;
+}
+
+.ht-opp-fan.vertical .ht-opp-card-back:first-child {
+  margin-top: 0;
+}
+
+/* Trick Center Felt */
+.ht-trick-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(72vw, 320px);
+  height: min(72vw, 320px);
+  border-radius: 50%;
+  border: 2px dashed rgba(231, 181, 60, 0.2);
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.1) 65%, transparent 100%);
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.ht-trick-card-slot {
+  position: absolute;
+  transition: transform 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+}
+
+.ht-trick-card-slot.seat-0 {
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.ht-trick-card-slot.seat-1 {
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.ht-trick-card-slot.seat-2 {
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(180deg);
+}
+
+.ht-trick-card-slot.seat-3 {
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%) rotate(-90deg);
+}
+
+/* Trick Winner Banner */
+.ht-trick-banner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(14, 18, 24, 0.94);
+  border: 1px solid var(--gold2, #f6d77a);
+  color: var(--gold2, #f6d77a);
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: 1.15rem;
+  letter-spacing: 0.05em;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+  pointer-events: none;
+  z-index: 100;
+  white-space: nowrap;
+}
+
+/* South (You) Player Area */
+.ht-south {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  z-index: 120;
+}
+
+/* Pass 3 Cards Bar */
+.ht-pass-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(15, 20, 26, 0.92);
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(231, 181, 60, 0.4);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+
+.ht-pass-prompt {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ht-pass-btn {
+  padding: 6px 18px;
+  border-radius: 999px;
+  border: 1px solid #ffe599;
+  background: linear-gradient(180deg, #ffe082 0%, #e5a727 60%, #b87b14 100%);
+  color: #1a1204;
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: 1.15rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(229, 167, 39, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.ht-pass-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.6);
+}
+
+.ht-pass-btn:hover:not(:disabled) {
+  transform: scale(1.04);
+}
+
+.ht-pass-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+/* South Hand Cards Fan */
+.ht-hand {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  padding: 0 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  min-height: 120px;
+}
+
+.ht-hand::-webkit-scrollbar {
+  display: none;
+}
+
+/* Playing Card Component */
+.ht-card {
+  width: clamp(52px, 8.5vw, 76px);
+  aspect-ratio: 5 / 7.2;
+  border-radius: 6px;
+  background: #fdfbf7;
+  border: 1px solid #d4c8b2;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(255, 255, 255, 0.7);
+  color: #1a1a1a;
+  position: relative;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: transform 0.16s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.16s, opacity 0.16s;
+  flex: none;
+  margin-left: clamp(-38px, -4.5vw, -24px);
+}
+
+.ht-card:first-child {
+  margin-left: 0;
+}
+
+.ht-card.red {
+  color: #c92a2a;
+}
+
+.ht-card.legal:hover {
+  transform: translateY(-16px) scale(1.05);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.55), 0 0 12px rgba(231, 181, 60, 0.5);
+  border-color: var(--gold2, #f6d77a);
+  z-index: 10;
+}
+
+.ht-card.selected {
+  transform: translateY(-24px) scale(1.06);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6), 0 0 16px rgba(231, 181, 60, 0.75);
+  border: 1.5px solid var(--gold2, #f6d77a);
+  z-index: 20;
+}
+
+.ht-card.illegal {
+  opacity: 0.48;
+  cursor: not-allowed;
+  filter: contrast(0.85);
+}
+
+.ht-card.queen-spades {
+  border-color: #8b5cf6;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.42), 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.ht-card.penalty-heart {
+  border-color: #ef4444;
+}
+
+/* Card Faces */
+.ht-corner {
+  position: absolute;
+  top: 4px;
+  left: 5px;
+  right: 5px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  line-height: 1;
+}
+
+.ht-rank {
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: clamp(0.95rem, 2.2vw, 1.35rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.ht-suit {
+  font-size: clamp(0.75rem, 1.8vw, 1.05rem);
+}
+
+.ht-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: clamp(1.4rem, 3.8vw, 2.3rem);
+  opacity: 0.9;
+}
+
+.ht-court {
+  position: absolute;
+  inset: 22% 14% 10% 14%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px solid rgba(197, 147, 37, 0.65);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(246, 215, 122, 0.25), transparent 70%),
+    linear-gradient(180deg, rgba(231, 181, 60, 0.14), rgba(185, 131, 22, 0.05));
+  box-shadow: inset 0 0 0 1px rgba(255, 253, 246, 0.9);
+}
+
+.ht-court b {
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-weight: 700;
+  font-size: clamp(1.1rem, 2.6vw, 1.6rem);
+  line-height: 0.9;
+}
+
+.ht-court i {
+  font-style: normal;
+  font-size: clamp(0.75rem, 1.8vw, 1rem);
+}
+
+/* Toast Notification */
+.ht-toast {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 18px;
+  border-radius: 999px;
+  background: rgba(18, 22, 28, 0.95);
+  border: 1px solid rgba(231, 181, 60, 0.5);
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 600;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+  z-index: 400;
+  pointer-events: none;
+}
+
+/* Floating XP Pill */
+.ht-float {
+  position: absolute;
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: 1.35rem;
+  letter-spacing: 0.06em;
+  color: var(--gold2, #f6d77a);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
+  pointer-events: none;
+  z-index: 600;
+}
+
+/* Bot Difficulty Picker Modal */
+.ht-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(6px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 16px;
+}
+
+.ht-picker-modal {
+  width: min(100%, 420px);
+  border-radius: 20px;
+  background: linear-gradient(180deg, #1b2028 0%, #101318 100%);
+  border: 1px solid rgba(231, 181, 60, 0.4);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ht-picker-title {
+  font-family: var(--title, "Bebas Neue", sans-serif);
+  font-size: 1.8rem;
+  letter-spacing: 0.06em;
+  color: var(--gold2, #f6d77a);
+  margin: 0;
+  text-align: center;
+}
+
+.ht-picker-desc {
+  font-size: 0.88rem;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+  margin: 0;
+}
+
+.ht-bot-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ht-bot-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(25, 30, 40, 0.6);
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ht-bot-btn:hover, .ht-bot-btn.selected {
+  border-color: var(--gold2, #f6d77a);
+  background: rgba(231, 181, 60, 0.12);
+  transform: translateY(-1px);
+}
+
+.ht-bot-btn-left {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.ht-bot-name {
+  font-weight: 700;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.ht-bot-blurb {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.ht-bot-btn-icon {
+  font-size: 1.4rem;
+  color: var(--gold2, #f6d77a);
+}

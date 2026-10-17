@@ -108,6 +108,8 @@ export function getDailyLeaderboard(
     minesweeper: 150,
     sudoku: 420,
     checkers: 420,
+    hearts: 140,
+    spades: 140,
   };
 
   const seedOffset = (seed % 17) - 8;

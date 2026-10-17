@@ -46,7 +46,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </div>
 
       <label className="set-row">
-        <span>Sound</span>
+        <span>{t("settings.sound")}</span>
         <input
           type="checkbox"
           checked={!muted}
@@ -57,7 +57,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
         />
       </label>
       <label className="set-row">
-        <span>Effects</span>
+        <span>{t("settings.effects")}</span>
         <input
           type="range"
           min={0}
@@ -74,7 +74,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
 
       <label className="set-row">
-        <span>Music</span>
+        <span>{t("settings.music")}</span>
         <input
           type="range"
           min={0}
@@ -93,7 +93,7 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
       {alerts !== "unsupported" && (
         <label className="set-row">
-          <span>Turn alerts and invites</span>
+          <span>{t("settings.alerts")}</span>
           {alerts === "on" || alerts === "off" ? (
             <input type="checkbox" checked={alerts === "on"} onChange={(e) => void (e.target.checked ? turnOnAlerts() : turnOffAlerts())} />
           ) : (
@@ -103,13 +103,13 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       )}
 
       <div className="set-row">
-        <span>Motion</span>
+        <span>{t("settings.motion")}</span>
         <div className="seg small" role="radiogroup" aria-label="Motion">
           {(
             [
-              ["system", "Auto"],
-              ["full", "Full"],
-              ["reduce", "Reduced"],
+              ["system", t("settings.motion_auto", "Auto")],
+              ["full", t("settings.motion_full", "Full")],
+              ["reduce", t("settings.motion_reduced", "Reduced")],
             ] as [MotionPref, string][]
           ).map(([v, label]) => (
             <button key={v} role="radio" aria-checked={prefs.motion === v} className={prefs.motion === v ? "on" : ""} onClick={() => setPrefs({ motion: v })}>
@@ -120,11 +120,11 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </div>
 
       <label className="set-row">
-        <span>Haptics</span>
+        <span>{t("settings.haptics")}</span>
         <input type="checkbox" checked={prefs.haptics} onChange={(e) => setPrefs({ haptics: e.target.checked })} />
       </label>
       <label className="set-row text-size">
-        <span>Text size</span>
+        <span>{t("settings.text_size")}</span>
         <span className="ts-small" aria-hidden>
           A
         </span>
@@ -143,16 +143,16 @@ export function Settings({ onClose, onTour }: { onClose: () => void; onTour: () 
       </label>
 
       <label className="set-row">
-        <span>Coach tips</span>
+        <span>{t("settings.coach_tips")}</span>
         <input type="checkbox" checked={prefs.tips} onChange={(e) => setPrefs({ tips: e.target.checked, ...(e.target.checked ? { seen: [] } : {}) })} />
       </label>
 
       <button className="btn small" onClick={onTour}>
-        Show the table tour
+        {t("settings.show_tour")}
       </button>
 
       <div className="keys">
-        <b>Keys</b> Tab to move, Enter to choose · S skip · L log · 1/2/4 speed · Esc close
+        {t("settings.keys_hint")}
       </div>
     </motion.div>
   );

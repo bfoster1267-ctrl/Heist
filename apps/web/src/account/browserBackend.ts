@@ -1,5 +1,8 @@
 import {
-  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, settleCheckers, checkersPay, replayCheckers, checkersTallyOf, isCheckersLevel, type CheckersTally, type CheckersLevel, settleMinesweeper, minesPay, tallyMines, isMinesLevel, MINES_DAILY_LEVEL, type MinesTally, type MinesLevel, settleSudoku, sudokuPay, tallySudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, getDailySeed, todayUtc, type SudokuTally, type SudokuLevel, addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
+  easySeed, lessonFor, FIRST_HAND, settleSolitaire, solPay, tallySol, type SolTally, settleFreeCell, fcPay, tallyFreeCell, type FcTally, settleTriPeaks, tpPay, tallyTriPeaks, type TpTally, settleErs, ersPay, tallyErs, type ErsTally, settleSpider, spiderPay, tallySpider, type SpiderTally, settlePyramid, pyramidPay, tallyPyramid, type PyramidTally, settleYukon, yukonPay, tallyYukon, type YukonTally, settleScoundrel, scoundrelPay, tallyScoundrel, type ScoundrelTally, settleCheckers, checkersPay, replayCheckers, checkersTallyOf, isCheckersLevel, type CheckersTally, type CheckersLevel, settleMinesweeper, minesPay, tallyMines, isMinesLevel, MINES_DAILY_LEVEL, type MinesTally, type MinesLevel, settleSudoku, sudokuPay, tallySudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, getDailySeed, todayUtc, type SudokuTally, type SudokuLevel,
+  settleHearts, heartsPay, replayHearts, heartsTallyOf, isHeartsLevel, type HeartsTally, type HeartsLevel,
+  settleSpades, spadesPay, replaySpades, spadesTallyOf, isSpadesLevel, type SpadesTally, type SpadesLevel,
+  addMistakes, buy, buyIn, daily, settleCoached, equip, failed, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill, replaySolo, settle,
   botLevelsFor, soloRivals, stage, summarize, upgrade, buyStreakFreeze, claimDailyVault, claimWelcomeGift, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
@@ -403,6 +406,62 @@ export class BrowserBackend implements Backend {
     if (over) this.checkersState = null;
     if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
     const r = settleCheckers(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private heartsState: { gameId: string; seed: number; level: HeartsLevel; isDaily?: boolean; paid?: HeartsTally; paidXp?: number; drain?: number } | null = null;
+  async heartsStart(seed?: number, isDaily = false, level?: HeartsLevel) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    const lv: HeartsLevel = isDaily ? "pro" : isHeartsLevel(level) ? level : "rookie";
+    this.heartsState = { gameId: `ht_${s}`, seed: s, level: lv, isDaily };
+    return { gameId: this.heartsState.gameId, seed: s, level: lv };
+  }
+  async heartsFinish(gameId: string, moves: number[][], drain: number) {
+    return this.heartsBank(gameId, moves, drain, true);
+  }
+  async heartsBank(gameId: string, moves: number[][], drain: number, finish = false) {
+    const g = this.heartsState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const rep = replayHearts(g.seed, g.level, moves);
+    const over = rep.state.phase === "done";
+    if (finish && !over) throw new BackendError("That game isn't over yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = heartsPay(g.paid, g.paidXp, heartsTallyOf(rep.state, g.level), g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (over) this.heartsState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleHearts(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
+    this.save.progress = r.progress;
+    this.write();
+    return { me: this.view(), reward: r.reward };
+  }
+
+  private spadesState: { gameId: string; seed: number; level: SpadesLevel; isDaily?: boolean; paid?: SpadesTally; paidXp?: number; drain?: number } | null = null;
+  async spadesStart(seed?: number, isDaily = false, level?: SpadesLevel) {
+    const s = typeof seed === "number" && Number.isInteger(seed) && seed >= 0 && seed <= 2 ** 31 - 1 ? seed : Math.floor(Math.random() * 2 ** 31);
+    const lv: SpadesLevel = isDaily ? "pro" : isSpadesLevel(level) ? level : "rookie";
+    this.spadesState = { gameId: `spd_${s}`, seed: s, level: lv, isDaily };
+    return { gameId: this.spadesState.gameId, seed: s, level: lv };
+  }
+  async spadesFinish(gameId: string, moves: number[][], drain: number) {
+    return this.spadesBank(gameId, moves, drain, true);
+  }
+  async spadesBank(gameId: string, moves: number[][], drain: number, finish = false) {
+    const g = this.spadesState;
+    if (!g || g.gameId !== gameId) throw new BackendError("That game isn't running any more");
+    const rep = replaySpades(g.seed, g.level, moves);
+    const over = rep.state.phase === "done";
+    if (finish && !over) throw new BackendError("That game isn't over yet");
+    g.drain = Math.max(g.drain ?? 0, drain);
+    const pay = spadesPay(g.paid, g.paidXp, spadesTallyOf(rep.state, g.level), g.drain);
+    g.paid = pay.paid;
+    g.paidXp = pay.paidXp;
+    if (over) this.spadesState = null;
+    if (!pay.xp && !pay.gained.won) return { me: this.view(), reward: null };
+    const r = settleSpades(this.save.progress, Date.now(), pay.gained, pay.xp, g.isDaily);
     this.save.progress = r.progress;
     this.write();
     return { me: this.view(), reward: r.reward };
