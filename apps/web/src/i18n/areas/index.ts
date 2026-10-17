@@ -13,5 +13,6 @@ import profile from "./profile";
 import season from "./season";
 import friends from "./friends";
 import lounge from "./lounge";
+import feedback from "./board.feedback";
 
-export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge] as const;
+export const AREAS = [common, settings, app, lobby, table, actions, coach, board, rules, account, profile, season, friends, lounge, feedback] as const;
