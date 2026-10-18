@@ -10,7 +10,7 @@ import { setPrefs, usePrefs } from "./prefs";
 import { REFILL_TO, STAKES } from "./wallet";
 import { ChallengeBanner } from "./daily/ChallengeBanner";
 import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal";
-import { t, useLanguage } from "./i18n";
+import { t } from "./i18n";
 import { click } from "./sound";
 import { buzz } from "./haptics";
 import { useHeistPro } from "./account/pro";
@@ -147,7 +147,6 @@ export function Lobby({
   const [settings, setSettings] = useState(false);
   const [options, setOptions] = useState(false);
   const prefs = usePrefs();
-  const [lang, setLang] = useLanguage();
   // the table you picked last time, or the best one you can still afford
   const table = chips >= STAKES[stake].buyIn ? stake : Math.max(0, STAKES.filter((st) => chips >= st.buyIn).length - 1);
   const broke = chips < STAKES[0].buyIn;
@@ -187,15 +186,6 @@ export function Lobby({
       </div>
       <button className="lobby-gear" onClick={() => setSettings(true)} aria-label={t("settings.title")}>
         ⚙
-      </button>
-      <button
-        className="lobby-lang-btn"
-        onClick={() => setLang(lang === "en" ? "pt-BR" : "en")}
-        aria-label="Alternar idioma / Switch language"
-        title={lang === "en" ? "Mudar para Português (Brasil)" : "Switch to English"}
-      >
-        <span className="lobby-lang-flag">{lang === "en" ? "🇧🇷" : "🇺🇸"}</span>
-        <span className="lobby-lang-code">{lang === "en" ? "PT" : "EN"}</span>
       </button>
       {onOpenPro && (
         <button

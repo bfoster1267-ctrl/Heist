@@ -98,19 +98,36 @@ export function ProModal({
         aria-modal="true"
         aria-labelledby="pro-modal-title"
       >
-        <button
-          ref={closeBtnRef}
-          type="button"
-          className="pro-modal-close"
-          onClick={() => {
-            click();
-            buzz("tap");
-            onClose();
-          }}
-          aria-label="Close dialog"
-        >
-          ✕
-        </button>
+        <div className="pro-modal-nav">
+          <button
+            type="button"
+            className="pro-modal-back-btn"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onClose();
+            }}
+            aria-label="Back to game"
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+            <span>Back</span>
+          </button>
+          <button
+            ref={closeBtnRef}
+            type="button"
+            className="pro-modal-close-btn"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onClose();
+            }}
+            aria-label="Close dialog"
+          >
+            ✕
+          </button>
+        </div>
 
         <div className="pro-badge">👑 VIP Founder Pass</div>
         <h2 id="pro-modal-title" className="pro-title">
@@ -193,6 +210,18 @@ export function ProModal({
             Unlock VIP Founder Pass — $4.99
           </a>
         )}
+
+        <button
+          type="button"
+          className="pro-cancel-btn"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onClose();
+          }}
+        >
+          Maybe later
+        </button>
 
         <div className="pro-trust-footer">
           🔒 Secure checkout powered by Stripe · Apple Pay, Google Pay & Cards

@@ -3758,7 +3758,7 @@ button:disabled {
   position: fixed;
   z-index: 20;
   top: calc(12px + env(safe-area-inset-top));
-  left: calc(152px + env(safe-area-inset-left));
+  left: calc(72px + env(safe-area-inset-left));
   height: 52px;
   padding: 0 16px;
   border-radius: 14px;
@@ -3818,25 +3818,9 @@ button:disabled {
     font-size: 20px;
     border-radius: 12px;
   }
-  .lobby-lang-btn {
-    top: calc(10px + env(safe-area-inset-top));
-    left: calc(54px + env(safe-area-inset-left));
-    width: 38px;
-    height: 38px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 12px;
-  }
-  .lobby-lang-code {
-    display: none;
-  }
-  .lobby-lang-flag {
-    font-size: 20px;
-    margin: 0;
-  }
   .lobby-pro-btn {
     top: calc(10px + env(safe-area-inset-top));
-    left: calc(98px + env(safe-area-inset-left));
+    left: calc(56px + env(safe-area-inset-left));
     width: 38px;
     height: 38px;
     padding: 0;
