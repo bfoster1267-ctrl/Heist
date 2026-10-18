@@ -662,7 +662,7 @@ describe("accounts over HTTP and the game socket", () => {
     // Ensure leaderboard row includes vip: true
     acc.progress.stats.games = 1;
     acc.progress.stats.wins = 1;
-    acc.logins = [{ provider: "guest", id: "g1", at: Date.now() }];
+    acc.logins = [{ provider: "dev", subject: "g1" }];
     await svc.store.put(acc);
 
     const rows = await svc.leaderboard("wins");
