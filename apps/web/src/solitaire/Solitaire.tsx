@@ -57,11 +57,14 @@ function useBoard() {
     window.addEventListener("resize", f);
     return () => window.removeEventListener("resize", f);
   }, []);
-  const width = Math.min(size.w, 760);
-  const gap = Math.max(4, Math.round(width * 0.012));
-  const cw = Math.floor((width - gap * 8) / 7);
-  const ch = Math.round(cw * 1.42);
-  return { width, height: size.h, gap, cw, ch, left: Math.round((size.w - width) / 2) + gap };
+  const isLandscape = size.w > size.h && size.h < 560;
+  const maxWidth = Math.min(size.w - (isLandscape ? 60 : 16), 760);
+  const gap = Math.max(4, Math.round(maxWidth * 0.012));
+  const maxCh = isLandscape ? Math.max(52, Math.floor((size.h - 110) / 3.2)) : Infinity;
+  const ch = Math.min(Math.round(Math.floor((maxWidth - gap * 8) / 7) * 1.42), maxCh);
+  const cw = isLandscape ? Math.max(38, Math.round(ch / 1.42)) : Math.floor((maxWidth - gap * 8) / 7);
+  const boardWidth = cw * 7 + gap * 6;
+  return { width: boardWidth, height: size.h, gap, cw, ch, left: Math.round((size.w - boardWidth) / 2) };
 }
 
 /** A useful move to suggest: to a foundation, one that turns a card over, the waste card, else draw. */

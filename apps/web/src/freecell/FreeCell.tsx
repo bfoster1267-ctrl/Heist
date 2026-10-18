@@ -54,11 +54,14 @@ function useBoard() {
     window.addEventListener("resize", f);
     return () => window.removeEventListener("resize", f);
   }, []);
-  const width = Math.min(size.w, 756);
-  const gap = Math.max(3, Math.round(width * 0.01));
-  const cw = Math.floor((width - gap * 9) / 8);
-  const ch = Math.round(cw * 1.42);
-  return { width, height: size.h, gap, cw, ch, left: Math.round((size.w - width) / 2) + gap };
+  const isLandscape = size.w > size.h && size.h < 560;
+  const maxWidth = Math.min(size.w - (isLandscape ? 60 : 16), 756);
+  const gap = Math.max(3, Math.round(maxWidth * 0.01));
+  const maxCh = isLandscape ? Math.max(50, Math.floor((size.h - 110) / 3.2)) : Infinity;
+  const ch = Math.min(Math.round(Math.floor((maxWidth - gap * 9) / 8) * 1.42), maxCh);
+  const cw = isLandscape ? Math.max(35, Math.round(ch / 1.42)) : Math.floor((maxWidth - gap * 9) / 8);
+  const boardWidth = cw * 8 + gap * 7;
+  return { width: boardWidth, height: size.h, gap, cw, ch, left: Math.round((size.w - boardWidth) / 2) };
 }
 
 /** The deal: 52 cards fly out across the 8 columns */

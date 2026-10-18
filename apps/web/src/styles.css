@@ -4008,6 +4008,16 @@ button:disabled {
     border-radius: 12px;
     gap: 4px;
   }
+  @media (max-width: 440px) {
+    .lobby-pro-btn {
+      width: 38px;
+      padding: 0;
+      justify-content: center;
+    }
+    .lobby-pro-btn .lobby-pro-text {
+      display: none;
+    }
+  }
   .lobby-pro-icon {
     font-size: 14px;
   }

@@ -39,11 +39,15 @@ function useSpiderBoard() {
     window.addEventListener("resize", f);
     return () => window.removeEventListener("resize", f);
   }, []);
-  const width = Math.min(size.w, 756);
-  const gap = Math.max(3, Math.round(width * 0.008));
-  const cw = Math.floor((width - gap * 11) / 10);
-  const ch = Math.round(cw * 1.42);
-  return { width, height: size.h, gap, cw, ch, left: Math.round((size.w - width) / 2) + gap };
+  const isLandscape = size.w > size.h && size.h < 560;
+  const maxWidth = Math.min(size.w - (isLandscape ? 60 : 16), 756);
+  const gap = Math.max(3, Math.round(maxWidth * 0.008));
+  // In landscape on phones, constrain card height so cascades fit on screen without running off or covering foundations
+  const maxCh = isLandscape ? Math.max(48, Math.floor((size.h - 130) / 3.4)) : Infinity;
+  const ch = Math.min(Math.round(Math.floor((maxWidth - gap * 11) / 10) * 1.42), maxCh);
+  const cw = isLandscape ? Math.max(34, Math.round(ch / 1.42)) : Math.floor((maxWidth - gap * 11) / 10);
+  const boardWidth = cw * 10 + gap * 9;
+  return { width: boardWidth, height: size.h, gap, cw, ch, left: Math.round((size.w - boardWidth) / 2), isLandscape };
 }
 
 export function Spider({
@@ -429,75 +433,85 @@ export function Spider({
         </header>
 
         {/* Foundation slots & Stock pile */}
-        <div className="spider-top-row">
-          {/* 8 Completed Foundation runs */}
-          <div className="spider-foundations">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className={`spider-foundation-slot ${i < completed ? "filled" : ""}`}
-                style={{ width: b.cw * 0.75, height: b.ch * 0.75 }}
-              >
-                {i < completed ? (
-                  <span style={{ fontSize: 13, color: "var(--gold)", fontWeight: 800 }}>K♠</span>
-                ) : (
-                  <span style={{ fontSize: 10, color: "rgba(231, 181, 60, 0.25)" }}>♠</span>
-                )}
-              </div>
-            ))}
-          </div>
+        {(() => {
+          const foundW = b.isLandscape ? Math.round(b.cw * 0.7) : Math.round(b.cw * 0.75);
+          const foundH = b.isLandscape ? Math.round(b.ch * 0.7) : Math.round(b.ch * 0.75);
+          const stockW = b.isLandscape ? Math.round(b.cw * 0.85) : b.cw;
+          const stockH = b.isLandscape ? Math.round(b.ch * 0.85) : b.ch;
+          const topRowY = banner ? 92 : 50;
+          const topRowH = Math.max(foundH, stockH);
+          const tableauTop = topRowY + topRowH + (b.isLandscape ? 6 : 10);
+          const availableHeight = Math.max(120, b.height - tableauTop - 16);
 
-          {/* Stock pile */}
-          <div
-            className="spider-stock-zone"
-            onClick={handleDealStock}
-            role="button"
-            tabIndex={dealsLeft > 0 ? 0 : -1}
-            aria-label={dealsLeft > 0 ? `Deal cards (${dealsLeft} deals remaining)` : "No deals remaining"}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                handleDealStock();
-              }
-            }}
-          >
-            <span className="spider-stock-count">{dealsLeft} DEALS</span>
-            <div
-              style={{
-                position: "relative",
-                width: b.cw,
-                height: b.ch,
-                cursor: dealsLeft > 0 ? "pointer" : "default",
-              }}
-            >
-              {dealsLeft > 0 ? (
-                <div className="spider-card face-down" style={{ width: b.cw, height: b.ch }}>
-                  <span className="spider-back-frame">
-                    <span className="spider-back-mark">H</span>
-                  </span>
+          return (
+            <>
+              <div className="spider-top-row" style={{ width: b.width, top: topRowY }}>
+                {/* 8 Completed Foundation runs */}
+                <div className="spider-foundations">
+                  {Array.from({ length: 8 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`spider-foundation-slot ${i < completed ? "filled" : ""}`}
+                      style={{ width: foundW, height: foundH }}
+                    >
+                      {i < completed ? (
+                        <span style={{ fontSize: b.isLandscape ? 11 : 13, color: "var(--gold)", fontWeight: 800 }}>K♠</span>
+                      ) : (
+                        <span style={{ fontSize: b.isLandscape ? 8 : 10, color: "rgba(231, 181, 60, 0.25)" }}>♠</span>
+                      )}
+                    </div>
+                  ))}
                 </div>
-              ) : (
+
+                {/* Stock pile */}
                 <div
-                  className="spider-foundation-slot"
-                  style={{ width: b.cw, height: b.ch }}
+                  className="spider-stock-zone"
+                  onClick={handleDealStock}
+                  role="button"
+                  tabIndex={dealsLeft > 0 ? 0 : -1}
+                  aria-label={dealsLeft > 0 ? `Deal cards (${dealsLeft} deals remaining)` : "No deals remaining"}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      handleDealStock();
+                    }
+                  }}
                 >
-                  <span style={{ fontSize: 12, color: "rgba(231, 181, 60, 0.3)" }}>✓</span>
+                  <span className="spider-stock-count" style={{ fontSize: b.isLandscape ? 11 : 13 }}>{dealsLeft} DEALS</span>
+                  <div
+                    style={{
+                      position: "relative",
+                      width: stockW,
+                      height: stockH,
+                      cursor: dealsLeft > 0 ? "pointer" : "default",
+                    }}
+                  >
+                    {dealsLeft > 0 ? (
+                      <div className="spider-card face-down" style={{ width: stockW, height: stockH }}>
+                        <span className="spider-back-frame">
+                          <span className="spider-back-mark">H</span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div
+                        className="spider-foundation-slot"
+                        style={{ width: stockW, height: stockH }}
+                      >
+                        <span style={{ fontSize: 12, color: "rgba(231, 181, 60, 0.3)" }}>✓</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </div>
+              </div>
 
-        {/* 10 Tableau Cascades */}
-        <div className="spider-tableau">
-          {k?.tableau.map((col, colIdx) => {
-            // Dynamic card step compression if column has many cards
-            const totalCards = col.length;
-            const availableHeight = b.height - 130;
-            const downStep = Math.max(6, Math.min(14, Math.floor(availableHeight / (totalCards + 3))));
-            const upStep = Math.max(10, Math.min(24, Math.floor(availableHeight / (totalCards + 2))));
+              {/* 10 Tableau Cascades */}
+              <div className="spider-tableau" style={{ top: tableauTop, width: b.width }}>
+                {k?.tableau.map((col, colIdx) => {
+                  const totalCards = col.length;
+                  const downStep = Math.max(4, Math.min(b.isLandscape ? 8 : 14, Math.floor(availableHeight / (totalCards + 3))));
+                  const upStep = Math.max(7, Math.min(b.isLandscape ? 15 : 24, Math.floor(availableHeight / (totalCards + 2))));
 
-            let currentTop = 0;
+                  let currentTop = 0;
 
             return (
               <div
@@ -547,7 +561,10 @@ export function Spider({
             );
           })}
         </div>
-      </div>
+      </>
+    );
+  })()}
+</div>
 
       {/* Floating XP */}
       {floats.map((f) => (

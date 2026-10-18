@@ -20,7 +20,7 @@ import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
-import { HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
+import { COIN_BUNDLES, HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
@@ -422,6 +422,34 @@ function Shop({ me }: { me: Me }) {
         <Coins amount={p.coins} big />
         <span className="dim">{t("shop.coins_desc")}</span>
       </div>
+
+      <section className="acct-bundles-section">
+        <div className="acct-bundles-header">
+          <h3>💰 Coin & Chip Stashes</h3>
+          <span className="dim">Boost your vault or grab exclusive table gear</span>
+        </div>
+        <div className="acct-bundles-grid">
+          {COIN_BUNDLES.map((b) => (
+            <div key={b.id} className="acct-bundle-card">
+              {b.badge && <span className="acct-bundle-badge">{b.badge}</span>}
+              <div className="acct-bundle-name">{b.name}</div>
+              <div className="acct-bundle-payout">
+                <span className="acct-bundle-coin">🪙 +{b.coins.toLocaleString()} Coins</span>
+                <span className="acct-bundle-chip">🎰 +{b.chips.toLocaleString()} Chips</span>
+              </div>
+              <a
+                href={b.stripeUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn small gold acct-bundle-btn"
+                aria-label={`Get ${b.name} for ${b.price} on Stripe`}
+              >
+                Get for {b.price}
+              </a>
+            </div>
+          ))}
+        </div>
+      </section>
       {SLOTS.map(([slot, labelKey]) => (
         <section key={slot}>
           <h3>{t(labelKey)}</h3>

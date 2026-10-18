@@ -6,6 +6,46 @@ import { useSyncExternalStore } from "react";
 
 export const HEIST_PRO_STRIPE_URL = "https://buy.stripe.com/cNicN42WW2Ta16V1fDf3a00";
 
+export interface CoinBundle {
+  id: string;
+  name: string;
+  coins: number;
+  chips: number;
+  price: string;
+  badge?: string;
+  stripeUrl: string;
+}
+
+export const COIN_BUNDLES: CoinBundle[] = [
+  {
+    id: "bundle_starter",
+    name: "Starter Stash",
+    coins: 2500,
+    chips: 5000,
+    price: "$1.99",
+    badge: "Popular",
+    stripeUrl: "https://buy.stripe.com/cNicN42WW2Ta16V1fDf3a00",
+  },
+  {
+    id: "bundle_high_roller",
+    name: "High Roller Sack",
+    coins: 7500,
+    chips: 20000,
+    price: "$4.99",
+    badge: "Best Value",
+    stripeUrl: HEIST_PRO_STRIPE_URL,
+  },
+  {
+    id: "bundle_vault",
+    name: "Vault Master",
+    coins: 20000,
+    chips: 60000,
+    price: "$9.99",
+    badge: "Maximum",
+    stripeUrl: "https://buy.stripe.com/cNicN42WW2Ta16V1fDf3a00",
+  },
+];
+
 const STORAGE_KEY = "heist_pro_pass";
 const SESSION_STORAGE_KEY = "heist_vip_session";
 const LISTENERS = new Set<() => void>();

@@ -1134,7 +1134,12 @@ function Game() {
             onOpenPro={() => setProModalOpen(true)}
           />
           <div className="acct-corner">
-            <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
+            <ProfileChip
+              me={me}
+              packs={packs}
+              onOpen={() => setProfile(packs ? "season" : "career")}
+              onOpenShop={() => setProfile("shop")}
+            />
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
           <Suspense fallback={null}>

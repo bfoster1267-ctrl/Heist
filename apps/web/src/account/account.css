@@ -599,6 +599,81 @@
     margin-top: 6px;
   }
 }
+
+/* Coin & Chip Stashes */
+.acct-bundles-section {
+  margin-bottom: 24px;
+}
+.acct-bundles-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.acct-bundles-header h3 {
+  margin: 0;
+  font-family: var(--title);
+  font-size: 20px;
+  letter-spacing: 1px;
+}
+.acct-bundles-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+.acct-bundle-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(30, 35, 45, 0.95) 0%, rgba(16, 18, 24, 0.98) 100%);
+  border: 1px solid rgba(231, 181, 60, 0.28);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  gap: 10px;
+}
+.acct-bundle-badge {
+  position: absolute;
+  top: -8px;
+  right: 12px;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #fef08a 0%, #f59e0b 100%);
+  color: #1a0f02;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
+.acct-bundle-name {
+  font-family: var(--cond);
+  font-size: 17px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: 0.5px;
+}
+.acct-bundle-payout {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--paper);
+}
+.acct-bundle-coin {
+  color: var(--gold2);
+}
+.acct-bundle-chip {
+  color: #60a5fa;
+}
+.acct-bundle-btn {
+  text-align: center;
+  text-decoration: none;
+  font-weight: 800;
+  padding: 7px 12px;
+}
 .acct-items {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
@@ -1743,7 +1818,7 @@
   .acct-corner {
     top: calc(10px + env(safe-area-inset-top));
     right: calc(10px + env(safe-area-inset-right));
-    max-width: calc(100vw - 105px);
+    max-width: calc(100vw - 180px);
   }
   .acct-chip {
     padding: 5px 9px 5px 6px;
@@ -1774,6 +1849,20 @@
   .acct-chip-money {
     font-size: 13px;
     gap: 2px;
+  }
+}
+@media (max-width: 440px) {
+  .acct-corner {
+    max-width: calc(100vw - 146px);
+  }
+  .acct-chip-body {
+    max-width: 76px;
+  }
+  .acct-chip-name {
+    font-size: 13px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 }
 /* phone held sideways: a slimmer card */
@@ -2012,6 +2101,12 @@
   }
   .lounge-dock .lounge-float .acct-avatar {
     margin-top: 2px;
+  }
+}
+/* mobile portrait: only show latest single chat bubble so bottom action buttons stay clear */
+@media (max-width: 600px) {
+  .lounge-float:not(:last-child) {
+    display: none;
   }
 }
 .lounge-floats {

@@ -64,7 +64,7 @@ export function Coins({ amount, big }: { amount: number; big?: boolean }) {
 }
 
 /** The player's corner of the lobby: avatar, name, rank, XP, chips and coins. Click for the full profile. */
-export function ProfileChip({ me, packs = 0, onOpen }: { me: Me; packs?: number; onOpen: () => void }) {
+export function ProfileChip({ me, packs = 0, onOpen, onOpenShop }: { me: Me; packs?: number; onOpen: () => void; onOpenShop?: () => void }) {
   const p = me.progress;
   const li = levelInfo(p.xp);
   return (
@@ -80,7 +80,16 @@ export function ProfileChip({ me, packs = 0, onOpen }: { me: Me; packs?: number;
         </span>
         <XpBar xp={p.xp} />
       </span>
-      <span className="acct-chip-money">
+      <span
+        className="acct-chip-money"
+        onClick={(e) => {
+          if (onOpenShop) {
+            e.stopPropagation();
+            onOpenShop();
+          }
+        }}
+        title="Open Shop & Stashes"
+      >
         <Chips amount={p.chips} small />
         <Coins amount={p.coins} />
       </span>
