@@ -3,6 +3,7 @@ import { isIOS, isStandalone } from "../appShell";
 import { buzz } from "../haptics";
 import { click } from "../sound";
 import { t } from "../i18n";
+import { trackPwaInstall } from "../account/telemetry";
 import "./mobileInstall.css";
 
 interface BeforeInstallPromptEvent extends Event {
@@ -53,6 +54,12 @@ export function MobileInstallModal({
   const isApple = isIOS();
   const isAndroid = !isApple && /Android/i.test(typeof navigator !== "undefined" ? navigator.userAgent : "");
 
+  useEffect(() => {
+    if (isOpen) {
+      trackPwaInstall(isApple ? "ios" : isAndroid ? "android" : "other");
+    }
+  }, [isOpen, isApple, isAndroid]);
+
   if (!isOpen) return null;
 
   const handleInstallClick = async () => {
@@ -64,6 +71,7 @@ export function MobileInstallModal({
         const choice = await deferred.userChoice;
         if (choice.outcome === "accepted") {
           setInstalled(true);
+          trackPwaInstall("android");
         }
       } catch {
         /* fallback to instructions */

@@ -24,6 +24,7 @@ import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
 import { parseSpeedBonus, saveDailyBest, shareDailyResult } from "../daily/shareHelpers";
 import { isMobileDevice, MobileInstallModal } from "./MobileInstallModal";
+import { trackGameComplete } from "../account/telemetry";
 import { appUrl, onCrazyGames } from "../crazygames";
 import { t, useLanguage } from "../i18n";
 import "./victory.css";
@@ -111,6 +112,11 @@ export function VictoryModal({
         .catch(() => {});
     }
   }, [progress, act]);
+
+  // Fire game_complete micro-conversion for Google Ads & GA4
+  useEffect(() => {
+    trackGameComplete(game, "win");
+  }, [game]);
 
   // Auto-prompt member progress saving modal on victory for guests (once per session)
   useEffect(() => {
