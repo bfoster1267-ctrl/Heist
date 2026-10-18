@@ -205,11 +205,12 @@ export function Lobby({
             buzz("tap");
             onOpenPro();
           }}
-          aria-label={isPro ? "VIP Founder Status Active" : "Heist VIP Founder Pass"}
+          aria-pressed={isPro}
+          aria-label={isPro ? "VIP Founder Status Active" : "Get Heist VIP Founder Pass"}
           title={isPro ? "VIP Founder Status Active" : "Unlock Heist VIP Founder Pass"}
         >
-          <span className="lobby-pro-icon">👑</span>
-          <span className="lobby-pro-text">VIP</span>
+          <span className="lobby-pro-icon">{isPro ? "👑" : "⭐"}</span>
+          <span className="lobby-pro-text">{isPro ? "VIP Active" : "Get VIP"}</span>
         </button>
       )}
       <div className="logo lobby-topname" aria-hidden="true">

@@ -106,9 +106,11 @@ export function setMuted(m: boolean) {
 // Cross-tab synchronization: keep mute state aligned across open tabs
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key === "heist.muted" || e.key === null) {
+    if (e.key === "heist.muted") {
       try {
-        const next = localStorage.getItem("heist.muted") === "1";
+        const val = localStorage.getItem("heist.muted");
+        if (val === null) return;
+        const next = val === "1";
         if (next !== muted) {
           muted = next;
           if (muted && ctx?.state === "running") void ctx.suspend().catch(() => {});

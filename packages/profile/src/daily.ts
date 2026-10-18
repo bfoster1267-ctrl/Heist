@@ -91,7 +91,7 @@ export function getDailyStreak(progress?: Progress | null, timestamp?: number | 
     return current;
   }
   // Missed days, but protected by VIP Streak Shield!
-  if (progress.vip && diff >= 2 && diff <= 3) {
+  if (progress.vip && diff >= 2) {
     return current;
   }
   // Missed exactly 1 day (diff === 2), but protected by a streak freeze!
@@ -403,6 +403,7 @@ export interface DailyCompletionResult {
   gameAlreadyCompleted: boolean;
   challenge: DailyChallenge;
   usedFreeze?: boolean;
+  usedShield?: boolean;
 }
 
 /**
@@ -431,6 +432,7 @@ export function recordDailyCompletion(
   let currentStreak = p.daily.current ?? p.daily.streak?.current ?? 0;
   let longestStreak = p.daily.longest ?? p.daily.streak?.longest ?? 0;
   let usedFreeze = false;
+  let usedShield = false;
 
   // Advance global streak if this is the first challenge completed on `today`
   if (!alreadyCompletedToday) {
@@ -442,10 +444,9 @@ export function recordDailyCompletion(
       if (diff === 1) {
         // Consecutive calendar day
         currentStreak += 1;
-      } else if (p.vip && diff >= 2 && diff <= 3) {
+      } else if (p.vip && diff >= 2) {
         // Missed day(s), but protected by VIP Streak Shield! (No freezes consumed)
-        p.daily.usedFreezeDates = [...(p.daily.usedFreezeDates ?? []), today];
-        usedFreeze = true;
+        usedShield = true;
         currentStreak += 1;
       } else if (diff === 2 && (p.daily.freezes ?? 0) > 0) {
         // Missed yesterday, but protected by Streak Freeze!
@@ -473,6 +474,8 @@ export function recordDailyCompletion(
     } else {
       const diff = daysBetween(gameStreakState.lastDate, today);
       if (diff === 1) {
+        gameCurrent += 1;
+      } else if (p.vip && diff >= 2) {
         gameCurrent += 1;
       } else if (diff === 2 && usedFreeze) {
         gameCurrent += 1;
@@ -537,6 +540,7 @@ export function recordDailyCompletion(
     gameAlreadyCompleted,
     challenge,
     usedFreeze,
+    usedShield,
   };
 
   return result;

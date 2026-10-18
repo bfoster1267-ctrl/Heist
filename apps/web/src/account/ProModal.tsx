@@ -18,51 +18,71 @@ export function ProModal({
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
-  // Focus management and Escape key handling
+  // Focus management, background inert/aria-hidden, and Escape key handling
   useEffect(() => {
     if (!isOpen) return;
 
     prevFocusRef.current = document.activeElement as HTMLElement | null;
-    const timer = setTimeout(() => {
+    
+    // Focus close button on open
+    const focusTimer = requestAnimationFrame(() => {
       closeBtnRef.current?.focus();
-    }, 50);
+    });
 
-    const handleWindowKeyDown = (e: KeyboardEvent) => {
+    // Mark background siblings aria-hidden while modal is open
+    const siblings: HTMLElement[] = [];
+    const root = document.getElementById("root");
+    if (root) {
+      Array.from(root.children).forEach((child) => {
+        if (child instanceof HTMLElement && !child.contains(cardRef.current)) {
+          siblings.push(child);
+          child.setAttribute("aria-hidden", "true");
+        }
+      });
+    }
+
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
+        e.stopImmediatePropagation();
         e.preventDefault();
         onCloseRef.current();
+        return;
+      }
+
+      if (e.key === "Tab" && cardRef.current) {
+        const focusables = cardRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]):not([aria-hidden="true"]), [href]:not([aria-hidden="true"]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) {
+          e.preventDefault();
+          return;
+        }
+
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (!cardRef.current.contains(document.activeElement)) {
+          e.preventDefault();
+          first.focus();
+        } else if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
-    window.addEventListener("keydown", handleWindowKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("keydown", handleWindowKeyDown);
+      cancelAnimationFrame(focusTimer);
+      siblings.forEach((el) => el.removeAttribute("aria-hidden"));
+      window.removeEventListener("keydown", handleKeyDown, true);
       prevFocusRef.current?.focus();
     };
   }, [isOpen]);
-
-  // Tab focus trap scoped to modal card
-  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    if (e.key !== "Tab" || !cardRef.current) return;
-
-    const focusables = cardRef.current.querySelectorAll<HTMLElement>(
-      'button:not([disabled]):not([aria-hidden="true"]), [href]:not([aria-hidden="true"]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-    );
-    if (focusables.length === 0) return;
-
-    const first = focusables[0];
-    const last = focusables[focusables.length - 1];
-
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault();
-      last.focus();
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
 
   if (!isOpen) return null;
 
@@ -72,7 +92,6 @@ export function ProModal({
         ref={cardRef}
         className="pro-modal-card"
         onClick={(e) => e.stopPropagation()}
-        onKeyDown={handleCardKeyDown}
         role="dialog"
         aria-modal="true"
         aria-labelledby="pro-modal-title"
@@ -107,7 +126,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Gold VIP Status & Table Crown</div>
               <div className="pro-perk-desc">
-                Exclusive gold VIP badge and crown on your profile, leaderboard entry, and game table.
+                Exclusive gold VIP badge and crown on your seat, personal profile, and your rank on the leaderboard.
               </div>
             </div>
           </div>
@@ -117,7 +136,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Streak Shield Protection</div>
               <div className="pro-perk-desc">
-                Never lose your hard-earned daily streaks — missed challenge days are shielded from breaking your streak.
+                Never lose your hard-earned daily streaks — missed challenge days are shielded from breaking your streak without burning freezes.
               </div>
             </div>
           </div>
@@ -125,9 +144,9 @@ export function ProModal({
           <div className="pro-perk">
             <span className="pro-perk-icon">🚫</span>
             <div>
-              <div className="pro-perk-title">100% Ad-Free Forever Guarantee</div>
+              <div className="pro-perk-title">Ad-Free Play</div>
               <div className="pro-perk-desc">
-                Instant distraction-free gaming with zero banner ads, interstitials, or video popups on phone and web.
+                Skip platform ads and midgame breaks. Enjoy uninterrupted, distraction-free card play on every game mode.
               </div>
             </div>
           </div>
@@ -135,9 +154,9 @@ export function ProModal({
           <div className="pro-perk">
             <span className="pro-perk-icon">🚀</span>
             <div>
-              <div className="pro-perk-title">Founder Roadmap Priority</div>
+              <div className="pro-perk-title">Founder Roadmap & Feedback Priority</div>
               <div className="pro-perk-desc">
-                Early supporter access to upcoming 365-day daily puzzle archives, AI replay review, and guaranteed winnable deal modes as they roll out.
+                Direct priority on community feedback, upcoming game modes, and feature suggestions in the Heist Lounge.
               </div>
             </div>
           </div>

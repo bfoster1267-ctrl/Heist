@@ -69,10 +69,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
 
   const today = todayUtc();
   const challengeNo = formatDailyChallengeNumber(today);
-  const effectiveProgress = useMemo(() => {
-    if (!progress) return null;
-    return isPro ? { ...progress, vip: true } : progress;
-  }, [progress, isPro]);
+  const effectiveProgress = progress ?? null;
   const streak = effectiveProgress ? getDailyStreak(effectiveProgress, Date.now()) : 0;
   const multiplier = getStreakMultiplier(streak);
   const freezes = progress?.daily?.freezes ?? 0;

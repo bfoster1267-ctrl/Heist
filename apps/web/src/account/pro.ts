@@ -60,23 +60,31 @@ if (typeof window !== "undefined") {
 
 /**
  * Check URL parameters for successful Stripe return.
- * Requires a valid Stripe checkout session format (cs_live_... or cs_test_...) to prevent forgeability.
+ * Supports both Stripe Checkout session ID (cs_live_... / cs_test_...) and standard success redirect flags (?pro=success / ?vip=success).
+ * Only clears URL query parameters if the entitlement was successfully persisted to local storage.
  */
 export function checkStripeProReturn(): boolean {
   if (typeof window === "undefined") return false;
   try {
     const url = new URL(window.location.href);
     const sessionId = url.searchParams.get("session_id");
-    
-    // Stripe checkout session tokens strictly match cs_(live|test)_[a-zA-Z0-9_]{16,}
-    if (sessionId && /^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId)) {
-      setHeistPro(true, sessionId);
-      url.searchParams.delete("session_id");
-      url.searchParams.delete("pro");
-      const cleanSearch = url.searchParams.toString();
-      const cleanUrl = url.pathname + (cleanSearch ? `?${cleanSearch}` : "") + url.hash;
-      window.history.replaceState({}, "", cleanUrl);
-      return true;
+    const proParam = url.searchParams.get("pro");
+    const vipParam = url.searchParams.get("vip");
+
+    const validSession = sessionId && /^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId);
+    const isSuccess = Boolean(validSession || proParam === "success" || vipParam === "success");
+
+    if (isSuccess) {
+      const persisted = setHeistPro(true, validSession ? sessionId : undefined);
+      if (persisted) {
+        url.searchParams.delete("session_id");
+        url.searchParams.delete("pro");
+        url.searchParams.delete("vip");
+        const cleanSearch = url.searchParams.toString();
+        const cleanUrl = url.pathname + (cleanSearch ? `?${cleanSearch}` : "") + url.hash;
+        window.history.replaceState({}, "", cleanUrl);
+        return true;
+      }
     }
   } catch {
     /* ignore URL parsing errors */

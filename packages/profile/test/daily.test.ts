@@ -7,6 +7,7 @@ import {
   daysBetween,
   getDailyChallenge,
   getDailySeed,
+  getDailyStreak,
   getMilestoneBonus,
   getStreakMultiplier,
   isChallengeCompleted,
@@ -570,3 +571,59 @@ describe("Day-1 Welcome Starter Pack", () => {
   });
 });
 
+describe("VIP Streak Shield", () => {
+  it("preserves global and per-game streaks when days are missed without consuming freezes", () => {
+    let p = newProgress();
+    p.vip = true;
+    p.daily = {
+      ...p.daily!,
+      freezes: 2,
+    };
+
+    // Day 1
+    p = recordDailyCompletion(p, "solitaire", "2026-10-01").progress;
+    expect(p.daily?.current).toBe(1);
+    expect(p.daily?.byGame?.solitaire?.current).toBe(1);
+    expect(p.daily?.freezes).toBe(2);
+
+    // Day 2
+    p = recordDailyCompletion(p, "solitaire", "2026-10-02").progress;
+    expect(p.daily?.current).toBe(2);
+    expect(p.daily?.byGame?.solitaire?.current).toBe(2);
+
+    // Player misses 3 days (next play on 2026-10-06)
+    const res = recordDailyCompletion(p, "solitaire", "2026-10-06");
+    expect(res.usedShield).toBe(true);
+    expect(res.usedFreeze).toBe(false);
+    expect(res.streak).toBe(3);
+    expect(res.progress.daily?.current).toBe(3);
+    expect(res.progress.daily?.byGame?.solitaire?.current).toBe(3);
+    expect(res.progress.daily?.freezes).toBe(2); // Freezes untouched!
+
+    // Player misses 2 weeks (next play on 2026-10-21)
+    const res2 = recordDailyCompletion(res.progress, "solitaire", "2026-10-21");
+    expect(res2.usedShield).toBe(true);
+    expect(res2.usedFreeze).toBe(false);
+    expect(res2.streak).toBe(4);
+    expect(res2.progress.daily?.current).toBe(4);
+    expect(res2.progress.daily?.byGame?.solitaire?.current).toBe(4);
+    expect(res2.progress.daily?.freezes).toBe(2);
+  });
+
+  it("checks getDailyStreak maintains active streak for VIP across missed days", () => {
+    let p = newProgress();
+    p.vip = true;
+    p = recordDailyCompletion(p, "solitaire", "2026-10-01").progress;
+
+    // Same day
+    expect(getDailyStreak(p, new Date("2026-10-01T12:00:00Z"))).toBe(1);
+    // Next day
+    expect(getDailyStreak(p, new Date("2026-10-02T12:00:00Z"))).toBe(1);
+    // Missed 5 days
+    expect(getDailyStreak(p, new Date("2026-10-07T12:00:00Z"))).toBe(1);
+
+    // Non-VIP loses streak after missing days without freeze
+    p.vip = false;
+    expect(getDailyStreak(p, new Date("2026-10-07T12:00:00Z"))).toBe(0);
+  });
+});
