@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { AnimatePresence } from "motion/react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
-import { card as cardSound, click, win as winSound } from "../sound";
+import { card as cardSound, click, isMuted, onSoundChange, setMuted, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
@@ -76,6 +76,8 @@ export function Spider({
   const [hint, setHint] = useState<{ fromCol: number; cardIndex: number; toCol: number } | null>(null);
   const [armed, setArmed] = useState(false);
   const [done, setDone] = useState(false);
+  const [muted, setMutedState] = useState(isMuted);
+  useEffect(() => onSoundChange(() => setMutedState(isMuted())), []);
   const [floats, setFloats] = useState<Float[]>([]);
   const floatId = useRef(0);
   const b = useSpiderBoard();
@@ -359,6 +361,20 @@ export function Spider({
               {mode} SUIT • RUNS: <span className="spider-hud-val">{completed}/8</span> • <span className="spider-hud-val">{room} XP ROOM</span> • <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
             </span>
           </div>
+
+          <button
+            type="button"
+            className={`spider-icon-btn ${muted ? "muted" : ""}`}
+            onClick={() => { buzz("tap"); setMuted(!muted); }}
+            aria-label={muted ? "Unmute sound" : "Mute sound"}
+            title={muted ? "Unmute sound" : "Mute sound"}
+          >
+            {muted ? (
+              <Icon d="M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6" />
+            ) : (
+              <Icon d="M11 5 6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+            )}
+          </button>
 
           <button
             type="button"

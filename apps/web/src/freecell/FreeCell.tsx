@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
-import { card as cardSound, cardSlam, click, foundationChime, win as winSound } from "../sound";
+import { card as cardSound, cardSlam, click, foundationChime, isMuted, onSoundChange, setMuted, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
@@ -98,6 +98,8 @@ export function FreeCell({
   const [started, setStarted] = useState(Date.now());
   const [now, setNow] = useState(Date.now());
   const [finalTime, setFinalTime] = useState<string | null>(null);
+  const [muted, setMutedState] = useState(isMuted);
+  useEffect(() => onSoundChange(() => setMutedState(isMuted())), []);
   const b = useBoard();
   const board = useRef<HTMLDivElement>(null);
   const [top, setTop] = useState(0);
@@ -519,6 +521,18 @@ export function FreeCell({
               <span className="arcade-streak-pill">{streak > 0 ? `🔥 ${streak}d` : `🔥 Day 1`}</span>
             </span>
           </div>
+          <button
+            className={"fc-icon-btn" + (muted ? " muted" : "")}
+            onClick={() => { buzz("tap"); setMuted(!muted); }}
+            aria-label={muted ? "Unmute sound" : "Mute sound"}
+            title={muted ? "Unmute sound" : "Mute sound"}
+          >
+            {muted ? (
+              <Icon d="M11 5 6 9H2v6h4l5 4V5zM22 9l-6 6M16 9l6 6" />
+            ) : (
+              <Icon d="M11 5 6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14" />
+            )}
+          </button>
           <button className="fc-icon-btn" onClick={showHint} disabled={done} aria-label="Hint">
             <Icon d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3Z" />
           </button>

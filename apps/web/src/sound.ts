@@ -186,29 +186,41 @@ function env(g: AudioParam, t: number, peak: number, attack: number, decay: numb
   g.exponentialRampToValueAtTime(0.0001, t + attack + decay);
 }
 
-/** A playing card snapping down: a crisp transient, then a breath of air that falls in pitch. */
+/**
+ * A tactile, warm playing card landing on plush green felt:
+ * - A gentle low-mid felt cushion (140-200 Hz triangle)
+ * - A whisper-soft paper friction flutter (warm bandpassed noise around 900-1600 Hz)
+ * Mellow, ASMR-pleasing, and never piercing on mobile speakers or earbuds.
+ */
 function snap(delay = 0, level = 1) {
   const a = ac();
   if (!a) return;
   const t = a.currentTime + delay;
-  const o = out(a, level * rnd(1.05, 1.35), 0.12, rnd(-0.2, 0.2));
-  const crack = hiss(a, t, 0.02);
-  const hp = a.createBiquadFilter();
-  hp.type = "highpass";
-  hp.frequency.value = rnd(3800, 5200);
-  const g1 = a.createGain();
-  env(g1.gain, t, 0.5, 0.001, 0.018);
-  crack.connect(hp).connect(g1).connect(o);
-  const air = hiss(a, t, 0.1);
+  // Soft, balanced master level (0.24 - 0.32 vs old harsh 1.05 - 1.35)
+  const o = out(a, level * rnd(0.24, 0.32), 0.08, rnd(-0.15, 0.15));
+
+  // 1. Soft felt impact (muffled thud, like card stock on plush baize)
+  const felt = a.createOscillator();
+  felt.type = "triangle";
+  const f = rnd(150, 210);
+  felt.frequency.setValueAtTime(f * 1.3, t);
+  felt.frequency.exponentialRampToValueAtTime(f * 0.7, t + 0.025);
+  const fg = a.createGain();
+  env(fg.gain, t, 0.28, 0.001, 0.024);
+  felt.connect(fg).connect(o);
+  felt.start(t);
+  felt.stop(t + 0.035);
+
+  // 2. Warm paper slide (soft bandpass, NOT piercing 4000Hz+ hiss)
+  const paper = hiss(a, t, 0.04);
   const bp = a.createBiquadFilter();
   bp.type = "bandpass";
-  bp.Q.value = 1.2;
-  const f0 = rnd(2600, 3400);
-  bp.frequency.setValueAtTime(f0, t);
-  bp.frequency.exponentialRampToValueAtTime(f0 * 0.35, t + 0.08);
-  const g2 = a.createGain();
-  env(g2.gain, t, 0.35, 0.004, 0.075);
-  air.connect(bp).connect(g2).connect(o);
+  bp.frequency.setValueAtTime(rnd(1100, 1600), t);
+  bp.frequency.exponentialRampToValueAtTime(rnd(600, 900), t + 0.035);
+  bp.Q.value = 0.9;
+  const pg = a.createGain();
+  env(pg.gain, t, 0.16, 0.002, 0.032);
+  paper.connect(bp).connect(pg).connect(o);
 }
 
 /** One clay chip landing on another: a click and a short ring of inharmonic partials. */
@@ -616,12 +628,11 @@ const FOUNDATION_SCALE = [65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83, 84, 86];
 export const foundationChime = (rank = 1) => {
   const idx = Math.max(0, Math.min(12, Math.round(rank) - 1));
   const note = FOUNDATION_SCALE[idx];
-  bell(note, 0, 0.45, 0.08);
-  keys(note, 0, 0.5, 0.07);
+  // Warm, gentle Rhodes electric piano tone (soft and pleasant, no harsh metallic clang)
+  keys(note, 0, 0.35, 0.04, 0.2);
   if (rank >= 13) {
     // King completes the foundation stack!
-    chord([72, 76, 79, 84, 86], 0.05, 1.4, 0.06, 0.02);
-    bell(86, 0.05, 1.2, 0.12);
+    chord([72, 76, 79, 84, 86], 0.05, 1.2, 0.05, 0.02);
   }
 };
 

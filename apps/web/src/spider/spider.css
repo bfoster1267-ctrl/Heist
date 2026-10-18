@@ -70,6 +70,11 @@
   opacity: 0.35;
 }
 
+.spider-icon-btn.muted {
+  opacity: 0.6;
+  color: #8f9ba8;
+}
+
 .spider-icon-btn.armed {
   width: 56px;
   border-color: #fff2be;
