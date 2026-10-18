@@ -44,10 +44,14 @@ function useBoard() {
   }, []);
   const width = Math.min(size.w, 756);
   const gap = Math.max(3, Math.round(width * 0.012));
-  const cw = Math.floor((width - gap * 8) / 7.2);
+  const minGap = 16; // reserved gap between pyramid and stock/waste
+  const cwByWidth = Math.floor((width - gap * 8) / 7.2);
+  // Cap card size so the pyramid (min 16px rows), gap and stock row still fit when height is constrained
+  const chMax = Math.max(40, Math.floor((size.h - 180 - minGap - 6 * 16) / 2));
+  const cw = Math.min(cwByWidth, Math.floor(chMax / 1.4));
   const ch = Math.round(cw * 1.4);
-  const maxRowH = Math.max(16, Math.floor((size.h - 180 - 2 * ch) / 6));
-  const rowH = Math.min(Math.round(ch * 0.48), maxRowH);
+  const maxRowH = Math.max(16, Math.floor((size.h - 180 - minGap - 2 * ch) / 6));
+  const rowH = Math.min(Math.round(ch * 0.72), maxRowH);
   const boardLeft = Math.round((size.w - width) / 2) + gap;
   return { width, height: size.h, gap, cw, ch, rowH, left: boardLeft };
 }
@@ -521,7 +525,7 @@ export function Pyramid({
               const pyramidH = 6 * b.rowH + b.ch;
               // On tall screens, gently distribute spacing so stock & waste sit comfortably in natural thumb reach
               const availSpace = Math.max(0, b.height - (banner ? 120 : 76) - pyramidH - b.ch - 30);
-              const extraGap = Math.max(16, Math.min(60, Math.round(availSpace * 0.32)));
+              const extraGap = Math.max(16, Math.min(90, Math.round(availSpace * 0.4)));
               const stockTop = 10 + pyramidH + extraGap;
               const stockLeft = b.left + 2 * (b.cw + b.gap);
               const wasteLeft = b.left + 3.5 * (b.cw + b.gap);
