@@ -72,6 +72,7 @@ export interface LeaderRow {
   games: number;
   winnings: number;
   frame: string;
+  vip?: boolean;
   /** this season's rank, points and Ranked MMR (only after a ranked game this season) */
   rank?: string;
   rp?: number;
@@ -233,6 +234,8 @@ export interface Backend {
   buyStreakFreeze(): Promise<Me>;
   claimDailyVault(): Promise<{ me: Me; coins: number; xp: number }>;
   claimWelcomeGift(): Promise<{ me: Me; claimed: boolean; coins: number; freezes: number }>;
+  /** Activate VIP Founder Pass on account (syncing local entitlement and optional Stripe checkout session) */
+  claimVip(sessionId?: string): Promise<Me>;
   drink(id: string, count: number): Promise<Me>;
   rename(name: string): Promise<Me>;
   /** email accounts on the server only */
@@ -252,6 +255,8 @@ export interface Backend {
   feedback(a: LostAnswer): Promise<{ me: Me }>;
   /** the session token, for the game server socket */
   token(): string | null;
+  /** Clean up any subscriptions or background tasks */
+  dispose?(): void;
   /** the Lounge (server only): what's new after a line id, say something, flag a line */
   lounge?(after: number): Promise<LoungeFeed>;
   loungeSay?(text: string): Promise<{ msg: LoungeMsg }>;
@@ -600,6 +605,10 @@ export class ServerBackend implements Backend {
     this.session = null;
     store.set(TOKEN_KEY, null);
     return this.me();
+  }
+  async claimVip(sessionId?: string) {
+    const r = await this.call<{ me: Me }>("/api/me/vip", { sessionId });
+    return r.me;
   }
   feedback(a: LostAnswer) {
     return this.call<{ me: Me }>("/api/feedback", a);

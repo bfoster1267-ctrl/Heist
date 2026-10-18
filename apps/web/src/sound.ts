@@ -78,12 +78,21 @@ if (typeof window !== "undefined") {
  * Muted by the page Heist runs in, not the player: the CrazyGames portal's own mute, or an ad playing.
  * Never saved, and the player's own setting is kept for when it lifts.
  */
+function syncAudioContext() {
+  if (!ctx) return;
+  const shouldMute = muted || hostMuted;
+  if (shouldMute && ctx.state === "running") {
+    void ctx.suspend().catch(() => {});
+  } else if (!shouldMute && ctx.state !== "running") {
+    void ctx.resume().catch(() => {});
+  }
+}
+
 let hostMuted = false;
 export function setHostMuted(m: boolean) {
   if (m === hostMuted) return;
   hostMuted = m;
-  if (m && ctx?.state === "running") void ctx.suspend().catch(() => {});
-  else if (!m && !muted && ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
+  syncAudioContext();
   watchers.forEach((f) => f());
 }
 
@@ -93,8 +102,7 @@ export const isHostMuted = () => hostMuted;
 export function setMuted(m: boolean) {
   if (m === muted) return;
   muted = m;
-  if (m && ctx?.state === "running") void ctx.suspend().catch(() => {});
-  else if (!m && !hostMuted && ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
+  syncAudioContext();
   watchers.forEach((f) => f());
   try {
     localStorage.setItem("heist.muted", m ? "1" : "0");
@@ -113,8 +121,7 @@ if (typeof window !== "undefined") {
         const next = val === "1";
         if (next !== muted) {
           muted = next;
-          if (muted && ctx?.state === "running") void ctx.suspend().catch(() => {});
-          else if (!muted && !hostMuted && ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
+          syncAudioContext();
           watchers.forEach((f) => f());
         }
       } catch {

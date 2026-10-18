@@ -311,6 +311,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "POST /api/me/name": async (b, t) => svc.rename(await me(t), b.name),
     "POST /api/me/password": async (b, t) => svc.changePassword(await me(t), b.current, b.password),
     "POST /api/me/delete": async (_, t) => (await svc.remove(await me(t)), { ok: true }),
+    "POST /api/me/vip": async (b, t) => ({ me: await svc.claimVip(await me(t), typeof b.sessionId === "string" ? b.sessionId : undefined) }),
     "POST /api/prestige": async (_, t) => svc.prestige(await me(t)),
     "POST /api/shop/buy": async (b, t) => svc.buy(await me(t), b.id),
     "POST /api/shop/equip": async (b, t) => svc.equip(await me(t), b.id),

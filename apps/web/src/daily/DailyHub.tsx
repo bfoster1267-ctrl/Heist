@@ -69,8 +69,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
 
   const today = todayUtc();
   const challengeNo = formatDailyChallengeNumber(today);
-  const effectiveProgress = progress ?? null;
-  const streak = effectiveProgress ? getDailyStreak(effectiveProgress, Date.now()) : 0;
+  const streak = progress ? getDailyStreak(progress, Date.now()) : 0;
   const multiplier = getStreakMultiplier(streak);
   const freezes = progress?.daily?.freezes ?? 0;
   const questsSummary = progress ? getDailyQuests(progress) : null;

@@ -476,6 +476,7 @@ export function recordDailyCompletion(
       if (diff === 1) {
         gameCurrent += 1;
       } else if (p.vip && diff >= 2) {
+        usedShield = true;
         gameCurrent += 1;
       } else if (diff === 2 && usedFreeze) {
         gameCurrent += 1;

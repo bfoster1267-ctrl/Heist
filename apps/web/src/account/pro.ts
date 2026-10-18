@@ -39,6 +39,15 @@ export function setHeistPro(active = true, sessionId?: string): boolean {
   }
 }
 
+export function getHeistProSession(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(SESSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export function onProChange(listener: () => void): () => void {
   LISTENERS.add(listener);
   return () => LISTENERS.delete(listener);
@@ -49,10 +58,10 @@ export function useHeistPro(): boolean {
   return useSyncExternalStore(onProChange, isHeistPro, () => false);
 }
 
-// Cross-tab synchronization: notify listeners when another tab modifies pro status or clears storage
+// Cross-tab synchronization: notify listeners when another tab modifies pro status
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (e) => {
-    if (e.key === STORAGE_KEY || e.key === null) {
+    if (e.key === STORAGE_KEY || e.key === SESSION_STORAGE_KEY) {
       LISTENERS.forEach((fn) => fn());
     }
   });
@@ -60,7 +69,7 @@ if (typeof window !== "undefined") {
 
 /**
  * Check URL parameters for successful Stripe return.
- * Supports both Stripe Checkout session ID (cs_live_... / cs_test_...) and standard success redirect flags (?pro=success / ?vip=success).
+ * Strictly requires a Stripe Checkout session ID (cs_live_... / cs_test_...) provided by Stripe Payment Link redirect.
  * Only clears URL query parameters if the entitlement was successfully persisted to local storage.
  */
 export function checkStripeProReturn(): boolean {
@@ -68,14 +77,11 @@ export function checkStripeProReturn(): boolean {
   try {
     const url = new URL(window.location.href);
     const sessionId = url.searchParams.get("session_id");
-    const proParam = url.searchParams.get("pro");
-    const vipParam = url.searchParams.get("vip");
 
     const validSession = sessionId && /^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId);
-    const isSuccess = Boolean(validSession || proParam === "success" || vipParam === "success");
 
-    if (isSuccess) {
-      const persisted = setHeistPro(true, validSession ? sessionId : undefined);
+    if (validSession) {
+      const persisted = setHeistPro(true, sessionId);
       if (persisted) {
         url.searchParams.delete("session_id");
         url.searchParams.delete("pro");

@@ -7,7 +7,7 @@ import {
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 import { BackendError, store, type Backend, type Config, type LeaderRow, type Me, type PackOpened, type SoloTicket } from "./backend";
-import { isHeistPro, onProChange } from "./pro";
+import { isHeistPro, onProChange, setHeistPro } from "./pro";
 
 interface LocalSave {
   id: string;
@@ -23,6 +23,7 @@ export class BrowserBackend implements Backend {
   readonly kind = "browser" as const;
   readonly config: Config = { providers: [], apple: null, google: null, facebook: null };
   private save: LocalSave;
+  private unpro?: () => void;
 
   constructor() {
     let s: LocalSave | null = null;
@@ -43,10 +44,21 @@ export class BrowserBackend implements Backend {
     this.save = s;
     this.write();
 
-    onProChange(() => {
+    this.unpro = onProChange(() => {
       this.save.progress.vip = isHeistPro();
       this.write();
     });
+  }
+
+  dispose(): void {
+    this.unpro?.();
+  }
+
+  async claimVip(sessionId?: string): Promise<Me> {
+    setHeistPro(true, sessionId);
+    this.save.progress.vip = true;
+    this.write();
+    return this.view();
   }
 
   private write() {

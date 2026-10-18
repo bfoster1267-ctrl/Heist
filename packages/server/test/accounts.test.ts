@@ -644,6 +644,32 @@ describe("accounts over HTTP and the game socket", () => {
     a.c.close();
     b.c.close();
   }, 30_000);
+
+  it("activates VIP Founder Pass via claimVip and marks leaderboard rows", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const g = await svc.guest(undefined, "VIPPlayer");
+    const acc = await svc.require(g.token);
+    expect(svc.me(acc).progress.vip).toBeFalsy();
+
+    // Rejects invalid checkout session strings
+    await expect(svc.claimVip(acc, "invalid_session_id")).rejects.toThrow(/Invalid Stripe checkout session token/);
+
+    // Activates with valid session format
+    const me = await svc.claimVip(acc, "cs_test_1234567890abcdef12345678");
+    expect(me.progress.vip).toBe(true);
+    expect(svc.me(acc).progress.vip).toBe(true);
+
+    // Ensure leaderboard row includes vip: true
+    acc.progress.stats.games = 1;
+    acc.progress.stats.wins = 1;
+    acc.logins = [{ provider: "guest", id: "g1", at: Date.now() }];
+    await svc.store.put(acc);
+
+    const rows = await svc.leaderboard("wins");
+    const found = rows.find((r) => r.id === acc.id);
+    expect(found).toBeDefined();
+    expect(found?.vip).toBe(true);
+  });
 });
 
 const until = async (f: () => boolean, ms = 5000) => {

@@ -502,7 +502,7 @@ function Board({ me }: { me: Me }) {
               <span className="acct-board-rank">{i + 1}</span>
               <Avatar name={r.name} frame={r.frame} level={r.level} size={34} />
               <span className="acct-board-name">
-                {r.name} {r.id === me.id && isPro && <span className="profile-vip-tag">👑 VIP</span>} <Stars prestige={r.prestige} size={10} />
+                {r.name} {(r.vip || (r.id === me.id && isPro)) && <span className="profile-vip-tag">👑 VIP</span>} <Stars prestige={r.prestige} size={10} />
               </span>
               <span className="acct-board-v">
                 {by === "winnings"

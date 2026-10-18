@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
 import { buzz } from "../haptics";
 import { click } from "../sound";
@@ -23,75 +24,76 @@ export function ProModal({
     if (!isOpen) return;
 
     prevFocusRef.current = document.activeElement as HTMLElement | null;
-    
+
     // Focus close button on open
     const focusTimer = requestAnimationFrame(() => {
       closeBtnRef.current?.focus();
     });
 
-    // Mark background siblings aria-hidden while modal is open
-    const siblings: HTMLElement[] = [];
+    // Mark root inert and aria-hidden while modal is open in portal
     const root = document.getElementById("root");
     if (root) {
-      Array.from(root.children).forEach((child) => {
-        if (child instanceof HTMLElement && !child.contains(cardRef.current)) {
-          siblings.push(child);
-          child.setAttribute("aria-hidden", "true");
-        }
-      });
+      root.setAttribute("aria-hidden", "true");
+      root.setAttribute("inert", "");
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
-        e.stopImmediatePropagation();
-        e.preventDefault();
         onCloseRef.current();
-        return;
-      }
-
-      if (e.key === "Tab" && cardRef.current) {
-        const focusables = cardRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]):not([aria-hidden="true"]), [href]:not([aria-hidden="true"]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusables.length === 0) {
-          e.preventDefault();
-          return;
-        }
-
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-
-        if (!cardRef.current.contains(document.activeElement)) {
-          e.preventDefault();
-          first.focus();
-        } else if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keydown", handleWindowKeyDown);
     return () => {
       cancelAnimationFrame(focusTimer);
-      siblings.forEach((el) => el.removeAttribute("aria-hidden"));
-      window.removeEventListener("keydown", handleKeyDown, true);
-      prevFocusRef.current?.focus();
+      if (root) {
+        root.removeAttribute("aria-hidden");
+        root.removeAttribute("inert");
+      }
+      window.removeEventListener("keydown", handleWindowKeyDown);
+      if (prevFocusRef.current && document.body.contains(prevFocusRef.current)) {
+        prevFocusRef.current.focus();
+      }
     };
   }, [isOpen]);
 
-  if (!isOpen) return null;
+  // Tab focus trap scoped to modal card
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !cardRef.current) return;
 
-  return (
+    const focusables = cardRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]):not([aria-hidden="true"]), [href]:not([aria-hidden="true"]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusables.length === 0) {
+      e.preventDefault();
+      return;
+    }
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (!cardRef.current.contains(document.activeElement)) {
+      e.preventDefault();
+      first.focus();
+    } else if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  if (!isOpen || typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="pro-modal-overlay" onClick={onClose} role="presentation">
       <div
         ref={cardRef}
         className="pro-modal-card"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleCardKeyDown}
         role="dialog"
         aria-modal="true"
         aria-labelledby="pro-modal-title"
@@ -136,7 +138,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Streak Shield Protection</div>
               <div className="pro-perk-desc">
-                Never lose your hard-earned daily streaks — missed challenge days are shielded from breaking your streak without burning freezes.
+                Permanent, unlimited streak protection — missed challenge days are shielded from breaking your streak without burning freezes.
               </div>
             </div>
           </div>
@@ -196,6 +198,7 @@ export function ProModal({
           🔒 Secure checkout powered by Stripe · Apple Pay, Google Pay & Cards
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

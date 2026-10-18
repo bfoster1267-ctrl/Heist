@@ -4,7 +4,7 @@
 import { cosmetic, type Reward } from "@heist/profile";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BackendError, openBackend, type Backend, type Me } from "./backend";
-import { useHeistPro } from "./pro";
+import { getHeistProSession, useHeistPro } from "./pro";
 
 interface AccountCtx {
   backend: Backend | null;
@@ -36,11 +36,16 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let live = true;
+    let bInstance: Backend | null = null;
     openBackend().then(
       async (b) => {
+        bInstance = b;
         let out = false;
         const m = await b.me().catch((e) => ((out = !!banned(e)), null));
-        if (!live) return;
+        if (!live) {
+          b.dispose?.();
+          return;
+        }
         setBackend(b);
         setMe(m);
         setFailed(!m && !out);
@@ -49,6 +54,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     );
     return () => {
       live = false;
+      bInstance?.dispose?.();
     };
   }, []);
 
@@ -85,6 +91,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     }
     return me;
   }, [me, isPro]);
+
+  useEffect(() => {
+    if (!backend || !me) return;
+    if (isPro && !me.progress.vip) {
+      backend.claimVip(getHeistProSession() ?? undefined).then(setMe, () => {});
+    }
+  }, [backend, me, isPro]);
 
   useEquippedLook(effectiveMe);
   useEffect(() => {

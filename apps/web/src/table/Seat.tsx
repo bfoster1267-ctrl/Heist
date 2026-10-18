@@ -164,7 +164,7 @@ export function Seat({
               P.name
             )}
             {me && <span className="you-tag">YOU</span>}
-            {me && isPro && (
+            {((me && isPro) || Boolean((P as { vip?: boolean }).vip)) && (
               <span className="seat-vip-crown" title="VIP Founder" aria-label="VIP Founder">👑</span>
             )}
             {away && (

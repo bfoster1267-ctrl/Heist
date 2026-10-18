@@ -187,6 +187,39 @@ export class AccountService {
     };
   }
 
+  /**
+   * Activates VIP Founder Pass on the server account.
+   * Verifies the Stripe checkout session token format and optionally confirms payment with Stripe REST API if STRIPE_SECRET_KEY is configured.
+   */
+  async claimVip(a: Account, sessionId?: string): Promise<Me> {
+    this.checkBan(a);
+    if (sessionId) {
+      if (!/^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId)) {
+        throw new ApiError(400, "Invalid Stripe checkout session token");
+      }
+      const secret = process.env.STRIPE_SECRET_KEY;
+      if (secret) {
+        try {
+          const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
+            headers: { Authorization: `Bearer ${secret}` },
+          });
+          if (!res.ok) throw new Error("Stripe verification failed");
+          const session = (await res.json()) as { payment_status?: string };
+          if (session.payment_status !== "paid") {
+            throw new ApiError(400, "Stripe session payment not completed");
+          }
+        } catch (err) {
+          if (err instanceof ApiError) throw err;
+          throw new ApiError(400, "Unable to verify Stripe checkout session with Stripe API");
+        }
+      }
+    }
+    a.progress = upgrade(a.progress);
+    a.progress.vip = true;
+    await this.store.put(a);
+    return this.me(a);
+  }
+
   /** The account's suspension, if one is in force. */
   banOf(a: Account) {
     const b = a.crm?.ban;
@@ -1398,7 +1431,7 @@ export class AccountService {
         const p = upgrade(a.progress);
         const r = rankedPublic(p.ranked, this.now());
         return {
-          id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, xp: p.xp, wins: p.stats.wins, games: p.stats.games, winnings: p.stats.winnings, frame: p.equipped.frame,
+          id: a.id, name: a.name, level: levelInfo(p.xp).level, prestige: p.prestige, xp: p.xp, wins: p.stats.wins, games: p.stats.games, winnings: p.stats.winnings, frame: p.equipped.frame, vip: Boolean(p.vip),
           ...(r && r.games ? { rank: r.label, rp: r.rp, mmr: r.mmr } : {}),
         };
       })
@@ -1423,6 +1456,7 @@ export interface LeaderRow {
   games: number;
   winnings: number;
   frame: string;
+  vip?: boolean;
   /** this season's rank, points and Ranked MMR (only after a ranked game this season) */
   rank?: string;
   rp?: number;
