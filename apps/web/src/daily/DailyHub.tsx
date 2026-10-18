@@ -29,7 +29,7 @@ import { card as cardSound, click } from "../sound";
 import "./daily.css";
 import { GAME_LABELS } from "./ChallengeBanner";
 import { getDailyBest, getDailyLeaderboard, shareDailyResult } from "./shareHelpers";
-import { isHeistPro, onProChange } from "../account/pro";
+import { useHeistPro } from "../account/pro";
 
 export { GAME_LABELS };
 
@@ -44,8 +44,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
   const { me, act } = useAccount() ?? {};
   const progress = me?.progress ?? propProgress;
   const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
-  const [isPro, setIsPro] = useState(isHeistPro);
-  useEffect(() => onProChange(setIsPro), []);
+  const isPro = useHeistPro();
   const [copiedShare, setCopiedShare] = useState(false);
   const [buyingFreeze, setBuyingFreeze] = useState(false);
   const [claimingVault, setClaimingVault] = useState(false);
@@ -70,7 +69,11 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
 
   const today = todayUtc();
   const challengeNo = formatDailyChallengeNumber(today);
-  const streak = progress ? getDailyStreak(progress, Date.now()) : 0;
+  const effectiveProgress = useMemo(() => {
+    if (!progress) return null;
+    return isPro ? { ...progress, vip: true } : progress;
+  }, [progress, isPro]);
+  const streak = effectiveProgress ? getDailyStreak(effectiveProgress, Date.now()) : 0;
   const multiplier = getStreakMultiplier(streak);
   const freezes = progress?.daily?.freezes ?? 0;
   const questsSummary = progress ? getDailyQuests(progress) : null;
@@ -206,26 +209,16 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
           )}
         </div>
 
-        {/* Pro Pass Banner */}
+        {/* VIP Founder Pass Banner */}
         {onOpenPro && (
-          <div
+          <button
+            type="button"
             className={"daily-pro-banner" + (isPro ? " active" : "")}
-            role="button"
-            tabIndex={0}
             onClick={() => {
               click();
               buzz("tap");
               onOpenPro();
             }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                click();
-                buzz("tap");
-                onOpenPro();
-              }
-            }}
-            aria-label={isPro ? "VIP Founder Status Active" : "Get Heist VIP Founder Pass"}
           >
             <div className="daily-pro-left">
               <span className="daily-pro-badge">👑 VIP FOUNDER PASS</span>
@@ -238,7 +231,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
               </span>
             </div>
             <span className="daily-pro-action">{isPro ? "VIP Active ✓" : "Get Pass →"}</span>
-          </div>
+          </button>
         )}
 
         {/* Daily Quests Trio */}

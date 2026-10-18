@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { HEIST_PRO_STRIPE_URL, isHeistPro, onProChange } from "./pro";
+import { useEffect, useRef } from "react";
+import { HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
 import { buzz } from "../haptics";
 import { click } from "../sound";
 import "./proModal.css";
@@ -11,20 +11,54 @@ export function ProModal({
   isOpen: boolean;
   onClose: () => void;
 }) {
-  const [pro, setPro] = useState(isHeistPro);
+  const pro = useHeistPro();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
 
+  // Focus trap, focus restoration, and Escape handling
   useEffect(() => {
-    return onProChange(setPro);
-  }, []);
+    if (!isOpen) return;
 
-  useEffect(() => {
-    const handleKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    prevFocusRef.current = document.activeElement as HTMLElement | null;
+    // Move focus into the modal
+    const timer = setTimeout(() => {
+      closeBtnRef.current?.focus();
+    }, 50);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      // Trap Tab key within dialog
+      if (e.key === "Tab" && cardRef.current) {
+        const focusables = cardRef.current.querySelectorAll<HTMLElement>(
+          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+        );
+        if (focusables.length === 0) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
     };
-    if (isOpen) {
-      window.addEventListener("keydown", handleKey);
-    }
-    return () => window.removeEventListener("keydown", handleKey);
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("keydown", handleKeyDown, true);
+      prevFocusRef.current?.focus();
+    };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
@@ -32,6 +66,7 @@ export function ProModal({
   return (
     <div className="pro-modal-overlay" onClick={onClose} role="presentation">
       <div
+        ref={cardRef}
         className="pro-modal-card"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
@@ -39,13 +74,15 @@ export function ProModal({
         aria-labelledby="pro-modal-title"
       >
         <button
+          ref={closeBtnRef}
+          type="button"
           className="pro-modal-close"
           onClick={() => {
             click();
             buzz("tap");
             onClose();
           }}
-          aria-label="Close"
+          aria-label="Close dialog"
         >
           ✕
         </button>
@@ -76,7 +113,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Streak Shield Protection</div>
               <div className="pro-perk-desc">
-                Never lose your hard-earned 30-day or 100-day daily streaks if life gets busy.
+                Never lose your hard-earned daily streaks — missed challenge days are shielded from breaking your streak.
               </div>
             </div>
           </div>
@@ -86,7 +123,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">100% Ad-Free Forever Guarantee</div>
               <div className="pro-perk-desc">
-                Instant distraction-free gaming with zero 30-second video popups on phone and computer.
+                Instant distraction-free gaming with zero video popups or midgame interruptions on phone and web.
               </div>
             </div>
           </div>
@@ -96,7 +133,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Founder Roadmap Priority</div>
               <div className="pro-perk-desc">
-                Early supporter access to upcoming 365-day daily puzzle archives, AI replay review, and guaranteed winnable deal modes as they roll out.
+                Supporter priority for upcoming 365-day daily puzzle archives, AI replay review, and guaranteed winnable deal modes.
               </div>
             </div>
           </div>
@@ -106,7 +143,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Direct Indie Game Support</div>
               <div className="pro-perk-desc">
-                Support independent game development and help us keep the web fast, fun, and free of spam.
+                Support independent game development and help us keep card gaming clean, fast, and respectful.
               </div>
             </div>
           </div>
@@ -122,6 +159,7 @@ export function ProModal({
             target="_blank"
             rel="noopener noreferrer"
             className="pro-buy-btn"
+            aria-label="Unlock VIP Founder Pass for $4.99 on Stripe (opens in new tab)"
             onClick={() => {
               click();
               buzz("tap");

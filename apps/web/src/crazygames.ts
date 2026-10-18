@@ -11,6 +11,7 @@
 // VITE_CG_MIDGAME_ADS=1 (Heist sells nothing; ads are off unless the owner turns them on).
 import { useEffect, useSyncExternalStore } from "react";
 import { onWin, setHostMuted } from "./sound";
+import { isHeistPro } from "./account/pro";
 
 type CgEnv = "local" | "crazygames" | "disabled";
 export interface CgUser {
@@ -289,9 +290,9 @@ export function happytime() {
   safe(() => sdk!.game.happytime());
 }
 
-/** Between games, when the owner turned midgame ads on: one ad, muted while it plays. */
+/** Between games, when the owner turned midgame ads on: one ad, muted while it plays. VIP pass holders skip all ads. */
 function midgameAd() {
-  if (!MIDGAME_ADS || !live() || !sdk!.ad || Date.now() - lastAd < AD_GAP_MS) return;
+  if (!MIDGAME_ADS || isHeistPro() || !live() || !sdk!.ad || Date.now() - lastAd < AD_GAP_MS) return;
   lastAd = Date.now();
   const done = () => {
     adPlaying = false;

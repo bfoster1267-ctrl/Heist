@@ -3806,6 +3806,37 @@ button:disabled {
   font-size: 18px;
   line-height: 1;
 }
+.acct-pro-active-badge {
+  color: #34d399;
+  font-weight: 700;
+  font-size: 14px;
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(52, 211, 153, 0.35);
+  padding: 4px 10px;
+  border-radius: 9999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.profile-vip-tag {
+  color: #fbbf24;
+  font-size: 12px;
+  font-weight: 800;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(251, 191, 36, 0.4);
+  padding: 2px 7px;
+  border-radius: 9999px;
+  margin-left: 6px;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+.seat-vip-crown {
+  font-size: 15px;
+  line-height: 1;
+  margin-left: 4px;
+  vertical-align: middle;
+  filter: drop-shadow(0 1px 3px rgba(245, 158, 11, 0.6));
+}
 .lobby-lang-flag {
   font-size: 18px;
 }

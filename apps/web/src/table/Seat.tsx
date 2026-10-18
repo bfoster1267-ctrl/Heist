@@ -2,6 +2,7 @@ import { roleName, ROLES, type GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { Cigar } from "../account/items";
 import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
+import { isHeistPro } from "../account/pro";
 
 /** Click-or-keyboard props for a table element that acts like a button. */
 export function pressable(onClick?: () => void, label?: string) {
@@ -162,6 +163,9 @@ export function Seat({
               P.name
             )}
             {me && <span className="you-tag">YOU</span>}
+            {((me && isHeistPro()) || (P as { vip?: boolean }).vip) && (
+              <span className="seat-vip-crown" title="VIP Founder" aria-label="VIP Founder">👑</span>
+            )}
             {away && (
               <span className="away-tag" data-tip={away === "bot" ? "A bot is playing this seat until they're back" : "Lost connection. Their seat is held."}>
                 {away === "bot" ? "AUTO" : "AWAY"}

@@ -103,6 +103,25 @@ export function setMuted(m: boolean) {
   }
 }
 
+// Cross-tab synchronization: keep mute state aligned across open tabs
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === "heist.muted" || e.key === null) {
+      try {
+        const next = localStorage.getItem("heist.muted") === "1";
+        if (next !== muted) {
+          muted = next;
+          if (muted && ctx?.state === "running") void ctx.suspend().catch(() => {});
+          else if (!muted && !hostMuted && ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
+          watchers.forEach((f) => f());
+        }
+      } catch {
+        /* storage blocked */
+      }
+    }
+  });
+}
+
 /** A small, dark room: a second and a half of decaying stereo noise that loses its top end as it fades. */
 function room(a: BaseAudioContext) {
   const len = Math.ceil(a.sampleRate * 1.5);

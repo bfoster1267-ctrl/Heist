@@ -90,11 +90,15 @@ export function getDailyStreak(progress?: Progress | null, timestamp?: number | 
   if (diff === 0 || diff === 1) {
     return current;
   }
+  // Missed days, but protected by VIP Streak Shield!
+  if (progress.vip && diff <= 3) {
+    return current;
+  }
   // Missed exactly 1 day (diff === 2), but protected by a streak freeze!
   if (diff === 2 && (progress.daily.freezes ?? 0) > 0) {
     return current;
   }
-  // Missed without freeze
+  // Missed without freeze or shield
   return 0;
 }
 
@@ -437,6 +441,11 @@ export function recordDailyCompletion(
       const diff = daysBetween(lastGlobalDate, today);
       if (diff === 1) {
         // Consecutive calendar day
+        currentStreak += 1;
+      } else if (p.vip && diff <= 3) {
+        // Missed day(s), but protected by VIP Streak Shield! (No freezes consumed)
+        p.daily.usedFreezeDates = [...(p.daily.usedFreezeDates ?? []), today];
+        usedFreeze = true;
         currentStreak += 1;
       } else if (diff === 2 && (p.daily.freezes ?? 0) > 0) {
         // Missed yesterday, but protected by Streak Freeze!

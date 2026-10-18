@@ -4,7 +4,7 @@
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 import { setPrefs, usePrefs, type MotionPref } from "../prefs";
-import { chip, getMusicVolume, getVolume, isMuted, isPlayerMuted, onSoundChange, setMusicVolume, setMuted, setVolume } from "../sound";
+import { chip, getMusicVolume, getVolume, isHostMuted, isPlayerMuted, onSoundChange, setMusicVolume, setMuted, setVolume } from "../sound";
 import { turnOffAlerts, turnOnAlerts, useAlertState } from "../alerts";
 import { t, useLanguage } from "../i18n";
 import { buzz } from "../haptics";
@@ -25,7 +25,11 @@ export function Settings({
   const prefs = usePrefs();
   const [lang, setLang] = useLanguage();
   const [muted, setMute] = useState(isPlayerMuted);
-  useEffect(() => onSoundChange(() => setMute(isPlayerMuted())), []);
+  const [hostMuted, setHostMuted] = useState(isHostMuted);
+  useEffect(() => onSoundChange(() => {
+    setMute(isPlayerMuted());
+    setHostMuted(isHostMuted());
+  }), []);
   const [vol, setVol] = useState(getVolume());
   const [music, setMusic] = useState(getMusicVolume());
   const [lobbyTab, setLobbyTab] = useState<LobbyTab>("general");

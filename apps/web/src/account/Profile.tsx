@@ -20,7 +20,7 @@ import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
-import { HEIST_PRO_STRIPE_URL, isHeistPro, onProChange } from "./pro";
+import { HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
@@ -98,6 +98,7 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
 
 function Header({ me }: { me: Me }) {
   const { act, showReward } = useAccount();
+  const isPro = useHeistPro();
   const p = me.progress;
   const li = levelInfo(p.xp);
   const [confirm, setConfirm] = useState(false);
@@ -115,7 +116,7 @@ function Header({ me }: { me: Me }) {
       </span>
       <div className="acct-head-id">
         <div className="acct-head-name">
-          {me.name} <Stars prestige={p.prestige} />
+          {me.name} {isPro && <span className="profile-vip-tag">👑 VIP</span>} <Stars prestige={p.prestige} />
         </div>
         <div className="acct-head-rank">
           {t("profile.level", { level: li.level })} · {rankLabel(li.level)}
@@ -380,8 +381,7 @@ function Shop({ me }: { me: Me }) {
   const { act } = useAccount();
   const p = me.progress;
   const li = levelInfo(p.xp);
-  const [pro, setPro] = useState(isHeistPro);
-  useEffect(() => onProChange(setPro), []);
+  const pro = useHeistPro();
   const [busy, setBusy] = useState<string | null>(null);
   const run = async (id: string, f: "buy" | "equip") => {
     setBusy(id);
@@ -403,13 +403,14 @@ function Shop({ me }: { me: Me }) {
         <div className="acct-pro-hero-right">
           <span className="acct-pro-hero-price">$4.99</span>
           {pro ? (
-            <span style={{ color: "#22c55e", fontWeight: 700, fontSize: "14px" }}>✓ VIP Active</span>
+            <span className="acct-pro-active-badge">✓ VIP Active</span>
           ) : (
             <a
               href={HEIST_PRO_STRIPE_URL}
               target="_blank"
               rel="noopener noreferrer"
               className="btn small gold"
+              aria-label="Unlock VIP Founder Pass on Stripe (opens in new tab)"
               style={{ fontWeight: 800, padding: "8px 18px", textDecoration: "none" }}
             >
               Unlock VIP

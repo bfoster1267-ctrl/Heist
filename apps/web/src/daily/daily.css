@@ -702,6 +702,9 @@
 /* Daily Pro Banner */
 .daily-pro-banner {
   flex-shrink: 0;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.1));
   border: 1px solid rgba(251, 191, 36, 0.45);
   border-radius: 14px;
@@ -717,6 +720,10 @@
 .daily-pro-banner:hover {
   transform: translateY(-1px);
   border-color: #fbbf24;
+}
+.daily-pro-banner:focus-visible {
+  outline: 2px solid #fbbf24;
+  outline-offset: 2px;
 }
 .daily-pro-left {
   display: flex;

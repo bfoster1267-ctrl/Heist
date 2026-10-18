@@ -50,6 +50,8 @@ export interface Progress {
   /** cosmetics bought with coins (free unlocks aren't listed; they're worked out from level and prestige) */
   owned: string[];
   equipped: Record<EquipSlot, string>;
+  /** VIP Founder Pass status: grants table crown, Streak Shield, and ad suppression */
+  vip?: boolean;
   /** this season's pass (season XP and unopened free packs); null before the first season game */
   pass: PassState | null;
   packsBought: number;
@@ -103,7 +105,7 @@ export interface Progress {
 export function newProgress(): Progress {
   return {
     chips: START_CHIPS, coins: START_COINS, xp: 0, prestige: 0, stats: emptyStats(), owned: [],
-    equipped: { ...DEFAULT_EQUIPPED }, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
+    equipped: { ...DEFAULT_EQUIPPED }, vip: false, pass: null, packsBought: 0, winBonusDay: null, dailyDay: null, drinksSent: 0, drinksReceived: 0,
     mistakes: {}, coachGames: 0,
     rating: START_RATING, ratedGames: 0, campaign: 0, ranked: null,
     solitaire: { won: 0, day: null, xp: 0 },

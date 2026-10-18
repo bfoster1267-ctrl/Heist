@@ -13,7 +13,7 @@ import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal"
 import { t, useLanguage } from "./i18n";
 import { click } from "./sound";
 import { buzz } from "./haptics";
-import { isHeistPro, onProChange } from "./account/pro";
+import { useHeistPro } from "./account/pro";
 
 const Campaign = lazy(() => import("./Campaign").then((m) => ({ default: m.Campaign })));
 const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
@@ -138,8 +138,7 @@ export function Lobby({
     }
   });
   const [stake, setStake] = useState(() => remembered("heist.stake", [0, 1, 2, 3], 1));
-  const [isPro, setIsPro] = useState(isHeistPro);
-  useEffect(() => onProChange(setIsPro), []);
+  const isPro = useHeistPro();
   const [rules, setRules] = useState(false);
   // How to play, once the first lesson is done: another game with the coach, or the rules
   const [learn, setLearn] = useState(false);
@@ -210,7 +209,7 @@ export function Lobby({
           title={isPro ? "VIP Founder Status Active" : "Unlock Heist VIP Founder Pass"}
         >
           <span className="lobby-pro-icon">👑</span>
-          <span className="lobby-pro-text">{isPro ? "VIP" : "PRO"}</span>
+          <span className="lobby-pro-text">{isPro ? "VIP" : "VIP"}</span>
         </button>
       )}
       <div className="logo lobby-topname" aria-hidden="true">
