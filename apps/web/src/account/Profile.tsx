@@ -437,15 +437,27 @@ function Shop({ me }: { me: Me }) {
                 <span className="acct-bundle-coin">🪙 +{b.coins.toLocaleString()} Coins</span>
                 <span className="acct-bundle-chip">🎰 +{b.chips.toLocaleString()} Chips</span>
               </div>
-              <a
-                href={b.stripeUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn small gold acct-bundle-btn"
-                aria-label={`Get ${b.name} for ${b.price} on Stripe`}
-              >
-                Get for {b.price}
-              </a>
+              {b.stripeUrl ? (
+                <a
+                  href={b.stripeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn small gold acct-bundle-btn"
+                  aria-label={`Get ${b.name} for ${b.price} on Stripe`}
+                >
+                  Get for {b.price}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className="btn small acct-bundle-btn"
+                  disabled
+                  aria-disabled="true"
+                  title="Coming soon - waiting for dedicated Stripe checkout link"
+                >
+                  Coming Soon ({b.price})
+                </button>
+              )}
             </div>
           ))}
         </div>

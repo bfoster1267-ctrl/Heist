@@ -24,7 +24,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     chips: 5000,
     price: "$1.99",
     badge: "Popular",
-    stripeUrl: "https://buy.stripe.com/cNicN42WW2Ta16V1fDf3a00",
+    stripeUrl: "", // Add dedicated $1.99 Stripe Payment Link here
   },
   {
     id: "bundle_high_roller",
@@ -33,7 +33,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     chips: 20000,
     price: "$4.99",
     badge: "Best Value",
-    stripeUrl: HEIST_PRO_STRIPE_URL,
+    stripeUrl: "", // Add dedicated $4.99 Coins+Chips Stripe Payment Link here
   },
   {
     id: "bundle_vault",
@@ -42,7 +42,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     chips: 60000,
     price: "$9.99",
     badge: "Maximum",
-    stripeUrl: "https://buy.stripe.com/cNicN42WW2Ta16V1fDf3a00",
+    stripeUrl: "", // Add dedicated $9.99 Stripe Payment Link here
   },
 ];
 
