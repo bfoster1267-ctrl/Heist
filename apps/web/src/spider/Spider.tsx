@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { AnimatePresence } from "motion/react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
-import { card as cardSound, click, isMuted, onSoundChange, setMuted, win as winSound } from "../sound";
+import { card as cardSound, click, isMuted, isPlayerMuted, onSoundChange, setMuted, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
@@ -365,7 +365,7 @@ export function Spider({
           <button
             type="button"
             className={`spider-icon-btn ${muted ? "muted" : ""}`}
-            onClick={() => { buzz("tap"); setMuted(!muted); }}
+            onClick={() => { buzz("tap"); setMuted(!isPlayerMuted()); }}
             aria-label={muted ? "Unmute sound" : "Mute sound"}
             title={muted ? "Unmute sound" : "Mute sound"}
           >

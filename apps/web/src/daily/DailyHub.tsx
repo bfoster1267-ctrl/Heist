@@ -29,6 +29,7 @@ import { card as cardSound, click } from "../sound";
 import "./daily.css";
 import { GAME_LABELS } from "./ChallengeBanner";
 import { getDailyBest, getDailyLeaderboard, shareDailyResult } from "./shareHelpers";
+import { isHeistPro, onProChange } from "../account/pro";
 
 export { GAME_LABELS };
 
@@ -43,6 +44,8 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
   const { me, act } = useAccount() ?? {};
   const progress = me?.progress ?? propProgress;
   const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
+  const [isPro, setIsPro] = useState(isHeistPro);
+  useEffect(() => onProChange(setIsPro), []);
   const [copiedShare, setCopiedShare] = useState(false);
   const [buyingFreeze, setBuyingFreeze] = useState(false);
   const [claimingVault, setClaimingVault] = useState(false);
@@ -206,20 +209,35 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
         {/* Pro Pass Banner */}
         {onOpenPro && (
           <div
-            className="daily-pro-banner"
+            className={"daily-pro-banner" + (isPro ? " active" : "")}
+            role="button"
+            tabIndex={0}
             onClick={() => {
               click();
               buzz("tap");
               onOpenPro();
             }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                click();
+                buzz("tap");
+                onOpenPro();
+              }
+            }}
+            aria-label={isPro ? "VIP Founder Status Active" : "Get Heist VIP Founder Pass"}
           >
             <div className="daily-pro-left">
-              <span className="daily-pro-badge">👑 HEIST PRO PASS</span>
+              <span className="daily-pro-badge">👑 VIP FOUNDER PASS</span>
               <span className="daily-pro-desc">
-                Unlock <strong>Unlimited Streak Shield</strong> & <strong>365-Day Puzzle Archive</strong> ($4.99)
+                {isPro ? (
+                  <><strong>Streak Shield Protected!</strong> Your daily streaks are safe.</>
+                ) : (
+                  <>Unlock <strong>Streak Shield Protection</strong> & Lifetime VIP Status ($4.99)</>
+                )}
               </span>
             </div>
-            <span className="daily-pro-action">Get Pro →</span>
+            <span className="daily-pro-action">{isPro ? "VIP Active ✓" : "Get Pass →"}</span>
           </div>
         )}
 

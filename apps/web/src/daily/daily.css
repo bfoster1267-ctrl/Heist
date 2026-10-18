@@ -744,4 +744,15 @@
   white-space: nowrap;
 }
 
+.daily-pro-banner.active {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(5, 150, 105, 0.08));
+  border-color: rgba(52, 211, 153, 0.45);
+}
+.daily-pro-banner.active .daily-pro-badge {
+  color: #34d399;
+}
+.daily-pro-banner.active .daily-pro-action {
+  color: #34d399;
+}
+
 

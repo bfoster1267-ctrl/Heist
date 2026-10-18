@@ -12,7 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
-import { card as cardSound, cardSlam, click, foundationChime, isMuted, onSoundChange, setMuted, win as winSound } from "../sound";
+import { card as cardSound, cardSlam, click, foundationChime, isMuted, isPlayerMuted, onSoundChange, setMuted, win as winSound } from "../sound";
 import { FriendChallengeModal } from "../daily/FriendChallengeModal";
 import { shareDailyResult } from "../daily/shareHelpers";
 import { getDailyStreak, getStreakMultiplier } from "@heist/profile";
@@ -539,7 +539,7 @@ export function Solitaire({
         </div>
         <button
           className={"sol-icon-btn" + (muted ? " muted" : "")}
-          onClick={() => { buzz("tap"); setMuted(!muted); }}
+          onClick={() => { buzz("tap"); setMuted(!isPlayerMuted()); }}
           aria-label={muted ? "Unmute sound" : "Mute sound"}
           title={muted ? "Unmute sound" : "Mute sound"}
         >

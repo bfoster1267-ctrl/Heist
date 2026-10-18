@@ -20,7 +20,7 @@ import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
-import { HEIST_PRO_STRIPE_URL, isHeistPro } from "./pro";
+import { HEIST_PRO_STRIPE_URL, isHeistPro, onProChange } from "./pro";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
@@ -380,6 +380,8 @@ function Shop({ me }: { me: Me }) {
   const { act } = useAccount();
   const p = me.progress;
   const li = levelInfo(p.xp);
+  const [pro, setPro] = useState(isHeistPro);
+  useEffect(() => onProChange(setPro), []);
   const [busy, setBusy] = useState<string | null>(null);
   const run = async (id: string, f: "buy" | "equip") => {
     setBusy(id);
@@ -392,16 +394,16 @@ function Shop({ me }: { me: Me }) {
     <div className="acct-shop">
       <div className="acct-pro-hero">
         <div className="acct-pro-hero-left">
-          <div className="acct-pro-pill">👑 Premium Upgrade</div>
-          <div className="acct-pro-title">Heist Pro Pass</div>
+          <div className="acct-pro-pill">👑 Lifetime Supporter</div>
+          <div className="acct-pro-title">VIP Founder Pass</div>
           <div className="acct-pro-sub">
-            365-Day Daily Puzzle Archive · Unlimited Streak Shield · 100% Winnable Deals · AI Pivotal Move Rewind
+            Streak Shield Protection · Gold Table Crown · Ad-Free Forever · Founder Roadmap Priority
           </div>
         </div>
         <div className="acct-pro-hero-right">
           <span className="acct-pro-hero-price">$4.99</span>
-          {isHeistPro() ? (
-            <span style={{ color: "#22c55e", fontWeight: 700, fontSize: "14px" }}>✓ Pro Active</span>
+          {pro ? (
+            <span style={{ color: "#22c55e", fontWeight: 700, fontSize: "14px" }}>✓ VIP Active</span>
           ) : (
             <a
               href={HEIST_PRO_STRIPE_URL}
@@ -410,7 +412,7 @@ function Shop({ me }: { me: Me }) {
               className="btn small gold"
               style={{ fontWeight: 800, padding: "8px 18px", textDecoration: "none" }}
             >
-              Unlock Pro
+              Unlock VIP
             </a>
           )}
         </div>

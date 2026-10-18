@@ -30,8 +30,14 @@ export function ProModal({
   if (!isOpen) return null;
 
   return (
-    <div className="pro-modal-overlay" onClick={onClose}>
-      <div className="pro-modal-card" onClick={(e) => e.stopPropagation()}>
+    <div className="pro-modal-overlay" onClick={onClose} role="presentation">
+      <div
+        className="pro-modal-card"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pro-modal-title"
+      >
         <button
           className="pro-modal-close"
           onClick={() => {
@@ -44,8 +50,10 @@ export function ProModal({
           ✕
         </button>
 
-        <div className="pro-badge">👑 Premium Membership</div>
-        <h2 className="pro-title">Heist Pro Pass</h2>
+        <div className="pro-badge">👑 Lifetime Membership</div>
+        <h2 id="pro-modal-title" className="pro-title">
+          VIP Founder Pass
+        </h2>
 
         <div className="pro-price-wrap">
           <span className="pro-price">$4.99</span>
@@ -54,10 +62,12 @@ export function ProModal({
 
         <div className="pro-perks-list">
           <div className="pro-perk">
-            <span className="pro-perk-icon">🗓️</span>
+            <span className="pro-perk-icon">👑</span>
             <div>
-              <div className="pro-perk-title">365-Day Daily Puzzle Archive</div>
-              <div className="pro-perk-desc">Play every past daily puzzle and fill out your calendar with monthly trophies.</div>
+              <div className="pro-perk-title">Gold VIP Status & Table Crown</div>
+              <div className="pro-perk-desc">
+                Exclusive gold VIP badge and crown on your profile, leaderboards, and multiplayer tables.
+              </div>
             </div>
           </div>
 
@@ -65,38 +75,46 @@ export function ProModal({
             <span className="pro-perk-icon">🛡️</span>
             <div>
               <div className="pro-perk-title">Streak Shield Protection</div>
-              <div className="pro-perk-desc">Never lose your 30-day or 100-day daily streaks if life gets busy.</div>
+              <div className="pro-perk-desc">
+                Never lose your hard-earned 30-day or 100-day daily streaks if life gets busy.
+              </div>
             </div>
           </div>
 
           <div className="pro-perk">
-            <span className="pro-perk-icon">🧠</span>
+            <span className="pro-perk-icon">🚫</span>
             <div>
-              <div className="pro-perk-title">100% Winnable Deals Engine</div>
-              <div className="pro-perk-desc">Guaranteed mathematical solutions for Solitaire, FreeCell, and Spider.</div>
+              <div className="pro-perk-title">100% Ad-Free Forever Guarantee</div>
+              <div className="pro-perk-desc">
+                Instant distraction-free gaming with zero 30-second video popups on phone and computer.
+              </div>
             </div>
           </div>
 
           <div className="pro-perk">
-            <span className="pro-perk-icon">⏪</span>
+            <span className="pro-perk-icon">🚀</span>
             <div>
-              <div className="pro-perk-title">AI "Pivotal Move" Rewind</div>
-              <div className="pro-perk-desc">See the exact move where your deal branched and rewind straight to it.</div>
+              <div className="pro-perk-title">Founder Roadmap Priority</div>
+              <div className="pro-perk-desc">
+                Early supporter access to upcoming 365-day daily puzzle archives, AI replay review, and guaranteed winnable deal modes as they roll out.
+              </div>
             </div>
           </div>
 
           <div className="pro-perk">
-            <span className="pro-perk-icon">👑</span>
+            <span className="pro-perk-icon">❤️</span>
             <div>
-              <div className="pro-perk-title">Gold VIP Profile & Percentile Stats</div>
-              <div className="pro-perk-desc">Exclusive gold badge on multiplayer tables and global leaderboard percentiles.</div>
+              <div className="pro-perk-title">Direct Indie Game Support</div>
+              <div className="pro-perk-desc">
+                Support independent game development and help us keep the web fast, fun, and free of spam.
+              </div>
             </div>
           </div>
         </div>
 
         {pro ? (
-          <div style={{ padding: "12px", background: "rgba(34, 197, 94, 0.15)", borderRadius: "14px", border: "1px solid #22c55e", color: "#86efac", fontWeight: 700 }}>
-            ✓ You have Heist Pro Active! Thank you for supporting an ad-free web.
+          <div className="pro-active-banner">
+            ✓ You have VIP Founder Status Active! Thank you for supporting Heist.
           </div>
         ) : (
           <a
@@ -109,7 +127,7 @@ export function ProModal({
               buzz("tap");
             }}
           >
-            Unlock Heist Pro — $4.99
+            Unlock VIP Founder Pass — $4.99
           </a>
         )}
 

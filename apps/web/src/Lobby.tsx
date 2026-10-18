@@ -13,6 +13,7 @@ import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal"
 import { t, useLanguage } from "./i18n";
 import { click } from "./sound";
 import { buzz } from "./haptics";
+import { isHeistPro, onProChange } from "./account/pro";
 
 const Campaign = lazy(() => import("./Campaign").then((m) => ({ default: m.Campaign })));
 const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
@@ -137,6 +138,8 @@ export function Lobby({
     }
   });
   const [stake, setStake] = useState(() => remembered("heist.stake", [0, 1, 2, 3], 1));
+  const [isPro, setIsPro] = useState(isHeistPro);
+  useEffect(() => onProChange(setIsPro), []);
   const [rules, setRules] = useState(false);
   // How to play, once the first lesson is done: another game with the coach, or the rules
   const [learn, setLearn] = useState(false);
@@ -197,17 +200,17 @@ export function Lobby({
       </button>
       {onOpenPro && (
         <button
-          className="lobby-pro-btn"
+          className={"lobby-pro-btn" + (isPro ? " active" : "")}
           onClick={() => {
             click();
             buzz("tap");
             onOpenPro();
           }}
-          aria-label="Heist Pro Pass"
-          title="Unlock Heist Pro Pass"
+          aria-label={isPro ? "VIP Founder Status Active" : "Heist VIP Founder Pass"}
+          title={isPro ? "VIP Founder Status Active" : "Unlock Heist VIP Founder Pass"}
         >
           <span className="lobby-pro-icon">👑</span>
-          <span className="lobby-pro-text">PRO</span>
+          <span className="lobby-pro-text">{isPro ? "VIP" : "PRO"}</span>
         </button>
       )}
       <div className="logo lobby-topname" aria-hidden="true">

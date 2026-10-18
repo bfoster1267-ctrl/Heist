@@ -88,8 +88,13 @@ export function setHostMuted(m: boolean) {
 }
 
 export const isMuted = () => muted || hostMuted;
+export const isPlayerMuted = () => muted;
+export const isHostMuted = () => hostMuted;
 export function setMuted(m: boolean) {
+  if (m === muted) return;
   muted = m;
+  if (m && ctx?.state === "running") void ctx.suspend().catch(() => {});
+  else if (!m && !hostMuted && ctx && ctx.state !== "running") void ctx.resume().catch(() => {});
   watchers.forEach((f) => f());
   try {
     localStorage.setItem("heist.muted", m ? "1" : "0");

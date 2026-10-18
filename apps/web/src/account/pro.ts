@@ -35,7 +35,17 @@ export function onProChange(listener: (isPro: boolean) => void): () => void {
   return () => LISTENERS.delete(listener);
 }
 
-/** Check URL parameters for successful Stripe return (?pro=success) */
+// Cross-tab synchronization: notify listeners when another tab modifies pro status
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === STORAGE_KEY) {
+      const active = e.newValue === "true";
+      LISTENERS.forEach((fn) => fn(active));
+    }
+  });
+}
+
+/** Check URL parameters for successful Stripe return (?pro=success or ?pro=activated) */
 export function checkStripeProReturn(): boolean {
   if (typeof window === "undefined") return false;
   try {
