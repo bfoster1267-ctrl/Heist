@@ -19,6 +19,8 @@ const URLS = [
   `https://${HOST}/minesweeper`,
   `https://${HOST}/sudoku`,
   `https://${HOST}/checkers`,
+  `https://${HOST}/hearts`,
+  `https://${HOST}/spades`,
   `https://${HOST}/card-games`,
   `https://${HOST}/arcade`,
   `https://${HOST}/blog`,
