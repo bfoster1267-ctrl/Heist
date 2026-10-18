@@ -314,6 +314,20 @@ export interface GameView {
   broken?: string;
 }
 
+export interface FunnelPerson {
+  person: string;
+  userId: string;
+  name: string;
+  first: number;
+  last: number;
+  step: string;
+  stepKey?: string;
+  turn: number | null;
+  lastWhat?: string;
+  recent?: string[];
+  minutes?: number;
+}
+
 export interface FunnelStep {
   key: string;
   label: string;
@@ -322,6 +336,7 @@ export interface FunnelStep {
   stopped: number;
   minutes: number | null;
   last: { what: string; count: number }[];
+  people?: FunnelPerson[];
 }
 
 export interface Funnel {
@@ -332,7 +347,7 @@ export interface Funnel {
   people: number;
   steps: FunnelStep[];
   worst: { step: string; label: string; stopped: number; of: number } | null;
-  newest: { person: string; userId: string; name: string; first: number; last: number; step: string; turn: number | null }[];
+  newest: FunnelPerson[];
 }
 
 export interface BotRow {

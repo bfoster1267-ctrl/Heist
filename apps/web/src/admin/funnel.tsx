@@ -24,6 +24,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
   const game = query.get("game") ?? "all";
   const [from, setFrom] = useState(query.get("from") ?? "");
   const [to, setTo] = useState(query.get("to") ?? "");
+  const [selectedStep, setSelectedStep] = useState<string | null>(null);
   const qs = (o: Record<string, string>) => {
     const next = new URLSearchParams(query);
     for (const [k, v] of Object.entries(o)) {
@@ -46,6 +47,10 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
   const f = r.data;
   const start = f?.steps[0]?.reached ?? 0;
   const worst = f?.worst ? f.steps.find((x) => x.key === f.worst!.step) : undefined;
+  const stSelected = f?.steps.find((x) => x.key === selectedStep);
+  const filteredNewest = selectedStep
+    ? f?.newest.filter((x) => x.stepKey === selectedStep || x.step === stSelected?.label) ?? []
+    : f?.newest ?? [];
 
   return (
     <>
@@ -120,37 +125,151 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
           <div className="card">
             <div className="card-head">
               <h3>How far new people got</h3>
-              <span className="dim small">each person counts at every step up to the furthest one they reached</span>
+              <span className="dim small">tap any step to inspect players who stopped there and study what they did before</span>
             </div>
             <ol className="funnel">
-              {f.steps.map((st, i) => (
-                <li key={st.key} className={st.key === f.worst?.step ? "worst" : ""}>
-                  <div className="funnel-step">
-                    <b>{st.label}</b>
-                    <span className="dim small">{st.note}</span>
-                  </div>
-                  <span className="hbar">
-                    <i style={{ width: `${(st.reached / Math.max(1, start)) * 100}%` }} />
-                  </span>
-                  <div className="funnel-n">
-                    <b>{num(st.reached)}</b> <span className="dim">{pct(st.reached, start)}</span>
-                  </div>
-                  <div className="funnel-left">
-                    {i < f.steps.length - 1 && st.stopped > 0 ? (
-                      <>
-                        <span className="down">{num(st.stopped)} stopped here</span>
-                        <span className="dim small">
-                          {" "}
-                          after {mins(st.minutes)}
-                          {st.last[0] && `; last: ${st.last.slice(0, 2).map((l) => `${said(l.what)} (${l.count})`).join(", ")}`}
-                        </span>
-                      </>
-                    ) : i === f.steps.length - 1 && st.reached > 0 ? (
-                      <span className="up">made it all the way</span>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
+              {f.steps.map((st, i) => {
+                const isSelected = selectedStep === st.key;
+                const isWorst = st.key === f.worst?.step;
+                const isLast = i === f.steps.length - 1;
+                return (
+                  <li
+                    key={st.key}
+                    className={`funnel-item ${isWorst ? "worst" : ""} ${isSelected ? "selected" : ""}`}
+                    onClick={() => setSelectedStep(isSelected ? null : st.key)}
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={isSelected}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelectedStep(isSelected ? null : st.key);
+                      }
+                    }}
+                  >
+                    <div className="funnel-step">
+                      <div style={{ display: "flex", alignItems: "center" }}>
+                        <b>{st.label}</b>
+                        <span className="funnel-expand-icon">{isSelected ? "▲" : "▼"}</span>
+                      </div>
+                      <span className="dim small">{st.note}</span>
+                    </div>
+                    <span className="hbar">
+                      <i style={{ width: `${(st.reached / Math.max(1, start)) * 100}%` }} />
+                    </span>
+                    <div className="funnel-n">
+                      <b>{num(st.reached)}</b> <span className="dim">{pct(st.reached, start)}</span>
+                    </div>
+                    <div className="funnel-left">
+                      {!isLast && st.stopped > 0 ? (
+                        <>
+                          <span className="down">{num(st.stopped)} stopped here</span>
+                          <span className="dim small">
+                            {" "}
+                            after {mins(st.minutes)}
+                            {st.last[0] && `; last: ${st.last.slice(0, 2).map((l) => `${said(l.what)} (${l.count})`).join(", ")}`}
+                          </span>
+                          <span className="funnel-click-hint">{isSelected ? "Hide players ▲" : "Tap to see players ▼"}</span>
+                        </>
+                      ) : isLast && st.reached > 0 ? (
+                        <>
+                          <span className="up">made it all the way</span>
+                          {st.stopped > 0 && <span className="dim small"> ({num(st.stopped)} signed up)</span>}
+                          <span className="funnel-click-hint">{isSelected ? "Hide players ▲" : "Tap to see players ▼"}</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="dim small">0 stopped here</span>
+                          <span className="funnel-click-hint">{isSelected ? "Hide details ▲" : "Tap to see details ▼"}</span>
+                        </>
+                      )}
+                    </div>
+
+                    {isSelected && (
+                      <div className="funnel-drilldown" onClick={(e) => e.stopPropagation()}>
+                        <div className="funnel-drilldown-header">
+                          <div className="funnel-drilldown-title">
+                            <h4>
+                              Players who stopped at "{st.label}" ({num(st.people?.length ?? st.stopped)})
+                            </h4>
+                            <span className="dim small">
+                              {st.stopped > 0
+                                ? `Median time on site: ${mins(st.minutes)}. Tap any player or "Study player →" to inspect their complete activity history.`
+                                : `All ${num(st.reached)} players who reached this step kept going.`}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            className="btn small"
+                            onClick={() => setSelectedStep(null)}
+                            aria-label="Close details"
+                          >
+                            Close ✕
+                          </button>
+                        </div>
+
+                        {!st.people || st.people.length === 0 ? (
+                          <p className="dim small" style={{ margin: "8px 0" }}>
+                            No player records found for this step in this timeframe.
+                          </p>
+                        ) : (
+                          <div className="funnel-drilldown-list">
+                            {st.people.map((p) => (
+                              <div
+                                key={p.person}
+                                className="funnel-player-card"
+                                onClick={() => go(`/players/${p.userId}`)}
+                                title={`Study ${p.name || "Guest"}'s full activity`}
+                              >
+                                <div className="funnel-player-top">
+                                  <div className="funnel-player-identity">
+                                    <span className="funnel-player-avatar">👤</span>
+                                    <Link
+                                      to={`/players/${p.userId}`}
+                                      className="funnel-player-name"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      {p.name || "Guest"}
+                                    </Link>
+                                    <span className="dim small">· {mins(p.minutes ?? ((p.last - p.first) / 60_000))} on site</span>
+                                    <span className="dim small">· {when(p.last)}</span>
+                                  </div>
+                                  <Link
+                                    to={`/players/${p.userId}`}
+                                    className="btn small primary funnel-study-btn"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    Study player →
+                                  </Link>
+                                </div>
+
+                                {p.recent && p.recent.length > 0 ? (
+                                  <div className="funnel-player-history">
+                                    <span className="dim small">Trail before leaving:</span>
+                                    <div className="funnel-history-chips">
+                                      {p.recent.map((act, idx) => (
+                                        <span key={idx} className="funnel-history-crumb">
+                                          {idx > 0 && <span className="crumb-arrow">→</span>}
+                                          <span className="crumb-bubble">{said(act)}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ) : p.lastWhat ? (
+                                  <div className="funnel-player-history">
+                                    <span className="dim small">Last action:</span>
+                                    <span className="crumb-bubble">{said(p.lastWhat)}</span>
+                                  </div>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ol>
             <p className="dim small">
               {f.turnsSince ? `Turn-by-turn tracking started ${when(f.turnsSince)}; people before that show no turns.` : "Turn-by-turn tracking hasn't seen a game yet, so the turn steps will appear once people play."}
@@ -159,35 +278,66 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
           </div>
           <div className="card">
             <div className="card-head">
-              <h3>Newest people and where they stopped</h3>
+              <h3>
+                {selectedStep && stSelected
+                  ? `Newest people who stopped at "${stSelected.label}" (${filteredNewest.length})`
+                  : "Newest people and where they stopped"}
+              </h3>
+              {selectedStep && (
+                <button type="button" className="btn small" onClick={() => setSelectedStep(null)}>
+                  Show all steps ✕
+                </button>
+              )}
             </div>
-            <div className="scroll-x">
-              <table className="grid-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>First visit</th>
-                    <th className="r">Time on site</th>
-                    <th>Got as far as</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {f.newest.map((x) => (
-                    <tr key={x.person}>
-                      <td>
-                        <Link to={`/players/${x.userId}`}>{x.name || "Guest"}</Link>
-                      </td>
-                      <td>{when(x.first)}</td>
-                      <td className="r">{mins((x.last - x.first) / 60_000)}</td>
-                      <td>
-                        {x.step}
-                        {x.turn && !x.step.startsWith("Reached turn") ? <span className="dim small"> (turn {x.turn})</span> : null}
-                      </td>
+            {filteredNewest.length === 0 ? (
+              <p className="dim small" style={{ padding: "12px 0" }}>
+                No newest players stopped at this step in the recent sample.
+              </p>
+            ) : (
+              <div className="scroll-x">
+                <table className="grid-table">
+                  <thead>
+                    <tr>
+                      <th>Player</th>
+                      <th>First visit</th>
+                      <th className="r">Time on site</th>
+                      <th>Got as far as</th>
+                      <th>Last action / Study</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {filteredNewest.map((x) => (
+                      <tr key={x.person} onClick={() => go(`/players/${x.userId}`)} style={{ cursor: "pointer" }}>
+                        <td>
+                          <Link to={`/players/${x.userId}`} onClick={(e) => e.stopPropagation()}>
+                            {x.name || "Guest"}
+                          </Link>
+                        </td>
+                        <td>{when(x.first)}</td>
+                        <td className="r">{mins(x.minutes ?? ((x.last - x.first) / 60_000))}</td>
+                        <td>
+                          {x.step}
+                          {x.turn && !x.step.startsWith("Reached turn") ? <span className="dim small"> (turn {x.turn})</span> : null}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <span className="dim small">{x.lastWhat ? said(x.lastWhat) : "–"}</span>
+                            <Link
+                              to={`/players/${x.userId}`}
+                              className="btn small primary"
+                              onClick={(e) => e.stopPropagation()}
+                              style={{ whiteSpace: "nowrap" }}
+                            >
+                              Study →
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </>
       )}

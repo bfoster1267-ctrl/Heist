@@ -22,9 +22,9 @@ export function go(path: string) {
   location.hash = path;
 }
 
-export function Link({ to, children, className }: { to: string; children: React.ReactNode; className?: string }) {
+export function Link({ to, children, className, onClick, style }: { to: string; children: React.ReactNode; className?: string; onClick?: (e: React.MouseEvent) => void; style?: React.CSSProperties }) {
   return (
-    <a href={`#${to}`} className={className}>
+    <a href={`#${to}`} className={className} onClick={onClick} style={style}>
       {children}
     </a>
   );

@@ -52,6 +52,14 @@ describe("drop-off funnel", () => {
     expect(step("visit").stopped).toBe(1);
     expect(step("visit").last).toEqual([{ what: 'Tapped "Quick Match"', count: 1 }]);
     expect(step("turn3").stopped).toBe(1);
+    expect(step("visit").people?.length).toBe(1);
+    expect(step("visit").people?.[0].person).toBe("b");
+    expect(step("visit").people?.[0].userId).toBe("b");
+    expect(step("visit").people?.[0].lastWhat).toBe('Tapped "Quick Match"');
+    expect(step("turn3").people?.length).toBe(1);
+    expect(step("turn3").people?.[0].name).toBe("Ann");
+    expect(step("turn3").people?.[0].turn).toBe(3);
+    expect(step("turn3").people?.[0].recent).toBeDefined();
     expect(f.worst?.of).toBe(3);
     expect(f.worst?.stopped).toBe(1);
     expect(f.turnsSince).toBe(t0 + 3);

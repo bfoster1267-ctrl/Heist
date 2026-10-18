@@ -12,6 +12,21 @@ export const RETURN_AFTER = 12 * HOUR;
 /** the coached-game turns shown as their own steps (only up to the furthest anyone got) */
 const TURNS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30];
 
+export interface FunnelPerson {
+  person: string;
+  /** the account to open in the player file */
+  userId: string;
+  name: string;
+  first: number;
+  last: number;
+  step: string;
+  stepKey?: string;
+  turn: number | null;
+  lastWhat?: string;
+  recent?: string[];
+  minutes?: number;
+}
+
 export interface FunnelStep {
   key: string;
   label: string;
@@ -25,17 +40,8 @@ export interface FunnelStep {
   minutes: number | null;
   /** of those who stopped here: what they did last (a tap, a screen, or the kind of event) */
   last: { what: string; count: number }[];
-}
-
-export interface FunnelPerson {
-  person: string;
-  /** the account to open in the player file */
-  userId: string;
-  name: string;
-  first: number;
-  last: number;
-  step: string;
-  turn: number | null;
+  /** people whose furthest step is this one (newest first, up to 100) */
+  people?: FunnelPerson[];
 }
 
 export interface Funnel {
@@ -59,6 +65,7 @@ interface Trail {
   first: number;
   last: number;
   lastWhat: string;
+  recent: string[];
   newTap: boolean;
   lesson: boolean;
   /** tapped through the lobby tour after the first hand (picked coaching or bots at the end) */
@@ -105,6 +112,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     if (!t) {
       t = {
         ids: new Set(), userId: e.userId!, name: e.name ?? "", first: e.at, last: e.at, lastWhat: what(e),
+        recent: [],
         newTap: false, lesson: false, toured: false, coachedGames: new Set(), turn: 0, finished: false,
         games: 0, online: false, back: false, signedUp: false, arcadeStarted: false, arcadeWon: false,
         gameTypes: new Set(),
@@ -115,7 +123,14 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     if (e.name) t.name = e.name;
     t.last = e.at;
     // the API's own calls (config, /me) say little; taps, screens and game steps say where they were
-    if (e.kind !== "ui.ping" && (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel.") || e.kind.startsWith("checkers.") || e.kind.startsWith("hearts.") || e.kind.startsWith("spades.") || e.kind.startsWith("minesweeper.") || e.kind.startsWith("sudoku."))) t.lastWhat = what(e);
+    if (e.kind !== "ui.ping" && (e.kind.startsWith("ui.") || e.kind.startsWith("solo.") || e.kind.startsWith("game.") || e.kind.startsWith("table.") || e.kind.startsWith("auth.") || e.kind.startsWith("solitaire.") || e.kind.startsWith("freecell.") || e.kind.startsWith("spider.") || e.kind.startsWith("tripeaks.") || e.kind.startsWith("pyramid.") || e.kind.startsWith("ers.") || e.kind.startsWith("yukon.") || e.kind.startsWith("scoundrel.") || e.kind.startsWith("checkers.") || e.kind.startsWith("hearts.") || e.kind.startsWith("spades.") || e.kind.startsWith("minesweeper.") || e.kind.startsWith("sudoku."))) {
+      const act = what(e);
+      t.lastWhat = act;
+      if (t.recent[t.recent.length - 1] !== act) {
+        t.recent.push(act);
+        if (t.recent.length > 5) t.recent.shift();
+      }
+    }
     if (e.at - t.first >= RETURN_AFTER) t.back = true;
     const d = (e.data ?? {}) as Record<string, unknown>;
     const ok = e.ok !== false;
@@ -245,6 +260,22 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
       stopped: stop.length,
       minutes: mins === null ? null : Math.round(mins * 10) / 10,
       last: [...lasts].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([w, count]) => ({ what: w, count })),
+      people: stop
+        .sort((a, b) => b.t.last - a.t.last)
+        .slice(0, 100)
+        .map(({ p, t }) => ({
+          person: p,
+          userId: t.userId,
+          name: t.name,
+          first: t.first,
+          last: t.last,
+          step: s.label,
+          stepKey: s.key,
+          turn: t.turn || null,
+          lastWhat: t.lastWhat,
+          recent: t.recent.length ? t.recent : [t.lastWhat],
+          minutes: Math.round(((t.last - t.first) / 60_000) * 10) / 10,
+        })),
     };
   });
   // the last step is the finish line, not a drop
@@ -260,6 +291,18 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     newest: at
       .sort((a, b) => b.t.first - a.t.first)
       .slice(0, 100)
-      .map(({ p, t, k }) => ({ person: p, userId: t.userId, name: t.name, first: t.first, last: t.last, step: defs[k].label, turn: t.turn || null })),
+      .map(({ p, t, k }) => ({
+        person: p,
+        userId: t.userId,
+        name: t.name,
+        first: t.first,
+        last: t.last,
+        step: defs[k].label,
+        stepKey: defs[k].key,
+        turn: t.turn || null,
+        lastWhat: t.lastWhat,
+        recent: t.recent.length ? t.recent : [t.lastWhat],
+        minutes: Math.round(((t.last - t.first) / 60_000) * 10) / 10,
+      })),
   };
 }
