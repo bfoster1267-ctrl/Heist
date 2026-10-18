@@ -328,7 +328,7 @@ export function Ers({
             type="button"
             className="ers-icon-btn"
             onClick={() => { click(); buzz("tap"); onExit(); }}
-            title="Leave ERS"
+            title="Back to the lobby"
             aria-label="Back to the lobby"
           >
             <Icon d="M15 19l-7-7 7-7" />

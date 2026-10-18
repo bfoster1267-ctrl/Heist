@@ -475,7 +475,7 @@ export function Checkers({
       <div className="ck-vignette" />
 
       <header className="ck-bar">
-        <button className="ck-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} title="Leave Checkers" aria-label="Back to the lobby">
+        <button className="ck-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} title="Back to the lobby" aria-label="Back to the lobby">
           <Icon d="M15 19l-7-7 7-7" />
         </button>
         <div className="ck-hud">

@@ -552,10 +552,10 @@ export function Sudoku({
             buzz("tap");
             onExit();
           }}
-          title="Exit"
-          aria-label="Exit"
+          title="Back to the lobby"
+          aria-label="Back to the lobby"
         >
-          ✕
+          <Icon d="M15 5 8 12l7 7" />
         </button>
         <div className="su-hud">
           <div className="su-hud-name">
@@ -874,5 +874,13 @@ export function Sudoku({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function Icon({ d }: { d: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
   );
 }

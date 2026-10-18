@@ -270,10 +270,10 @@ export function Scoundrel({
             buzz("tap");
             onExit();
           }}
-          title="Exit"
-          aria-label="Exit"
+          title="Back to the lobby"
+          aria-label="Back to the lobby"
         >
-          ✕
+          <Icon d="M15 5 8 12l7 7" />
         </button>
 
         <div className="sc-hud">
@@ -323,13 +323,13 @@ export function Scoundrel({
       </div>
 
       {banner && (
-        <div style={{ position: "absolute", top: 52, left: 0, right: 0, zIndex: 590, display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 52px)", left: 0, right: 0, zIndex: 590, display: "flex", justifyContent: "center" }}>
           {banner}
         </div>
       )}
 
       {/* Main Board */}
-      <div className="sc-board" style={{ marginTop: banner ? 46 : 6 }}>
+      <div className="sc-board" style={{ marginTop: banner ? 46 : 0 }}>
         {k && (
           <>
             {/* Status Panel: Health Bar & Equipment */}
@@ -654,5 +654,13 @@ export function Scoundrel({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function Icon({ d }: { d: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
   );
 }

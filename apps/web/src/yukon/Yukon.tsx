@@ -468,10 +468,10 @@ export function Yukon({
         <button
           className="yk-icon-btn"
           onClick={() => { click(); buzz("tap"); onExit(); }}
-          title="Exit"
-          aria-label="Exit"
+          title="Back to the lobby"
+          aria-label="Back to the lobby"
         >
-          ✕
+          <Icon d="M15 5 8 12l7 7" />
         </button>
 
         <div className="yk-hud">
@@ -531,7 +531,7 @@ export function Yukon({
       </div>
 
       {banner && (
-        <div style={{ position: "absolute", top: 52, left: 0, right: 0, zIndex: 590, display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 52px)", left: 0, right: 0, zIndex: 590, display: "flex", justifyContent: "center" }}>
           {banner}
         </div>
       )}
@@ -539,7 +539,7 @@ export function Yukon({
       {/* Main Board */}
       <div
         className="yk-board"
-        style={{ top: banner ? 96 : 56 }}
+        style={{ top: banner ? "calc(env(safe-area-inset-top, 0px) + 96px)" : "calc(env(safe-area-inset-top, 0px) + 54px)" }}
         onClick={() => setSelected(null)}
       >
         {k && (
@@ -771,5 +771,13 @@ export function Yukon({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function Icon({ d }: { d: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
   );
 }

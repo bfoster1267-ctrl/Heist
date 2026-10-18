@@ -503,7 +503,7 @@ export function FreeCell({
       <div className="fc-board" ref={board}>
         {banner && <div className="fc-banner">{banner}</div>}
         <div className="fc-bar" style={{ height: 52 }}>
-          <button className="fc-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
+          <button className="fc-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} title="Back to the lobby" aria-label="Back to the lobby">
             <Icon d="M15 5 8 12l7 7" />
           </button>
           <div className="fc-hud">

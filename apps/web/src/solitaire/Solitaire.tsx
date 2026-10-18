@@ -512,7 +512,7 @@ export function Solitaire({
       <div className="sol-board" ref={board}>
       {banner && <div className="sol-banner">{banner}</div>}
       <div className="sol-bar" style={{ height: 52 }}>
-        <button className="sol-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} aria-label="Back to the lobby">
+        <button className="sol-icon-btn" onClick={() => { click(); buzz("tap"); onExit(); }} title="Back to the lobby" aria-label="Back to the lobby">
           <Icon d="M15 5 8 12l7 7" />
         </button>
         <div className="sol-hud">

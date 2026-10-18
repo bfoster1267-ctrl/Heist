@@ -46,8 +46,8 @@ function useBoard() {
   const gap = Math.max(3, Math.round(width * 0.012));
   const cw = Math.floor((width - gap * 8) / 7.2);
   const ch = Math.round(cw * 1.4);
-  const maxRowH = Math.max(16, Math.floor((size.h - 140 - 2 * ch) / 6));
-  const rowH = Math.min(Math.round(ch * 0.44), maxRowH);
+  const maxRowH = Math.max(16, Math.floor((size.h - 180 - 2 * ch) / 6));
+  const rowH = Math.min(Math.round(ch * 0.48), maxRowH);
   const boardLeft = Math.round((size.w - width) / 2) + gap;
   return { width, height: size.h, gap, cw, ch, rowH, left: boardLeft };
 }
@@ -390,10 +390,10 @@ export function Pyramid({
         <button
           className="pyr-icon-btn"
           onClick={() => { click(); buzz("tap"); onExit(); }}
-          title="Exit"
-          aria-label="Exit"
+          title="Back to the lobby"
+          aria-label="Back to the lobby"
         >
-          ✕
+          <Icon d="M15 5 8 12l7 7" />
         </button>
 
         <div className="pyr-hud">
@@ -453,13 +453,13 @@ export function Pyramid({
       </div>
 
       {banner && (
-        <div style={{ position: "absolute", top: 52, left: 0, right: 0, zIndex: 590, display: "flex", justifyContent: "center" }}>
+        <div style={{ position: "absolute", top: "calc(env(safe-area-inset-top, 0px) + 52px)", left: 0, right: 0, zIndex: 590, display: "flex", justifyContent: "center" }}>
           {banner}
         </div>
       )}
 
       {/* Main Board */}
-      <div className="pyr-board" style={{ top: banner ? 96 : 56 }}>
+      <div className="pyr-board" style={{ top: banner ? "calc(env(safe-area-inset-top, 0px) + 96px)" : "calc(env(safe-area-inset-top, 0px) + 54px)" }}>
         {k && (
           <>
             {/* Pyramid cards */}
@@ -518,7 +518,11 @@ export function Pyramid({
 
             {/* Bottom Deck Zone: Stock & Waste */}
             {(() => {
-              const stockTop = 10 + 6 * b.rowH + b.ch + 16;
+              const pyramidH = 6 * b.rowH + b.ch;
+              // On tall screens, gently distribute spacing so stock & waste sit comfortably in natural thumb reach
+              const availSpace = Math.max(0, b.height - (banner ? 120 : 76) - pyramidH - b.ch - 30);
+              const extraGap = Math.max(16, Math.min(60, Math.round(availSpace * 0.32)));
+              const stockTop = 10 + pyramidH + extraGap;
               const stockLeft = b.left + 2 * (b.cw + b.gap);
               const wasteLeft = b.left + 3.5 * (b.cw + b.gap);
 
@@ -675,5 +679,13 @@ export function Pyramid({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function Icon({ d }: { d: string }) {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
+    </svg>
   );
 }
