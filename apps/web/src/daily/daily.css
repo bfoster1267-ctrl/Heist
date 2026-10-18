@@ -699,4 +699,49 @@
   background: rgba(74, 222, 128, 0.1);
 }
 
+/* Daily Pro Banner */
+.daily-pro-banner {
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(217, 119, 6, 0.1));
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.daily-pro-banner:hover {
+  transform: translateY(-1px);
+  border-color: #fbbf24;
+}
+.daily-pro-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.daily-pro-badge {
+  font-size: 11px;
+  font-weight: 800;
+  color: #fbbf24;
+  letter-spacing: 0.5px;
+}
+.daily-pro-desc {
+  font-size: 12px;
+  color: #cbd5e1;
+}
+.daily-pro-desc strong {
+  color: #fff;
+}
+.daily-pro-action {
+  font-family: var(--cond, sans-serif);
+  font-weight: 800;
+  font-size: 13px;
+  color: #fbbf24;
+  white-space: nowrap;
+}
+
 

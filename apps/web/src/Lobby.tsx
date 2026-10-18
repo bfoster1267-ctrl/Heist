@@ -11,6 +11,8 @@ import { REFILL_TO, STAKES } from "./wallet";
 import { ChallengeBanner } from "./daily/ChallengeBanner";
 import { MobileInstallModal, isMobileDevice } from "./arcade/MobileInstallModal";
 import { t, useLanguage } from "./i18n";
+import { click } from "./sound";
+import { buzz } from "./haptics";
 
 const Campaign = lazy(() => import("./Campaign").then((m) => ({ default: m.Campaign })));
 const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
@@ -74,6 +76,7 @@ export function Lobby({
   onTour,
   progress,
   onOpenDaily,
+  onOpenPro,
 }: {
   chips: number;
   onPlay: (c: LobbyChoice) => void;
@@ -123,6 +126,7 @@ export function Lobby({
   onTour?: (step: TourStep | null) => void;
   progress?: Progress;
   onOpenDaily?: () => void;
+  onOpenPro?: () => void;
 }) {
   const [players, setPlayers] = useState(() => remembered("heist.players", [3, 4, 5, 6], 4));
   const [name, setName] = useState(() => {
@@ -191,6 +195,21 @@ export function Lobby({
         <span className="lobby-lang-flag">{lang === "en" ? "🇧🇷" : "🇺🇸"}</span>
         <span className="lobby-lang-code">{lang === "en" ? "PT" : "EN"}</span>
       </button>
+      {onOpenPro && (
+        <button
+          className="lobby-pro-btn"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onOpenPro();
+          }}
+          aria-label="Heist Pro Pass"
+          title="Unlock Heist Pro Pass"
+        >
+          <span className="lobby-pro-icon">👑</span>
+          <span className="lobby-pro-text">PRO</span>
+        </button>
+      )}
       <div className="logo lobby-topname" aria-hidden="true">
         HEIST
       </div>

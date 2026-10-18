@@ -36,9 +36,10 @@ export interface DailyHubProps {
   progress?: Progress;
   onClose: () => void;
   onPlayChallenge: (game: DailyGame, seed: number) => void;
+  onOpenPro?: () => void;
 }
 
-export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: DailyHubProps) {
+export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onOpenPro }: DailyHubProps) {
   const { me, act } = useAccount() ?? {};
   const progress = me?.progress ?? propProgress;
   const [msLeft, setMsLeft] = useState(() => getRemainingMsUntilNextUtcDay());
@@ -201,6 +202,26 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge }: D
             </button>
           )}
         </div>
+
+        {/* Pro Pass Banner */}
+        {onOpenPro && (
+          <div
+            className="daily-pro-banner"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onOpenPro();
+            }}
+          >
+            <div className="daily-pro-left">
+              <span className="daily-pro-badge">👑 HEIST PRO PASS</span>
+              <span className="daily-pro-desc">
+                Unlock <strong>Unlimited Streak Shield</strong> & <strong>365-Day Puzzle Archive</strong> ($4.99)
+              </span>
+            </div>
+            <span className="daily-pro-action">Get Pro →</span>
+          </div>
+        )}
 
         {/* Daily Quests Trio */}
         {questsSummary && (

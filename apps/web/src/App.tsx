@@ -39,6 +39,8 @@ const InviteToast = lazy(() => import("./account/Friends").then((m) => ({ defaul
 const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
 const DailyHub = lazy(() => import("./daily/DailyHub").then((m) => ({ default: m.DailyHub })));
 const WhatLostYou = lazy(() => import("./account/WhatLostYou").then((m) => ({ default: m.WhatLostYou })));
+const ProModal = lazy(() => import("./account/ProModal").then((m) => ({ default: m.ProModal })));
+import { checkStripeProReturn } from "./account/pro";
 
 export function App() {
   return (
@@ -69,6 +71,12 @@ function Game() {
   }, [failed]);
   const [table, setTable] = useState<Seated | null>(null);
   const [memberModalOpen, setMemberModalOpen] = useState(false);
+  const [proModalOpen, setProModalOpen] = useState(false);
+  useEffect(() => {
+    if (checkStripeProReturn()) {
+      setProModalOpen(true);
+    }
+  }, []);
   const [round, setRound] = useState(0);
   // the profile sheet and which tab it opens on (false = closed)
   const [profile, setProfile] = useState<false | LobbyPage | "account" | "friends">(() => (opened().friends ? "friends" : false));
@@ -1123,6 +1131,7 @@ function Game() {
             onTour={setTour}
             progress={me.progress}
             onOpenDaily={() => setDailyHubOpen(true)}
+            onOpenPro={() => setProModalOpen(true)}
           />
           <div className="acct-corner">
             <ProfileChip me={me} packs={packs} onOpen={() => setProfile(packs ? "season" : "career")} />
@@ -1186,6 +1195,7 @@ function Game() {
               progress={me.progress}
               onClose={() => setDailyHubOpen(false)}
               onPlayChallenge={launchDailyGame}
+              onOpenPro={() => setProModalOpen(true)}
             />
           )}
         </AnimatePresence>
@@ -1207,6 +1217,9 @@ function Game() {
           source="lobby_save"
         />
       )}
+      <Suspense fallback={null}>
+        <ProModal isOpen={proModalOpen} onClose={() => setProModalOpen(false)} />
+      </Suspense>
       <Suspense fallback={null}>
         {!!friendsView?.invites.length && <InviteToast busy={!!table} />}
         <AnimatePresence>{ask && !table && <WhatLostYou key="lost" ask={ask} onDone={() => setAsk(null)} />}</AnimatePresence>

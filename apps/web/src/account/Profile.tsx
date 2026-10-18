@@ -20,6 +20,7 @@ import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
+import { HEIST_PRO_STRIPE_URL, isHeistPro } from "./pro";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
@@ -389,6 +390,31 @@ function Shop({ me }: { me: Me }) {
     c.unlock?.prestige ? t("shop.locked_prestige", { name: prestigeLabel(c.unlock.prestige) }) : c.unlock?.level ? t("shop.locked_level", { level: c.unlock.level }) : "";
   return (
     <div className="acct-shop">
+      <div className="acct-pro-hero">
+        <div className="acct-pro-hero-left">
+          <div className="acct-pro-pill">👑 Premium Upgrade</div>
+          <div className="acct-pro-title">Heist Pro Pass</div>
+          <div className="acct-pro-sub">
+            365-Day Daily Puzzle Archive · Unlimited Streak Shield · 100% Winnable Deals · AI Pivotal Move Rewind
+          </div>
+        </div>
+        <div className="acct-pro-hero-right">
+          <span className="acct-pro-hero-price">$4.99</span>
+          {isHeistPro() ? (
+            <span style={{ color: "#22c55e", fontWeight: 700, fontSize: "14px" }}>✓ Pro Active</span>
+          ) : (
+            <a
+              href={HEIST_PRO_STRIPE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn small gold"
+              style={{ fontWeight: 800, padding: "8px 18px", textDecoration: "none" }}
+            >
+              Unlock Pro
+            </a>
+          )}
+        </div>
+      </div>
       <div className="acct-shop-top">
         <Coins amount={p.coins} big />
         <span className="dim">{t("shop.coins_desc")}</span>
