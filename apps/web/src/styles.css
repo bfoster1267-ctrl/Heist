@@ -41,6 +41,11 @@ body {
   position: fixed;
   inset: 0;
 }
+@supports (-webkit-touch-callout: none) {
+  html, body, #root {
+    min-height: -webkit-fill-available;
+  }
+}
 button {
   font: inherit;
   color: inherit;
@@ -3925,7 +3930,8 @@ button:disabled {
     place-items: center;
   }
   .lobby-main {
-    min-height: calc(100dvh - 144px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    align-self: stretch;
+    min-height: 100%;
     justify-content: space-evenly;
     gap: clamp(10px, 2.2vh, 18px);
   }

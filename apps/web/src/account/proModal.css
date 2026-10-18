@@ -27,6 +27,7 @@
   width: 100%;
   max-width: 460px;
   max-height: calc(100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 28px);
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 28px);
   overflow-y: auto;
   box-sizing: border-box;
   padding: 1.25rem 1.4rem 1.75rem;
