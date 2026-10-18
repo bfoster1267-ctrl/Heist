@@ -91,7 +91,7 @@ export function getDailyStreak(progress?: Progress | null, timestamp?: number | 
     return current;
   }
   // Missed days, but protected by VIP Streak Shield!
-  if (progress.vip && diff <= 3) {
+  if (progress.vip && diff >= 2 && diff <= 3) {
     return current;
   }
   // Missed exactly 1 day (diff === 2), but protected by a streak freeze!
@@ -442,7 +442,7 @@ export function recordDailyCompletion(
       if (diff === 1) {
         // Consecutive calendar day
         currentStreak += 1;
-      } else if (p.vip && diff <= 3) {
+      } else if (p.vip && diff >= 2 && diff <= 3) {
         // Missed day(s), but protected by VIP Streak Shield! (No freezes consumed)
         p.daily.usedFreezeDates = [...(p.daily.usedFreezeDates ?? []), today];
         usedFreeze = true;

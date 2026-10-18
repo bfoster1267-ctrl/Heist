@@ -220,7 +220,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
               onOpenPro();
             }}
           >
-            <div className="daily-pro-left">
+            <span className="daily-pro-left">
               <span className="daily-pro-badge">👑 VIP FOUNDER PASS</span>
               <span className="daily-pro-desc">
                 {isPro ? (
@@ -229,7 +229,7 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
                   <>Unlock <strong>Streak Shield Protection</strong> & Lifetime VIP Status ($4.99)</>
                 )}
               </span>
-            </div>
+            </span>
             <span className="daily-pro-action">{isPro ? "VIP Active ✓" : "Get Pass →"}</span>
           </button>
         )}

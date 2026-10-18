@@ -2,7 +2,7 @@ import { roleName, ROLES, type GameState } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
 import { Cigar } from "../account/items";
 import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
-import { isHeistPro } from "../account/pro";
+import { useHeistPro } from "../account/pro";
 
 /** Click-or-keyboard props for a table element that acts like a button. */
 export function pressable(onClick?: () => void, label?: string) {
@@ -104,6 +104,7 @@ export function Seat({
   /** online: tap the name for the player's profile */
   onName?: () => void;
 }) {
+  const isPro = useHeistPro();
   const P = s.players[seat];
   const j = s.job;
   const isBoss = s.boss === seat && s.phase !== "setup";
@@ -163,7 +164,7 @@ export function Seat({
               P.name
             )}
             {me && <span className="you-tag">YOU</span>}
-            {((me && isHeistPro()) || (P as { vip?: boolean }).vip) && (
+            {me && isPro && (
               <span className="seat-vip-crown" title="VIP Founder" aria-label="VIP Founder">👑</span>
             )}
             {away && (

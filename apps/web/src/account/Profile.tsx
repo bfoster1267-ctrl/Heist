@@ -394,7 +394,7 @@ function Shop({ me }: { me: Me }) {
     <div className="acct-shop">
       <div className="acct-pro-hero">
         <div className="acct-pro-hero-left">
-          <div className="acct-pro-pill">👑 Lifetime Supporter</div>
+          <div className="acct-pro-pill">👑 VIP Founder Pass</div>
           <div className="acct-pro-title">VIP Founder Pass</div>
           <div className="acct-pro-sub">
             Streak Shield Protection · Gold Table Crown · Ad-Free Forever · Founder Roadmap Priority
@@ -467,6 +467,7 @@ function Shop({ me }: { me: Me }) {
 
 function Board({ me }: { me: Me }) {
   const { backend } = useAccount();
+  const isPro = useHeistPro();
   const [by, setBy] = useState<"winnings" | "level" | "wins" | "ranked">("winnings");
   const [rows, setRows] = useState<LeaderRow[] | null>(null);
   const [open, setOpen] = useState<string | null>(null);
@@ -501,7 +502,7 @@ function Board({ me }: { me: Me }) {
               <span className="acct-board-rank">{i + 1}</span>
               <Avatar name={r.name} frame={r.frame} level={r.level} size={34} />
               <span className="acct-board-name">
-                {r.name} <Stars prestige={r.prestige} size={10} />
+                {r.name} {r.id === me.id && isPro && <span className="profile-vip-tag">👑 VIP</span>} <Stars prestige={r.prestige} size={10} />
               </span>
               <span className="acct-board-v">
                 {by === "winnings"

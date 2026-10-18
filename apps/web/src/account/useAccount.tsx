@@ -4,6 +4,7 @@
 import { cosmetic, type Reward } from "@heist/profile";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BackendError, openBackend, type Backend, type Me } from "./backend";
+import { useHeistPro } from "./pro";
 
 interface AccountCtx {
   backend: Backend | null;
@@ -69,14 +70,33 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     [backend],
   );
 
-  useEquippedLook(me);
+  const isPro = useHeistPro();
+  const effectiveMe = useMemo(() => {
+    if (!me) return null;
+    if (isPro) {
+      if (me.progress.vip) return me;
+      return {
+        ...me,
+        progress: {
+          ...me.progress,
+          vip: true,
+        },
+      };
+    }
+    return me;
+  }, [me, isPro]);
+
+  useEquippedLook(effectiveMe);
   useEffect(() => {
     if (!error) return;
     const t = window.setTimeout(() => setError(null), 5000);
     return () => clearTimeout(t);
   }, [error]);
 
-  const value = useMemo(() => ({ backend, me, failed, suspended, error, clearError: () => setError(null), act, reward, showReward }), [backend, me, failed, suspended, error, act, reward]);
+  const value = useMemo(
+    () => ({ backend, me: effectiveMe, failed, suspended, error, clearError: () => setError(null), act, reward, showReward }),
+    [backend, effectiveMe, failed, suspended, error, act, reward],
+  );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 

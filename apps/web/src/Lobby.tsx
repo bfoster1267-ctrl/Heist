@@ -209,7 +209,7 @@ export function Lobby({
           title={isPro ? "VIP Founder Status Active" : "Unlock Heist VIP Founder Pass"}
         >
           <span className="lobby-pro-icon">👑</span>
-          <span className="lobby-pro-text">{isPro ? "VIP" : "VIP"}</span>
+          <span className="lobby-pro-text">VIP</span>
         </button>
       )}
       <div className="logo lobby-topname" aria-hidden="true">

@@ -66,14 +66,16 @@ export function checkStripeProReturn(): boolean {
   if (typeof window === "undefined") return false;
   try {
     const url = new URL(window.location.href);
-    const sessionId = url.searchParams.get("session_id") || url.searchParams.get("pro");
+    const sessionId = url.searchParams.get("session_id");
     
     // Stripe checkout session tokens strictly match cs_(live|test)_[a-zA-Z0-9_]{16,}
     if (sessionId && /^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId)) {
       setHeistPro(true, sessionId);
       url.searchParams.delete("session_id");
       url.searchParams.delete("pro");
-      window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
+      const cleanSearch = url.searchParams.toString();
+      const cleanUrl = url.pathname + (cleanSearch ? `?${cleanSearch}` : "") + url.hash;
+      window.history.replaceState({}, "", cleanUrl);
       return true;
     }
   } catch {

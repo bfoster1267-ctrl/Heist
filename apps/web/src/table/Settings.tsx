@@ -201,7 +201,9 @@ export function Settings({
             <div className="set-card">
               <div className="set-info">
                 <span className="set-label">{t("settings.sound")}</span>
-                <span className="set-desc">{t("settings.sound_desc")}</span>
+                <span className="set-desc">
+                  {t("settings.sound_desc")}{hostMuted ? " (Muted by platform)" : ""}
+                </span>
               </div>
               <div className="set-control">
                 <label className="set-switch">
@@ -299,7 +301,9 @@ export function Settings({
             <div className="set-card">
               <div className="set-info">
                 <span className="set-label">{t("settings.sound")}</span>
-                <span className="set-desc">{t("settings.sound_desc")}</span>
+                <span className="set-desc">
+                  {t("settings.sound_desc")}{hostMuted ? " (Muted by platform)" : ""}
+                </span>
               </div>
               <div className="set-control">
                 <label className="set-switch">

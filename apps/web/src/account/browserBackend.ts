@@ -7,6 +7,7 @@ import {
 } from "@heist/profile";
 import type { BotLevel } from "@heist/engine";
 import { BackendError, store, type Backend, type Config, type LeaderRow, type Me, type PackOpened, type SoloTicket } from "./backend";
+import { isHeistPro, setHeistPro } from "./pro";
 
 interface LocalSave {
   id: string;
@@ -38,11 +39,15 @@ export class BrowserBackend implements Backend {
       s = { id: "local", name: store.get("heist.name") || "Ace", joined: Date.now(), progress: p, solo: null };
     }
     s.progress = upgrade(s.progress);
+    if (isHeistPro()) s.progress.vip = true;
+    else if (s.progress.vip) setHeistPro(true);
     this.save = s;
     this.write();
   }
 
   private write() {
+    if (isHeistPro()) this.save.progress.vip = true;
+    else if (this.save.progress.vip) setHeistPro(true);
     store.set(LOCAL_KEY, JSON.stringify(this.save));
   }
 
@@ -52,11 +57,13 @@ export class BrowserBackend implements Backend {
 
   private view(): Me {
     const s = this.save;
+    if (isHeistPro()) s.progress.vip = true;
     return { id: s.id, name: s.name, guest: true, email: null, logins: [], progress: s.progress, profile: publicProfile(s.id, s.name, s.joined, s.progress) };
   }
 
   private apply(r: Progress | Fail): Me {
     if (failed(r)) throw new BackendError(r.error);
+    if (isHeistPro()) r.vip = true;
     this.save.progress = r;
     this.write();
     return this.view();

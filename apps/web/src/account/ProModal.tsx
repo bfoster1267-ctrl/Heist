@@ -15,51 +15,54 @@ export function ProModal({
   const cardRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
-  // Focus trap, focus restoration, and Escape handling
+  // Focus management and Escape key handling
   useEffect(() => {
     if (!isOpen) return;
 
     prevFocusRef.current = document.activeElement as HTMLElement | null;
-    // Move focus into the modal
     const timer = setTimeout(() => {
       closeBtnRef.current?.focus();
     }, 50);
 
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleWindowKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         e.stopPropagation();
         e.preventDefault();
-        onClose();
-        return;
-      }
-
-      // Trap Tab key within dialog
-      if (e.key === "Tab" && cardRef.current) {
-        const focusables = cardRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusables.length === 0) return;
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first.focus();
-        }
+        onCloseRef.current();
       }
     };
 
-    window.addEventListener("keydown", handleKeyDown, true);
+    window.addEventListener("keydown", handleWindowKeyDown);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("keydown", handleKeyDown, true);
+      window.removeEventListener("keydown", handleWindowKeyDown);
       prevFocusRef.current?.focus();
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
+
+  // Tab focus trap scoped to modal card
+  const handleCardKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== "Tab" || !cardRef.current) return;
+
+    const focusables = cardRef.current.querySelectorAll<HTMLElement>(
+      'button:not([disabled]):not([aria-hidden="true"]), [href]:not([aria-hidden="true"]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    if (focusables.length === 0) return;
+
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -69,6 +72,7 @@ export function ProModal({
         ref={cardRef}
         className="pro-modal-card"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleCardKeyDown}
         role="dialog"
         aria-modal="true"
         aria-labelledby="pro-modal-title"
@@ -87,7 +91,7 @@ export function ProModal({
           ✕
         </button>
 
-        <div className="pro-badge">👑 Lifetime Membership</div>
+        <div className="pro-badge">👑 VIP Founder Pass</div>
         <h2 id="pro-modal-title" className="pro-title">
           VIP Founder Pass
         </h2>
@@ -103,7 +107,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Gold VIP Status & Table Crown</div>
               <div className="pro-perk-desc">
-                Exclusive gold VIP badge and crown on your profile, leaderboards, and multiplayer tables.
+                Exclusive gold VIP badge and crown on your profile, leaderboard entry, and game table.
               </div>
             </div>
           </div>
@@ -123,7 +127,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">100% Ad-Free Forever Guarantee</div>
               <div className="pro-perk-desc">
-                Instant distraction-free gaming with zero video popups or midgame interruptions on phone and web.
+                Instant distraction-free gaming with zero banner ads, interstitials, or video popups on phone and web.
               </div>
             </div>
           </div>
@@ -133,7 +137,7 @@ export function ProModal({
             <div>
               <div className="pro-perk-title">Founder Roadmap Priority</div>
               <div className="pro-perk-desc">
-                Supporter priority for upcoming 365-day daily puzzle archives, AI replay review, and guaranteed winnable deal modes.
+                Early supporter access to upcoming 365-day daily puzzle archives, AI replay review, and guaranteed winnable deal modes as they roll out.
               </div>
             </div>
           </div>
