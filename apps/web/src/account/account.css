@@ -2103,9 +2103,9 @@
     margin-top: 2px;
   }
 }
-/* mobile portrait: only show latest single chat bubble so bottom action buttons stay clear */
+/* mobile portrait: hide floating chat bubbles so bottom action tiles (Campaign, How to play) stay clear */
 @media (max-width: 600px) {
-  .lounge-float:not(:last-child) {
+  .lounge-floats {
     display: none;
   }
 }

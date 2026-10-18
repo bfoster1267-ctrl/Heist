@@ -3807,6 +3807,50 @@ button:disabled {
   font-size: 18px;
   line-height: 1;
 }
+
+/* Mobile top bar (portrait phones, small screens, and landscape phones): compact 38px round badges */
+@media (max-width: 640px), (max-height: 520px) {
+  .lobby-gear {
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(10px + env(safe-area-inset-left));
+    width: 38px;
+    height: 38px;
+    font-size: 20px;
+    border-radius: 12px;
+  }
+  .lobby-lang-btn {
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(54px + env(safe-area-inset-left));
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 12px;
+  }
+  .lobby-lang-code {
+    display: none;
+  }
+  .lobby-lang-flag {
+    font-size: 20px;
+    margin: 0;
+  }
+  .lobby-pro-btn {
+    top: calc(10px + env(safe-area-inset-top));
+    left: calc(98px + env(safe-area-inset-left));
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 12px;
+  }
+  .lobby-pro-btn .lobby-pro-text {
+    display: none;
+  }
+  .lobby-pro-icon {
+    font-size: 18px;
+    margin: 0;
+  }
+}
 .acct-pro-active-badge {
   color: #34d399;
   font-weight: 700;
@@ -3893,6 +3937,7 @@ button:disabled {
 @media (max-width: 500px) and (min-height: 521px) {
   .lobby {
     padding-top: calc(92px + env(safe-area-inset-top));
+    padding-bottom: calc(88px + env(safe-area-inset-bottom));
     place-items: start center;
   }
   .lobby-bg {
@@ -3974,52 +4019,6 @@ button:disabled {
   .lobby-main .install,
   .lobby-main .fine {
     display: none;
-  }
-  .lobby-gear {
-    top: calc(10px + env(safe-area-inset-top));
-    left: calc(10px + env(safe-area-inset-left));
-    width: 38px;
-    height: 38px;
-    font-size: 20px;
-    border-radius: 12px;
-  }
-  .lobby-lang-btn {
-    top: calc(10px + env(safe-area-inset-top));
-    left: calc(54px + env(safe-area-inset-left));
-    width: 38px;
-    height: 38px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 12px;
-  }
-  .lobby-lang-code {
-    display: none;
-  }
-  .lobby-lang-flag {
-    font-size: 20px;
-    margin: 0;
-  }
-  .lobby-pro-btn {
-    top: calc(10px + env(safe-area-inset-top));
-    left: calc(98px + env(safe-area-inset-left));
-    height: 38px;
-    padding: 0 10px;
-    font-size: 13px;
-    border-radius: 12px;
-    gap: 4px;
-  }
-  @media (max-width: 440px) {
-    .lobby-pro-btn {
-      width: 38px;
-      padding: 0;
-      justify-content: center;
-    }
-    .lobby-pro-btn .lobby-pro-text {
-      display: none;
-    }
-  }
-  .lobby-pro-icon {
-    font-size: 14px;
   }
   .lobby-sheet {
     gap: 10px;
