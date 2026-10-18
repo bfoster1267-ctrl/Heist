@@ -14,9 +14,26 @@ export function installAppShell() {
   // not on CrazyGames: the game is a file on their storage there, not an app to install
   if (import.meta.env.PROD && import.meta.env.MODE !== "single" && !onCrazyGames && "serviceWorker" in navigator) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("./sw.js").catch(() => {
+      navigator.serviceWorker.register("./sw.js").then((reg) => {
+        // Proactively check for updates on open and when returning from background
+        reg.update().catch(() => {});
+        document.addEventListener("visibilitychange", () => {
+          if (document.visibilityState === "visible") {
+            reg.update().catch(() => {});
+          }
+        });
+      }).catch(() => {
         /* offline play just won't be available */
       });
+    });
+
+    // When the new service worker takes over, reload to apply new assets automatically
+    let reloading = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (!reloading) {
+        reloading = true;
+        window.location.reload();
+      }
     });
   }
 
