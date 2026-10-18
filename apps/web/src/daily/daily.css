@@ -762,4 +762,16 @@
   color: #34d399;
 }
 
+@media (max-width: 600px) {
+  .daily-hub-overlay {
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+  }
+  .daily-hub-box {
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px);
+    border-radius: 16px;
+    padding: 16px;
+  }
+}
+
+
 

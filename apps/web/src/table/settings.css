@@ -63,6 +63,17 @@
   margin: auto !important;
 }
 
+@media (max-width: 600px) {
+  .lobby-settings-back {
+    padding: max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left)) !important;
+  }
+  .lobby-settings-back .settings.settings-modal-card {
+    width: 100% !important;
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 24px) !important;
+    border-radius: 16px;
+  }
+}
+
 /* Header */
 .settings-head {
   display: flex;
