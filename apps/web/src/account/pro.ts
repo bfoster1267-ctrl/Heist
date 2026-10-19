@@ -26,7 +26,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$1.99",
     image: "/bundles/bundle_1.jpg",
     badge: "Popular",
-    stripeUrl: "", // Add dedicated $1.99 Stripe Payment Link here
+    stripeUrl: "https://buy.stripe.com/6oUdR8btsfFWbLz0bzf3a07",
   },
   {
     id: "bundle_high_roller",
@@ -36,7 +36,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$4.99",
     image: "/bundles/bundle_2.jpg",
     badge: "Best Value",
-    stripeUrl: "", // Add dedicated $4.99 Stripe Payment Link here
+    stripeUrl: "https://buy.stripe.com/eVqaEW2WW0L28zne2pf3a06",
   },
   {
     id: "bundle_vault",
@@ -46,7 +46,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$9.99",
     image: "/bundles/bundle_3.jpg",
     badge: "Maximum",
-    stripeUrl: "", // Add dedicated $9.99 Stripe Payment Link here
+    stripeUrl: "https://buy.stripe.com/9B6dR8bts65m8zn4rPf3a05",
   },
   {
     id: "bundle_kingpin",
@@ -56,7 +56,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$19.99",
     image: "/bundles/bundle_4.jpg",
     badge: "High Roller",
-    stripeUrl: "", // Add dedicated $19.99 Stripe Payment Link here
+    stripeUrl: "https://buy.stripe.com/8x228qapo3Xe7vjaQdf3a03",
   },
   {
     id: "bundle_syndicate",
@@ -66,7 +66,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$49.99",
     image: "/bundles/bundle_5.jpg",
     badge: "Whale Pack",
-    stripeUrl: "", // Add dedicated $49.99 Stripe Payment Link here
+    stripeUrl: "https://buy.stripe.com/00wcN49lk65m02R8I5f3a02",
   },
   {
     id: "bundle_godfather",
@@ -76,7 +76,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$99.99",
     image: "/bundles/bundle_6.jpg",
     badge: "Ultimate",
-    stripeUrl: "", // Add dedicated $99.99 Stripe Payment Link here
+    stripeUrl: "https://buy.stripe.com/dRmdR80OOeBS3f3cYlf3a08",
   },
 ];
 
