@@ -4022,7 +4022,7 @@ button:disabled {
 @media (max-width: 500px) and (min-height: 521px) {
   .lobby {
     padding-top: calc(64px + env(safe-area-inset-top));
-    padding-bottom: calc(72px + env(safe-area-inset-bottom));
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
     place-items: center;
     box-shadow: none;
   }
