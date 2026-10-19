@@ -21,12 +21,15 @@ import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
 import { COIN_BUNDLES, HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
+import { click } from "../sound";
+import { buzz } from "../haptics";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
 export function Profile({ onClose, tab: start = "career", chat }: { onClose: () => void; tab?: Tab; /** a friend's chat to open on the Friends tab */ chat?: string | null }) {
   const { me } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
+  const [shopSubTab, setShopSubTab] = useState<"cosmetics" | "stashes">("cosmetics");
   const friends = useFriends();
   const waiting = badgeCount(friends);
   // a player card opened from the friends list
@@ -62,7 +65,13 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
             ✕
           </button>
         </div>
-        <Header me={me} />
+        <Header
+          me={me}
+          onOpenStashes={() => {
+            setShopSubTab("stashes");
+            setTab("shop");
+          }}
+        />
         <nav className="acct-tabs">
           {(
             [
@@ -85,7 +94,7 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
           {tab === "career" && <Career me={me} />}
           {tab === "wardrobe" && <Wardrobe me={me} onGo={setTab} />}
           {tab === "season" && <Season me={me} onWardrobe={() => setTab("wardrobe")} />}
-          {tab === "shop" && <Shop me={me} />}
+          {tab === "shop" && <Shop me={me} subTab={shopSubTab} onSubTabChange={setShopSubTab} />}
           {tab === "board" && <Board me={me} />}
           {tab === "friends" && <Friends meId={me.id} chat={chat} onPlayer={setCard} />}
           {tab === "account" && <Account me={me} />}
@@ -96,7 +105,7 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
   );
 }
 
-function Header({ me }: { me: Me }) {
+function Header({ me, onOpenStashes }: { me: Me; onOpenStashes?: () => void }) {
   const { act, showReward } = useAccount();
   const isPro = useHeistPro();
   const p = me.progress;
@@ -126,8 +135,21 @@ function Header({ me }: { me: Me }) {
         <NextUnlock level={li.level} prestige={p.prestige} />
       </div>
       <div className="acct-head-wallet">
-        <Chips amount={p.chips} />
-        <Coins amount={p.coins} big />
+        <button
+          type="button"
+          className="acct-head-wallet-btn"
+          onClick={() => {
+            click();
+            buzz("tap");
+            onOpenStashes?.();
+          }}
+          title="Buy Coins & Chips"
+          aria-label="Buy Coins and Chips"
+        >
+          <span className="acct-wallet-plus-badge" aria-hidden>+</span>
+          <Chips amount={p.chips} />
+          <Coins amount={p.coins} big />
+        </button>
         {canPrestige && (
           <button className="btn warn" onClick={() => setConfirm(true)}>
             {t("profile.prestige")}
@@ -377,12 +399,33 @@ const SLOTS: [EquipSlot, string][] = [
   ["cigar", "shop.cigar"],
 ];
 
-function Shop({ me }: { me: Me }) {
+function Shop({
+  me,
+  subTab = "cosmetics",
+  onSubTabChange,
+}: {
+  me: Me;
+  subTab?: "cosmetics" | "stashes";
+  onSubTabChange?: (tab: "cosmetics" | "stashes") => void;
+}) {
   const { act } = useAccount();
   const p = me.progress;
   const li = levelInfo(p.xp);
   const pro = useHeistPro();
   const [busy, setBusy] = useState<string | null>(null);
+  const [shopTab, setShopTab] = useState<"cosmetics" | "stashes">(subTab);
+
+  useEffect(() => {
+    setShopTab(subTab);
+  }, [subTab]);
+
+  const switchTab = (next: "cosmetics" | "stashes") => {
+    click();
+    buzz("tap");
+    setShopTab(next);
+    onSubTabChange?.(next);
+  };
+
   const run = async (id: string, f: "buy" | "equip") => {
     setBusy(id);
     await act((b) => (f === "buy" ? b.buy(id) : b.equip(id)));
@@ -390,139 +433,180 @@ function Shop({ me }: { me: Me }) {
   };
   const lockText = (c: Cosmetic) =>
     c.unlock?.prestige ? t("shop.locked_prestige", { name: prestigeLabel(c.unlock.prestige) }) : c.unlock?.level ? t("shop.locked_level", { level: c.unlock.level }) : "";
+
   return (
     <div className="acct-shop">
-      <div className="acct-pro-hero">
-        <img
-          src="/vip-badge-sm.png"
-          alt="Heist VIP Founder Pass"
-          width={72}
-          height={72}
-          style={{ width: 72, height: 72, objectFit: "contain", flexShrink: 0 }}
-          className="acct-pro-hero-thumb"
-        />
-        <div className="acct-pro-hero-left">
-          <div className="acct-pro-pill">👑 VIP Founder Pass</div>
-          <div className="acct-pro-title">VIP Founder Pass</div>
-          <div className="acct-pro-sub">
-            Streak Shield Protection · Gold Table Crown · Ad-Free Forever · Founder Roadmap Priority
-          </div>
-        </div>
-        <div className="acct-pro-hero-right">
-          <span className="acct-pro-hero-price">$4.99</span>
-          {pro ? (
-            <span className="acct-pro-active-badge">✓ VIP Active</span>
-          ) : (
-            <a
-              href={HEIST_PRO_STRIPE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="btn small gold"
-              aria-label="Unlock VIP Founder Pass on Stripe (opens in new tab)"
-              style={{ fontWeight: 800, padding: "8px 18px", textDecoration: "none" }}
-            >
-              Unlock VIP
-            </a>
-          )}
-        </div>
-      </div>
-      <div className="acct-shop-top">
-        <Coins amount={p.coins} big />
-        <span className="dim">{t("shop.coins_desc")}</span>
+      {/* Sub-navigation tabs: separates in-game cosmetics from currency stashes */}
+      <div className="acct-shop-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={shopTab === "cosmetics"}
+          className={"acct-shop-tab" + (shopTab === "cosmetics" ? " active" : "")}
+          onClick={() => switchTab("cosmetics")}
+        >
+          🎨 Cosmetics &amp; Gear
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={shopTab === "stashes"}
+          className={"acct-shop-tab" + (shopTab === "stashes" ? " active" : "")}
+          onClick={() => switchTab("stashes")}
+        >
+          <CoinIcon size={16} /> <ChipIcon size={16} /> Buy Coins &amp; Chips
+          <span className="acct-shop-tab-badge">6 Packs</span>
+        </button>
       </div>
 
-      <section className="acct-bundles-section">
-        <div className="acct-bundles-header">
-          <h3 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            <CoinIcon size={18} /> <ChipIcon size={18} /> Coin &amp; Chip Stashes
-          </h3>
-          <span className="dim">Boost your vault or grab exclusive table gear</span>
-        </div>
-        <div className="acct-bundles-grid">
-          {COIN_BUNDLES.map((b) => (
-            <div key={b.id} className="acct-bundle-card">
-              {b.badge && <span className="acct-bundle-badge">{b.badge}</span>}
-              <div className="acct-bundle-art">
-                <img
-                  src={b.image}
-                  alt={b.name}
-                  className="acct-bundle-img"
-                  loading="lazy"
-                />
+      {shopTab === "cosmetics" ? (
+        <>
+          <div className="acct-shop-quick-bar">
+            <div className="acct-shop-quick-left">
+              <Coins amount={p.coins} big />
+              <span className="dim">{t("shop.coins_desc")}</span>
+            </div>
+            <button
+              type="button"
+              className="btn small gold acct-shop-quick-btn"
+              onClick={() => switchTab("stashes")}
+            >
+              <CoinIcon size={15} /> <ChipIcon size={15} /> + Get Coins &amp; Chips
+            </button>
+          </div>
+
+          {SLOTS.map(([slot, labelKey]) => (
+            <section key={slot}>
+              <h3>{t(labelKey)}</h3>
+              <div className="acct-items">
+                {COSMETICS.filter((c) => c.slot === slot).map((c) => {
+                  const have = owns(p, c.id);
+                  const on = p.equipped[slot] === c.id;
+                  const open = unlocked(c, li.level, p.prestige);
+                  const rarity = rarityOf(c);
+                  return (
+                    <motion.div
+                      key={c.id}
+                      className={"acct-item" + (on ? " on" : "") + (!open ? " locked" : "")}
+                      data-rarity={rarity}
+                      layout
+                      whileHover={{ y: -3 }}
+                    >
+                      <Preview c={c} name={me.name} />
+                      <div className="acct-item-name">{c.name}</div>
+                      <RarityBadge rarity={rarity} />
+                      {on ? (
+                        <div className="acct-item-tag">{t("shop.equipped")}</div>
+                      ) : have ? (
+                        <button className="btn small gold" disabled={busy === c.id} onClick={() => run(c.id, "equip")}>
+                          {t("shop.equip")}
+                        </button>
+                      ) : !open ? (
+                        <div className="acct-item-lock">{lockText(c)}</div>
+                      ) : (
+                        <button className="btn small primary" disabled={busy === c.id || p.coins < c.price} onClick={() => run(c.id, "buy")}>
+                          <span className="acct-coin" /> {c.price.toLocaleString()}
+                        </button>
+                      )}
+                    </motion.div>
+                  );
+                })}
               </div>
-              <div className="acct-bundle-name">{b.name}</div>
-              <div className="acct-bundle-payout">
-                <span className="acct-bundle-coin" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <CoinIcon size={15} /> +{b.coins.toLocaleString()} Coins
-                </span>
-                <span className="acct-bundle-chip" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-                  <ChipIcon size={15} /> +{b.chips.toLocaleString()} Chips
-                </span>
+            </section>
+          ))}
+        </>
+      ) : (
+        <>
+          <div className="acct-pro-hero">
+            <img
+              src="/vip-badge-sm.png"
+              alt="Heist VIP Founder Pass"
+              width={72}
+              height={72}
+              style={{ width: 72, height: 72, objectFit: "contain", flexShrink: 0 }}
+              className="acct-pro-hero-thumb"
+            />
+            <div className="acct-pro-hero-left">
+              <div className="acct-pro-pill">👑 VIP Founder Pass</div>
+              <div className="acct-pro-title">VIP Founder Pass</div>
+              <div className="acct-pro-sub">
+                Streak Shield Protection · Gold Table Crown · Ad-Free Forever · Founder Roadmap Priority
               </div>
-              {b.stripeUrl ? (
+            </div>
+            <div className="acct-pro-hero-right">
+              <span className="acct-pro-hero-price">$4.99</span>
+              {pro ? (
+                <span className="acct-pro-active-badge">✓ VIP Active</span>
+              ) : (
                 <a
-                  href={b.stripeUrl}
+                  href={HEIST_PRO_STRIPE_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn small gold acct-bundle-btn"
-                  aria-label={`Get ${b.name} for ${b.price} on Stripe`}
+                  className="btn small gold"
+                  aria-label="Unlock VIP Founder Pass on Stripe (opens in new tab)"
+                  style={{ fontWeight: 800, padding: "8px 18px", textDecoration: "none" }}
                 >
-                  Get for {b.price}
+                  Unlock VIP
                 </a>
-              ) : (
-                <button
-                  type="button"
-                  className="btn small acct-bundle-btn"
-                  disabled
-                  aria-disabled="true"
-                  title="Coming soon - waiting for dedicated Stripe checkout link"
-                >
-                  Coming Soon ({b.price})
-                </button>
               )}
             </div>
-          ))}
-        </div>
-      </section>
-      {SLOTS.map(([slot, labelKey]) => (
-        <section key={slot}>
-          <h3>{t(labelKey)}</h3>
-          <div className="acct-items">
-            {COSMETICS.filter((c) => c.slot === slot).map((c) => {
-              const have = owns(p, c.id);
-              const on = p.equipped[slot] === c.id;
-              const open = unlocked(c, li.level, p.prestige);
-              const rarity = rarityOf(c);
-              return (
-                <motion.div
-                  key={c.id}
-                  className={"acct-item" + (on ? " on" : "") + (!open ? " locked" : "")}
-                  data-rarity={rarity}
-                  layout
-                  whileHover={{ y: -3 }}
-                >
-                  <Preview c={c} name={me.name} />
-                  <div className="acct-item-name">{c.name}</div>
-                  <RarityBadge rarity={rarity} />
-                  {on ? (
-                    <div className="acct-item-tag">{t("shop.equipped")}</div>
-                  ) : have ? (
-                    <button className="btn small gold" disabled={busy === c.id} onClick={() => run(c.id, "equip")}>
-                      {t("shop.equip")}
-                    </button>
-                  ) : !open ? (
-                    <div className="acct-item-lock">{lockText(c)}</div>
+          </div>
+
+          <section className="acct-bundles-section">
+            <div className="acct-bundles-header">
+              <h3 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <CoinIcon size={18} /> <ChipIcon size={18} /> Coin &amp; Chip Stashes
+              </h3>
+              <span className="dim">Boost your vault or grab exclusive table gear</span>
+            </div>
+            <div className="acct-bundles-grid">
+              {COIN_BUNDLES.map((b) => (
+                <div key={b.id} className="acct-bundle-card">
+                  {b.badge && <span className="acct-bundle-badge">{b.badge}</span>}
+                  <div className="acct-bundle-art">
+                    <img
+                      src={b.image}
+                      alt={b.name}
+                      className="acct-bundle-img"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="acct-bundle-name">{b.name}</div>
+                  <div className="acct-bundle-payout">
+                    <span className="acct-bundle-coin" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <CoinIcon size={15} /> +{b.coins.toLocaleString()} Coins
+                    </span>
+                    <span className="acct-bundle-chip" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                      <ChipIcon size={15} /> +{b.chips.toLocaleString()} Chips
+                    </span>
+                  </div>
+                  {b.stripeUrl ? (
+                    <a
+                      href={b.stripeUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn small gold acct-bundle-btn"
+                      aria-label={`Get ${b.name} for ${b.price} on Stripe`}
+                    >
+                      Get for {b.price}
+                    </a>
                   ) : (
-                    <button className="btn small primary" disabled={busy === c.id || p.coins < c.price} onClick={() => run(c.id, "buy")}>
-                      <span className="acct-coin" /> {c.price.toLocaleString()}
+                    <button
+                      type="button"
+                      className="btn small acct-bundle-btn"
+                      disabled
+                      aria-disabled="true"
+                      title="Coming soon - waiting for dedicated Stripe checkout link"
+                    >
+                      Coming Soon ({b.price})
                     </button>
                   )}
-                </motion.div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      )}
     </div>
   );
 }

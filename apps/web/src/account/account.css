@@ -256,6 +256,40 @@
   align-items: flex-end;
   gap: 8px;
 }
+.acct-head-wallet-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 6px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  position: relative;
+}
+.acct-head-wallet-btn:hover {
+  background: rgba(251, 191, 36, 0.12);
+  border-color: #fbbf24;
+  transform: translateY(-1px);
+}
+.acct-wallet-plus-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #fef08a 0%, #f59e0b 100%);
+  color: #1a0f02;
+  font-size: 13px;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+}
 .acct-confirm {
   position: absolute;
   right: 22px;
@@ -536,6 +570,85 @@
 }
 
 /* shop */
+.acct-shop-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  background: rgba(13, 16, 23, 0.85);
+  padding: 5px;
+  border-radius: 14px;
+  border: 1px solid rgba(251, 191, 36, 0.22);
+}
+.acct-shop-tab {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-family: var(--cond, sans-serif);
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+}
+.acct-shop-tab:hover {
+  color: #f8fafc;
+  background: rgba(255, 255, 255, 0.05);
+}
+.acct-shop-tab.active {
+  background: linear-gradient(180deg, #fef08a 0%, #f59e0b 60%, #b45309 100%);
+  color: #1a0f02;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
+}
+.acct-shop-tab-badge {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.acct-shop-tab:not(.active) .acct-shop-tab-badge {
+  background: rgba(251, 191, 36, 0.18);
+  color: #fbbf24;
+}
+
+.acct-shop-quick-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(180deg, rgba(26, 31, 42, 0.9) 0%, rgba(15, 18, 25, 0.95) 100%);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  border-radius: 12px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+.acct-shop-quick-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.acct-shop-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  font-weight: 800;
+  font-family: var(--cond, sans-serif);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
 .acct-shop-top {
   display: flex;
   align-items: center;
@@ -610,6 +723,37 @@
     justify-content: space-between;
     width: 100%;
     margin-top: 6px;
+  }
+  .acct-shop-tab {
+    padding: 8px 8px;
+    font-size: 13px;
+  }
+  .acct-shop-quick-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .acct-shop-quick-btn {
+    justify-content: center;
+    width: 100%;
+  }
+  .acct-bundles-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+  }
+  .acct-bundle-card {
+    padding: 10px;
+  }
+  .acct-bundle-name {
+    font-size: 14px;
+  }
+  .acct-bundle-payout {
+    font-size: 11px;
+    gap: 2px;
+  }
+  .acct-bundle-btn {
+    padding: 6px 8px;
+    font-size: 12px;
   }
 }
 
