@@ -15,6 +15,12 @@ export function trackSignUp(method: string, source = "web") {
         method,
         source,
       });
+      // Google Ads Sign-up conversion event
+      window.gtag("event", "conversion", {
+        send_to: "AW-18515793903/5w9YCKje26EdEO-vgv1E",
+        value: 1.0,
+        currency: "USD",
+      });
     }
   } catch {
     // blocked by privacy extensions or network errors
