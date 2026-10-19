@@ -756,6 +756,16 @@
     font-size: 12px;
   }
 }
+@media (max-width: 420px) {
+  .acct-shop-tab {
+    padding: 8px 4px;
+    font-size: 12px;
+    gap: 4px;
+  }
+  .acct-shop-tab-badge {
+    display: none;
+  }
+}
 
 /* Coin & Chip Stashes */
 .acct-bundles-section {

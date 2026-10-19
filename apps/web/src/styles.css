@@ -3398,7 +3398,7 @@ button:disabled {
 }
 @media (max-width: 600px) {
   .cookie-banner {
-    bottom: 12px;
+    bottom: max(12px, env(safe-area-inset-bottom, 12px));
     padding: 12px 14px;
     flex-direction: column;
     align-items: stretch;
