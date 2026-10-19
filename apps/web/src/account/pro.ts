@@ -33,7 +33,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     chips: 20000,
     price: "$4.99",
     badge: "Best Value",
-    stripeUrl: "", // Add dedicated $4.99 Coins+Chips Stripe Payment Link here
+    stripeUrl: "", // Add dedicated $4.99 Stripe Payment Link here
   },
   {
     id: "bundle_vault",
@@ -43,6 +43,33 @@ export const COIN_BUNDLES: CoinBundle[] = [
     price: "$9.99",
     badge: "Maximum",
     stripeUrl: "", // Add dedicated $9.99 Stripe Payment Link here
+  },
+  {
+    id: "bundle_kingpin",
+    name: "Kingpin Safe",
+    coins: 50000,
+    chips: 160000,
+    price: "$19.99",
+    badge: "High Roller",
+    stripeUrl: "", // Add dedicated $19.99 Stripe Payment Link here
+  },
+  {
+    id: "bundle_syndicate",
+    name: "Syndicate Treasury",
+    coins: 140000,
+    chips: 500000,
+    price: "$49.99",
+    badge: "Whale Pack",
+    stripeUrl: "", // Add dedicated $49.99 Stripe Payment Link here
+  },
+  {
+    id: "bundle_godfather",
+    name: "Godfather's Reserve",
+    coins: 350000,
+    chips: 1500000,
+    price: "$99.99",
+    badge: "Ultimate",
+    stripeUrl: "", // Add dedicated $99.99 Stripe Payment Link here
   },
 ];
 
