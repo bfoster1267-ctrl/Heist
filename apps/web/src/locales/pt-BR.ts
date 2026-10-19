@@ -495,7 +495,7 @@ export const ptBR: Record<string, string> = {
   "season.claimed": "Resgatado",
 
   // Loja & Cosméticos
-  "shop.coins_desc": "Ganhe moedas jogando, vencendo, completando desafios diários e subindo de nível. Moedas não podem ser compradas com dinheiro real.",
+  "shop.coins_desc": "Ganhe moedas jogando, vencendo e subindo de nível — ou recarregue com pacotes quando quiser.",
   "shop.decks": "Baralhos & Versos",
   "shop.frames": "Molduras de Avatar",
   "shop.felt": "Feltros da Mesa",

@@ -495,7 +495,7 @@ export const en: Record<string, string> = {
   "season.claimed": "Claimed",
 
   // Shop & Cosmetics
-  "shop.coins_desc": "Earn coins by playing, winning, daily challenges and leveling up. Coins can't be bought.",
+  "shop.coins_desc": "Earn coins by playing, winning, and leveling up — or top up with stashes anytime.",
   "shop.decks": "Card Decks",
   "shop.frames": "Avatar Frames",
   "shop.felt": "Table Felt",
