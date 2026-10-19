@@ -224,14 +224,17 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
             }}
           >
             <span className="daily-pro-left">
-              <span className="daily-pro-badge">👑 VIP FOUNDER PASS</span>
-              <span className="daily-pro-desc">
-                {isPro ? (
-                  <><strong>Streak Shield Protected!</strong> Your daily streaks are safe.</>
-                ) : (
-                  <>Unlock <strong>Streak Shield Protection</strong> & Lifetime VIP Status ($4.99)</>
-                )}
-              </span>
+              <img src="/vip-badge.png" alt="" className="daily-pro-thumb" aria-hidden="true" />
+              <div className="daily-pro-info">
+                <span className="daily-pro-badge">👑 VIP FOUNDER PASS</span>
+                <span className="daily-pro-desc">
+                  {isPro ? (
+                    <><strong>Streak Shield Protected!</strong> Your daily streaks are safe.</>
+                  ) : (
+                    <>Unlock <strong>Streak Shield Protection</strong> & Lifetime VIP Status ($4.99)</>
+                  )}
+                </span>
+              </div>
             </span>
             <span className="daily-pro-action">{isPro ? "VIP Active ✓" : "Get Pass →"}</span>
           </button>

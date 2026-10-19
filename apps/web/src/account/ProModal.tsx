@@ -129,6 +129,14 @@ export function ProModal({
           </button>
         </div>
 
+        <div className="pro-modal-hero-showcase">
+          <img
+            src="/vip-badge.png"
+            alt="Heist VIP Founder Pass"
+            className="pro-modal-hero-img"
+          />
+        </div>
+
         <div className="pro-badge">👑 VIP Founder Pass</div>
         <h2 id="pro-modal-title" className="pro-title">
           VIP Founder Pass

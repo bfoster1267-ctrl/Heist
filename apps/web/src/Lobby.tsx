@@ -199,7 +199,9 @@ export function Lobby({
           aria-label={isPro ? "VIP Founder Status Active" : "Get Heist VIP Founder Pass"}
           title={isPro ? "VIP Founder Status Active" : "Unlock Heist VIP Founder Pass"}
         >
-          <span className="lobby-pro-icon">{isPro ? "👑" : "⭐"}</span>
+          <span className="lobby-pro-icon">
+            <img src="/vip-badge.png" alt="" className="lobby-pro-badge-img" aria-hidden="true" />
+          </span>
           <span className="lobby-pro-text">{isPro ? "VIP Active" : "Get VIP"}</span>
         </button>
       )}

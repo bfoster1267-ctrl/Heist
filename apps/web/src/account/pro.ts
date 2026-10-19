@@ -12,6 +12,7 @@ export interface CoinBundle {
   coins: number;
   chips: number;
   price: string;
+  image: string;
   badge?: string;
   stripeUrl: string;
 }
@@ -23,6 +24,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     coins: 2500,
     chips: 5000,
     price: "$1.99",
+    image: "/bundles/bundle_1.jpg",
     badge: "Popular",
     stripeUrl: "", // Add dedicated $1.99 Stripe Payment Link here
   },
@@ -32,6 +34,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     coins: 7500,
     chips: 20000,
     price: "$4.99",
+    image: "/bundles/bundle_2.jpg",
     badge: "Best Value",
     stripeUrl: "", // Add dedicated $4.99 Stripe Payment Link here
   },
@@ -41,6 +44,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     coins: 20000,
     chips: 60000,
     price: "$9.99",
+    image: "/bundles/bundle_3.jpg",
     badge: "Maximum",
     stripeUrl: "", // Add dedicated $9.99 Stripe Payment Link here
   },
@@ -50,6 +54,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     coins: 50000,
     chips: 160000,
     price: "$19.99",
+    image: "/bundles/bundle_4.jpg",
     badge: "High Roller",
     stripeUrl: "", // Add dedicated $19.99 Stripe Payment Link here
   },
@@ -59,6 +64,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     coins: 140000,
     chips: 500000,
     price: "$49.99",
+    image: "/bundles/bundle_5.jpg",
     badge: "Whale Pack",
     stripeUrl: "", // Add dedicated $49.99 Stripe Payment Link here
   },
@@ -68,6 +74,7 @@ export const COIN_BUNDLES: CoinBundle[] = [
     coins: 350000,
     chips: 1500000,
     price: "$99.99",
+    image: "/bundles/bundle_6.jpg",
     badge: "Ultimate",
     stripeUrl: "", // Add dedicated $99.99 Stripe Payment Link here
   },

@@ -393,7 +393,7 @@ function Shop({ me }: { me: Me }) {
   return (
     <div className="acct-shop">
       <div className="acct-pro-hero">
-        <img src="/vip-pass.jpg" alt="Heist VIP Founder Pass" className="acct-pro-hero-thumb" />
+        <img src="/vip-badge.png" alt="Heist VIP Founder Pass" className="acct-pro-hero-thumb" />
         <div className="acct-pro-hero-left">
           <div className="acct-pro-pill">👑 VIP Founder Pass</div>
           <div className="acct-pro-title">VIP Founder Pass</div>
@@ -435,6 +435,14 @@ function Shop({ me }: { me: Me }) {
           {COIN_BUNDLES.map((b) => (
             <div key={b.id} className="acct-bundle-card">
               {b.badge && <span className="acct-bundle-badge">{b.badge}</span>}
+              <div className="acct-bundle-art">
+                <img
+                  src={b.image}
+                  alt={b.name}
+                  className="acct-bundle-img"
+                  loading="lazy"
+                />
+              </div>
               <div className="acct-bundle-name">{b.name}</div>
               <div className="acct-bundle-payout">
                 <span className="acct-bundle-coin" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>

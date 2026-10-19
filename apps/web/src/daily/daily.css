@@ -732,6 +732,18 @@
 }
 .daily-pro-left {
   display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.daily-pro-thumb {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.45));
+}
+.daily-pro-info {
+  display: flex;
   flex-direction: column;
   gap: 2px;
 }

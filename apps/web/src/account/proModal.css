@@ -105,6 +105,30 @@
   color: #fff;
 }
 
+.pro-modal-hero-showcase {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 6px 0 14px 0;
+}
+
+.pro-modal-hero-img {
+  width: 104px;
+  height: 104px;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 24px rgba(245, 158, 11, 0.45));
+  animation: proFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes proFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  100% {
+    transform: translateY(-5px) rotate(-1.5deg);
+  }
+}
+
 .pro-cancel-btn {
   display: block;
   width: 100%;
