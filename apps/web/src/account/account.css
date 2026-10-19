@@ -186,7 +186,12 @@
 /* ---------------------------------------------------------------- profile screen */
 .acct-screen {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  min-height: 100vh;
+  min-height: 100dvh;
   z-index: 80;
   background: rgba(4, 6, 9, 0.78);
   backdrop-filter: blur(8px);
@@ -1140,6 +1145,7 @@
   }
   .acct-panel {
     height: 100%;
+    min-height: 100%;
     max-height: none;
     border: 0;
     border-radius: 0;
@@ -1163,7 +1169,7 @@
     font-size: 15px;
   }
   .acct-body {
-    padding: 14px 14px 20px;
+    padding: 14px 14px calc(28px + env(safe-area-inset-bottom));
   }
   .acct-tiles {
     grid-template-columns: repeat(2, 1fr);
@@ -2217,7 +2223,12 @@
 }
 .lounge-back {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  min-height: 100vh;
+  min-height: 100dvh;
   z-index: 78;
   background: rgba(0, 0, 0, 0.4);
 }

@@ -2,7 +2,12 @@
 
 .daily-hub-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+  min-height: 100vh;
+  min-height: 100dvh;
   z-index: 9999;
   background: rgba(0, 0, 0, 0.78);
   backdrop-filter: blur(10px);
