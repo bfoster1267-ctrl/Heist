@@ -2376,18 +2376,18 @@
     margin-top: 2px;
   }
 }
-/* mobile portrait: hide floating chat bubbles so bottom action tiles (Campaign, How to play) stay clear */
-@media (max-width: 600px) {
-  .lounge-floats {
-    display: none;
-  }
-}
 .lounge-floats {
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
   width: 100%;
+}
+/* mobile portrait: hide floating chat bubbles so bottom action tiles (Campaign, How to play) stay clear */
+@media (max-width: 600px) {
+  .lounge-floats {
+    display: none !important;
+  }
 }
 .lounge-float {
   display: flex;
