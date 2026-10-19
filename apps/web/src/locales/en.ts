@@ -48,6 +48,7 @@ export const en: Record<string, string> = {
   "lobby.the_rules": "The rules",
   "lobby.coach_rules": "Coach game or the rules",
   "lobby.play_money": "Play money only",
+  "lobby.terms": "Terms",
   "lobby.privacy": "Privacy",
   "campaign.stages_count": "{cleared} of {total} stages",
   "lobby.lesson_next": "Lesson {lesson} of {total} next",

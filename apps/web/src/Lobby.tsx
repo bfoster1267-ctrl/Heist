@@ -304,6 +304,10 @@ export function Lobby({
         <InstallHint />
         <div className="fine">
           {t("lobby.play_money")} ·{" "}
+          <a className="lobby-privacy" href="./terms.html" target="_blank" rel="noreferrer">
+            {t("lobby.terms", "Terms")}
+          </a>{" "}
+          ·{" "}
           <a className="lobby-privacy" href="./privacy.html" target="_blank" rel="noreferrer">
             {t("lobby.privacy")}
           </a>

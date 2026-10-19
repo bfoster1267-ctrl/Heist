@@ -48,6 +48,7 @@ export const ptBR: Record<string, string> = {
   "lobby.the_rules": "As regras",
   "lobby.coach_rules": "Treino ou regras do jogo",
   "lobby.play_money": "Apenas dinheiro fictício",
+  "lobby.terms": "Termos",
   "lobby.privacy": "Privacidade",
   "campaign.stages_count": "{cleared} de {total} fases concluídas",
   "lobby.lesson_next": "Próxima: Lição {lesson} de {total}",

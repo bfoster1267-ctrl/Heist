@@ -9,6 +9,7 @@ import { MemberModal } from "./account/MemberModal";
 import type { LostAsk } from "./account/WhatLostYou";
 import { AccountProvider, useAccount } from "./account/useAccount";
 import "./account/account.css";
+import { CookieBanner } from "./account/CookieBanner";
 import { Lobby, type LobbyChoice, type LobbyPage, type TourStep } from "./Lobby";
 import { inviteCode, session } from "./online/session";
 import type { ArcadeGameId } from "./arcade/ArcadeHub";
@@ -1234,6 +1235,7 @@ function Game() {
           {error}
         </div>
       )}
+      {!onCrazyGames && <CookieBanner />}
     </>
   );
 }

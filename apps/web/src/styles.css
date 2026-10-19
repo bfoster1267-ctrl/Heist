@@ -3357,6 +3357,56 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* ------------------------------------------------------------------ Cookie & Data Banner */
+.cookie-banner {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 32px);
+  max-width: 620px;
+  background: rgba(13, 16, 23, 0.94);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  border-radius: 14px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.75);
+  z-index: 10000;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.cookie-banner-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: #cbd5e1;
+}
+.cookie-banner-text a {
+  color: #fbbf24;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.cookie-banner-text a:hover {
+  color: #fef08a;
+}
+.cookie-banner-btn {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  font-weight: 800;
+}
+@media (max-width: 600px) {
+  .cookie-banner {
+    bottom: 12px;
+    padding: 12px 14px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    text-align: center;
+  }
+}
+
 /* ------------------------------------------------------------------ Ranked at the table */
 .rank-tag {
   margin-right: 5px;
