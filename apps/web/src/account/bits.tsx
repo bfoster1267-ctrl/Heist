@@ -54,10 +54,72 @@ export function XpBar({ xp, from }: { xp: number; from?: number }) {
   );
 }
 
+export function CoinIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`currency-icon coin-icon ${className}`}
+      style={{ verticalAlign: "-0.16em", display: "inline-block", flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id="heistCoinGlow" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#fff9db" />
+          <stop offset="40%" stopColor="#f59e0b" />
+          <stop offset="85%" stopColor="#b45309" />
+          <stop offset="100%" stopColor="#78350f" />
+        </radialGradient>
+        <linearGradient id="heistCoinRim" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fef08a" />
+          <stop offset="100%" stopColor="#92400e" />
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="10.5" fill="url(#heistCoinGlow)" stroke="url(#heistCoinRim)" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="7.5" fill="none" stroke="#78350f" strokeWidth="0.8" strokeDasharray="1.5 1" opacity="0.65" />
+      <circle cx="12" cy="12" r="6.2" fill="none" stroke="#fef08a" strokeWidth="0.8" opacity="0.8" />
+      <text x="12" y="15.2" textAnchor="middle" fill="#451a03" fontSize="9" fontWeight="900" fontFamily="system-ui, sans-serif">H</text>
+    </svg>
+  );
+}
+
+export function ChipIcon({ size = 16, className = "" }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      className={`currency-icon chip-icon ${className}`}
+      style={{ verticalAlign: "-0.16em", display: "inline-block", flexShrink: 0 }}
+      aria-hidden="true"
+    >
+      <defs>
+        <radialGradient id="heistChipBg" cx="35%" cy="30%" r="70%">
+          <stop offset="0%" stopColor="#f87171" />
+          <stop offset="55%" stopColor="#dc2626" />
+          <stop offset="100%" stopColor="#991b1b" />
+        </radialGradient>
+        <linearGradient id="heistChipRim" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="#fca5a5" />
+          <stop offset="100%" stopColor="#7f1d1d" />
+        </linearGradient>
+      </defs>
+      <circle cx="12" cy="12" r="10.5" fill="url(#heistChipBg)" stroke="url(#heistChipRim)" strokeWidth="1.5" />
+      <circle cx="12" cy="12" r="8.7" fill="none" stroke="#ffffff" strokeWidth="2.2" strokeDasharray="3 3.1" opacity="0.95" />
+      <circle cx="12" cy="12" r="6" fill="#18181b" stroke="#ffffff" strokeWidth="0.8" />
+      <circle cx="12" cy="12" r="4.6" fill="none" stroke="#fca5a5" strokeWidth="0.6" />
+      <text x="12" y="15" textAnchor="middle" fill="#fef2f2" fontSize="8.5" fontWeight="900" fontFamily="system-ui, sans-serif">H</text>
+    </svg>
+  );
+}
+
 export function Coins({ amount, big }: { amount: number; big?: boolean }) {
   return (
     <span className={"acct-coins" + (big ? " big" : "")} title={t("account.coins_tooltip")}>
-      <span className="acct-coin" />
+      <CoinIcon size={big ? 20 : 16} />
       {amount.toLocaleString()}
     </span>
   );

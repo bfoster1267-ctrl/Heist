@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount } from "../account/useAccount";
+import { CoinIcon } from "../account/bits";
 import { MemberModal } from "../account/MemberModal";
 import { buzz } from "../haptics";
 import { click, chipRun, win } from "../sound";
@@ -394,7 +395,7 @@ export function VictoryModal({
             <div>
               <div className="vic-welcome-gift-title">DAY 1 STARTER PACK UNLOCKED!</div>
               <div className="vic-welcome-gift-sub">
-                +1 Streak Freeze 🧊 &amp; +250 Coins 🪙 added! Your streak is protected if you miss tomorrow.
+                +1 Streak Freeze 🧊 &amp; +250 Coins <CoinIcon size={14} /> added! Your streak is protected if you miss tomorrow.
               </div>
             </div>
           </div>
@@ -403,7 +404,7 @@ export function VictoryModal({
         {/* Clinking Loot & XP Rewards */}
         <div className="vic-rewards-row">
           <div className="vic-reward-item">
-            <span className="vic-reward-icon">🪙</span>
+            <span className="vic-reward-icon"><CoinIcon size={26} /></span>
             <div>
               <div className="vic-reward-val">+{isDaily ? 50 : 25} COINS</div>
               <div style={{ fontSize: "0.7rem", color: "#94a3b8" }}>Loot Earned</div>
@@ -425,7 +426,9 @@ export function VictoryModal({
           <div className="vic-quests-card">
             <div className="vic-quests-head">
               <span>Daily Quests ({questsSummary.quests.filter((q) => q.done).length}/3)</span>
-              <span style={{ color: "#fbbf24" }}>Vault: +100 🪙</span>
+              <span style={{ color: "#fbbf24", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                Vault: +100 <CoinIcon size={14} />
+              </span>
             </div>
             <div className="vic-quests-row">
               {questsSummary.quests.map((q) => (

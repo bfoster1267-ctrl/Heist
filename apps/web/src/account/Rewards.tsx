@@ -7,7 +7,7 @@ import { reducedMotion } from "../prefs";
 import { levelUp, lose as loseSound, win as winSound } from "../sound";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useState } from "react";
-import { Coins } from "./bits";
+import { Coins, CoinIcon } from "./bits";
 import { useAccount } from "./useAccount";
 import { t } from "../i18n";
 import { rankLabel } from "./Profile";
@@ -158,8 +158,15 @@ function RewardCard({ r, onClose, onSave }: { r: Reward; onClose: () => void; on
         {r.lines.map((l, i) => (
           <motion.li key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 + i * 0.12 }}>
             <span>{l.label}</span>
-            <span className="acct-reward-amt">
-              {l.xp ? `${l.xp > 0 ? "+" : ""}${l.xp} XP` : ""} {l.coins ? `+${l.coins}c` : ""}
+            <span className="acct-reward-amt" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              {l.xp ? `${l.xp > 0 ? "+" : ""}${l.xp} XP` : ""}
+              {l.coins ? (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                  +{l.coins} <CoinIcon size={12} />
+                </span>
+              ) : (
+                ""
+              )}
             </span>
           </motion.li>
         ))}

@@ -24,6 +24,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAccount } from "../account/useAccount";
+import { CoinIcon } from "../account/bits";
 import { buzz } from "../haptics";
 import { card as cardSound, click } from "../sound";
 import "./daily.css";
@@ -200,7 +201,13 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
               onClick={handleBuyFreeze}
               disabled={buyingFreeze || (progress?.coins ?? 0) < 200}
             >
-              {buyingFreeze ? "Equipping..." : "+ Equip (200 🪙)"}
+              {buyingFreeze ? (
+                "Equipping..."
+              ) : (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  + Equip (200 <CoinIcon size={13} />)
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -273,7 +280,9 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
                 onClick={handleClaimVault}
                 disabled={claimingVault}
               >
-                <span>🏆</span> CRACK DAILY VAULT (+100 🪙 &amp; +250 XP)
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <span>🏆</span> CRACK DAILY VAULT (+100 <CoinIcon size={14} /> &amp; +250 XP)
+                </span>
               </button>
             )}
             {questsSummary.vaultClaimed && (

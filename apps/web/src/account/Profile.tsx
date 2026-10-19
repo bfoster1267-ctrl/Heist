@@ -12,7 +12,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Chips } from "../table/pieces";
-import { Avatar, Coins, Stars, XpBar } from "./bits";
+import { Avatar, CoinIcon, ChipIcon, Coins, Stars, XpBar } from "./bits";
 import type { LeaderRow, Me } from "./backend";
 import type { PublicProfile } from "@heist/profile";
 import { SignIn } from "./SignIn";
@@ -425,7 +425,9 @@ function Shop({ me }: { me: Me }) {
 
       <section className="acct-bundles-section">
         <div className="acct-bundles-header">
-          <h3>💰 Coin & Chip Stashes</h3>
+          <h3 style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <CoinIcon size={18} /> <ChipIcon size={18} /> Coin &amp; Chip Stashes
+          </h3>
           <span className="dim">Boost your vault or grab exclusive table gear</span>
         </div>
         <div className="acct-bundles-grid">
@@ -434,8 +436,12 @@ function Shop({ me }: { me: Me }) {
               {b.badge && <span className="acct-bundle-badge">{b.badge}</span>}
               <div className="acct-bundle-name">{b.name}</div>
               <div className="acct-bundle-payout">
-                <span className="acct-bundle-coin">🪙 +{b.coins.toLocaleString()} Coins</span>
-                <span className="acct-bundle-chip">🎰 +{b.chips.toLocaleString()} Chips</span>
+                <span className="acct-bundle-coin" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <CoinIcon size={15} /> +{b.coins.toLocaleString()} Coins
+                </span>
+                <span className="acct-bundle-chip" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+                  <ChipIcon size={15} /> +{b.chips.toLocaleString()} Chips
+                </span>
               </div>
               {b.stripeUrl ? (
                 <a

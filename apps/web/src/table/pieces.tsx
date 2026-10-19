@@ -253,3 +253,6 @@ export function CountUp({ value, prefix = "" }: { value: number; prefix?: string
     </>
   );
 }
+
+export { CoinIcon, ChipIcon } from "../account/bits";
+
