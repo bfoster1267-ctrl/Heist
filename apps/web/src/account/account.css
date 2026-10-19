@@ -1139,40 +1139,119 @@
 }
 
 @media (max-width: 520px) {
-  /* phones: the profile is a full-screen page with the way out at the top */
+  /* phones: the profile is a full-screen native page with the header bleeding to the top */
   .acct-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
+    width: 100%;
+    width: 100vw;
+    height: 100%;
+    height: 100vh;
+    height: 100dvh;
+    height: -webkit-fill-available;
+    background: #101217;
+    display: flex;
+    flex-direction: column;
     padding: 0;
+    z-index: 80;
   }
   .acct-panel {
+    position: relative;
+    width: 100%;
     height: 100%;
-    min-height: 100%;
+    flex: 1;
+    min-height: 0;
     max-height: none;
     border: 0;
     border-radius: 0;
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: none;
+    background: #101217;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+  .acct-topbar {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 8px);
+    left: 0;
+    right: 0;
+    z-index: 10;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    pointer-events: none;
+  }
+  .acct-back,
+  .acct-x {
+    pointer-events: auto;
+    min-height: 38px;
+    height: 38px;
+    border-radius: 9999px;
+    background: rgba(16, 18, 23, 0.72);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    color: var(--paper);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .acct-back {
+    padding: 0 14px 0 10px;
+    gap: 6px;
+  }
+  .acct-x {
+    width: 38px;
+    padding: 0;
+    font-size: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .acct-head {
-    padding: 16px 14px 10px;
+    position: relative;
+    padding-top: calc(env(safe-area-inset-top, 0px) + 54px);
+    padding-left: 14px;
+    padding-right: 14px;
+    padding-bottom: 14px;
     gap: 12px;
+    background: radial-gradient(ellipse at 20% 0%, rgba(231, 181, 60, 0.25), transparent 70%), #161a22;
   }
   .acct-head-name {
-    font-size: 30px;
+    font-size: 28px;
   }
   .acct-tabs {
     padding: 0 8px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    background: rgba(10, 12, 16, 0.65);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .acct-tabs::-webkit-scrollbar {
+    display: none;
   }
   .acct-tabs button {
-    padding: 10px 9px;
+    padding: 10px 10px;
     white-space: nowrap;
     font-size: 15px;
+    letter-spacing: 0.6px;
   }
   .acct-body {
-    padding: 14px 14px calc(28px + env(safe-area-inset-bottom));
+    flex: 1;
+    min-height: 0;
+    padding: 16px 14px calc(56px + env(safe-area-inset-bottom, 20px));
+    -webkit-overflow-scrolling: touch;
+    background: #101217;
   }
   .acct-tiles {
     grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
   }
   .acct-bar {
     grid-template-columns: 90px 1fr 80px;
