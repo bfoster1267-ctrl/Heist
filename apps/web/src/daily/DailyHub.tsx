@@ -224,7 +224,15 @@ export function DailyHub({ progress: propProgress, onClose, onPlayChallenge, onO
             }}
           >
             <span className="daily-pro-left">
-              <img src="/vip-badge.png" alt="" className="daily-pro-thumb" aria-hidden="true" />
+              <img
+                src="/vip-badge-sm.png"
+                alt=""
+                width={40}
+                height={40}
+                style={{ width: 40, height: 40, objectFit: "contain", flexShrink: 0 }}
+                className="daily-pro-thumb"
+                aria-hidden="true"
+              />
               <div className="daily-pro-info">
                 <span className="daily-pro-badge">👑 VIP FOUNDER PASS</span>
                 <span className="daily-pro-desc">

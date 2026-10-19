@@ -393,7 +393,14 @@ function Shop({ me }: { me: Me }) {
   return (
     <div className="acct-shop">
       <div className="acct-pro-hero">
-        <img src="/vip-badge.png" alt="Heist VIP Founder Pass" className="acct-pro-hero-thumb" />
+        <img
+          src="/vip-badge-sm.png"
+          alt="Heist VIP Founder Pass"
+          width={72}
+          height={72}
+          style={{ width: 72, height: 72, objectFit: "contain", flexShrink: 0 }}
+          className="acct-pro-hero-thumb"
+        />
         <div className="acct-pro-hero-left">
           <div className="acct-pro-pill">👑 VIP Founder Pass</div>
           <div className="acct-pro-title">VIP Founder Pass</div>

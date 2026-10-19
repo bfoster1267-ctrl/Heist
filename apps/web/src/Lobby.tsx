@@ -200,7 +200,15 @@ export function Lobby({
           title={isPro ? "VIP Founder Status Active" : "Unlock Heist VIP Founder Pass"}
         >
           <span className="lobby-pro-icon">
-            <img src="/vip-badge.png" alt="" className="lobby-pro-badge-img" aria-hidden="true" />
+            <img
+              src="/vip-badge-sm.png"
+              alt=""
+              width={24}
+              height={24}
+              style={{ width: 24, height: 24, objectFit: "contain", display: "block" }}
+              className="lobby-pro-badge-img"
+              aria-hidden="true"
+            />
           </span>
           <span className="lobby-pro-text">{isPro ? "VIP Active" : "Get VIP"}</span>
         </button>

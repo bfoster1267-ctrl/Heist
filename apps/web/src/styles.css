@@ -3822,6 +3822,7 @@ button:disabled {
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
     0 3px 0 #451a03,
     0 12px 26px rgba(245, 158, 11, 0.45);
+}
 .lobby-pro-icon {
   display: flex;
   align-items: center;

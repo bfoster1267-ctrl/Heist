@@ -131,8 +131,11 @@ export function ProModal({
 
         <div className="pro-modal-hero-showcase">
           <img
-            src="/vip-badge.png"
+            src="/vip-badge-sm.png"
             alt="Heist VIP Founder Pass"
+            width={96}
+            height={96}
+            style={{ width: 96, height: 96, objectFit: "contain" }}
             className="pro-modal-hero-img"
           />
         </div>
