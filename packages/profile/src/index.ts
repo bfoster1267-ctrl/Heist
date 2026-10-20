@@ -3,6 +3,7 @@ export * from "./cosmetics";
 export * from "./stats";
 export * from "./progress";
 export * from "./solo";
+export * from "./names";
 export * from "./profile";
 export * from "./season";
 export * from "./rating";

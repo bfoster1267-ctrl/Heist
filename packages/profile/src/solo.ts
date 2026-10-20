@@ -5,6 +5,7 @@
 import { Bot, HeistGame, runBots, type Answer, type Ask, type BotLevel, type BotOptions, type GameEvent, type RuleOptions } from "@heist/engine";
 import { stage } from "./campaign";
 import { lesson } from "./lessons";
+import { cringeBotNames } from "./names";
 import { checkMove, type MistakeCounts } from "./coach";
 import { BOT_RATING, type Rival } from "./rating";
 
@@ -28,18 +29,11 @@ export function soloTable(players: number, setup: SoloSetup = {}): { players: nu
 }
 
 export const SOLO_SEAT = 0;
-const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
-
 export function soloBotNames(seed: number, players: number): string[] {
-  const names = [...BOT_NAMES];
-  // deterministic shuffle, so the server and the table agree on who's sitting where
+  // seeded, so the server and the table agree on who's sitting where
   let x = seed >>> 0 || 1;
-  for (let i = names.length - 1; i > 0; i--) {
-    x = (x * 1103515245 + 12345) >>> 0;
-    const j = x % (i + 1);
-    [names[i], names[j]] = [names[j], names[i]];
-  }
-  return names.slice(0, players - 1);
+  const rand = (n: number) => ((x = (x * 1103515245 + 12345) >>> 0), (x >>> 16) % n);
+  return cringeBotNames(players - 1, rand);
 }
 
 export function createSoloGame(seed: number, players: number, name: string, snapshots = true, setup: SoloSetup = {}) {
