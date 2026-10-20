@@ -1,5 +1,5 @@
-import { stage, type Reward } from "@heist/profile";
-import { CREWS, type Answer, type GameState } from "@heist/engine";
+import { soloTable, stage, type Reward } from "@heist/profile";
+import { CREWS, type Answer, type BotLevel, type GameState } from "@heist/engine";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useAnimationControls } from "motion/react";
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useWakeLock } from "../appShell";
@@ -22,6 +22,7 @@ import { clearSpot, seatGrow, seatPos, useLayout, type Spot } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
+import { SeatPeek, type PeekWho } from "./SeatPeek";
 import { Rules } from "./Rules";
 import { Settings } from "./Settings";
 import { Showdown } from "./Showdown";
@@ -90,7 +91,10 @@ export function Table({
   mistakes,
   clean = false,
   tags,
-  onName,
+  onProfile,
+  seatOf,
+  botLevel,
+  onYourTurn,
   place = "At the table",
   turnRef,
   firstReward,
@@ -106,8 +110,14 @@ export function Table({
   clean?: boolean;
   /** online: a short tag by each seat's name (their ranked rank) */
   tags?: Record<number, string>;
-  /** online: tap a player's name to see their profile */
-  onName?: (seat: number) => void;
+  /** online: open a player's full profile (from the card a held seat shows) */
+  onProfile?: (seat: number) => void;
+  /** online: who sits in each seat (at a local table, every seat but yours is a bot) */
+  seatOf?: (seat: number) => { bot: boolean; userId: string | null };
+  /** online: how the table's bots play */
+  botLevel?: BotLevel;
+  /** your decision came up (anything open over the table should get out of the way) */
+  onYourTurn?: () => void;
   /** Coached play: the rookie mistakes this player has made before */
   mistakes?: MistakeCounts;
   onExit: () => void;
@@ -168,6 +178,15 @@ export function Table({
     return () => clearTimeout(id);
   }, [cheer]);
   useEffect(() => setHeld(null), [t.ask]);
+  // press and hold a seat: who's sitting there. Your turn closes it, so it never hides your choices.
+  const [peek, setPeek] = useState<number | null>(null);
+  const yourTurn = useRef(onYourTurn);
+  yourTurn.current = onYourTurn;
+  useEffect(() => {
+    if (!t.ask) return;
+    setPeek(null);
+    yourTurn.current?.();
+  }, [t.ask]);
   // Coached play: the learner can wave the coach off and finish the game on their own
   const [coachOff, setCoachOff] = useState(false);
   // Which part of the Boss's turn we're in, from the latest event (kept when an event doesn't say).
@@ -357,6 +376,16 @@ export function Table({
   const discardTop = s.discard[s.discard.length - 1];
   const actor = t.ask ? HUMAN : ev && "seat" in ev && typeof ev.seat === "number" ? ev.seat : (s.job?.boss ?? s.boss);
   const showdown = !!s.job && (s.job.revealed || ev?.t === "facedown");
+  const peekWho = (seat: number): PeekWho => {
+    const p = s.players[seat];
+    const who = seatOf ? seatOf(seat) : { bot: seat !== LOCAL_SEAT, userId: null };
+    if (!who.bot) return { kind: "player", name: p.name, color: p.color, userId: who.userId, me: !watching && seat === HUMAN };
+    // a local table's bots are set up the way the game was dealt (levels from your rating, or a campaign stage)
+    const bot = seatOf
+      ? { level: botLevel ?? "normal" }
+      : (soloTable(settings.players, { levels: settings.levels, stage: settings.stage, gentle: settings.gentle, lesson: settings.lesson }).bots[seat - 1] ?? {});
+    return { kind: "bot", name: p.name, color: p.color, bot, level: bot.level ?? "normal" };
+  };
 
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
@@ -479,7 +508,10 @@ export function Table({
                   showBank={wide}
                   away={away?.[p.seat]}
                   tag={tags?.[p.seat]}
-                  onName={onName ? () => onName(p.seat) : undefined}
+                  onPeek={() => {
+                    buzz("tap");
+                    setPeek(p.seat);
+                  }}
                 />
               );
             })}
@@ -632,6 +664,16 @@ export function Table({
                   ))}
                 </div>
               </motion.div>
+            )}
+          </AnimatePresence>
+          <AnimatePresence>
+            {peek !== null && s.players[peek] && (
+              <SeatPeek
+                key={peek}
+                who={peekWho(peek)}
+                onClose={() => setPeek(null)}
+                onProfile={onProfile && seatOf?.(peek).userId ? () => (setPeek(null), onProfile(peek)) : undefined}
+              />
             )}
           </AnimatePresence>
           <AnimatePresence>{showRules && <Rules target={s.target} onClose={() => setShowRules(false)} />}</AnimatePresence>

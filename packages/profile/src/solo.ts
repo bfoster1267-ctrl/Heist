@@ -8,6 +8,7 @@ import { lesson } from "./lessons";
 import { cringeBotNames } from "./names";
 import { checkMove, type MistakeCounts } from "./coach";
 import { BOT_RATING, type Rival } from "./rating";
+import type { TableMate } from "./stats";
 
 /** How a solo table's bots are set up: levels picked from the rating, or a campaign stage. Empty: all normal. */
 export interface SoloSetup {
@@ -97,4 +98,9 @@ export function payout(stakes: number, players: number, winners: number[], seat:
 /** The bots at a solo table, as rivals for the skill rating. */
 export function soloRivals(players: number, setup: SoloSetup = {}, winners: number[] = []): Rival[] {
   return soloTable(players, setup).bots.map((b, i) => ({ rating: BOT_RATING[b.level ?? "normal"], won: winners.includes(i + 1) }));
+}
+
+/** The bots a solo game was played against, by name, for "Recent players". */
+export function soloMates(seed: number, players: number, setup: SoloSetup = {}, winners: number[] = []): TableMate[] {
+  return soloBotNames(seed, soloTable(players, setup).players).map((name, i) => ({ name, bot: true as const, ...(winners.includes(i + 1) ? { won: true as const } : {}) }));
 }

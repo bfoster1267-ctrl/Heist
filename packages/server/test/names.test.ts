@@ -4,7 +4,7 @@ import { AdminService } from "../src/accounts/admin";
 import { cringeName, cringeNameCount } from "../src/accounts/names";
 import { AccountService } from "../src/accounts/service";
 import { MemoryAccountStore, type Account } from "../src/accounts/store";
-import { cringeBotNames, newProgress, soloBotNames } from "@heist/profile";
+import { cringeBotNames, createSoloGame, newProgress, soloBotNames, soloMates } from "@heist/profile";
 
 describe("cringe names", () => {
   it("come in thousands, fit a seat plate and never repeat a taken one", () => {
@@ -68,5 +68,12 @@ describe("bot names", () => {
     expect(soloBotNames(1234, 6)).toEqual(a);
     expect(soloBotNames(99, 6)).not.toEqual(a);
     expect(cringeBotNames(3, undefined, new Set(a.map((n) => n.toLowerCase()))).some((n) => a.includes(n))).toBe(false);
+  });
+
+  it("a solo game's Recent players are the bots that sat at the table", () => {
+    const { game } = createSoloGame(77, 4, "Me", false);
+    expect(soloMates(77, 4, {}, [2])).toEqual(
+      game.s.players.slice(1).map((p) => ({ name: p.name, bot: true, ...(p.seat === 2 ? { won: true } : {}) })),
+    );
   });
 });

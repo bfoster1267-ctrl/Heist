@@ -159,6 +159,24 @@ describe("accounts", () => {
     expect(walk.stats.recent[0]).toMatchObject({ won: false, quit: true, net: -250 });
   });
 
+  it("keeps who you played with for your Recent players, and keeps it off your public profile", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const a = await svc.register("mates1@example.com", "password1", "Mia");
+    const b = await svc.register("mates2@example.com", "password1", "Bo");
+    const out = await svc.recordOnline({
+      stakes: 0,
+      players: 3,
+      seats: [{ seat: 0, userId: a.me.id, bot: false, name: "Mia" }, { seat: 1, userId: b.me.id, bot: false, name: "Bo" }, { seat: 2, userId: null, bot: true, name: "Sir Bluffs" }],
+      winners: [2],
+      events: [],
+    });
+    expect(out.get(a.me.id)!.me.progress.stats.recent[0].with).toEqual([{ name: "Bo", id: b.me.id }, { name: "Sir Bluffs", bot: true, won: true }]);
+    expect(out.get(b.me.id)!.me.progress.stats.recent[0].with?.[0]).toEqual({ name: "Mia", id: a.me.id });
+    const pub = await svc.publicProfile(a.me.id);
+    expect(pub.stats.recent).toHaveLength(1);
+    expect(pub.stats.recent[0].with).toBeUndefined();
+  });
+
   it("signs out everywhere and deletes accounts", async () => {
     const svc = new AccountService({ secret: "s", devLogins: true });
     const a = await svc.dev("Dana");

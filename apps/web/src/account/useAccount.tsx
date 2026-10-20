@@ -119,6 +119,11 @@ export function useLook() {
   return { owned: me?.progress.owned ?? [], equipped: me?.progress.equipped };
 }
 
+/** The account, or null outside it (for table pieces that also run without one). */
+export function useAccountMaybe() {
+  return useContext(Ctx);
+}
+
 export function useAccount() {
   const c = useContext(Ctx);
   if (!c) throw new Error("useAccount outside AccountProvider");
