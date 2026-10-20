@@ -12,6 +12,41 @@ export const RETURN_AFTER = 12 * HOUR;
 /** the coached-game turns shown as their own steps (only up to the furthest anyone got) */
 const TURNS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30];
 
+/** Where a new person came from, read off the guest account their first visit made. */
+export type SourceKey = "ads" | "search" | "social" | "crazygames" | "direct" | "other" | "unknown";
+export const SOURCES: { key: SourceKey; label: string }[] = [
+  { key: "ads", label: "Google Ads" },
+  { key: "search", label: "Search" },
+  { key: "social", label: "Social" },
+  { key: "crazygames", label: "CrazyGames" },
+  { key: "direct", label: "Direct" },
+  { key: "other", label: "Other sites" },
+  { key: "unknown", label: "Not recorded" },
+];
+const SEARCH = /(^|\.)(google|bing|duckduckgo|yahoo|ecosia|brave|yandex|baidu)\./;
+const SOCIAL = /(reddit|tiktok|facebook|instagram|youtube|discord|twitter|threads|linkedin|pinterest|snapchat)/;
+
+/** a guest's sign-up event: the ad tags on their link first (an ad click's referrer is Google too), then the referring site */
+export function sourceOf(e: ActivityEvent): SourceKey {
+  const d = (e.data ?? {}) as Record<string, unknown>;
+  const land = (d.land ?? {}) as Record<string, unknown>;
+  const medium = typeof land.utm_medium === "string" ? land.utm_medium.toLowerCase() : "";
+  if (land.gclid || land.gbraid || land.wbraid || land.play !== undefined || /^(cpc|ppc|paid|paidsearch)$/.test(medium)) return "ads";
+  if (d.src === "cg") return "crazygames";
+  if (!e.ref) return "direct";
+  let host = "";
+  try {
+    host = new URL(e.ref).hostname.replace(/^www\./, "");
+  } catch {
+    return "other";
+  }
+  if (host === "playheist.net" || host.endsWith(".playheist.net")) return "direct";
+  if (SEARCH.test(host)) return "search";
+  if (SOCIAL.test(host) || host === "t.co" || host === "x.com") return "social";
+  if (host.includes("crazygames")) return "crazygames";
+  return "other";
+}
+
 export interface FunnelPerson {
   person: string;
   /** the account to open in the player file */
@@ -25,6 +60,8 @@ export interface FunnelPerson {
   lastWhat?: string;
   recent?: string[];
   minutes?: number;
+  /** where they came from (a SOURCES label) */
+  source?: string;
 }
 
 export interface FunnelStep {
@@ -56,6 +93,8 @@ export interface Funnel {
   /** the step most people stop at (null when nobody stopped anywhere but the end) */
   worst: { step: string; label: string; stopped: number; of: number } | null;
   newest: FunnelPerson[];
+  /** new people in range by where they came from (before the source filter), biggest first */
+  sources: { key: SourceKey; label: string; people: number }[];
 }
 
 interface Trail {
@@ -68,6 +107,10 @@ interface Trail {
   recent: string[];
   newTap: boolean;
   lesson: boolean;
+  /** where they came from: set by the guest account their first visit made */
+  source: SourceKey | null;
+  /** tapped their player card when the lobby tour spotlit it (the tour's first stop) */
+  tourCard: boolean;
   /** tapped through the lobby tour after the first hand (picked coaching or bots at the end) */
   toured: boolean;
   coachedGames: Set<string>;
@@ -102,7 +145,7 @@ const median = (xs: number[]) => {
  * personOf: which person an account belongs to (several accounts can be one person).
  * People count when their first event falls in [from, to).
  */
-export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId: string) => string, from: number, to: number, gameFilter?: string): Funnel {
+export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId: string) => string, from: number, to: number, gameFilter?: string, sourceFilter?: string): Funnel {
   const sorted = [...events].filter((e) => e.userId).sort((a, b) => a.at - b.at);
   const trails = new Map<string, Trail>();
   let turnsSince: number | null = null;
@@ -113,7 +156,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
       t = {
         ids: new Set(), userId: e.userId!, name: e.name ?? "", first: e.at, last: e.at, lastWhat: what(e),
         recent: [],
-        newTap: false, lesson: false, toured: false, coachedGames: new Set(), turn: 0, finished: false,
+        newTap: false, lesson: false, source: null, tourCard: false, toured: false, coachedGames: new Set(), turn: 0, finished: false,
         games: 0, online: false, back: false, signedUp: false, arcadeStarted: false, arcadeWon: false,
         gameTypes: new Set(),
       };
@@ -137,7 +180,11 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     switch (e.kind) {
       case "ui.tap":
         if (d.name === "welcome-new" || (typeof d.name === "string" && d.name.startsWith("I'm new"))) t.newTap = true;
+        if (d.name === "tour-profile") t.tourCard = true;
         if (d.name === "tour-coach" || d.name === "tour-bots" || d.name === "tour-save" || d.name === "tour-lobby") t.toured = true;
+        break;
+      case "auth.guest":
+        if (ok && !t.source) t.source = sourceOf(e);
         break;
       case "ui.turn":
         turnsSince ??= e.at;
@@ -229,6 +276,13 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     }
   }
 
+  const srcOf = (t: Trail): SourceKey => t.source ?? "unknown";
+  const label = (k: SourceKey) => SOURCES.find((x) => x.key === k)!.label;
+  const sources = SOURCES.map((x) => ({ ...x, people: fresh.filter(([, t]) => srcOf(t) === x.key).length }))
+    .filter((x) => x.people > 0)
+    .sort((a, b) => b.people - a.people);
+  if (sourceFilter && sourceFilter !== "all") fresh = fresh.filter(([, t]) => srcOf(t) === sourceFilter);
+
   const maxTurn = Math.max(0, ...fresh.map(([, t]) => t.turn));
   const turns = TURNS.filter((n) => n <= maxTurn);
   const defs: { key: string; label: string; note: string; did: (t: Trail) => boolean }[] = [
@@ -238,7 +292,8 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     { key: "lesson", label: "Started a game", note: "Learn to play or card game deal", did: (t) => t.lesson || t.arcadeStarted },
     ...turns.map((n) => ({ key: `turn${n}`, label: `Reached turn ${n}`, note: "of the coached game", did: (t: Trail) => t.turn >= n })),
     { key: "finish", label: "Finished the game", note: "played it to the end", did: (t) => t.finished || t.arcadeWon },
-    { key: "tour", label: "Finished the lobby tour", note: "Wardrobe, Season pass, then picked what's next", did: (t) => t.toured },
+    { key: "tourcard", label: "Opened their player card", note: "the lobby tour's first stop, which opens the Season pass", did: (t) => t.tourCard || t.toured },
+    { key: "tour", label: "Picked what's next", note: "the tour's last card: more coaching, save progress, or the lobby", did: (t) => t.toured },
     { key: "again", label: "Played another game", note: "a second game of any kind", did: (t) => t.games >= 2 || t.online },
     { key: "back", label: "Came back later", note: "12+ hours after the first visit", did: (t) => t.back },
     { key: "signup", label: "Signed up", note: "made an account", did: (t) => t.signedUp },
@@ -275,6 +330,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
           lastWhat: t.lastWhat,
           recent: t.recent.length ? t.recent : [t.lastWhat],
           minutes: Math.round(((t.last - t.first) / 60_000) * 10) / 10,
+          source: label(srcOf(t)),
         })),
     };
   });
@@ -303,6 +359,8 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
         lastWhat: t.lastWhat,
         recent: t.recent.length ? t.recent : [t.lastWhat],
         minutes: Math.round(((t.last - t.first) / 60_000) * 10) / 10,
+        source: label(srcOf(t)),
       })),
+    sources,
   };
 }

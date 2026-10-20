@@ -74,3 +74,37 @@ describe("drop-off funnel", () => {
     expect(buildFunnel(events, (id) => id, t0 + 2 * H, t0 + 100 * H).people).toBe(0);
   });
 });
+
+describe("drop-off funnel: where people came from", () => {
+  const ev: ActivityEvent[] = [
+    // an ad click: Google's referrer, but the link carries the click id
+    { at: t0, kind: "auth.guest", userId: "ad", ref: "https://www.google.com/", data: { land: { gclid: "x1", play: "1", path: "/" } } },
+    { at: t0 + 1, kind: "solo.start", userId: "ad", ok: true, data: { coached: true, gameId: "g9" } },
+    { at: t0 + 2, kind: "game.solo", userId: "ad", data: { coached: true, quit: false } },
+    { at: t0 + 3, kind: "ui.tap", userId: "ad", data: { name: "tour-profile" } },
+    // an ad click with only ?play=1 (auto-tagging off)
+    { at: t0, kind: "auth.guest", userId: "ad2", data: { land: { play: "1" } } },
+    { at: t0, kind: "auth.guest", userId: "se", ref: "https://www.google.com/" },
+    { at: t0, kind: "auth.guest", userId: "rd", ref: "https://old.reddit.com/r/WebGames/" },
+    { at: t0, kind: "auth.guest", userId: "cg", data: { src: "cg" } },
+    { at: t0, kind: "auth.guest", userId: "dir" },
+    { at: t0, kind: "auth.guest", userId: "oth", ref: "https://itch.io/games" },
+    // no guest event in the log: unknown
+    { at: t0, kind: "app.open", userId: "nope" },
+  ];
+  const all = buildFunnel(ev, (id) => id, t0 - H, t0 + H);
+  const ads = buildFunnel(ev, (id) => id, t0 - H, t0 + H, undefined, "ads");
+
+  it("sorts each new person into one source", () => {
+    const by = Object.fromEntries((all.sources ?? []).map((s) => [s.key, s.people]));
+    expect(by).toEqual({ ads: 2, search: 1, social: 1, crazygames: 1, direct: 1, other: 1, unknown: 1 });
+    expect(all.newest.find((p) => p.userId === "ad")?.source).toBe("Google Ads");
+  });
+
+  it("filters the steps to one source, keeping every source's count", () => {
+    expect(ads.people).toBe(2);
+    expect(ads.sources).toEqual(all.sources);
+    expect(ads.steps.find((s) => s.key === "tourcard")?.reached).toBe(1);
+    expect(ads.steps.find((s) => s.key === "tour")?.reached).toBe(0);
+  });
+});

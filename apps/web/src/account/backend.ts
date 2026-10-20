@@ -303,6 +303,21 @@ export class BackendError extends Error {
 
 const TOKEN_KEY = "heist.session";
 
+/** the ad tags on the link this page was opened by, read once at load (the app tidies the address bar later) */
+const LAND_KEYS = ["gclid", "gbraid", "wbraid", "play", "utm_source", "utm_medium", "utm_campaign", "utm_term"];
+const LANDED: Record<string, string> | undefined = (() => {
+  try {
+    const q = new URLSearchParams(location.search);
+    const out: Record<string, string> = {};
+    for (const k of LAND_KEYS) if (q.has(k)) out[k] = (q.get(k) ?? "").slice(0, 120);
+    if (!Object.keys(out).length) return undefined;
+    out.path = location.pathname.slice(0, 60);
+    return out;
+  } catch {
+    return undefined;
+  }
+})();
+
 export class ServerBackend implements Backend {
   readonly kind = "server" as const;
   private constructor(
@@ -415,7 +430,8 @@ export class ServerBackend implements Backend {
     // the page that linked here (a Reddit post, a search) tells the owner where new players come from
     const ref = typeof document === "undefined" ? "" : document.referrer.slice(0, 300);
     // src: "cg" for a player who came through CrazyGames (the admin panel counts them)
-    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "", ref, src: crazyGamesSource() }));
+    // land: the ad tags on the link they arrived by (Google's click id, ?play=1, utm_*), so the admin panel can tell ad visitors apart
+    return this.signedIn(await this.call("/api/auth/guest", { name: store.get("heist.name") ?? "", ref, src: crazyGamesSource(), land: LANDED }));
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {

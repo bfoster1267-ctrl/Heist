@@ -83,6 +83,15 @@ const kindOf = (key: string) => {
   return key.replace(/^\w+ \/api\//, "").replace(/\//g, ".");
 };
 
+/** The ad tags a new guest arrived with (see the app's LANDED): known keys only, short strings. */
+const LAND_KEYS = new Set(["gclid", "gbraid", "wbraid", "play", "utm_source", "utm_medium", "utm_campaign", "utm_term", "path"]);
+function landOf(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
+  const out: Record<string, string> = {};
+  for (const [k, x] of Object.entries(v)) if (LAND_KEYS.has(k) && typeof x === "string") out[k] = x.slice(0, 120);
+  return Object.keys(out).length ? out : undefined;
+}
+
 /** What's worth keeping from a route's answer, beyond the request itself. */
 function outcome(key: string, out: unknown): Record<string, unknown> {
   const o = (out ?? {}) as Record<string, any>;
@@ -180,7 +189,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       key === "POST /api/solo/finish" && Array.isArray(body.answers) ? { ...body, answers: undefined, moves: body.answers.length }
       : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
       : (key === "POST /api/checkers/finish" || key === "POST /api/checkers/bank" || key === "POST /api/hearts/finish" || key === "POST /api/hearts/bank" || key === "POST /api/spades/finish" || key === "POST /api/spades/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
-      : key === "POST /api/auth/guest" ? { ...body, ref: undefined }
+      : key === "POST /api/auth/guest" ? { ...body, ref: undefined, land: landOf(body.land) }
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
     svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ua: keepUa ? w.ua : undefined, ...(ref ? { ref } : {}), ok: !error, error, data: Object.keys(data).length ? data : undefined });
