@@ -22,13 +22,14 @@ const mins = (m: number | null) => (m === null ? "–" : m < 1 ? `${Math.round(m
 export function FunnelPage({ s, onAuth, query }: PageProps) {
   const range = query.get("range") ?? (query.get("from") || query.get("to") ? "" : "7d");
   const game = query.get("game") ?? "all";
+  const source = query.get("source") ?? "all";
   const [from, setFrom] = useState(query.get("from") ?? "");
   const [to, setTo] = useState(query.get("to") ?? "");
   const [selectedStep, setSelectedStep] = useState<string | null>(null);
   const qs = (o: Record<string, string>) => {
     const next = new URLSearchParams(query);
     for (const [k, v] of Object.entries(o)) {
-      if (!v || (k === "game" && v === "all")) next.delete(k);
+      if (!v || ((k === "game" || k === "source") && v === "all")) next.delete(k);
       else next.set(k, v);
     }
     return `/dropoff?${next}`;
@@ -42,6 +43,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
     if (query.get("to")) p.set("to", String(new Date(query.get("to") + "T23:59:59").getTime()));
   }
   if (game && game !== "all") p.set("game", game);
+  if (source !== "all") p.set("source", source);
   const r = useAdmin<Funnel>(s, `/funnel?${p}`, onAuth);
   usePoll(r.reload, 60_000);
   const f = r.data;
@@ -95,7 +97,21 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
             </button>
           </form>
         </div>
+        {f?.sources && f.sources.length > 0 && (
+          <div className="filters source-filter">
+            <span className="dim small">Came from</span>
+            <button type="button" className={`fam-chip ${source === "all" ? "on" : ""}`} onClick={() => go(qs({ source: "all" }))}>
+              Everyone <span className="dim">{num(f.sources.reduce((n, x) => n + x.people, 0))}</span>
+            </button>
+            {f.sources.map((x) => (
+              <button key={x.key} type="button" className={`fam-chip ${source === x.key ? "on" : ""}`} onClick={() => go(qs({ source: x.key }))}>
+                {x.label} <span className="dim">{num(x.people)}</span>
+              </button>
+            ))}
+          </div>
+        )}
         <p className="dim small">Counts people whose first visit falls in this range. Your own play, Claude's testing and <Link to="/bots">bot visits</Link> are left out.</p>
+        {source === "ads" && <p className="dim small">Ad visitors are told apart by the ad link they arrive on (Google's click id or ?play=1), recorded from Oct 20, 2026.</p>}
       </div>
       <Problem error={r.error} />
       {!f ? null : f.people === 0 ? (
@@ -300,6 +316,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
                     <tr>
                       <th>Player</th>
                       <th>First visit</th>
+                      <th>Came from</th>
                       <th className="r">Time on site</th>
                       <th>Got as far as</th>
                       <th>Last action / Study</th>
@@ -314,6 +331,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
                           </Link>
                         </td>
                         <td>{when(x.first)}</td>
+                        <td className="dim small">{x.source ?? "–"}</td>
                         <td className="r">{mins(x.minutes ?? ((x.last - x.first) / 60_000))}</td>
                         <td>
                           {x.step}

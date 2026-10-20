@@ -776,7 +776,7 @@ export class AdminService {
     const ppl = this.people(await this.accounts.store.all());
     const events = this.log.window().filter((e) => e.userId && !byOwner(e) && !byClaude(e) && !notPlayer(ppl, e.userId));
     const game = q.get("game") ?? undefined;
-    return buildFunnel(events, (id) => ppl.of.get(id) ?? id, from, to, game);
+    return buildFunnel(events, (id) => ppl.of.get(id) ?? id, from, to, game, q.get("source") ?? undefined);
   }
 
   game(id: string): GameView | null {

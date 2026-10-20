@@ -326,6 +326,8 @@ export interface FunnelPerson {
   lastWhat?: string;
   recent?: string[];
   minutes?: number;
+  /** where they came from: Google Ads, Search, Social, CrazyGames, Direct, Other sites or Not recorded */
+  source?: string;
 }
 
 export interface FunnelStep {
@@ -348,6 +350,8 @@ export interface Funnel {
   steps: FunnelStep[];
   worst: { step: string; label: string; stopped: number; of: number } | null;
   newest: FunnelPerson[];
+  /** new people in range by where they came from (before the source filter), biggest first */
+  sources?: { key: string; label: string; people: number }[];
 }
 
 export interface BotRow {
