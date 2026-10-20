@@ -5,7 +5,7 @@
 
 import { useState } from "react";
 import { post, type Session } from "./api";
-import { ago, go, num, usePoll } from "./bits";
+import { ago, go, num, usePoll, PlayerNum } from "./bits";
 import { Problem, useAdmin, type PageProps } from "./pages";
 
 type Kind = "bug" | "idea" | "balance" | "other";
@@ -133,7 +133,7 @@ function PostCard({ p, s, reward, onChange }: { p: Post; s: Session; reward: num
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="dim small">
-            #{p.id} · {KIND[p.kind]} · <a onClick={() => go(`/players/${p.userId}`)}>{p.name}</a> · {ago(p.at)}
+            #{p.id} · {KIND[p.kind]} · <a onClick={() => go(`/players/${p.userId}`)}>{p.name}</a> <PlayerNum id={p.userId} /> · {ago(p.at)}
             {p.rewarded ? ` · paid ${reward}` : ""}
             {p.hidden ? " · TAKEN DOWN" : ""}
             {p.reports?.length ? ` · reported by ${p.reports.length}` : ""}

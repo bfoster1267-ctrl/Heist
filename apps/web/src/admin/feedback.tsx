@@ -2,7 +2,7 @@
 // picked each answer, split by walking out vs finishing, and every comment. Yours and Claude's are left out.
 
 import type { Feedback } from "./api";
-import { Stat, ago, go, num, usePoll } from "./bits";
+import { Stat, ago, go, num, usePoll, PlayerNum } from "./bits";
 import { Problem, useAdmin, type PageProps } from "./pages";
 
 export const REASONS: { key: keyof Feedback["totals"]; label: string }[] = [
@@ -79,7 +79,7 @@ export function FeedbackPage({ s, onAuth }: PageProps) {
                 {f.rows.map((x) => (
                   <tr key={x.id} onClick={() => go(`/players/${x.id}`)}>
                     <td>
-                      <b>{x.name}</b>
+                      <b>{x.name}</b> <PlayerNum id={x.id} />
                       <div className="dim small">{x.guest ? "guest" : "signed up"}</div>
                     </td>
                     <td>{labelOf(x.reason)}</td>

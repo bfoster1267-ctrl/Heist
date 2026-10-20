@@ -102,6 +102,8 @@ export async function post<T>(path: string, body: object, s: Session): Promise<T
 export interface AccountRow {
   id: string;
   name: string;
+  /** player number (#1001 up) */
+  num: number | null;
   email: string | null;
   marketingConsent?: boolean;
   guest: boolean;

@@ -28,6 +28,8 @@ export interface LiveInfo {
 export interface AccountRow {
   id: string;
   name: string;
+  /** player number (#1001 up) */
+  num: number | null;
   email: string | null;
   marketingConsent?: boolean;
   guest: boolean;
@@ -316,7 +318,7 @@ export class AdminService {
     const totalGames = p.stats.games + arcadeWins;
 
     return {
-      id: a.id, name: a.name, email: a.email ?? null, marketingConsent: Boolean(a.marketingConsent), guest: a.guest, providers: a.logins.map((l) => l.provider), createdAt: a.createdAt,
+      id: a.id, name: a.name, num: a.num ?? null, email: a.email ?? null, marketingConsent: Boolean(a.marketingConsent), guest: a.guest, providers: a.logins.map((l) => l.provider), createdAt: a.createdAt,
       lastSeen: this.log.lastSeen(a.id) ?? null, level: levelInfo(p.xp).level, prestige: p.prestige, chips: p.chips, coins: p.coins,
       games: p.stats.games, wins: p.stats.wins, winnings: p.stats.winnings, rating: Math.round(p.rating),
       tags: a.crm?.tags ?? [], flagged: !!a.crm?.flag, banned: !!this.accounts.banOf(a), notes: a.crm?.notes.length ?? 0,
@@ -642,7 +644,8 @@ export class AdminService {
     else if (source === "web") rows = rows.filter((r) => r.source !== "cg");
     const tag = (q.get("tag") ?? "").trim().toLowerCase();
     if (tag) rows = rows.filter((r) => r.tags.some((t) => t.toLowerCase() === tag));
-    if (text) rows = rows.filter((r) => r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text || r.tags.some((t) => t.toLowerCase() === text));
+    const wantNum = playerNum(text);
+    if (text) rows = rows.filter((r) => r.num === wantNum || r.name.toLowerCase().includes(text) || (r.email ?? "").includes(text) || r.id.toLowerCase() === text || r.tags.some((t) => t.toLowerCase() === text));
     const by: Record<string, (r: AccountRow) => number> = {
       seen: (r) => r.lastSeen ?? r.createdAt, new: (r) => r.createdAt, games: (r) => r.totalGames, chips: (r) => r.chips, level: (r) => r.prestige * 1e6 + r.level,
       winnings: (r) => r.winnings, rating: (r) => r.rating,
@@ -697,7 +700,12 @@ export class AdminService {
   async activity(q: URLSearchParams): Promise<{ events: (ActivityEvent & { you?: boolean; claude?: boolean; bot?: boolean })[] }> {
     const num = (k: string) => (q.get(k) ? Number(q.get(k)) : undefined);
     const kinds = (q.get("kinds") ?? "").split(",").map((s) => s.trim()).filter(Boolean);
-    const ppl = this.people(await this.accounts.store.all());
+    const accounts = await this.accounts.store.all();
+    const ppl = this.people(accounts);
+    // "#1234" in the search box is one player's number: show that player's activity
+    const wantNum = playerNum(q.get("text") ?? "");
+    const numbered = wantNum ? accounts.find((a) => a.num === wantNum) : undefined;
+    if (numbered) (q = new URLSearchParams(q)), q.set("user", numbered.id), q.delete("text");
     const personOf = (e: ActivityEvent) => (e.userId ? (ppl.of.get(e.userId) ?? e.userId) : undefined);
     const claude = (e: ActivityEvent) => byClaude(e) || ppl.claude.has(personOf(e) ?? "");
     const you = (e: ActivityEvent) =>
@@ -711,6 +719,13 @@ export class AdminService {
     });
     if (!all) return { events };
     return { events: events.map((e) => (you(e) ? { ...e, you: true } : claude(e) ? { ...e, claude: true } : bot(e) ? { ...e, bot: true } : e)) };
+  }
+
+  /** Every account's player number, by account id, for the #1234 next to names all over the panel. */
+  async nums(): Promise<{ nums: Record<string, number> }> {
+    const nums: Record<string, number> = {};
+    for (const a of await this.accounts.store.all()) if (a.num) nums[a.id] = a.num;
+    return { nums };
   }
 
   /**
@@ -845,4 +860,10 @@ function replaySoloGame(r: import("./activity").SoloRecord): GameView {
 function notPlayer(ppl: People, id: string) {
   const p = ppl.of.get(id) ?? id;
   return ppl.owner.has(p) || ppl.claude.has(p) || ppl.bots.has(p);
+}
+
+/** "#1234" (or "1234") typed in a search box, as a player number */
+function playerNum(text: string): number | null {
+  const m = text.trim().match(/^#?(\d{4,7})$/);
+  return m ? Number(m[1]) : null;
 }

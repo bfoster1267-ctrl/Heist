@@ -70,6 +70,19 @@ select:focus {
   outline: 2px solid var(--gold);
   outline-offset: 1px;
 }
+.pnum {
+  font-family: var(--cond);
+  font-size: 0.82em;
+  font-weight: 600;
+  color: var(--gold2);
+  background: rgba(231, 181, 60, 0.12);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 5px;
+  margin-left: 3px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
 .dim {
   color: var(--muted);
 }

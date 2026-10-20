@@ -38,6 +38,10 @@ export interface SoloGame {
 export interface Account {
   id: string;
   name: string;
+  /** the player number shown next to the name in the admin panel (#1001 up, oldest account first) */
+  num?: number;
+  /** the name was made up for them (a cringe one): signing in with a provider can replace it */
+  autoName?: boolean;
   createdAt: number;
   /** no sign-in method yet: progress lives on this device's token until they create an account */
   guest: boolean;

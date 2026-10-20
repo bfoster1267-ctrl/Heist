@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AuthError, post, type AccountDetail, type Crm, type Session } from "./api";
-import { Link, ago, day, when } from "./bits";
+import { Link, ago, day, when, PlayerNum } from "./bits";
 
 const PRESET_TAGS = ["VIP", "Whale", "Tester", "Streamer", "Friend", "Watch", "Cheater", "Toxic"];
 const BAN_LENGTHS: [string, number | null][] = [
@@ -45,7 +45,9 @@ export function CrmPanel({ s, onAuth, d }: { s: Session; onAuth: (e: unknown) =>
   return (
     <div className={`card crm ${banActive ? "is-banned" : crm.flag ? "is-flagged" : ""}`}>
       <div className="card-head">
-        <h3>Your file on {d.account.name}</h3>
+        <h3>
+          Your file on {d.account.name} <PlayerNum id={d.account.id} />
+        </h3>
         <span className="dim small">only you can see this</span>
       </div>
       {error && <div className="problem">{error}</div>}
@@ -178,7 +180,7 @@ export function CrmPanel({ s, onAuth, d }: { s: Session; onAuth: (e: unknown) =>
         <div className="chips-row">
           {d.samePerson.map((x) => (
             <Link key={x.id} to={`/players/${x.id}`} className="tag">
-              {x.name} · {x.guest ? "guest" : "account"} · {x.games} games · {day(x.createdAt)}
+              {x.name} <PlayerNum id={x.id} /> · {x.guest ? "guest" : "account"} · {x.games} games · {day(x.createdAt)}
             </Link>
           ))}
         </div>
@@ -201,7 +203,7 @@ export function CrmPanel({ s, onAuth, d }: { s: Session; onAuth: (e: unknown) =>
           {d.sameIp.map((x, i) => (
             <span key={x.id}>
               {i > 0 && ", "}
-              <Link to={`/players/${x.id}`}>{x.name}</Link>
+              <Link to={`/players/${x.id}`}>{x.name}</Link> <PlayerNum id={x.id} />
             </span>
           ))}
         </div>
