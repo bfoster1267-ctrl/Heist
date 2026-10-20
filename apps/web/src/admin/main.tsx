@@ -5,7 +5,8 @@ import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "../fonts/fonts.css";
 import "./admin.css";
-import { AuthError, forget, login, saved, type Session } from "./api";
+import { AuthError, forget, get, login, saved, type Session } from "./api";
+import { setNums } from "./bits";
 import { Activity, Dashboard, Game, LivePage, Player, Players, type PageProps } from "./pages";
 import { ServerPage } from "./server";
 import { EconomyPage } from "./economy";
@@ -66,6 +67,15 @@ function Admin() {
     }, Math.max(0, s.expires - Date.now()));
     return () => clearTimeout(t);
   }, [s]);
+
+  // player numbers for the #1234 next to names; new players turn up, so they're reloaded every minute
+  useEffect(() => {
+    if (!s) return;
+    const load = () => get<{ nums: Record<string, number> }>("/nums", s).then((r) => setNums(r.nums), onAuth);
+    load();
+    const t = window.setInterval(load, 60_000);
+    return () => clearInterval(t);
+  }, [s, onAuth]);
 
   if (!s) return <SignIn onIn={setS} />;
   const props: PageProps = { s, onAuth, query, param: parts[1] };

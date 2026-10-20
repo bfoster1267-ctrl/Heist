@@ -3,7 +3,7 @@
 // reports against them, lines the room took down, and how many players muted them.
 import { useCallback, useEffect, useState } from "react";
 import { AuthError, get, type Session } from "./api";
-import { ago, go, num, usePoll, when } from "./bits";
+import { ago, go, num, usePoll, when, PlayerNum } from "./bits";
 import type { PageProps } from "./pages";
 
 interface Conduct {
@@ -79,7 +79,9 @@ export function LoungeWatch({ s, onAuth }: PageProps) {
             <tbody>
               {r.data.players.map((p) => (
                 <tr key={p.userId} onClick={() => go(`/players/${p.userId}`)} style={{ cursor: "pointer" }}>
-                  <td>{p.name}</td>
+                  <td>
+                    {p.name} <PlayerNum id={p.userId} />
+                  </td>
                   <td>
                     <b>{num(p.score)}</b>
                   </td>

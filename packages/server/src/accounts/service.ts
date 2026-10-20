@@ -14,6 +14,7 @@ import { OAuth, OAuthError, type OAuthConfig } from "./oauth";
 import { MemoryActivityLog, type ActivityEvent, type ActivityLog } from "./activity";
 import { MemoryAccountStore, type Account, type Crm, type Feedback, FEEDBACK_REASONS, type AccountStore, type Login, type Provider } from "./store";
 import { Tokens, checkPassword, hashPassword } from "./tokens";
+import { STOCK_NAME, cringeName } from "./names";
 import { parseSub, type PushSub } from "../push";
 
 export class ApiError extends Error {
@@ -87,6 +88,11 @@ export class AccountService {
   private locks = new Map<string, Promise<unknown>>();
   private badges = new Map<string, Badge>();
   private board: { at: number; by: string; rows: LeaderRow[] } | null = null;
+  private numbering: Promise<void> | null = null;
+  /** the highest player number handed out */
+  private lastNum = 1000;
+  /** every name in use, lower case, so a made-up name is never someone else's */
+  private taken = new Set<string>();
 
   constructor(o: AccountOptions = {}) {
     this.store = o.store ?? new MemoryAccountStore();
@@ -169,11 +175,47 @@ export class AccountService {
     return removed;
   }
 
+  /**
+   * Once per start: every account gets a player number (oldest first), and guests still on a stock name
+   * ("Player", "Guest 4f2a", "Ace") get a cringe one, so each person is easy to follow in the admin panel.
+   */
+  numbered(): Promise<void> {
+    return (this.numbering ??= this.numberAll());
+  }
+
+  private async numberAll() {
+    const all = (await this.store.all()).sort((x, y) => x.createdAt - y.createdAt);
+    for (const a of all) {
+      this.taken.add(a.name.toLowerCase());
+      if (a.num) this.lastNum = Math.max(this.lastNum, a.num);
+    }
+    for (const a of all) {
+      const rename = a.guest && STOCK_NAME.test(a.name);
+      if (a.num && !rename) continue;
+      const num = a.num ?? ++this.lastNum;
+      const name = rename ? this.freshName() : null;
+      await this.update(a.id, (x) => {
+        x.num ??= num;
+        if (name && STOCK_NAME.test(x.name)) (x.name = name), (x.autoName = true);
+      }).catch(() => {}); // removed meanwhile
+    }
+  }
+
+  private freshName() {
+    const n = cringeName(this.taken);
+    this.taken.add(n.toLowerCase());
+    return n;
+  }
+
   private async create(name: string, guest: boolean, logins: Login[] = [], extra: Partial<Account> = {}): Promise<Account> {
+    await this.numbered().catch(() => {});
+    const chosen = cleanName(name, "");
+    const auto = STOCK_NAME.test(chosen);
     const a: Account = {
-      id: `u_${randomBytes(9).toString("base64url")}`, name: cleanName(name, "Player"), createdAt: this.now(), guest, logins,
-      progress: newProgress(), solo: null, sessions: 0, ...extra,
+      id: `u_${randomBytes(9).toString("base64url")}`, name: auto ? this.freshName() : chosen, num: ++this.lastNum, ...(auto ? { autoName: true } : {}),
+      createdAt: this.now(), guest, logins, progress: newProgress(), solo: null, sessions: 0, ...extra,
     };
+    this.taken.add(a.name.toLowerCase());
     await this.store.put(a);
     this.badges.set(a.id, badgeOf(a.progress));
     return a;
@@ -302,7 +344,7 @@ export class AccountService {
       const a = await this.update(cur.id, (a) => {
         a.logins.push(login);
         if (!a.source) a.source = "cg";
-        if (v.name && (a.name.startsWith("Guest") || a.name === "Player")) a.name = cleanName(v.name, a.name);
+        if (v.name && (a.autoName || STOCK_NAME.test(a.name))) (a.name = cleanName(v.name, a.name)), (a.autoName = false);
         return a;
       });
       return this.session(a);
@@ -327,7 +369,7 @@ export class AccountService {
         if (extra.password) a.password = extra.password;
         if (extra.marketingConsent !== undefined) a.marketingConsent = extra.marketingConsent;
         if (extra.marketingConsentAt) a.marketingConsentAt = extra.marketingConsentAt;
-        if (extra.name && (a.name.startsWith("Guest") || a.name === "Player")) a.name = cleanName(extra.name, a.name);
+        if (extra.name && (a.autoName || STOCK_NAME.test(a.name))) (a.name = cleanName(extra.name, a.name)), (a.autoName = false);
         return a;
       });
       return this.session(a);
@@ -456,12 +498,14 @@ export class AccountService {
   rename(a: Account, name: unknown) {
     const n = cleanName(name, "");
     if (!n) throw new ApiError(400, "Pick a name");
-    return this.update(a.id, (x) => ((x.name = n), this.me(x)));
+    this.taken.add(n.toLowerCase());
+    return this.update(a.id, (x) => ((x.name = n), (x.autoName = false), this.me(x)));
   }
 
   /** A rename from the game socket, which knows the player by id rather than by session. */
   renameId(id: string, name: string) {
-    return this.update(id, (x) => ((x.name = name), x.name));
+    this.taken.add(name.toLowerCase());
+    return this.update(id, (x) => ((x.name = name), (x.autoName = false), x.name));
   }
 
   buy(a: Account, id: unknown) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ActivityEvent } from "./api";
 
 export const num = (n: number | undefined | null) => (n ?? 0).toLocaleString("en-US");
@@ -17,6 +17,22 @@ export function ago(at: number | null | undefined, now = Date.now()): string {
 export const when = (at: number) =>
   new Date(at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", second: "2-digit" });
 export const day = (at: number) => new Date(at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+// player numbers by account id: the shell (main.tsx) loads them, and every name in the panel shows its #1234
+let nums: Record<string, number> = {};
+const numWatchers = new Set<() => void>();
+export function setNums(n: Record<string, number>) {
+  nums = n;
+  for (const f of numWatchers) f();
+}
+const watchNums = (f: () => void) => (numWatchers.add(f), () => void numWatchers.delete(f));
+
+/** "#1234" after a player's name, so one person is easy to follow down a list; nothing until it's known */
+export function PlayerNum({ id }: { id?: string | null }) {
+  const all = useSyncExternalStore(watchNums, () => nums);
+  const n = id ? all[id] : undefined;
+  return n ? <span className="pnum" title="Player number">#{n}</span> : null;
+}
 
 export function go(path: string) {
   location.hash = path;

@@ -3,7 +3,7 @@ import { AuthError, get, post, type AccountDetail, type AccountRow, type Activit
 import { CrmPanel } from "./crm";
 import { ChatsPanel } from "./chats";
 import { ConductPanel } from "./conduct";
-import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when } from "./bits";
+import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
 
 type Load<T> = { data: T | null; error: string | null; reload: () => void; loading: boolean };
 
@@ -417,7 +417,7 @@ function LiveTables({ live }: { live: Live }) {
                 {r.seats.map((x) => (
                   <li key={x.seat} className={x.kind}>
                     <span className={`dot ${x.kind === "human" ? (x.connected ? "on" : "off") : ""}`} />
-                    {x.kind === "human" && x.userId ? <Link to={`/players/${x.userId}`}>{x.name}</Link> : <span>{x.kind === "open" ? "open seat" : x.name}</span>}
+                    {x.kind === "human" && x.userId ? <><Link to={`/players/${x.userId}`}>{x.name}</Link> <PlayerNum id={x.userId} /></> : <span>{x.kind === "open" ? "open seat" : x.name}</span>}
                     {x.kind === "bot" && <em>bot</em>}
                     {x.autopilot && <em>autopilot</em>}
                     {x.kind === "human" && !x.connected && <em>away</em>}
@@ -508,7 +508,7 @@ export function Players({ s, onAuth, query }: PageProps) {
           go(qs({ offset: 0 }));
         }}
       >
-        <input className="search" placeholder="Search name, email or id" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className="search" placeholder="Search name, #number, email or id" value={q} onChange={(e) => setQ(e.target.value)} />
         <select value={show} onChange={(e) => go(qs({ show: e.target.value, offset: 0 }))}>
           <option value="people">One row per person</option>
           <option value="registered">Signed-up accounts</option>
@@ -673,7 +673,7 @@ export function PlayerTable({ rows, compact }: { rows: AccountRow[]; compact?: b
                 <div className="who">
                   <span className="avatar">{r.name.slice(0, 1).toUpperCase()}</span>
                   <div>
-                    <b>{r.name}</b> <Badges r={r} />
+                    <b>{r.name}</b> <PlayerNum id={r.id} /> <Badges r={r} />
                     <div className="dim small">{r.email ?? (r.guest ? "guest" : r.id)}</div>
                   </div>
                 </div>
@@ -715,7 +715,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         <span className="avatar big">{r.name.slice(0, 1).toUpperCase()}</span>
         <div className="grow">
           <h2>
-            {r.name} <Badges r={r} />
+            {r.name} <PlayerNum id={r.id} /> <Badges r={r} />
           </h2>
           <div className="dim">
             {a.email ?? "no email"} {r.marketingConsent ? "· ✉️ marketing opt-in" : ""} · {a.guest ? "guest" : a.logins.map((x) => x.provider).join(", ")} · joined {day(a.createdAt)} · last seen {ago(r.lastSeen)}
@@ -910,7 +910,7 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
           setQuery({ text });
         }}
       >
-        <input className="search" placeholder="Search anything: a name, an item, a chat line, an IP…" value={text} onChange={(e) => setText(e.target.value)} />
+        <input className="search" placeholder="Search anything: a name, a #number, an item, a chat line, an IP…" value={text} onChange={(e) => setText(e.target.value)} />
         <label className="date">
           From <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
         </label>
@@ -963,7 +963,9 @@ export function Activity({ s, onAuth, query, embedded }: PageProps & { embedded?
                   <span className={`fam fam-${familyOf(e.kind)}`} title={e.kind} />
                   <span className="who">
                     {e.userId ? (
-                      <Link to={`/players/${e.userId}`}>{e.name ?? e.userId}</Link>
+                      <>
+                        <Link to={`/players/${e.userId}`}>{e.name ?? e.userId}</Link> <PlayerNum id={e.userId} />
+                      </>
                     ) : (
                       <span className="dim">{e.ip ?? "—"}</span>
                     )}
@@ -1028,6 +1030,7 @@ export function Game({ s, onAuth, param }: PageProps) {
             <button key={i} className={`seat-chip s${i} ${only === i ? "on" : ""} ${g.winners.includes(i) ? "won" : ""}`} onClick={() => setOnly(only === i ? "all" : i)}>
               <span className="dot" />
               {x.name}
+              <PlayerNum id={x.userId} />
               {x.bot ? <em>bot</em> : null}
               {g.winners.includes(i) && <em className="crown">winner</em>}
               {x.userId && (

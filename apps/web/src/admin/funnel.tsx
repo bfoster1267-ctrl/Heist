@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import type { Funnel } from "./api";
-import { Link, Stat, day, go, labelOf, num, usePoll, when } from "./bits";
+import { Link, Stat, day, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
 import { Problem, useAdmin, type PageProps } from "./pages";
 
 const DAY = 24 * 60 * 60_000;
@@ -247,6 +247,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
                                     >
                                       {p.name || "Guest"}
                                     </Link>
+                                    <PlayerNum id={p.userId} />
                                     <span className="dim small">· {mins(p.minutes ?? ((p.last - p.first) / 60_000))} on site</span>
                                     <span className="dim small">· {when(p.last)}</span>
                                   </div>
@@ -328,7 +329,8 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
                         <td>
                           <Link to={`/players/${x.userId}`} onClick={(e) => e.stopPropagation()}>
                             {x.name || "Guest"}
-                          </Link>
+                          </Link>{" "}
+                          <PlayerNum id={x.userId} />
                         </td>
                         <td>{when(x.first)}</td>
                         <td className="dim small">{x.source ?? "–"}</td>

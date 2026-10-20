@@ -74,6 +74,9 @@ const server = await startServer({
   onGameOver: (r) => log("game over", { game: r.gameId, winners: r.winners, reason: r.reason }),
 });
 
+// every account gets its player number (and guests on a stock name a made-up one) before the admin panel lists them
+accounts.numbered().catch((e) => log("numbering accounts failed", { err: String(e) }));
+
 // guests who opened the site, never played a game and haven't been back in 30 days are removed
 const prune = () =>
   accounts.pruneGuests().then(
