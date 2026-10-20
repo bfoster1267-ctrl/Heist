@@ -1,6 +1,6 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from "react";
 import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt, type Progress } from "@heist/profile";
 import { CrewBadge } from "./table/pieces";
 import { createPortal } from "react-dom";
@@ -168,6 +168,17 @@ export function Lobby({
     save();
     onPlay({ players: 3, name: nm(), stakes: 0, coached: true });
   };
+  // a first visit goes straight into the one-hand first lesson: no choice screen first.
+  // An ad link (?play=1) does the same for anyone who has never played Heist, even after a solitaire visit.
+  const started = useRef(false);
+  useEffect(() => {
+    if (started.current) return;
+    const neverPlayed = !progress?.coachGames && !progress?.stats.games;
+    if (!(newbie && !flag("heist.welcomed")) && !(playLink() && neverPlayed)) return;
+    started.current = true;
+    setFlag("heist.welcomed");
+    coach();
+  }, []);
   return (
     <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
@@ -623,6 +634,15 @@ function Icon({ name }: { name: string }) {
 function flag(key: string) {
   try {
     return !!localStorage.getItem(key);
+  } catch {
+    return false;
+  }
+}
+
+/** the link asked to drop the visitor straight into a game (?play=1, used by ads) */
+function playLink() {
+  try {
+    return new URLSearchParams(location.search).has("play");
   } catch {
     return false;
   }
