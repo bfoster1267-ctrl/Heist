@@ -6,7 +6,7 @@ import { Bot, HeistGame, viewFor, type Ask, type BotLevel, type RuleOptions, typ
 import { randomInt } from "node:crypto";
 import type { ErrorCode, RoomInfo, SeatInfo, SeenFrame, ServerMsg } from "./protocol";
 import { sanitizeAnswer } from "./sanitize";
-import type { Badge } from "@heist/profile";
+import { cringeBotNames, type Badge } from "@heist/profile";
 import { deadWeight } from "./deadweight";
 import type { GameRecord, GameStore, StoredAnswer } from "./store";
 
@@ -103,7 +103,6 @@ interface Seat {
   left: boolean;
 }
 
-const BOT_NAMES = ["Vinnie", "Rosa", "Dutch", "Lola", "Sal", "Margo", "Frankie", "Ivy", "Nico", "Bea"];
 /** Frames kept for clients that reconnect and resume (older ones get a full sync instead). */
 const FRAME_BUFFER = 150;
 /** Two missed decisions in a row and a bot keeps playing the seat until the player is back. */
@@ -340,7 +339,7 @@ export class Room {
       }
       if (s.kind !== "open") taken.add(s.name);
     }
-    const names = BOT_NAMES.filter((n) => !taken.has(n));
+    const names = cringeBotNames(this.seats.filter((s) => s.kind === "open").length, undefined, new Set([...taken].map((n) => n.toLowerCase())));
     for (const s of this.seats) if (s.kind === "open") Object.assign(s, { kind: "bot", name: names.shift() ?? "Bot", autopilot: false });
     if (!this.seats.some((s) => s.kind === "human")) return "bad_state";
     this.games++;

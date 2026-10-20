@@ -4,7 +4,7 @@ import { AdminService } from "../src/accounts/admin";
 import { cringeName, cringeNameCount } from "../src/accounts/names";
 import { AccountService } from "../src/accounts/service";
 import { MemoryAccountStore, type Account } from "../src/accounts/store";
-import { newProgress } from "@heist/profile";
+import { cringeBotNames, newProgress, soloBotNames } from "@heist/profile";
 
 describe("cringe names", () => {
   it("come in thousands, fit a seat plate and never repeat a taken one", () => {
@@ -57,5 +57,16 @@ describe("player numbers", () => {
     // the next new player carries on from there
     const d = await svc.guest(undefined, "");
     expect((await store.get(d.me.id))!.num).toBe(1004);
+  });
+});
+
+describe("bot names", () => {
+  it("solo bots get cringe names, the same ones for the same seed, all different", () => {
+    const a = soloBotNames(1234, 6);
+    expect(a).toHaveLength(5);
+    expect(new Set(a).size).toBe(5);
+    expect(soloBotNames(1234, 6)).toEqual(a);
+    expect(soloBotNames(99, 6)).not.toEqual(a);
+    expect(cringeBotNames(3, undefined, new Set(a.map((n) => n.toLowerCase()))).some((n) => a.includes(n))).toBe(false);
   });
 });
