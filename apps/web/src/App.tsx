@@ -21,6 +21,7 @@ import type { TableSettings } from "./useTable";
 const Table = lazy(() => import("./table/Table").then((m) => ({ default: m.Table })));
 const OnlineLobby = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.OnlineLobby })));
 const QueueBar = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.QueueBar })));
+const TableBar = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.TableBar })));
 const Solitaire = lazy(() => import("./solitaire/Solitaire").then((m) => ({ default: m.Solitaire })));
 const FreeCell = lazy(() => import("./freecell/FreeCell").then((m) => ({ default: m.FreeCell })));
 const TriPeaks = lazy(() => import("./tripeaks/TriPeaks").then((m) => ({ default: m.TriPeaks })));
@@ -370,6 +371,8 @@ function Game() {
   // still in line for an online table after stepping out of the online lobby (its name, for the socket):
   // a bar on the other screens says so, and the table pulls the player back in when it's dealt
   const [away, setAwayState] = useState<string | null>(null);
+  // a table you were dealt into before the app closed: the bar's "Back to table" sits you down there
+  const [rejoin, setRejoin] = useState<string | null>(null);
   const awayRef = useRef<string | null>(null);
   const setAway = useCallback((n: string | null) => {
     awayRef.current = n;
@@ -708,20 +711,23 @@ function Game() {
         <OnlineLobby
           name={online}
           chips={chips}
-          join={inviteCode()}
+          join={rejoin ?? inviteCode()}
           onExit={() => {
             if (session(online).queue) setAway(online);
+            setRejoin(null);
             setOnline(null);
             void act((b) => b.me());
           }}
           onArcade={(g) => {
             if (session(online).queue) setAway(online);
+            setRejoin(null);
             setOnline(null);
             openSoloGame(g ?? "solitaire");
             void act((b) => b.me());
           }}
           onOpenArcade={() => {
             if (session(online).queue) setAway(online);
+            setRejoin(null);
             setOnline(null);
             setArcadeHubOpen(true);
             void act((b) => b.me());
@@ -1146,6 +1152,14 @@ function Game() {
           <Suspense fallback={null}>
             {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour && !chatOff ? <LoungeDock meId={me.id} /> : null}
             {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
+            {away === null && (
+              <TableBar
+                onBack={(code) => {
+                  setRejoin(code);
+                  setOnline(me.guest && me.name.startsWith("Guest") ? savedName() : me.name);
+                }}
+              />
+            )}
           </Suspense>
         </>
       ) : (

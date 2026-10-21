@@ -3446,14 +3446,116 @@ button:disabled {
   font-weight: 700;
   vertical-align: middle;
 }
-.seat-name-btn {
-  all: unset;
-  cursor: pointer;
-  text-decoration: underline dotted rgba(255, 255, 255, 0.35);
-  text-underline-offset: 3px;
+/* press and hold a seat's picture or name: who's sitting there (table/SeatPeek.tsx) */
+.seat-avatar,
+.seat-name {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
-.seat-name-btn:focus-visible {
+.peek-back {
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+}
+.peek {
+  position: relative;
+  width: 300px;
+  max-width: calc(100% - 40px);
+  background: linear-gradient(180deg, #1c1f26, #101216);
+  border: 1px solid var(--gold);
+  border-radius: 16px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75);
+}
+.peek-x {
+  all: unset;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.75);
+}
+.peek-x:focus-visible {
   outline: 2px solid var(--gold);
+}
+.peek-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-right: 36px;
+}
+.peek-name {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+.peek-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 8px;
+}
+.peek-tag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(255, 255, 255, 0.08);
+}
+.peek-tag.bot {
+  background: rgba(159, 195, 255, 0.18);
+  color: #9fc3ff;
+}
+.peek-tile.lvl-easy b {
+  color: #8fdc9c;
+}
+.peek-tile.lvl-normal b {
+  color: var(--gold2);
+}
+.peek-tile.lvl-hard b {
+  color: #ff9a90;
+}
+.peek-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(70px, 1fr));
+  gap: 6px;
+}
+.peek-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 6px 4px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.peek-tile b {
+  font-size: 18px;
+}
+.peek-tile span {
+  font-size: 12px;
+  opacity: 0.7;
+}
+.peek-line {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+.peek-more {
+  margin-top: 12px;
+  width: 100%;
 }
 /* Ranked: a clean HUD. No explainer lines under the choices; the numbers stay. */
 .clean-hud .hint,

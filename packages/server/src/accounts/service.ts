@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, replayCheckers, checkersTallyOf, checkersPay, settleCheckers, isCheckersLevel, replayHearts, heartsTallyOf, heartsPay, settleHearts, isHeartsLevel, replaySpades, spadesTallyOf, spadesPay, settleSpades, isSpadesLevel, tallyMines, minesPay, settleMinesweeper, isMinesLevel, MINES_DAILY_LEVEL, tallySudoku, sudokuPay, settleSudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, replayCheckers, checkersTallyOf, checkersPay, settleCheckers, isCheckersLevel, replayHearts, heartsTallyOf, heartsPay, settleHearts, isHeartsLevel, replaySpades, spadesTallyOf, spadesPay, settleSpades, isSpadesLevel, tallyMines, minesPay, settleMinesweeper, isMinesLevel, MINES_DAILY_LEVEL, tallySudoku, sudokuPay, settleSudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, soloMates, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -41,7 +41,7 @@ export interface OnlineResult {
   roomId?: string;
   stakes: number;
   players: number;
-  seats: { seat: number; userId: string | null; bot: boolean }[];
+  seats: { seat: number; userId: string | null; bot: boolean; name?: string }[];
   /** who takes the pot (never a player who abandoned the game) */
   winners: number[];
   /** players who weren't at the table at the end: they lose the buy-in and it counts as abandoned */
@@ -640,7 +640,9 @@ export class AccountService {
   async publicProfile(id: string): Promise<PublicProfile> {
     const a = await this.store.get(id);
     if (!a) throw new ApiError(404, "No such player");
-    return publicProfile(a.id, a.name, a.createdAt, upgrade(a.progress));
+    const p = publicProfile(a.id, a.name, a.createdAt, upgrade(a.progress));
+    // who you played with is yours alone: other players see your games, not the names at your tables
+    return { ...p, stats: { ...p.stats, recent: p.stats.recent.map(({ with: _, ...g }) => g) } };
   }
 
   // ------------------------------------------------------------------ games
@@ -687,7 +689,7 @@ export class AccountService {
       answers: [], startedAt: g.startedAt, endedAt: this.now(), quit: true, winners: [] });
     if (g.coached) return null;
     const r = settle(x.progress, {
-      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g), campaign: g.stage,
+      mode: "bots", players: g.players, stakes: g.stakes, won: false, payout: 0, quit: true, at: this.now(), rivals: soloRivals(g.players, g), with: soloMates(g.seed, g.players, g), campaign: g.stage,
       summary: { role: null, footholds: 0, jobsLed: 0, jobsWon: 0, defenses: 0, doubleCrosses: 0, loot: 0, bustsWon: 0, betsWon: 0 },
     });
     x.progress = r.progress;
@@ -1312,7 +1314,7 @@ export class AccountService {
       }
       const pay = payout(g.stakes, g.players, rep.winners, 0);
       const r = settle(x.progress, { mode: "bots", players: g.players, stakes: g.stakes, won, payout: pay, summary: summarize(rep.events, 0), at: this.now(),
-        rivals: soloRivals(g.players, g, rep.winners), campaign: g.stage,
+        rivals: soloRivals(g.players, g, rep.winners), with: soloMates(g.seed, g.players, g, rep.winners), campaign: g.stage,
       });
       x.progress = r.progress;
       this.quest(x, 0, r.reward);
@@ -1352,6 +1354,11 @@ export class AccountService {
         x.progress = { ...x.progress, chips: Math.max(0, x.progress.chips - r.stakes) };
         const st = settle(x.progress, { mode: "online", players: r.players, stakes: r.stakes, won, payout: pay, summary: summarize(r.events, s.seat), quit, at: this.now(),
           rivals: r.seats.filter((o) => o.seat !== s.seat).map((o) => ({ rating: ratings.get(o.seat)!, won: r.winners.includes(o.seat) && !r.abandoned?.includes(o.seat) })),
+          with: r.seats.filter((o) => o.seat !== s.seat && o.name).map((o) => ({
+            name: o.name!,
+            ...(o.bot ? { bot: true as const } : o.userId ? { id: o.userId } : {}),
+            ...(r.winners.includes(o.seat) ? { won: true as const } : {}),
+          })),
           ...(spans
             ? {
                 ranked: {
