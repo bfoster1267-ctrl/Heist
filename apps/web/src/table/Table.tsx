@@ -19,7 +19,7 @@ import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, 
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
 import { clearSpot, seatGrow, seatPos, useLayout, type Spot } from "./layout";
-import { CardBack, CardFace, Chips, CountUp, Crew, TableCard } from "./pieces";
+import { CardBack, CardFace, Chips, CountUp, Crew, FitLine, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
 import { SeatPeek, type PeekWho } from "./SeatPeek";
@@ -404,8 +404,9 @@ export function Table({
 
             <div className="ticker" aria-hidden>
               <AnimatePresence mode="popLayout">
-                <motion.span key={t.shown!.key} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0 }}>
-                  {t.shown!.msg}
+                {/* the old line clears out quickly so two lines never sit on top of each other */}
+                <motion.span key={t.shown!.key} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -12, opacity: 0, transition: { duration: 0.12 } }}>
+                  <FitLine>{t.shown!.msg}</FitLine>
                 </motion.span>
               </AnimatePresence>
             </div>
@@ -626,10 +627,12 @@ export function Table({
           </div>
           <AnimatePresence>
             {banner && (
-              <motion.div key={banner.key} className={"banner b-" + ev!.t} initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.35 }}>
-                <motion.span initial={{ letterSpacing: "14px", opacity: 0 }} animate={{ letterSpacing: "2px", opacity: 1 }} transition={{ delay: 0.12, duration: 0.45 }}>
-                  {banner.msg}
-                </motion.span>
+              <motion.div key={banner.key} className={"banner b-" + ev!.t} initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} exit={{ opacity: 0, transition: { duration: 0.15 } }} transition={{ duration: 0.35 }}>
+                <FitLine>
+                  <motion.span initial={{ letterSpacing: "14px", opacity: 0 }} animate={{ letterSpacing: "2px", opacity: 1 }} transition={{ delay: 0.12, duration: 0.45 }}>
+                    {banner.msg}
+                  </motion.span>
+                </FitLine>
               </motion.div>
             )}
           </AnimatePresence>
