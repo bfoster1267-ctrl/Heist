@@ -209,6 +209,7 @@ function Career({ me }: { me: Me }) {
       drinksSent={me.progress.drinksSent}
       ranked={rankedPublic(me.progress.ranked, Date.now())}
       rankedNote={me.guest ? t("career.ranked_guest") : level < RANKED_LEVEL ? t("career.ranked_unlocks", { level: RANKED_LEVEL }) : t("career.ranked_play")}
+      self
     />
   );
 }
@@ -240,7 +241,7 @@ function RankedBox({ r, note }: { r: RankedPublic | null; note?: string }) {
 }
 
 /** A career, yours or another player's: everyone sees the same stats. */
-function CareerView({ stats: s, drinksSent, ranked, rankedNote }: { stats: CareerStats; drinksSent: number; ranked: RankedPublic | null; rankedNote?: string }) {
+function CareerView({ stats: s, drinksSent, ranked, rankedNote, self }: { stats: CareerStats; drinksSent: number; ranked: RankedPublic | null; rankedNote?: string; /** your own career: also who you played with */ self?: boolean }) {
   const net = s.winnings - s.lost;
   if (!s.games)
     return (
@@ -324,7 +325,50 @@ function CareerView({ stats: s, drinksSent, ranked, rankedNote }: { stats: Caree
           </div>
         </section>
       </div>
+      {self && <RecentPlayers games={s.recent} />}
     </div>
+  );
+}
+
+/** Everyone you sat with lately, newest first, once each (from your last 20 games). */
+function RecentPlayers({ games }: { games: CareerStats["recent"] }) {
+  const [card, setCard] = useState<string | null>(null);
+  const seen = new Set<string>();
+  const rows: { name: string; id?: string; bot?: boolean; online: boolean; at: number }[] = [];
+  for (const g of games)
+    for (const m of g.with ?? []) {
+      const k = m.id ?? `${m.bot ? "bot" : "guest"}:${m.name}`;
+      if (seen.has(k)) continue;
+      seen.add(k);
+      rows.push({ name: m.name, id: m.id, bot: m.bot, online: g.mode === "online", at: g.at });
+    }
+  return (
+    <section className="acct-mates">
+      <h3>{t("career.recent_players", "Recent players")}</h3>
+      {rows.length === 0 ? (
+        <div className="dim">{t("career.recent_players_empty", "Play a game and the people at your table show up here.")}</div>
+      ) : (
+        <div className="acct-recent acct-mates-list">
+          {rows.slice(0, 40).map((r, i) => (
+            <div key={i} className={r.id ? "has-card" : ""}>
+              <span className="acct-mate-name">
+                {r.id ? (
+                  <button className="acct-mate-btn" onClick={() => setCard(r.id!)}>
+                    {r.name}
+                  </button>
+                ) : (
+                  r.name
+                )}
+                {r.bot && <em className="acct-mate-bot">{t("career.bot", "bot")}</em>}
+              </span>
+              <span className="dim">{r.online ? t("career.online") : t("career.vs_bots")}</span>
+              <span className="dim">{ago(r.at)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <AnimatePresence>{card && <PlayerCard key={card} id={card} onClose={() => setCard(null)} />}</AnimatePresence>
+    </section>
   );
 }
 

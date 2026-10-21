@@ -37,7 +37,7 @@ export interface GameOverReport {
   roomId: string;
   gameId: string;
   stakes: number;
-  seats: { seat: number; userId: string | null; bot: boolean }[];
+  seats: { seat: number; userId: string | null; bot: boolean; name: string }[];
   /** who takes the pot: the table's winners who were still there, else the best-placed seat still there */
   winners: number[];
   /** who won the game on the table, including anyone who wasn't there at the end */
@@ -515,7 +515,7 @@ export class Room {
       roomId: this.id,
       gameId: this.gameId,
       stakes: this.stakes,
-      seats: this.seats.map((s, seat) => ({ seat, userId: s.userId, bot: s.kind === "bot" })),
+      seats: this.seats.map((s, seat) => ({ seat, userId: s.userId, bot: s.kind === "bot", name: g.s.players[seat]?.name ?? s.name })),
       winners: paid,
       tableWinners: winners,
       abandoned,

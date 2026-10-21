@@ -3,6 +3,48 @@ import { AnimatePresence, motion } from "motion/react";
 import { Cigar } from "../account/items";
 import { CardBack, CountUp, Crew, CrewBadge } from "./pieces";
 import { useHeistPro } from "../account/pro";
+import { useRef } from "react";
+
+/** Press and hold (or right-click) to call `onHold`; the tap that ends a hold doesn't count as a click. */
+function useLongPress(onHold?: () => void, ms = 450) {
+  const timer = useRef<number | null>(null);
+  const held = useRef(false);
+  const start = useRef<[number, number]>([0, 0]);
+  if (!onHold) return { held, props: {} };
+  const cancel = () => {
+    if (timer.current !== null) clearTimeout(timer.current);
+    timer.current = null;
+  };
+  return {
+    held,
+    props: {
+      onPointerDown: (e: React.PointerEvent) => {
+        held.current = false;
+        start.current = [e.clientX, e.clientY];
+        cancel();
+        timer.current = window.setTimeout(() => {
+          timer.current = null;
+          held.current = true;
+          onHold();
+        }, ms);
+      },
+      onPointerMove: (e: React.PointerEvent) => {
+        // a drag or scroll isn't a hold
+        if (Math.abs(e.clientX - start.current[0]) + Math.abs(e.clientY - start.current[1]) > 12) cancel();
+      },
+      onPointerUp: cancel,
+      onPointerLeave: cancel,
+      onPointerCancel: cancel,
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault();
+        if (held.current) return;
+        cancel();
+        held.current = true;
+        onHold();
+      },
+    },
+  };
+}
 
 /** Click-or-keyboard props for a table element that acts like a button. */
 export function pressable(onClick?: () => void, label?: string) {
@@ -82,7 +124,7 @@ export function Seat({
   away,
   cigar,
   tag,
-  onName,
+  onPeek,
 }: {
   s: GameState;
   seat: number;
@@ -101,8 +143,8 @@ export function Seat({
   cigar?: string;
   /** online: the player's ranked rank this season, shown by their name */
   tag?: string;
-  /** online: tap the name for the player's profile */
-  onName?: () => void;
+  /** press and hold the seat for a quick look at who's sitting there */
+  onPeek?: () => void;
 }) {
   const isPro = useHeistPro();
   const P = s.players[seat];
@@ -115,16 +157,27 @@ export function Seat({
   const role = ROLES.find((r) => r.id === P.role);
   const winner = s.winners?.includes(seat);
   const atRight = String(grow?.transformOrigin ?? "").startsWith("right");
+  const hold = useLongPress(onPeek);
+  const tap = onClick
+    ? () => {
+        // letting go of a hold mustn't also pick this player as the Mark
+        if (hold.held.current) {
+          hold.held.current = false;
+          return;
+        }
+        onClick();
+      }
+    : undefined;
   return (
     <motion.div
       className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "") + (atRight ? " at-right" : "")}
       style={{ left: pos[0], top: pos[1], ...grow }}
       layout={false}
       data-anchor={me ? "my-seat" : undefined}
-      {...pressable(onClick, `Pick ${P.name} as the Mark`)}
+      {...pressable(tap, `Pick ${P.name} as the Mark`)}
     >
       <div className="seat-top">
-        <div className="seat-avatar" data-anchor={`seat-${seat}`}>
+        <div className="seat-avatar" data-anchor={`seat-${seat}`} {...hold.props}>
           <CrewBadge color={P.color} size={42} />
           {cigar && <span className="seat-cigar"><Cigar id={cigar} size={30} /></span>}
           {acting && !me && (
@@ -148,21 +201,8 @@ export function Seat({
           </AnimatePresence>
         </div>
         <div className="seat-id">
-          <div className="seat-name">
-            {onName ? (
-              <button
-                className="seat-name-btn"
-                data-tip="See their profile"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onName();
-                }}
-              >
-                {P.name}
-              </button>
-            ) : (
-              P.name
-            )}
+          <div className="seat-name" {...hold.props}>
+            {P.name}
             {me && <span className="you-tag">YOU</span>}
             {((me && isPro) || Boolean((P as { vip?: boolean }).vip)) && (
               <span className="seat-vip-crown" title="VIP Founder" aria-label="VIP Founder">👑</span>

@@ -91,6 +91,17 @@ export interface RecentGame {
   xp: number;
   /** left before the end (counts as a loss) */
   quit?: boolean;
+  /** who else sat at the table (missing on games played before this was kept) */
+  with?: TableMate[];
+}
+
+/** Someone you played a game with, for your "Recent players" list. */
+export interface TableMate {
+  name: string;
+  /** their account, for a signed-in player (bots and guests without one have none) */
+  id?: string;
+  bot?: true;
+  won?: true;
 }
 
 export interface CareerStats {
@@ -148,6 +159,8 @@ export interface GameResult {
   coached?: boolean;
   /** a ranked game: where this player finished and who they played (see ranked.ts) */
   ranked?: RankedGame;
+  /** everyone else at the table, by name, for "Recent players" */
+  with?: TableMate[];
 }
 
 const bump = (r: WinLoss | undefined, won: boolean): WinLoss => ({ g: (r?.g ?? 0) + 1, w: (r?.w ?? 0) + (won ? 1 : 0) });
@@ -179,6 +192,7 @@ export function addGame(prev: CareerStats, r: GameResult, xp: number): CareerSta
   if (r.quit) s.quits++;
   const g: RecentGame = { at: r.at, mode: r.mode, won: r.won, players: r.players, stakes: r.stakes, net: r.payout - r.stakes, role: sum.role, xp };
   if (r.quit) g.quit = true;
+  if (r.with?.length) g.with = r.with;
   s.recent = [g, ...s.recent].slice(0, 20);
   return s;
 }

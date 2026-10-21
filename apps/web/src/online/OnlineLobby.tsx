@@ -179,9 +179,13 @@ export function OnlineLobby({
 }
 
 const TABLE_KEY = "heist.table";
+const TABLE_AT_KEY = "heist.table.at";
+/** a table you were dealt into this long ago is surely over (the banner stops offering it) */
+const TABLE_STALE_MS = 2 * 60 * 60_000;
 function rememberTable(code: string) {
   try {
     localStorage.setItem(TABLE_KEY, code);
+    localStorage.setItem(TABLE_AT_KEY, String(Date.now()));
   } catch {
     /* private mode */
   }
@@ -189,6 +193,7 @@ function rememberTable(code: string) {
 function forgetTable() {
   try {
     localStorage.removeItem(TABLE_KEY);
+    localStorage.removeItem(TABLE_AT_KEY);
   } catch {
     /* ignore */
   }
@@ -769,6 +774,57 @@ export function QueueBar({
   return inline ? strip : <div className="queue-float">{strip}</div>;
 }
 
+/** Out of the online lobby while dealt in at a table (the app closed or crashed mid-game): a bar like the
+ *  queue bar, to sit back down. Your seat is held for the whole game; a bot plays it meanwhile. */
+export function TableBar({ onBack }: { onBack: (code: string) => void }) {
+  const [code, setCode] = useState(() => {
+    const c = lastTable();
+    if (!c) return null;
+    try {
+      const at = Number(localStorage.getItem(TABLE_AT_KEY));
+      // older builds kept no time: offer those once more, then the next table keeps one
+      if (at && Date.now() - at > TABLE_STALE_MS) {
+        forgetTable();
+        return null;
+      }
+    } catch {
+      /* private mode */
+    }
+    return c;
+  });
+  if (!code) return null;
+  return (
+    <div className="queue-float">
+      <div className="queue-strip" role="status">
+        <span className="queue-strip-dot" aria-hidden />
+        <button
+          className="queue-strip-go"
+          onClick={() => {
+            click();
+            buzz("tap");
+            // sitting back down remembers it again; if the game is over, this stops the bar coming back
+            forgetTable();
+            setCode(null);
+            onBack(code);
+          }}
+          aria-label={`Your table ${code} is still going. Back to the table`}
+        >
+          <span className="queue-strip-words">
+            Your table <b>{code}</b> is still going
+          </span>
+          <span className="queue-strip-back">
+            Back to table <span aria-hidden>›</span>
+          </span>
+        </button>
+        {/* hides the bar for now; "Back to your table" in Play online still works */}
+        <button className="queue-strip-x" aria-label="Hide" onClick={() => setCode(null)}>
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Waiting in the quick queue: who's in line, and when bots fill the rest. */
 function QueueCard({
   sess,
@@ -1017,7 +1073,7 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
   );
   const seats = room.seats;
   const mine = sess.seat === null ? null : seats[sess.seat];
-  // tap a player's name for their full profile
+  // a player's full profile, opened from the card a held seat shows
   const [card, setCard] = useState<string | null>(null);
   // everyone's lines show in the chat bubble they wear
   const looks = useMemo(() => Object.fromEntries(seats.map((s) => [s.seat, s.badge?.chat])), [seats]);
@@ -1046,10 +1102,13 @@ function OnlineTable({ sess, onExit, onWin, onEnd }: { sess: OnlineSession; onEx
         place={`Table ${room.code}`}
         clean={room.ranked}
         tags={tags}
-        onName={(seat) => {
+        onProfile={(seat) => {
           const id = seats[seat]?.kind === "human" ? seats[seat].userId : null;
           if (id) setCard(id);
         }}
+        seatOf={(seat) => ({ bot: seats[seat]?.kind !== "human", userId: seats[seat]?.kind === "human" ? seats[seat].userId : null })}
+        botLevel={room.botLevel}
+        onYourTurn={() => setCard(null)}
         onExit={onExit}
         // the server says who takes the pot: never a player who wasn't there at the end, nor a spectator
         onGameOver={() => {
