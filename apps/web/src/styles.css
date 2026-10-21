@@ -711,6 +711,12 @@ button:disabled {
   line-height: 20px;
   padding: 0 14px;
 }
+.card-lg.kind-X .card-band {
+  font-size: 10px;
+  letter-spacing: 0.2px;
+  padding: 0 5px;
+  z-index: 2;
+}
 .card-lg .card-cash {
   width: 32px;
   height: 32px;
