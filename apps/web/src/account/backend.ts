@@ -9,6 +9,7 @@ import type {
 import type { BotLevel } from "@heist/engine";
 import { crazyGamesLinked, crazyGamesSource, crazyGamesToken } from "../crazygames";
 import { deviceId } from "../device";
+import { trackHeistStart } from "./telemetry";
 
 export interface Me {
   id: string;
@@ -304,7 +305,7 @@ export class BackendError extends Error {
 const TOKEN_KEY = "heist.session";
 
 /** the ad tags on the link this page was opened by, read once at load (the app tidies the address bar later) */
-const LAND_KEYS = ["gclid", "gbraid", "wbraid", "play", "utm_source", "utm_medium", "utm_campaign", "utm_term"];
+const LAND_KEYS = ["gclid", "gbraid", "wbraid", "fbclid", "play", "utm_source", "utm_medium", "utm_campaign", "utm_term"];
 const LANDED: Record<string, string> | undefined = (() => {
   try {
     const q = new URLSearchParams(location.search);
@@ -435,6 +436,7 @@ export class ServerBackend implements Backend {
   }
 
   soloStart(players: number, stakes: number, _name: string, campaign?: number, coached = false) {
+    trackHeistStart(coached);
     return this.call<SoloTicket>("/api/solo/start", { players, stakes, scaled: true, campaign, coached, gentle: coached, lessons: coached ? 2 : false });
   }
   soloFinish(gameId: string, answers: unknown[]) {

@@ -31,7 +31,7 @@ export function sourceOf(e: ActivityEvent): SourceKey {
   const d = (e.data ?? {}) as Record<string, unknown>;
   const land = (d.land ?? {}) as Record<string, unknown>;
   const medium = typeof land.utm_medium === "string" ? land.utm_medium.toLowerCase() : "";
-  if (land.gclid || land.gbraid || land.wbraid || land.play !== undefined || /^(cpc|ppc|paid|paidsearch)$/.test(medium)) return "ads";
+  if (land.gclid || land.gbraid || land.wbraid || land.fbclid || land.play !== undefined || /^(cpc|ppc|paid|paidsearch)$/.test(medium)) return "ads";
   if (d.src === "cg") return "crazygames";
   if (!e.ref) return "direct";
   let host = "";

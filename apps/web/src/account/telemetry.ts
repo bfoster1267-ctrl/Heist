@@ -1,14 +1,30 @@
 /**
- * Client-side conversion tracking for Google Ads and GA4.
+ * Client-side conversion tracking for Google Ads, GA4 and the Meta Pixel.
  */
 
 declare global {
   interface Window {
     gtag?: (...args: any[]) => void;
+    fbq?: (...args: any[]) => void;
   }
 }
 
+// the Meta Pixel only loads on playheist.net (the CrazyGames build strips it), so every call checks for it
+function fbq(...args: unknown[]) {
+  try {
+    if (typeof window !== "undefined" && typeof window.fbq === "function") window.fbq(...args);
+  } catch {
+    // blocked by privacy extensions or network errors
+  }
+}
+
+/** a Heist game vs bots was dealt: the step Meta ads optimize for */
+export function trackHeistStart(coached: boolean) {
+  fbq("trackCustom", "StartHeist", { coached });
+}
+
 export function trackSignUp(method: string, source = "web") {
+  fbq("track", "CompleteRegistration", { method });
   try {
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
       window.gtag("event", "sign_up", {
@@ -28,6 +44,7 @@ export function trackSignUp(method: string, source = "web") {
 }
 
 export function trackGameComplete(game: string, result: "win" | "stuck" | "finish" = "win", duration?: number) {
+  fbq("trackCustom", "GameComplete", { game, result });
   try {
     if (typeof window !== "undefined" && typeof window.gtag === "function") {
       window.gtag("event", "level_end", {

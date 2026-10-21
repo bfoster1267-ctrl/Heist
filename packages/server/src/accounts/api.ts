@@ -84,7 +84,7 @@ const kindOf = (key: string) => {
 };
 
 /** The ad tags a new guest arrived with (see the app's LANDED): known keys only, short strings. */
-const LAND_KEYS = new Set(["gclid", "gbraid", "wbraid", "play", "utm_source", "utm_medium", "utm_campaign", "utm_term", "path"]);
+const LAND_KEYS = new Set(["gclid", "gbraid", "wbraid", "fbclid", "play", "utm_source", "utm_medium", "utm_campaign", "utm_term", "path"]);
 function landOf(v: unknown): Record<string, string> | undefined {
   if (!v || typeof v !== "object" || Array.isArray(v)) return undefined;
   const out: Record<string, string> = {};
