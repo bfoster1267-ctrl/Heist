@@ -223,8 +223,19 @@ button:disabled {
   pointer-events: none;
   z-index: 5;
 }
-.ticker span {
-  display: inline-block;
+.ticker > span {
+  display: block;
+}
+/* FitLine: one line that shrinks to fit (see pieces.tsx) */
+.fit-line {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  white-space: nowrap;
+}
+.fit-line > span {
+  flex: none;
+  transform-origin: 50% 50%;
 }
 .topbar {
   position: absolute;
@@ -1153,7 +1164,8 @@ button:disabled {
   width: 340px;
   margin-left: -170px;
   margin-top: -110px;
-  background: rgba(8, 10, 12, 0.88);
+  /* near solid, so the pot and piles under it never read through */
+  background: rgba(8, 10, 12, 0.97);
   border: 1px solid var(--line);
   border-radius: 16px;
   padding: 8px 10px 10px;
@@ -2158,7 +2170,7 @@ button:disabled {
 .banner.b-lastCall {
   color: #fff;
 }
-.banner span {
+.banner .fit-line > span > span {
   display: inline-block;
 }
 
@@ -2407,7 +2419,10 @@ button:disabled {
   font-size: 19px;
   /* the top seat sits where the ticker is on the desk layout, so it lives between the pot and the hand */
   top: 408px;
-  width: 560px;
+  /* starts right of your seat (which grows with bigger text) so it never runs over your Footholds */
+  left: 470px;
+  transform: none;
+  width: 440px;
   height: 28px;
   z-index: 6;
 }

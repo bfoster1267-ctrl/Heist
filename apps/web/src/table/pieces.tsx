@@ -256,3 +256,29 @@ export function CountUp({ value, prefix = "" }: { value: number; prefix?: string
 
 export { CoinIcon, ChipIcon } from "../account/bits";
 
+
+/** One line of text that shrinks to fit its box instead of wrapping onto a second line that spills over the table. */
+export function FitLine({ children }: { children: ReactNode }) {
+  const box = useRef<HTMLSpanElement>(null);
+  const line = useRef<HTMLSpanElement>(null);
+  const [scale, setScale] = useState(1);
+  useEffect(() => {
+    const fit = () => {
+      if (!box.current || !line.current) return;
+      const w = line.current.offsetWidth;
+      setScale(w > 0 ? Math.min(1, box.current.clientWidth / w) : 1);
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    if (box.current) ro.observe(box.current);
+    if (line.current) ro.observe(line.current);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <span className="fit-line" ref={box}>
+      <span ref={line} style={scale < 1 ? { transform: `scale(${scale})` } : undefined}>
+        {children}
+      </span>
+    </span>
+  );
+}
