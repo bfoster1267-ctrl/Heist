@@ -706,32 +706,33 @@ button:disabled {
 .card-md.kind-B .card-num {
   font-size: 44px;
 }
+/* big cards: one full-width label strip across the top, badges tucked under it, the same on every kind */
 .card-lg .card-band {
-  font-size: 14px;
-  line-height: 20px;
-  padding: 0 14px;
-}
-.card-lg.kind-X .card-band {
-  font-size: 10px;
-  letter-spacing: 0.2px;
-  padding: 0 5px;
-  z-index: 2;
+  left: 0;
+  right: 0;
+  transform: none;
+  text-align: center;
+  font-size: 13px;
+  letter-spacing: 1px;
+  line-height: 22px;
+  padding: 0;
+  border-radius: 0;
 }
 .card-lg .card-cash {
-  width: 32px;
-  height: 32px;
-  font-size: 19px;
-  left: 7px;
-  top: 7px;
-}
-.card-lg .card-crew {
   width: 30px;
   height: 30px;
+  font-size: 17px;
+  left: 7px;
+  top: 29px;
+}
+.card-lg .card-crew {
+  width: 28px;
+  height: 28px;
   right: 7px;
-  top: 7px;
+  top: 30px;
 }
 .card-lg .card-main {
-  inset: 34px 0 32px;
+  inset: 50px 0 32px;
 }
 .card-lg .card-num {
   font-size: 92px;
