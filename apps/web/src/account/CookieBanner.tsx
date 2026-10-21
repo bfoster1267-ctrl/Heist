@@ -16,6 +16,10 @@ export function CookieBanner() {
     } catch {
       // ignore storage blocks
     }
+    // the title card's Play free counts as Got it
+    const close = () => setOpen(false);
+    window.addEventListener("heist:consent", close);
+    return () => window.removeEventListener("heist:consent", close);
   }, []);
 
   const accept = () => {

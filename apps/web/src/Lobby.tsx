@@ -1,6 +1,6 @@
 import { CREWS } from "@heist/engine";
 import { AnimatePresence, motion } from "motion/react";
-import { Suspense, lazy, useEffect, useRef, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useState, type ReactNode } from "react";
 import { LESSONS, STAGES, cosmetic, lesson, lessonNo, passTrack, seasonAt, type Progress } from "@heist/profile";
 import { CrewBadge } from "./table/pieces";
 import { createPortal } from "react-dom";
@@ -14,6 +14,7 @@ import { t } from "./i18n";
 import { click } from "./sound";
 import { buzz } from "./haptics";
 import { useHeistPro } from "./account/pro";
+import { TitleCard } from "./TitleCard";
 
 const Campaign = lazy(() => import("./Campaign").then((m) => ({ default: m.Campaign })));
 const ArcadeHub = lazy(() => import("./arcade/ArcadeHub").then((m) => ({ default: m.ArcadeHub })));
@@ -170,15 +171,21 @@ export function Lobby({
   };
   // a first visit goes straight into the one-hand first lesson: no choice screen first.
   // An ad link (?play=1) does the same for anyone who has never played Heist, even after a solitaire visit.
-  const started = useRef(false);
-  useEffect(() => {
-    if (started.current) return;
+  // Either way the title card shows first: one tap on Play free starts the hand.
+  const [front, setFront] = useState(() => {
     const neverPlayed = !progress?.coachGames && !progress?.stats.games;
-    if (!(newbie && !flag("heist.welcomed")) && !(playLink() && neverPlayed)) return;
-    started.current = true;
-    setFlag("heist.welcomed");
-    coach();
-  }, []);
+    return (newbie && !flag("heist.welcomed")) || (playLink() && neverPlayed);
+  });
+  if (front)
+    return (
+      <TitleCard
+        onPlay={() => {
+          setFlag("heist.welcomed");
+          setFront(false);
+          coach();
+        }}
+      />
+    );
   return (
     <div className={"lobby" + (prefs.textSize > 1 ? " big-text" : "")} style={{ "--ts": prefs.textSize } as React.CSSProperties}>
       <div className="lobby-bg">
