@@ -817,4 +817,12 @@ export const en: Record<string, string> = {
   "member.continue_playing": "Keep Playing ➔",
   "member.all_set_title": "YOU'RE ALL SET!",
   "member.all_set_sub": "Password saved. Your account is fully protected. Have fun!",
+  "title.head1": "Bluff your crew.",
+  "title.head2": "Steal the pot.",
+  "title.tag": "A card game of crews, jobs and betrayal. Learn it in one hand.",
+  "title.play": "Play free",
+  "title.small": "3-minute hand · No download · No sign-up",
+  "title.cookie": "Cookies keep your progress. Playing means you're OK with our",
+  "title.terms": "Terms",
+  "title.privacy": "Privacy",
 };

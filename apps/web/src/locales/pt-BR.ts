@@ -817,4 +817,12 @@ export const ptBR: Record<string, string> = {
   "member.continue_playing": "Continuar Jogando ➔",
   "member.all_set_title": "TUDO PRONTO!",
   "member.all_set_sub": "Senha salva. Sua conta está totalmente protegida. Divirta-se!",
+  "title.head1": "Blefe com sua gangue.",
+  "title.head2": "Roube o pote.",
+  "title.tag": "Um jogo de cartas de gangues, golpes e traição. Aprenda em uma mão.",
+  "title.play": "Jogar grátis",
+  "title.small": "Mão de 3 minutos · Sem download · Sem cadastro",
+  "title.cookie": "Cookies guardam seu progresso. Ao jogar, você aceita nossos",
+  "title.terms": "Termos",
+  "title.privacy": "Privacidade",
 };
