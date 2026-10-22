@@ -93,4 +93,14 @@ describe("Coached play lessons", () => {
       expect(r.won).toBe(true);
     }
   });
+
+  it("the first hand makes the learner the first Boss, so they act within seconds", () => {
+    let x = 7;
+    const next = () => (x = (x * 1103515245 + 12345) >>> 0) % 2 ** 31;
+    for (let i = 0; i < 10; i++) {
+      const r = coachRun(easySeed(next, 3, 16, 10_000, undefined, FIRST_HAND), 3, FIRST_HAND);
+      expect(r.bossFirst).toBe(true);
+      expect(r.won).toBe(true);
+    }
+  });
 });
