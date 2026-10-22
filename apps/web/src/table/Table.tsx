@@ -239,7 +239,7 @@ export function Table({
     const id = window.setTimeout(() => {
       const g = t.game;
       if (g?.pending) t.answer(autoPick(g, g.pending));
-    }, 900);
+    }, settings.lesson === FIRST_HAND ? 400 : 900); // the first hand hurries to the learner's first real decision
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAsk]);
