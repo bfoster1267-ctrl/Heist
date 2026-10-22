@@ -1,0 +1,213 @@
+/* ---------------------------------------------------------------- premium finish for season cosmetics (2026-10-22)
+   Season 1's felts, card backs, frames, banners and cigars were flat color. This layer adds what makes them
+   read as real objects: cloth and paper grain (an SVG noise filter, no outside image), gold-foil trim, metal
+   rings with a slow shine, and depth shadows. The house look and Gemini's special items (holo, dragon,
+   vault_crown, cyber_neon, inferno) keep their own styling. */
+:root {
+  --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  --foil: linear-gradient(135deg, #fff3c4, #c9922a 30%, #ffe9a3 50%, #8a5a12 75%, #f6d27a);
+}
+@keyframes premium-sheen {
+  0% { transform: translateX(-45%); }
+  60%, 100% { transform: translateX(45%); }
+}
+
+/* ---- felt: cloth grain at the table and in previews */
+[data-felt="custom"] .felt-inner {
+  background:
+    var(--grain),
+    radial-gradient(ellipse at 50% 45%, color-mix(in srgb, var(--cfelt) 70%, #ffffff 14%) 0%, var(--cfelt) 45%, var(--cfelt2) 100%);
+  background-blend-mode: soft-light, normal;
+}
+.acct-prev-felt {
+  position: relative;
+  overflow: hidden;
+  border: 5px solid #5a3519;
+  border-radius: 12px;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.75), 0 0 0 1px #2a170a, 0 -1px 0 1px rgba(255, 220, 170, 0.25), 0 5px 12px rgba(0, 0, 0, 0.5);
+}
+.acct-prev-felt::after,
+.fitting-table-pedestal::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--grain);
+  mix-blend-mode: soft-light;
+  box-shadow: inset 0 0 0 1px rgba(231, 181, 60, 0.6);
+  pointer-events: none;
+}
+
+/* ---- card backs: the three season patterns, in previews (.acct-prev-back, the Wardrobe's fanned
+   cards) and on your cards at the table */
+.acct-prev-back:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"]) {
+  position: relative;
+}
+.acct-prev-back:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"]),
+.fitting-card-sample:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"]) {
+  overflow: hidden;
+  isolation: isolate;
+  border: 0;
+  border-radius: 7px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(0, 0, 0, 0.6);
+}
+.acct-prev-back:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"])::before,
+.fitting-card-sample:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"])::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 5px;
+  padding: 1.5px;
+  background: var(--foil);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  z-index: 1;
+}
+.acct-prev-back:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"])::after,
+.fitting-card-sample:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"])::after {
+  content: "";
+  position: absolute;
+  inset: -40%;
+  background: linear-gradient(115deg, transparent 40%, rgba(255, 255, 255, 0.55) 48%, rgba(160, 220, 255, 0.35) 52%, transparent 60%);
+  mix-blend-mode: overlay;
+  animation: premium-sheen 3.6s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 2;
+}
+/* the H becomes a struck gold medallion */
+.acct-prev-back:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"]) > span,
+.fitting-card-sample:is([data-pattern="stripes"], [data-pattern="diamonds"], [data-pattern="noir"]) > span {
+  position: relative;
+  z-index: 1;
+  width: 62%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.85em;
+  line-height: 1;
+  color: #4a3005;
+  text-shadow: 0 1px 0 rgba(255, 240, 190, 0.7);
+  background: radial-gradient(circle at 35% 30%, #fff5cf, #e7b53c 45%, #7d520d 100%);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(60, 36, 0, 0.6);
+}
+.acct-prev-back[data-pattern="stripes"],
+.fitting-card-sample[data-pattern="stripes"],
+[data-back="stripes"] .card-back {
+  background:
+    var(--grain),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.35), transparent 18%, transparent 82%, rgba(0, 0, 0, 0.35)),
+    repeating-linear-gradient(90deg, color-mix(in srgb, var(--back) 85%, #fff) 0 2px, var(--back) 2px 5px, color-mix(in srgb, var(--back) 60%, var(--back2)) 5px 6px, var(--back) 6px 8px) !important;
+  background-blend-mode: overlay, normal, normal !important;
+}
+.acct-prev-back[data-pattern="diamonds"],
+.fitting-card-sample[data-pattern="diamonds"],
+[data-back="diamonds"] .card-back {
+  background:
+    var(--grain),
+    repeating-conic-gradient(from 45deg at 50% 50%, color-mix(in srgb, var(--back2) 22%, transparent) 0 8deg, transparent 8deg 22.5deg),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 5px, color-mix(in srgb, var(--back2) 18%, transparent) 5px 6px),
+    radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--back) 75%, #fff 10%), var(--back) 55%, color-mix(in srgb, var(--back) 55%, #000)) !important;
+  background-blend-mode: overlay, normal, normal, normal !important;
+}
+.acct-prev-back[data-pattern="noir"],
+.fitting-card-sample[data-pattern="noir"],
+[data-back="noir"] .card-back {
+  background:
+    var(--grain),
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 3px, color-mix(in srgb, var(--back2) 10%, transparent) 3px 4px),
+    radial-gradient(circle at 50% 45%, #2b2b2e, #141416 55%, color-mix(in srgb, var(--back) 45%, #000)) !important;
+  background-blend-mode: overlay, normal, normal !important;
+}
+
+/* ---- avatar frames: a polished metal ring with a slow shine (plain season frames only) */
+.acct-avatar.framed:not(.framed-vault_crown, .framed-cyber_neon, .framed-inferno) {
+  border: 4px solid transparent;
+  background:
+    radial-gradient(circle at 35% 30%, #3e4452, #14161b) padding-box,
+    conic-gradient(from 210deg, color-mix(in srgb, var(--ring) 40%, #000), var(--ring) 12%, var(--ring2) 25%, var(--ring) 40%, color-mix(in srgb, var(--ring) 40%, #000) 52%, var(--ring) 65%, var(--ring2) 78%, var(--ring) 90%, color-mix(in srgb, var(--ring) 40%, #000)) border-box;
+  box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.6), 0 0 16px color-mix(in srgb, var(--ring) 45%, transparent), inset 0 2px 6px rgba(0, 0, 0, 0.8);
+}
+.acct-avatar.framed:not(.framed-vault_crown, .framed-cyber_neon, .framed-inferno)::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(120deg, transparent 35%, rgba(255, 255, 255, 0.6) 50%, transparent 65%) no-repeat;
+  background-size: 300% 100%;
+  -webkit-mask: radial-gradient(circle, transparent calc(50% - 4.5px), #000 calc(50% - 4px));
+  mask: radial-gradient(circle, transparent calc(50% - 4.5px), #000 calc(50% - 4px));
+  mix-blend-mode: overlay;
+  animation: premium-ring 4s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes premium-ring {
+  0% { background-position: 100% 0; }
+  60%, 100% { background-position: 0% 0; }
+}
+.acct-avatar .acct-avatar-level {
+  z-index: 2;
+}
+
+/* ---- banners: cloth grain and gold piping */
+.acct-prev-banner.worn {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.18), inset 0 -10px 18px rgba(0, 0, 0, 0.35);
+}
+.acct-prev-banner.worn::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 4px;
+  bottom: 4px;
+  border-top: 2px solid #e9c46a;
+  border-bottom: 2px solid #c9922a;
+  pointer-events: none;
+}
+.acct-prev-banner.worn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--grain);
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+.acct-head.bannered {
+  border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, #8a5a12, #ffe9a3 30%, #c9922a 60%, #fff3c4 80%, #8a5a12) 1;
+  box-shadow: inset 0 -16px 28px rgba(0, 0, 0, 0.3);
+}
+
+/* ---- cigars: the ember breathes */
+.cigar-ember {
+  animation: cigar-ember 2.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes cigar-ember {
+  0%, 100% { opacity: 0.75; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+/* ---- 3D emoji pictures (emoji.tsx) sit in text like the emoji they replace */
+.emoji3d {
+  display: inline-block;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: -0.25em;
+  object-fit: contain;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .acct-prev-back::after,
+  .fitting-card-sample::after,
+  .acct-avatar.framed::after,
+  .cigar-ember {
+    animation: none;
+  }
+}

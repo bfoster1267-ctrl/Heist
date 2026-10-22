@@ -18,6 +18,7 @@ import { chatStyle } from "./items";
 import { PlayerCard } from "./Profile";
 import { useAccount, useLook } from "./useAccount";
 import { VaultGlass, isVault } from "../vault";
+import { Emoji } from "../emoji";
 import { FeedbackBoard } from "./Board";
 import { t } from "../i18n";
 
@@ -149,11 +150,11 @@ export function MessageRow({
         )}
         {onTap ? (
           <button className={"lounge-bubble" + (emoji ? " emoji" : "")} style={bubbleOf(b)} onClick={onTap} aria-expanded={expanded} title={time}>
-            {line.text}
+            {emoji ? <Emoji e={line.text} /> : line.text}
           </button>
         ) : (
           <span className={"lounge-bubble" + (emoji ? " emoji" : "")} style={bubbleOf(b)} title={time}>
-            {line.text}
+            {emoji ? <Emoji e={line.text} /> : line.text}
           </span>
         )}
         {children}
@@ -293,7 +294,7 @@ function LoungeDock({
             >
               {m.drink ? (
                 <span className="lounge-drink">
-                  {isVault(m.drink.emoji) ? <VaultGlass size={22} /> : <span className="lounge-drink-emoji">{m.drink.emoji}</span>}
+                  {isVault(m.drink.emoji) ? <VaultGlass size={22} /> : <span className="lounge-drink-emoji"><Emoji e={m.drink.emoji} /></span>}
                   <span>
                     <b>{m.userId === me ? "You" : m.name}</b> sent <b>{m.drink.toId === me ? "you" : m.drink.to}</b> a {m.text}
                   </span>
@@ -471,7 +472,7 @@ function LoungePanel({
           {!msgs.length && <p className="lounge-empty">{t("lounge.empty")}</p>}
           {msgs.map((m, i) => {
             if (m.drink) {
-              const glass = isVault(m.drink.emoji) ? <VaultGlass size={26} /> : <span className="lounge-drink-emoji">{m.drink.emoji}</span>;
+              const glass = isVault(m.drink.emoji) ? <VaultGlass size={26} /> : <span className="lounge-drink-emoji"><Emoji e={m.drink.emoji} /></span>;
               return (
                 <div key={m.id} className={"lounge-drink" + (m.drink.toId === me ? " for-me" : "")}>
                   {glass}
@@ -501,7 +502,7 @@ function LoungePanel({
                   <div className="lounge-pour" role="group" aria-label={`Send ${m.name} a drink`}>
                     {drinks.map((d) => (
                       <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => void sendDrink(m, d.id)} aria-label={`Send ${m.name} a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
-                        {isVault(d.emoji) ? <VaultGlass size={24} /> : d.emoji}
+                        {isVault(d.emoji) ? <VaultGlass size={24} /> : <Emoji e={d.emoji} />}
                         <span className="chat-price">{d.price || "free"}</span>
                       </button>
                     ))}
