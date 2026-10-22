@@ -390,6 +390,27 @@ describe("admin panel API", () => {
     expect((await get("/api/me", amy.token)).asked).toBe(true);
   });
 
+  it("keeps a new visitor's page start-up steps, known fields only, with the browser", async () => {
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts: new AccountService({ secret: "s" }), admin: { user: "admin", password: "a-long-admin-password" }, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const fb = "Mozilla/5.0 (Linux; Android 16) Chrome/155.0 Mobile Safari/537.36 [FB_IAB/FB4A;FBAV/583.0.0.39.55;IABMV/1;]";
+    const boot = (body: object) => fetch(base + "/api/boot", { method: "POST", headers: { "content-type": "application/json", "user-agent": fb, "x-forwarded-for": "5.5.5.5" }, body: JSON.stringify(body) });
+    expect((await boot({ step: "js", ms: 812.6, vis: "hidden", pre: true })).status).toBe(200);
+    await boot({ step: "server", ok: false, err: "x".repeat(500), ms: -5, secret: "nope" });
+    await boot({ step: "made-up", ms: "soon" });
+    const login = await fetch(base + "/api/admin/login", { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": "1.1.1.1" }, body: JSON.stringify({ user: "admin", password: "a-long-admin-password" }) });
+    const { token } = await login.json();
+    const { events } = await (await fetch(base + "/api/admin/activity?kinds=boot&limit=10", { headers: { authorization: `Bearer ${token}` } })).json();
+    const steps = (events as { ua?: string; data: Record<string, unknown> }[]).reverse();
+    expect(steps.map((e) => e.data)).toEqual([
+      { step: "js", ms: 813, vis: "hidden", pre: true },
+      { step: "server", ms: 0, ok: false, err: "x".repeat(160) },
+      { step: "?" },
+    ]);
+    expect(steps[0].ua).toBe(fb);
+  });
+
   it("is off without an admin password", async () => {
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts: new AccountService({ secret: "s" }) });
     servers.push(srv);
