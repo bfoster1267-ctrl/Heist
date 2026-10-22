@@ -34,7 +34,8 @@ export const LAYOUTS: Record<LayoutName, Layout> = {
     W: 1280,
     H: 600,
     opp: {
-      2: [[300, 150], [980, 150]],
+      // low enough that their face-down cards clear the top bar and its buttons
+      2: [[300, 172], [980, 172]],
       3: [[200, 225], [640, 82], [1080, 225]],
       // 5 and 6 players: the top seats sit between the two halves of the top bar, the right-hand
       // seat tucks under the buttons, and everything below it is left for the decision panel
