@@ -770,17 +770,19 @@ function GameOver({
   onExit: () => void;
 }) {
   const won = s.winners!.includes(me);
+  // a touch on the card means they're reading it: stay until they tap the button
+  const [held, setHeld] = useState(false);
   useEffect(() => {
-    if (!firstHand) return;
+    if (!firstHand || held) return;
     // long enough to watch the XP and the season pass land
     const t = window.setTimeout(onExit, firstReward ? 12000 : 6000);
     return () => clearTimeout(t);
-  }, [firstHand, firstReward, onExit]);
+  }, [firstHand, firstReward, onExit, held]);
   if (firstHand)
     return (
       <motion.div className="modal-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
         {won && !reducedMotion() && <Confetti />}
-        <motion.div className="modal first-hand-done" role="dialog" aria-modal="true" aria-labelledby="go-title" initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
+        <motion.div className="modal first-hand-done" onPointerDown={() => setHeld(true)} role="dialog" aria-modal="true" aria-labelledby="go-title" initial={{ scale: 0.7, y: 40 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 200, damping: 18 }}>
           {firstReward ? (
             <FirstWin r={firstReward} won={won} name={s.players[me]?.name ?? ""} onNext={onExit} />
           ) : (
