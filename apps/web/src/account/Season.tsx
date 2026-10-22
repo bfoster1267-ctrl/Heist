@@ -201,18 +201,34 @@ export function Track({ rewards, tier, name, sweep = false }: { rewards: TierRew
     const home = el.scrollLeft;
     const wait = (ms: number) => new Promise((r) => window.setTimeout(r, ms));
     el.style.scrollBehavior = "auto";
+    // a sideways phone has the track below the fold: bring it up and only start once it's on screen,
+    // or the whole sweep plays where nobody can see it
+    let seen: () => void = () => {};
+    const onScreen = new Promise<void>((r) => (seen = r));
+    const io = new IntersectionObserver((e) => e.some((x) => x.intersectionRatio >= 0.6) && seen(), { threshold: [0.6] });
+    io.observe(el);
     void (async () => {
       await wait(600);
-      if (stopped || !(await glide(el, el.scrollWidth - el.clientWidth, 2400, () => stopped))) return;
+      if (stopped) return;
+      el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      await onScreen;
+      io.disconnect();
+      await wait(400);
+      // slow enough to read the tiers going by (~8s for a 50-tier season), never a blur
+      const far = el.scrollWidth - el.clientWidth;
+      const ms = Math.min(9000, Math.max(3000, Math.abs(far - el.scrollLeft) * 1.3));
+      if (stopped || !(await glide(el, far, ms, () => stopped))) return;
       setSpot(true);
-      await wait(2300);
+      await wait(2500);
       setSpot(false);
-      if (!stopped) await glide(el, home, 1000, () => stopped);
+      if (!stopped) await glide(el, home, 1600, () => stopped);
     })().finally(() => {
       el.style.scrollBehavior = "";
     });
     return () => {
       stopped = true;
+      io.disconnect();
+      seen();
       el.removeEventListener("pointerdown", stop);
       el.removeEventListener("wheel", stop);
     };

@@ -2371,6 +2371,32 @@
   justify-content: center;
   overflow: visible;
 }
+/* sideways phones: the whole card fits the short screen, so the pass is seen before it moves on */
+@media (max-height: 520px) {
+  .first-hand-done .modal-title {
+    font-size: 30px;
+  }
+  .first-win-xp {
+    margin: 4px 0 6px;
+  }
+  .first-win-pass {
+    margin-bottom: 6px;
+  }
+  .first-win-pass .season-track {
+    padding: 2px 2px 6px;
+  }
+  .first-win-pass .season-tier-card {
+    width: 96px;
+    padding: 6px 6px;
+    gap: 3px;
+  }
+  .first-win-pass .season-tier-card .acct-prev {
+    height: 36px;
+  }
+  .first-hand-done .btns {
+    margin-top: 6px;
+  }
+}
 
 /* ---------------------------------------------------------------- the Lounge (app-wide chat, 2026-10-12) */
 .lounge-dock {
