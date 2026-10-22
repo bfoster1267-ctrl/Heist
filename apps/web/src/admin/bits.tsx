@@ -137,24 +137,40 @@ export function usePoll(load: () => void, ms: number, on = true) {
 
 // ------------------------------------------------------------------ activity in words
 
+/** Every side game, by the prefix of its events ("hearts." and so on). The one list the panel's game filters,
+ *  counts and labels are built from, so a new game only needs adding here (and in the server's admin counts). */
+export const ARCADE: { id: string; label: string; badge: string }[] = [
+  { id: "solitaire", label: "Klondike Solitaire", badge: "♠ Solitaire" },
+  { id: "freecell", label: "FreeCell", badge: "♦ FreeCell" },
+  { id: "spider", label: "Spider Solitaire", badge: "♣ Spider" },
+  { id: "tripeaks", label: "TriPeaks Solitaire", badge: "▲ TriPeaks" },
+  { id: "pyramid", label: "Pyramid Solitaire", badge: "▲ Pyramid" },
+  { id: "yukon", label: "Yukon Solitaire", badge: "❄ Yukon" },
+  { id: "ers", label: "Egyptian Rat Screw", badge: "⚡ ERS" },
+  { id: "scoundrel", label: "Scoundrel", badge: "🗡 Scoundrel" },
+  { id: "minesweeper", label: "Minesweeper", badge: "✹ Minesweeper" },
+  { id: "sudoku", label: "Sudoku", badge: "▦ Sudoku" },
+  { id: "checkers", label: "Checkers", badge: "⛀ Checkers" },
+  { id: "hearts", label: "Hearts", badge: "♥ Hearts" },
+  { id: "spades", label: "Spades", badge: "♠ Spades" },
+];
+/** Heist itself, in the same shape as ARCADE, for filters that cover every game */
+export const HEIST_GAMES: { id: string; label: string; badge: string }[] = [
+  { id: "heist_solo", label: "Heist vs bots", badge: "Heist Solo" },
+  { id: "heist_online", label: "Heist online", badge: "Heist PvP" },
+];
+/** event prefixes of every game, Heist and side games, for "all games" filters */
+export const GAME_KINDS = ["game.", "solo.", ...ARCADE.map((g) => `${g.id}.`)];
+
 /** Families of activity, for filters and badge colors. Prefixes match the server's kinds. */
 export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
   { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open"] },
-  { id: "games", label: "All Games", kinds: ["game.", "solo.", "solitaire.", "freecell.", "tripeaks.", "spider.", "pyramid.", "ers.", "yukon.", "scoundrel.", "checkers.", "minesweeper.", "sudoku."] },
-  { id: "solitaire", label: "Klondike Solitaire", kinds: ["solitaire."] },
-  { id: "freecell", label: "FreeCell", kinds: ["freecell."] },
-  { id: "spider", label: "Spider Solitaire", kinds: ["spider."] },
-  { id: "tripeaks", label: "TriPeaks", kinds: ["tripeaks."] },
-  { id: "pyramid", label: "Pyramid", kinds: ["pyramid."] },
-  { id: "ers", label: "Egyptian Rat Screw", kinds: ["ers."] },
-  { id: "yukon", label: "Yukon", kinds: ["yukon."] },
-  { id: "scoundrel", label: "Scoundrel", kinds: ["scoundrel."] },
-  { id: "minesweeper", label: "Minesweeper", kinds: ["minesweeper."] },
-  { id: "sudoku", label: "Sudoku", kinds: ["sudoku."] },
-  { id: "checkers", label: "Checkers", kinds: ["checkers."] },
+  { id: "games", label: "All Games", kinds: GAME_KINDS },
+  ...ARCADE.map((g) => ({ id: g.id, label: g.label, kinds: [`${g.id}.`] })),
   { id: "heist_solo", label: "Heist Solo", kinds: ["solo.", "game.solo"] },
   { id: "tables", label: "Heist Online Tables", kinds: ["table.", "online.", "game.online"] },
   { id: "money", label: "Shop, packs & chips", kinds: ["shop.", "season.", "chips.", "prestige", "solo.drink"] },
+  { id: "lounge", label: "Lounge & feedback board", kinds: ["lounge.", "board.", "dm.", "chats.", "friends."] },
   { id: "app", label: "Screens & taps", kinds: ["ui.", "feedback"] },
   { id: "admin", label: "Admin actions", kinds: ["admin."] },
 ];
@@ -219,6 +235,12 @@ const LABELS: Record<string, string> = {
   "checkers.start": "Started Checkers vs bot",
   "checkers.bank": "Banked Checkers captures",
   "checkers.finish": "Finished Checkers vs bot",
+  "hearts.start": "Started Hearts",
+  "hearts.bank": "Banked Hearts tricks",
+  "hearts.finish": "Finished Hearts",
+  "spades.start": "Started Spades",
+  "spades.bank": "Banked Spades tricks",
+  "spades.finish": "Finished Spades",
   "online.connect": "Connected to online play",
   "online.disconnect": "Disconnected",
   "table.create": "Opened a table",
@@ -344,9 +366,15 @@ export function detailOf(e: ActivityEvent): string {
     case "sudoku.bank":
       return d.moves ? `${d.moves} moves banked` : "";
     case "checkers.start":
+    case "hearts.start":
+    case "spades.start":
       return [d.isDaily ? "Daily challenge" : "", typeof d.level === "string" ? `${d.level} bot` : "Rookie bot"].filter(Boolean).join(" · ");
     case "checkers.finish":
     case "checkers.bank":
+    case "hearts.finish":
+    case "hearts.bank":
+    case "spades.finish":
+    case "spades.bank":
       return [d.moves ? `${d.moves} moves` : "", d.reward ? `+${d.reward.xp} XP` : ""].filter(Boolean).join(" · ");
     case "table.chat":
     case "dm.send":

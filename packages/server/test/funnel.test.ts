@@ -84,6 +84,9 @@ describe("drop-off funnel: where people came from", () => {
     { at: t0 + 3, kind: "ui.tap", userId: "ad", data: { name: "tour-profile" } },
     // an ad click with only ?play=1 (auto-tagging off)
     { at: t0, kind: "auth.guest", userId: "ad2", data: { land: { play: "1" } } },
+    // Meta ad clicks: Meta's click id, or ?play=1 arriving from Instagram
+    { at: t0, kind: "auth.guest", userId: "fb", ref: "https://m.facebook.com/", data: { land: { fbclid: "f1", play: "1", utm_campaign: "cartoon16" } } },
+    { at: t0, kind: "auth.guest", userId: "ig", ref: "https://l.instagram.com/", data: { land: { play: "1" } } },
     { at: t0, kind: "auth.guest", userId: "se", ref: "https://www.google.com/" },
     { at: t0, kind: "auth.guest", userId: "rd", ref: "https://old.reddit.com/r/WebGames/" },
     { at: t0, kind: "auth.guest", userId: "cg", data: { src: "cg" } },
@@ -97,8 +100,9 @@ describe("drop-off funnel: where people came from", () => {
 
   it("sorts each new person into one source", () => {
     const by = Object.fromEntries((all.sources ?? []).map((s) => [s.key, s.people]));
-    expect(by).toEqual({ ads: 2, search: 1, social: 1, crazygames: 1, direct: 1, other: 1, unknown: 1 });
-    expect(all.newest.find((p) => p.userId === "ad")?.source).toBe("Google Ads");
+    expect(by).toEqual({ ads: 2, meta: 2, search: 1, social: 1, crazygames: 1, direct: 1, other: 1, unknown: 1 });
+    expect(all.newest.find((p) => p.userId === "ad")?.source).toBe("Google & other ads");
+    expect(all.newest.find((p) => p.userId === "ig")?.source).toBe("Meta ads");
   });
 
   it("filters the steps to one source, keeping every source's count", () => {

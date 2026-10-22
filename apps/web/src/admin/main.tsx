@@ -1,5 +1,5 @@
 // The owner's back office at /admin: its own sign-in, then every account, the activity log, live tables
-// and any game move by move. Read-only.
+// and any game move by move, plus the moderation tools (notes, flags, suspensions, the feedback board).
 
 import { StrictMode, useCallback, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -80,7 +80,7 @@ function Admin() {
   if (!s) return <SignIn onIn={setS} />;
   const props: PageProps = { s, onAuth, query, param: parts[1] };
   const page = parts[0] ?? "";
-  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", dropoff: "Where new players drop off", bots: "Bot visits", live: "Live tables", server: "Server & bill", economy: "Economy", feedback: "What lost them", board: "Player board", team: "Admins", games: "Game replay" };
+  const titles: Record<string, string> = { "": "Overview", players: parts[1] ? "Player" : "Players", activity: "Activity log", dropoff: "Where new players drop off", bots: "Bot visits", live: "Live tables", server: "Server & bill", economy: "Economy", feedback: "What lost them", board: "Player board", team: "Admins", games: "Game replay", lounge: "Lounge watch" };
   return (
     <div className="shell">
       <header className="top">
