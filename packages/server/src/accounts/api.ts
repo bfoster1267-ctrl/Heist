@@ -92,6 +92,18 @@ function landOf(v: unknown): Record<string, string> | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
+/** How far a new visitor's page got while starting up (see the app's boot.ts): known steps and short values only. */
+const BOOT_STEPS = new Set(["js", "shown", "server", "guest", "error", "leave"]);
+function bootOf(v: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = { step: typeof v.step === "string" && BOOT_STEPS.has(v.step) ? v.step : "?" };
+  if (typeof v.ms === "number" && Number.isFinite(v.ms)) out.ms = Math.max(0, Math.min(Math.round(v.ms), 3_600_000));
+  if (typeof v.ok === "boolean") out.ok = v.ok;
+  if (typeof v.pre === "boolean") out.pre = v.pre;
+  if (typeof v.vis === "string") out.vis = v.vis.slice(0, 12);
+  if (typeof v.err === "string" && v.err) out.err = v.err.slice(0, 160);
+  return out;
+}
+
 /** What's worth keeping from a route's answer, beyond the request itself. */
 function outcome(key: string, out: unknown): Record<string, unknown> {
   const o = (out ?? {}) as Record<string, any>;
@@ -190,6 +202,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       : (key === "POST /api/solitaire/finish" || key === "POST /api/solitaire/bank" || key === "POST /api/freecell/finish" || key === "POST /api/freecell/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
       : (key === "POST /api/checkers/finish" || key === "POST /api/checkers/bank" || key === "POST /api/hearts/finish" || key === "POST /api/hearts/bank" || key === "POST /api/spades/finish" || key === "POST /api/spades/bank") && Array.isArray(body.moves) ? { ...body, moves: body.moves.length }
       : key === "POST /api/auth/guest" ? { ...body, ref: undefined, land: landOf(body.land) }
+      : key === "POST /api/boot" ? bootOf(body)
       : body;
     const data = { ...(scrub(sent) as object), ...(error ? {} : outcome(key, out)) };
     svc.track({ kind: kindOf(key), userId: who?.id, name: who?.name, ...w, ua: keepUa ? w.ua : undefined, ...(ref ? { ref } : {}), ok: !error, error, data: Object.keys(data).length ? data : undefined });
@@ -378,6 +391,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       return svc.payForDrink((await me(t)).id, b.id, count);
     },
     "GET /api/push/key": async () => ({ key: o.pushKey ?? null }),
+    "POST /api/boot": async () => ({ ok: true }),
     "POST /api/push/subscribe": async (b, t) => {
       if (!o.pushKey) throw new ApiError(404, "Turn alerts aren't set up on this server");
       return svc.pushSubscribe(await me(t), b.sub);

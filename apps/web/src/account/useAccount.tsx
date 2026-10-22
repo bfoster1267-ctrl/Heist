@@ -3,6 +3,7 @@
 
 import { cosmetic, type Reward } from "@heist/profile";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { bootStep } from "../boot";
 import { BackendError, openBackend, type Backend, type Me } from "./backend";
 import { getHeistProSession, useHeistPro } from "./pro";
 
@@ -40,8 +41,11 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     openBackend().then(
       async (b) => {
         bInstance = b;
+        bootStep("server", { ok: true });
         let out = false;
-        const m = await b.me().catch((e) => ((out = !!banned(e)), null));
+        let why = "";
+        const m = await b.me().catch((e) => ((why = e instanceof Error ? e.message : String(e)), (out = !!banned(e)), null));
+        bootStep("guest", m ? { ok: true } : { ok: false, err: why });
         if (!live) {
           b.dispose?.();
           return;
@@ -50,7 +54,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         setMe(m);
         setFailed(!m && !out);
       },
-      () => live && setFailed(true),
+      (e) => {
+        bootStep("server", { ok: false, err: e instanceof Error ? e.message : String(e) });
+        if (live) setFailed(true);
+      },
     );
     return () => {
       live = false;

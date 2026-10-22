@@ -164,7 +164,7 @@ export const GAME_KINDS = ["game.", "solo.", ...ARCADE.map((g) => `${g.id}.`)];
 
 /** Families of activity, for filters and badge colors. Prefixes match the server's kinds. */
 export const FAMILIES: { id: string; label: string; kinds: string[] }[] = [
-  { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open"] },
+  { id: "acct", label: "Sign-ins & account", kinds: ["auth.", "me.", "app.open", "boot"] },
   { id: "games", label: "All Games", kinds: GAME_KINDS },
   ...ARCADE.map((g) => ({ id: g.id, label: g.label, kinds: [`${g.id}.`] })),
   { id: "heist_solo", label: "Heist Solo", kinds: ["solo.", "game.solo"] },
@@ -183,6 +183,7 @@ const LABELS: Record<string, string> = {
   "auth.register": "Signed up (email)",
   "auth.login": "Signed in",
   "auth.guest": "Opened as guest",
+  boot: "New visitor's page start-up",
   "auth.oauth": "Signed in with provider",
   "auth.dev": "Dev sign-in",
   "auth.signout-everywhere": "Signed out everywhere",
@@ -295,6 +296,15 @@ export function detailOf(e: ActivityEvent): string {
   const d = (e.data ?? {}) as Record<string, any>;
   const chips = (n: unknown) => `${num(Number(n))} chips`;
   switch (e.kind) {
+    case "boot": {
+      // how far a new visitor's page got before a guest was made (Facebook-app ad clicks stop early)
+      const step = { js: "code ran", shown: "came on screen", server: "server answered", guest: "guest made", error: "crashed", leave: "left before a guest" }[d.step as string] ?? String(d.step);
+      const bits = [d.ok === false ? `${step}: FAILED` : step, `${(Number(d.ms) / 1000).toFixed(1)}s in`];
+      if (d.vis && d.vis !== "visible") bits.push(`page ${d.vis}`);
+      if (d.pre) bits.push("pre-loaded");
+      if (d.err) bits.push(String(d.err));
+      return bits.join(" · ");
+    }
     case "auth.guest": {
       // where a new visitor came from
       if (!e.ref) return d.name ? `name: ${d.name}` : "";

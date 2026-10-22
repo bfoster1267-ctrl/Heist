@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { onCrazyGames, startCrazyGames } from "./crazygames";
 import { installAppShell } from "./appShell";
+import { installBoot } from "./boot";
 import { syncAlerts } from "./alerts";
 import { OpenInBrowser, gatedInApp, inAppWaved } from "./gates";
 import { installTracking } from "./track";
@@ -10,6 +11,7 @@ import { installTurn } from "./turn";
 import "./fonts/fonts.css";
 import "./styles.css";
 
+installBoot();
 installAppShell();
 installTurn();
 syncAlerts();
