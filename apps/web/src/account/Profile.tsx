@@ -20,7 +20,7 @@ import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
-import { COIN_BUNDLES, HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
+import { COIN_BUNDLES, HEIST_PRO_STRIPE_URL, buyUrl, useHeistPro } from "./pro";
 import { click } from "../sound";
 import { buzz } from "../haptics";
 
@@ -452,10 +452,12 @@ function Shop({
   subTab?: "cosmetics" | "stashes";
   onSubTabChange?: (tab: "cosmetics" | "stashes") => void;
 }) {
-  const { act } = useAccount();
+  const { act, backend } = useAccount();
   const p = me.progress;
   const li = levelInfo(p.xp);
   const pro = useHeistPro();
+  const payments = backend?.config.payments;
+  const vipUrl = buyUrl(HEIST_PRO_STRIPE_URL, "vip", me.id, payments);
   const [busy, setBusy] = useState<string | null>(null);
   const [shopTab, setShopTab] = useState<"cosmetics" | "stashes">(subTab);
 
@@ -581,9 +583,11 @@ function Shop({
               <span className="acct-pro-hero-price">$4.99</span>
               {pro ? (
                 <span className="acct-pro-active-badge">✓ VIP Active</span>
+              ) : !vipUrl ? (
+                <span className="dim">Coming soon</span>
               ) : (
                 <a
-                  href={HEIST_PRO_STRIPE_URL}
+                  href={vipUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn small gold"
@@ -624,9 +628,9 @@ function Shop({
                       <ChipIcon size={15} /> +{b.chips.toLocaleString()} Chips
                     </span>
                   </div>
-                  {b.stripeUrl ? (
+                  {buyUrl(b.stripeUrl, b.purchase, me.id, payments) ? (
                     <a
-                      href={b.stripeUrl}
+                      href={buyUrl(b.stripeUrl, b.purchase, me.id, payments)!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn small gold acct-bundle-btn"
@@ -640,7 +644,7 @@ function Shop({
                       className="btn small acct-bundle-btn"
                       disabled
                       aria-disabled="true"
-                      title="Coming soon - waiting for dedicated Stripe checkout link"
+                      title="Coming soon"
                     >
                       Coming Soon ({b.price})
                     </button>
