@@ -43,9 +43,9 @@ export function TitleCard({ onPlay }: { onPlay: () => void }) {
         <h1 className="tc-logo">HEIST</h1>
       </motion.div>
       <motion.h2 className="tc-head" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15, duration: 0.4 }}>
-        {t("title.head1", "Bluff your crew.")}
+        {t("title.head1", "Trust no one.")}
         <br />
-        {t("title.head2", "Steal the pot.")}
+        {t("title.head2", "Take the score.")}
       </motion.h2>
       <p className="tc-tag">{t("title.tag", "A card game of crews, jobs and betrayal. Learn it in one hand.")}</p>
       <div className="tc-fan" aria-hidden>
