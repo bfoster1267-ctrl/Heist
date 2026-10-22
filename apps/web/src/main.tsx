@@ -14,7 +14,7 @@ installAppShell();
 installTurn();
 syncAlerts();
 
-// Opened inside Instagram, Facebook or TikTok (not Reddit, whose browser plays fine): send them to a real browser before an account is made
+// Opened inside TikTok (Reddit's, Facebook's and Instagram's browsers play fine): send them to a real browser before an account is made
 function Root() {
   // (never on CrazyGames: their portal is the browser, and links out aren't allowed there)
   const [app, setApp] = useState(() => (inAppWaved() || onCrazyGames ? null : gatedInApp()));

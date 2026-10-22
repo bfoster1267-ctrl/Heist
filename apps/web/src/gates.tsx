@@ -1,7 +1,7 @@
-// The screen that stands in front of the game when it was opened inside Instagram, Facebook or TikTok:
-// open Heist in a real browser (their built-in browsers lose the account, can't install the app, and cramp
-// the table). Reddit players play in Reddit's browser: an upright phone gets the table drawn sideways
-// (see turn.ts), since Reddit's browser never rotates.
+// The screen that stands in front of the game when it was opened inside TikTok: open Heist in a real browser
+// (its built-in browser loses the account, can't install the app, and cramps the table). Reddit, Facebook and
+// Instagram players play in their app's browser: ads land people there, and a "please leave" screen lost every
+// one of them. An upright phone gets the table drawn sideways (see turn.ts), since those browsers never rotate.
 import { useState } from "react";
 import { isIOS } from "./appShell";
 
@@ -14,10 +14,10 @@ export function inAppBrowser(ua = navigator.userAgent): string | null {
   return null;
 }
 
-/** In-app browsers that get the open-in-browser screen. Reddit's plays fine, so it isn't one. */
+/** In-app browsers that get the open-in-browser screen. Reddit's, Facebook's and Instagram's play fine. */
 export function gatedInApp(ua = navigator.userAgent): string | null {
   const app = inAppBrowser(ua);
-  return app === "Reddit" ? null : app;
+  return app === "TikTok" ? app : null;
 }
 
 const OK_KEY = "heist.inappOk";
