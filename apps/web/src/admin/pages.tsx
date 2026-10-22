@@ -3,7 +3,7 @@ import { AuthError, get, post, type AccountDetail, type AccountRow, type Activit
 import { CrmPanel } from "./crm";
 import { ChatsPanel } from "./chats";
 import { ConductPanel } from "./conduct";
-import { Columns, FAMILIES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
+import { ARCADE, Columns, FAMILIES, GAME_KINDS, HEIST_GAMES, Link, Stat, ago, day, detailOf, familyOf, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
 
 type Load<T> = { data: T | null; error: string | null; reload: () => void; loading: boolean };
 
@@ -86,8 +86,9 @@ const WIDGETS: Widget[] = [
     id: "online", label: "Online now", group: "stat",
     render: ({ d }) => {
       const live = d.live;
-      const seated = live ? live.rooms.reduce((n, r) => n + r.seats.filter((x) => x.kind === "human" && x.connected).length, 0) : 0;
-      return <Stat label="Online now" value={num(live?.sockets ?? 0)} sub={`${num(seated)} at ${num(live?.rooms.length ?? 0)} tables · ${num(live?.queued ?? 0)} in queue`} tone="cash" />;
+      const seated = live ? live.rooms.reduce((n, r) => n + r.seats.filter((x) => x.kind === "human" && x.connected).length, 0) + (live.ers ?? []).reduce((n, r) => n + r.seats.filter((x) => x.connected).length, 0) : 0;
+      const tables = (live?.rooms.length ?? 0) + (live?.ers?.length ?? 0);
+      return <Stat label="Online now" value={num(live?.sockets ?? 0)} sub={`${num(seated)} at ${num(tables)} tables · ${num(live?.queued ?? 0)} in queue`} tone="cash" />;
     },
   },
   {
@@ -103,8 +104,14 @@ const WIDGETS: Widget[] = [
           value={num(acq.visitors)}
           sub={
             <>
-              {num(acq.active)} active today · <Link to="/players?game=none">{num(Math.max(0, acq.visitors - acq.active))} landed without playing</Link>
-              {acq.adLandings > 0 && <> · {num(acq.adLandings)} from ads</>}
+              {acq.played !== undefined ? (
+                <>
+                  {num(acq.played)} played a game · <Link to="/players?game=none">{num(Math.max(0, acq.visitors - acq.played))} landed without playing</Link>
+                </>
+              ) : (
+                <>{num(acq.active)} active today</>
+              )}
+              {acq.adLandings > 0 && <> · <Link to="/dropoff?range=1d&source=ads">{num(acq.adLandings)} from ads</Link></>}
             </>
           }
           tone="cash"
@@ -128,7 +135,7 @@ const WIDGETS: Widget[] = [
       );
     },
   },
-  { id: "games", label: "Games played", group: "stat", render: ({ d }) => <Stat label="Games played" value={num(d.economy.gamesPlayed)} sub={`all time, per player · ${num(sumDaily(d, "games"))} logged in 30 days`} /> },
+  { id: "games", label: "Games played", group: "stat", render: ({ d }) => <Stat label="Games, all time" value={num(d.economy.gamesPlayed)} sub={`${num(d.economy.heistGames)} Heist games · ${num(d.economy.arcadeGames)} side-game wins · ${num(sumDaily(d, "games"))} finished in 30 days`} /> },
   { id: "chips", label: "Chips held", group: "stat", render: ({ d }) => <Stat label="Chips held" value={num(d.economy.chips)} sub={`${num(d.economy.coins)} coins`} /> },
   { id: "packs", label: "Packs bought", group: "stat", render: ({ d }) => <Stat label="Packs bought" value={num(d.economy.packsBought)} sub={`${num(d.economy.drinksSent)} drinks sent`} /> },
   { id: "signups", label: "Sign-ups (30 days)", group: "stat", render: ({ d }) => <Stat label="Sign-ups, 30 days" value={num(sumDaily(d, "signups"))} sub={`${d.accounts.people ? Math.round((d.accounts.signedUp / d.accounts.people) * 100) : 0}% of people have signed up`} /> },
@@ -143,7 +150,7 @@ const WIDGETS: Widget[] = [
   { id: "srv.bill", label: "Hosting bill", group: "stat", needs: "srv", render: ({ srv }) => srv && <Stat label="Hosting this month" value={`$${(srv.cost.soFar ?? 0).toFixed(2)}`} sub={`of $${(srv.cost.monthly ?? 0).toFixed(2)} a month`} /> },
   { id: "c.people", label: "Chart: new people per day", group: "chart", render: ({ d }) => <Columns title="New people per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.people }))} total={`${num(sumDaily(d, "people"))} in 30 days · ${num(sumDaily(d, "signups"))} signed up`} /> },
   { id: "c.active", label: "Chart: people active per day", group: "chart", render: ({ d }) => <Columns title="People active per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.active }))} total={`${num(d.active.month)} in 30 days`} /> },
-  { id: "c.games", label: "Chart: games per day", group: "chart", render: ({ d }) => <Columns title="Games finished per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.games }))} total={`${num(sumDaily(d, "games"))} in 30 days`} /> },
+  { id: "c.games", label: "Chart: games per day", group: "chart", render: ({ d }) => <Columns title="Games finished per day (all games)" rows={d.daily.map((r) => ({ label: short(r.day), value: r.games }))} total={`${num(sumDaily(d, "games"))} in 30 days`} /> },
   { id: "c.signups", label: "Chart: sign-ups per day", group: "chart", render: ({ d }) => <Columns title="Sign-ups per day" rows={d.daily.map((r) => ({ label: short(r.day), value: r.signups }))} total={`${num(sumDaily(d, "signups"))} in 30 days`} /> },
   { id: "c.added", label: "Chart: chips added per day", group: "chart", needs: "eco", render: ({ eco }) => eco && <Columns title="Chips added per day" rows={eco.daily.map((r) => ({ label: short(r.day), value: r.added }))} total={`${num(ecoTotal(eco, "month", 1))} in 30 days`} /> },
   { id: "c.removed", label: "Chart: chips taken out per day", group: "chart", needs: "eco", render: ({ eco }) => eco && <Columns title="Chips taken out per day" rows={eco.daily.map((r) => ({ label: short(r.day), value: r.removed }))} total={`${num(-ecoTotal(eco, "month", -1))} in 30 days`} /> },
@@ -166,44 +173,34 @@ const WIDGETS: Widget[] = [
     render: ({ d }) => {
       const gAll = d.gamesByType ?? {};
       const gToday = d.gamesTodayByType ?? {};
-      const TYPES: [string, string][] = [
-        ["solitaire", "Klondike Solitaire"],
-        ["freecell", "FreeCell"],
-        ["spider", "Spider Solitaire"],
-        ["tripeaks", "TriPeaks Solitaire"],
-        ["pyramid", "Pyramid Solitaire"],
-        ["ers", "Egyptian Rat Screw"],
-        ["yukon", "Yukon Solitaire"],
-        ["scoundrel", "Scoundrel"],
-        ["minesweeper", "Minesweeper"],
-        ["sudoku", "Sudoku"],
-        ["checkers", "Checkers"],
-        ["heist_solo", "Heist (Solo)"],
-        ["heist_online", "Heist (Online)"],
+      // all time is wins (side games only keep wins); the last 24 hours is games finished
+      const rows: { id: string; label: string; link: string; all: number; today: number; title?: string }[] = [
+        ...ARCADE.map((g) => ({ id: g.id, label: g.label, link: g.id, all: gAll[g.id] ?? 0, today: gToday[g.id] ?? 0 })),
+        {
+          id: "heist", label: "Heist (vs bots & online)", link: "any", all: gAll.heist ?? 0, today: (gToday.heist_solo ?? 0) + (gToday.heist_online ?? 0),
+          title: `last 24 hours: ${num(gToday.heist_solo ?? 0)} vs bots · ${num(gToday.heist_online ?? 0)} online`,
+        },
       ];
       return (
         <div className="card">
           <div className="card-head">
-            <h3>Games played by type</h3>
+            <h3>Games by type</h3>
+            <span className="dim small">wins all time · (+ finished, last 24 h)</span>
             <Link to="/players?game=arcade">All arcade players →</Link>
           </div>
           <ul className="kinds">
-            {TYPES.map(([id, label]) => {
-              const allCount = gAll[id] ?? 0;
-              const todayCount = gToday[id] ?? 0;
-              return (
-                <li key={id}>
-                  <Link to={`/players?game=${id}`}>
-                    <span className={`fam fam-${id.startsWith("heist") ? "game" : id}`} />
-                    {label}
-                  </Link>
-                  <span>
-                    <b>{num(allCount)}</b>
-                    {todayCount > 0 && <span className="dim small" style={{ marginLeft: 6 }}>(+{num(todayCount)} today)</span>}
-                  </span>
-                </li>
-              );
-            })}
+            {rows.map((r) => (
+              <li key={r.id} title={r.title}>
+                <Link to={`/players?game=${r.link}`}>
+                  <span className="fam fam-games" />
+                  {r.label}
+                </Link>
+                <span>
+                  <b>{num(r.all)}</b>
+                  {r.today > 0 && <span className="dim small" style={{ marginLeft: 6 }}>(+{num(r.today)})</span>}
+                </span>
+              </li>
+            ))}
           </ul>
         </div>
       );
@@ -384,6 +381,7 @@ export function LivePage({ s, onAuth }: PageProps) {
       <section className="stats">
         <Stat label="Connected" value={num(l.data.sockets)} tone="cash" />
         <Stat label="Tables" value={num(l.data.rooms.length)} sub={`${l.data.rooms.filter((r) => r.status === "playing").length} playing`} />
+        <Stat label="ERS 1v1 rooms" value={num(l.data.ers?.length ?? 0)} sub={`${(l.data.ers ?? []).filter((r) => r.status === "playing").length} playing`} />
         <Stat label="Quick queue" value={num(l.data.queued)} />
         <Stat label="Server memory" value={`${num(l.data.rssMb)} MB`} sub={`up ${up > 3600 ? `${Math.floor(up / 3600)}h ` : ""}${Math.floor((up % 3600) / 60)}m`} />
       </section>
@@ -399,7 +397,7 @@ function LiveTables({ live }: { live: Live }) {
         <h3>Tables right now</h3>
         <span className="dim">refreshes by itself</span>
       </div>
-      {live.rooms.length === 0 ? (
+      {live.rooms.length === 0 && !live.ers?.length ? (
         <p className="dim">No tables open.</p>
       ) : (
         <div className="tables">
@@ -423,6 +421,25 @@ function LiveTables({ live }: { live: Live }) {
                     {x.kind === "human" && !x.connected && <em>away</em>}
                   </li>
                 ))}
+              </ul>
+            </div>
+          ))}
+          {(live.ers ?? []).map((r) => (
+            <div key={`ers-${r.code}`} className={`felt-card ${r.status}`}>
+              <div className="felt-top">
+                <b className="code">{r.code}</b>
+                <span className={`pill ${r.status}`}>{r.status}</span>
+              </div>
+              <div className="dim small">Egyptian Rat Screw 1v1 · {r.isPrivate ? "private" : "public"}</div>
+              <ul className="seats">
+                {r.seats.map((x, i) => (
+                  <li key={i} className="human">
+                    <span className={`dot ${x.connected ? "on" : "off"}`} />
+                    {x.userId ? <><Link to={`/players/${x.userId}`}>{x.name}</Link> <PlayerNum id={x.userId} /></> : <span>{x.name}</span>}
+                    {!x.connected && <em>away</em>}
+                  </li>
+                ))}
+                {r.seats.length < 2 && <li className="open"><span className="dot" /><span>open seat</span></li>}
               </ul>
             </div>
           ))}
@@ -523,19 +540,11 @@ export function Players({ s, onAuth, query }: PageProps) {
           <option value="any">Played any game</option>
           <option value="none">No games played / landings</option>
           <option value="arcade">All arcade card games</option>
-          <option value="solitaire">Klondike Solitaire</option>
-          <option value="freecell">FreeCell</option>
-          <option value="spider">Spider Solitaire</option>
-          <option value="tripeaks">TriPeaks Solitaire</option>
-          <option value="pyramid">Pyramid Solitaire</option>
-          <option value="ers">Egyptian Rat Screw</option>
-          <option value="yukon">Yukon Solitaire</option>
-          <option value="scoundrel">Scoundrel</option>
-          <option value="minesweeper">Minesweeper</option>
-          <option value="sudoku">Sudoku</option>
-          <option value="checkers">Checkers</option>
-          <option value="heist_solo">Heist Solo</option>
-          <option value="heist_online">Heist Online</option>
+          {[...ARCADE, ...HEIST_GAMES].map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.label}
+            </option>
+          ))}
         </select>
         <select value={source} onChange={(e) => go(qs({ source: e.target.value, offset: 0 }))}>
           <option value="">Every source</option>
@@ -594,21 +603,7 @@ export function Players({ s, onAuth, query }: PageProps) {
   );
 }
 
-const GAME_LABELS: Record<string, string> = {
-  solitaire: "♠ Solitaire",
-  freecell: "♦ FreeCell",
-  spider: "♣ Spider",
-  tripeaks: "▲ TriPeaks",
-  pyramid: "▲ Pyramid",
-  ers: "⚡ ERS",
-  yukon: "❄ Yukon",
-  scoundrel: "🗡 Scoundrel",
-  minesweeper: "✹ Minesweeper",
-  sudoku: "▦ Sudoku",
-  checkers: "⛀ Checkers",
-  heist_solo: "Heist Solo",
-  heist_online: "Heist PvP",
-};
+const GAME_LABELS: Record<string, string> = Object.fromEntries([...ARCADE, ...HEIST_GAMES].map((g) => [g.id, g.badge]));
 
 function Badges({ r }: { r: AccountRow }) {
   return (
@@ -661,7 +656,7 @@ export function PlayerTable({ rows, compact }: { rows: AccountRow[]; compact?: b
             <th className="r">Level</th>
             {!compact && <th className="r">Chips</th>}
             <th className="r">Games</th>
-            {!compact && <th className="r">Win %</th>}
+            {!compact && <th className="r" title="Heist games only: side games only keep wins">Heist win %</th>}
             {!compact && <th className="r">Rating</th>}
             <th>{compact ? "Joined" : "Last seen"}</th>
           </tr>
@@ -746,7 +741,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
         <div className="card">
           <div className="card-head">
             <h3>Recent games</h3>
-            <Link to={`/activity?user=${a.id}&kinds=game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,checkers.,minesweeper.,sudoku.`}>All games →</Link>
+            <Link to={`/activity?user=${a.id}&kinds=${ALL_GAMES_KINDS}`}>All games →</Link>
           </div>
           <GameList s={s} onAuth={onAuth} userId={a.id} />
         </div>
@@ -800,7 +795,7 @@ export function Player({ s, onAuth, param, query }: PageProps) {
   );
 }
 
-const ALL_GAMES_KINDS = "game.,solo.,solitaire.,freecell.,tripeaks.,spider.,pyramid.,ers.,yukon.,scoundrel.,checkers.,minesweeper.,sudoku.";
+const ALL_GAMES_KINDS = GAME_KINDS.join(",");
 
 function GameList({ s, onAuth, userId }: { s: Session; onAuth: (e: unknown) => void; userId: string }) {
   const l = useAdmin<{ events: ActivityEvent[] }>(s, `/activity?user=${userId}&kinds=${ALL_GAMES_KINDS}&limit=12`, onAuth);

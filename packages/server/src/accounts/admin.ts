@@ -2,13 +2,14 @@
 // account) and read-only views of every account, the activity log, live tables and any game move by move.
 
 import { HeistGame, type Answer } from "@heist/engine";
-import { createSoloGame, levelInfo, upgrade, DAILY_CHIPS, PACK_PRICE, REFILL_TO, SOLO_SEAT, START_CHIPS } from "@heist/profile";
+import { createSoloGame, levelInfo, upgrade, DAILY_CHIPS, DAILY_GAMES, PACK_PRICE, REFILL_TO, SOLO_SEAT, START_CHIPS } from "@heist/profile";
+import type { ErsAdminRoom } from "../ersRoom";
 import type { RoomInfo } from "../protocol";
 import { sanitizeAnswer } from "../sanitize";
 import type { GameRecord } from "../store";
 import { byClaude, byOwner, type ActivityEvent, type ActivityLog } from "./activity";
 import { CRAWLER_UA, judge, sourceOf, type BotVisit } from "./bots";
-import { buildFunnel, type Funnel } from "./funnel";
+import { buildFunnel, sourceOf as sourceOfLanding, type Funnel } from "./funnel";
 import { GUEST_KEEP_DAYS, type AccountService } from "./service";
 import { FEEDBACK_REASONS, type Account, type FeedbackReason } from "./store";
 
@@ -23,6 +24,8 @@ export interface LiveInfo {
   rssMb: number;
   uptimeS: number;
   rooms: RoomInfo[];
+  /** Egyptian Rat Screw 1v1 rooms */
+  ers?: ErsAdminRoom[];
 }
 
 export interface AccountRow {
@@ -69,6 +72,11 @@ export interface AccountRow {
 }
 
 /** Where an account came from: what the app said at sign-up, or a CrazyGames login added later. */
+/** a game that ended: Heist vs bots or online, or a side game's finish */
+const finishedGame = (kind: string) => kind === "game.solo" || kind === "game.online" || ((DAILY_GAMES as readonly string[]).includes(kind.split(".")[0]) && kind.endsWith(".finish"));
+/** any sign of playing a game: sitting down, a table starting, or a side game's start, save or finish */
+const playedGame = (kind: string) => kind.startsWith("game.") || kind === "solo.start" || kind === "table.start" || (DAILY_GAMES as readonly string[]).includes(kind.split(".")[0]);
+
 export const sourceOfAccount = (a: Account): string | null => a.source ?? (a.logins.some((l) => l.provider === "crazygames") ? "cg" : null);
 
 /** Accounts grouped into people. */
@@ -363,7 +371,7 @@ export class AdminService {
       if (e.at < now - 30 * DAY) continue;
       const d = dayKey(e.at);
       const you = !!e.userId && mine(e.userId);
-      if ((e.kind === "game.solo" || e.kind === "game.online") && !you) games[d] = (games[d] ?? 0) + 1;
+      if (finishedGame(e.kind) && !you) games[d] = (games[d] ?? 0) + 1;
       if (e.userId && !byOwner(e) && !you) active.get(d)?.add(ppl.of.get(e.userId) ?? e.userId);
       if (e.at >= now - DAY) kinds.set(e.kind, (kinds.get(e.kind) ?? 0) + 1);
     }
@@ -377,60 +385,39 @@ export class AdminService {
     const everyone = all.filter((a) => !mine(a.id));
     const sum = (f: (a: Account) => number) => everyone.reduce((s, a) => s + f(a), 0);
     const guests = all.filter((a) => a.guest);
-    const gamesByType: Record<string, number> = {
-      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, checkers: 0, hearts: 0, spades: 0, minesweeper: 0, sudoku: 0, heist_solo: 0, heist_online: 0,
-    };
+    // games by type: side games keep only a win count on the profile, so "all time" is wins for every game
+    // (Heist too); "today" is games finished in the last 24 hours, one per finished game
+    const gamesByType: Record<string, number> = Object.fromEntries([...DAILY_GAMES, "heist"].map((g) => [g, 0]));
+    const gamesTodayByType: Record<string, number> = Object.fromEntries([...DAILY_GAMES, "heist_solo", "heist_online"].map((g) => [g, 0]));
     for (const a of everyone) {
       const p = upgrade(a.progress);
-      gamesByType.solitaire += p.solitaire?.won ?? 0;
-      gamesByType.freecell += p.freecell?.won ?? 0;
-      gamesByType.spider += p.spider?.won ?? 0;
-      gamesByType.tripeaks += p.tripeaks?.won ?? 0;
-      gamesByType.pyramid += p.pyramid?.won ?? 0;
-      gamesByType.ers += p.ers?.won ?? 0;
-      gamesByType.yukon += p.yukon?.won ?? 0;
-      gamesByType.scoundrel += p.scoundrel?.won ?? 0;
-      gamesByType.minesweeper += p.minesweeper?.won ?? 0;
-      gamesByType.sudoku += p.sudoku?.won ?? 0;
-      gamesByType.checkers += p.checkers?.won ?? 0;
-      gamesByType.hearts += p.hearts?.won ?? 0;
-      gamesByType.spades += p.spades?.won ?? 0;
-      gamesByType.heist_solo += p.stats.games;
+      for (const g of DAILY_GAMES) gamesByType[g] += p[g]?.won ?? 0;
+      gamesByType.heist += p.stats.wins;
     }
-    const gamesTodayByType: Record<string, number> = {
-      solitaire: 0, freecell: 0, spider: 0, tripeaks: 0, pyramid: 0, ers: 0, yukon: 0, scoundrel: 0, checkers: 0, hearts: 0, spades: 0, minesweeper: 0, sudoku: 0, heist_solo: 0, heist_online: 0,
-    };
     let adLandingsToday = 0;
-    let visitorsTodayCount = 0;
-    const seenToday = new Set<string>();
+    const visitorsToday = new Set<string>();
+    const playedToday = new Set<string>();
     for (const e of this.log.window()) {
       if (e.at < now - DAY) continue;
-      if (e.userId && !seenToday.has(e.userId) && !mine(e.userId)) {
-        seenToday.add(e.userId);
-        visitorsTodayCount++;
-      }
-      if (e.kind === "auth.guest" && e.ref && /google|ad|gclid|bing|yahoo/i.test(e.ref)) {
-        adLandingsToday++;
-      }
       if (e.userId && mine(e.userId)) continue;
-      if (e.kind === "game.solo" || e.kind === "solo.start") gamesTodayByType.heist_solo++;
-      else if (e.kind === "game.online" || e.kind === "table.start") gamesTodayByType.heist_online++;
-      else if (e.kind.startsWith("solitaire.")) gamesTodayByType.solitaire++;
-      else if (e.kind.startsWith("freecell.")) gamesTodayByType.freecell++;
-      else if (e.kind.startsWith("spider.")) gamesTodayByType.spider++;
-      else if (e.kind.startsWith("tripeaks.")) gamesTodayByType.tripeaks++;
-      else if (e.kind.startsWith("pyramid.")) gamesTodayByType.pyramid++;
-      else if (e.kind.startsWith("ers.")) gamesTodayByType.ers++;
-      else if (e.kind.startsWith("yukon.")) gamesTodayByType.yukon++;
-      else if (e.kind.startsWith("scoundrel.")) gamesTodayByType.scoundrel++;
-      else if (e.kind.startsWith("minesweeper.")) gamesTodayByType.minesweeper++;
-      else if (e.kind.startsWith("sudoku.")) gamesTodayByType.sudoku++;
-      else if (e.kind.startsWith("checkers.")) gamesTodayByType.checkers++;
-      else if (e.kind.startsWith("hearts.")) gamesTodayByType.hearts++;
-      else if (e.kind.startsWith("spades.")) gamesTodayByType.spades++;
+      // one per person, like "active" below, so "landed without playing" compares like with like
+      if (e.userId) visitorsToday.add(ppl.of.get(e.userId) ?? e.userId);
+      if (e.userId && playedGame(e.kind)) playedToday.add(ppl.of.get(e.userId) ?? e.userId);
+      // the same rule as the Drop-off tab's sources: the ad tags on the link they arrived by
+      if (e.kind === "auth.guest") {
+        const src = sourceOfLanding(e);
+        if (src === "ads" || src === "meta") adLandingsToday++;
+      }
+      if (e.kind === "game.solo") gamesTodayByType.heist_solo++;
+      else if (e.kind === "game.online") gamesTodayByType.heist_online++;
+      else if (e.kind.endsWith(".finish")) {
+        const g = e.kind.slice(0, -".finish".length);
+        if (g in gamesTodayByType) gamesTodayByType[g]++;
+      }
     }
+    const visitorsTodayCount = visitorsToday.size;
 
-    const arcadeTotalWins = Object.entries(gamesByType).filter(([k]) => !k.startsWith("heist")).reduce((s, [, v]) => s + v, 0);
+    const arcadeTotalWins = Object.entries(gamesByType).filter(([k]) => k !== "heist").reduce((s, [, v]) => s + v, 0);
 
     return {
       at: now,
@@ -459,6 +446,8 @@ export class AdminService {
         visitors: visitorsTodayCount,
         adLandings: adLandingsToday,
         active: seenBy(now - DAY),
+        /** people who started or finished any game, Heist or a side game */
+        played: playedToday.size,
       },
       // players who came through the CrazyGames portal (robots and your own accounts left out)
       crazyGames: (() => {

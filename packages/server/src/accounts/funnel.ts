@@ -13,9 +13,10 @@ export const RETURN_AFTER = 12 * HOUR;
 const TURNS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30];
 
 /** Where a new person came from, read off the guest account their first visit made. */
-export type SourceKey = "ads" | "search" | "social" | "crazygames" | "direct" | "other" | "unknown";
+export type SourceKey = "ads" | "meta" | "search" | "social" | "crazygames" | "direct" | "other" | "unknown";
 export const SOURCES: { key: SourceKey; label: string }[] = [
-  { key: "ads", label: "Google Ads" },
+  { key: "ads", label: "Google & other ads" },
+  { key: "meta", label: "Meta ads" },
   { key: "search", label: "Search" },
   { key: "social", label: "Social" },
   { key: "crazygames", label: "CrazyGames" },
@@ -31,7 +32,11 @@ export function sourceOf(e: ActivityEvent): SourceKey {
   const d = (e.data ?? {}) as Record<string, unknown>;
   const land = (d.land ?? {}) as Record<string, unknown>;
   const medium = typeof land.utm_medium === "string" ? land.utm_medium.toLowerCase() : "";
-  if (land.gclid || land.gbraid || land.wbraid || land.fbclid || land.play !== undefined || /^(cpc|ppc|paid|paidsearch)$/.test(medium)) return "ads";
+  const source = typeof land.utm_source === "string" ? land.utm_source.toLowerCase() : "";
+  // Meta adds fbclid to every ad click; ?play=1 is on both platforms' ads, so the referrer tells them apart
+  const ad = land.gclid || land.gbraid || land.wbraid || land.fbclid || land.play !== undefined || /^(cpc|ppc|paid|paidsearch|paid_social|paidsocial)$/.test(medium);
+  if (ad && !land.gclid && !land.gbraid && !land.wbraid && (land.fbclid || /^(fb|ig|facebook|instagram|meta)$/.test(source) || /(facebook|instagram)\./.test(e.ref ?? ""))) return "meta";
+  if (ad) return "ads";
   if (d.src === "cg") return "crazygames";
   if (!e.ref) return "direct";
   let host = "";

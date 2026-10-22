@@ -556,7 +556,8 @@ h4 {
 .fam-app {
   background: #8f96a2;
 }
-.fam-views {
+.fam-views,
+.fam-lounge {
   background: #4fc1b0;
 }
 .fam-admin {

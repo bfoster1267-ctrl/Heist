@@ -117,6 +117,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
             live: () => ({
               sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), uptimeS: Math.round((clock.now() - started) / 1000),
               rooms: rooms.all().map((r) => r.info()),
+              ers: ersRooms.admin(),
             }),
           }),
           hosting: o.hosting,
@@ -242,7 +243,7 @@ export async function startServer(o: ServerOptions = {}): Promise<HeistServer> {
     if (req.url === "/healthz") {
       res.writeHead(200, { "content-type": "application/json" });
       const cpu = process.cpuUsage();
-      res.end(JSON.stringify({ ok: true, rooms: rooms.size, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
+      res.end(JSON.stringify({ ok: true, rooms: rooms.size, ersPlaying: ersRooms.playing, sockets: wss.clients.size, queued: queue.size, rssMb: Math.round(process.memoryUsage().rss / 2 ** 20), cpuMs: Math.round((cpu.user + cpu.system) / 1000) }));
       return;
     }
     if (req.url === "/api/ers/create" && req.method === "POST") {

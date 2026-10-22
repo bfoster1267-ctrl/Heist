@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import type { Funnel } from "./api";
-import { Link, Stat, day, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
+import { ARCADE, Link, Stat, day, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
 import { Problem, useAdmin, type PageProps } from "./pages";
 
 const DAY = 24 * 60 * 60_000;
@@ -61,17 +61,11 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
           <select value={game} onChange={(e) => go(qs({ game: e.target.value }))}>
             <option value="all">All game types</option>
             <option value="arcade">All arcade card games</option>
-            <option value="solitaire">Klondike Solitaire</option>
-            <option value="freecell">FreeCell</option>
-            <option value="spider">Spider Solitaire</option>
-            <option value="tripeaks">TriPeaks Solitaire</option>
-            <option value="pyramid">Pyramid Solitaire</option>
-            <option value="ers">Egyptian Rat Screw</option>
-            <option value="yukon">Yukon Solitaire</option>
-            <option value="scoundrel">Scoundrel</option>
-            <option value="minesweeper">Minesweeper</option>
-            <option value="sudoku">Sudoku</option>
-            <option value="checkers">Checkers</option>
+            {ARCADE.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
             <option value="heist">Heist (Solo & Online)</option>
           </select>
           {RANGES.map(([k, label]) => (
@@ -111,7 +105,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
           </div>
         )}
         <p className="dim small">Counts people whose first visit falls in this range. Your own play, Claude's testing and <Link to="/bots">bot visits</Link> are left out.</p>
-        {source === "ads" && <p className="dim small">Ad visitors are told apart by the ad link they arrive on (Google's click id or ?play=1), recorded from Oct 20, 2026.</p>}
+        {(source === "ads" || source === "meta") && <p className="dim small">Ad visitors are told apart by the ad link they arrive on (Google's or Meta's click id, or ?play=1), recorded from Oct 20, 2026. Meta ads are the ones with Meta's click id or arriving from Facebook or Instagram.</p>}
       </div>
       <Problem error={r.error} />
       {!f ? null : f.people === 0 ? (

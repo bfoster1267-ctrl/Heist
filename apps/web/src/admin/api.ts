@@ -174,6 +174,8 @@ export interface Live {
   rssMb: number;
   uptimeS: number;
   rooms: RoomInfo[];
+  /** Egyptian Rat Screw 1v1 rooms */
+  ers?: { code: string; status: "waiting" | "playing" | "over"; isPrivate: boolean; seats: { name: string; userId: string | null; connected: boolean }[] }[];
 }
 
 export type Point = { at: number; value: number };
@@ -241,7 +243,7 @@ export interface Overview {
   economy: { chips: number; coins: number; packsBought: number; gamesPlayed: number; drinksSent: number; heistGames?: number; arcadeGames?: number };
   gamesByType?: Record<string, number>;
   gamesTodayByType?: Record<string, number>;
-  acquisitionToday?: { visitors: number; adLandings: number; active: number };
+  acquisitionToday?: { visitors: number; adLandings: number; active: number; played?: number };
   /** players who came through the CrazyGames portal */
   crazyGames?: { players: number; newToday: number; activeToday: number; activeWeek: number };
   daily: { day: string; signups: number; people: number; games: number; active: number }[];
@@ -328,7 +330,7 @@ export interface FunnelPerson {
   lastWhat?: string;
   recent?: string[];
   minutes?: number;
-  /** where they came from: Google Ads, Search, Social, CrazyGames, Direct, Other sites or Not recorded */
+  /** where they came from: Google & other ads, Meta ads, Search, Social, CrazyGames, Direct, Other sites or Not recorded */
   source?: string;
 }
 

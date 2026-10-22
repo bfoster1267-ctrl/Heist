@@ -554,6 +554,13 @@ export class ErsRoom {
   }
 }
 
+export interface ErsAdminRoom {
+  code: string;
+  status: "waiting" | "playing" | "over";
+  isPrivate: boolean;
+  seats: { name: string; userId: string | null; connected: boolean }[];
+}
+
 /** In-memory manager for active ERS multiplayer rooms */
 export class ErsRooms {
   private byCode = new Map<string, ErsRoom>();
@@ -596,6 +603,21 @@ export class ErsRooms {
     return [...this.byCode.values()]
       .filter((r) => !r.isPrivate)
       .map((r) => r.summary());
+  }
+
+  /** every room, private ones too, with who's seated: for the admin panel's Live tables */
+  admin(): ErsAdminRoom[] {
+    return [...this.byCode.values()].map((r) => ({
+      code: r.code, status: r.status, isPrivate: r.isPrivate,
+      seats: r.seats.filter((x): x is ErsSeatState => !!x).map((x) => ({ name: x.name, userId: x.userId ?? null, connected: x.connected })),
+    }));
+  }
+
+  /** rooms with a match under way, so a deploy can wait for them like it waits for Heist tables */
+  get playing(): number {
+    let n = 0;
+    for (const r of this.byCode.values()) if (r.status === "playing") n++;
+    return n;
   }
 
   sweep(now: number, maxIdleMs = 15 * 60_000) {
