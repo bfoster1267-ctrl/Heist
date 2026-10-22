@@ -7,6 +7,7 @@ import { useCallback, useRef, useState } from "react";
 import { reducedMotion } from "../prefs";
 import { chipRun, clink } from "../sound";
 import { VaultBurst, VaultGlass, isVault } from "../vault";
+import { Emoji } from "../emoji";
 
 // the menu, with prices in coins, is shared with the shop rules in @heist/profile
 export { DRINKS } from "@heist/profile";
@@ -84,7 +85,7 @@ export function DrinkLayer({ drinks, slides, pos }: { drinks: Drink[]; slides: S
             animate={{ x: [fx, (fx + tx) / 2, tx], y: [fy, (fy + ty) / 2 + 30, ty], scale: [0.4, 1.5, 1], rotate: [-20, 8, 0], opacity: 1 }}
             transition={{ duration: SLIDE_MS / 1000, ease: [0.2, 0.7, 0.3, 1], times: [0, 0.6, 1] }}
           >
-            {isVault(sl.emoji) ? <VaultGlass size={46} /> : sl.emoji}
+            {isVault(sl.emoji) ? <VaultGlass size={46} /> : <Emoji e={sl.emoji} />}
           </motion.span>
         );
       })}

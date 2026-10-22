@@ -17,6 +17,7 @@ import { Avatar, Stars } from "./bits";
 import { Cigar, Preview, RarityBadge } from "./items";
 import { useAccount } from "./useAccount";
 import { VaultGlass, isVault } from "../vault";
+import { Emoji } from "../emoji";
 import { buzz } from "../haptics";
 import { card as cardSound, click, win as winSound } from "../sound";
 import { t } from "../i18n";
@@ -411,7 +412,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
               <span className="dim">{t("wardrobe.in_chat")}</span>
               {emotes.map((c) => (
                 <span key={c.id} title={c.name} className="acct-collected-emoji">
-                  {c.emoji}
+                  {c.emoji && <Emoji e={c.emoji} />}
                 </span>
               ))}
             </div>
@@ -421,7 +422,7 @@ export function Wardrobe({ me, onGo }: { me: Me; onGo: (tab: "shop" | "season") 
               <span className="dim">{t("wardrobe.in_drinks")}</span>
               {drinks.map((c) => (
                 <span key={c.id} title={c.name} className="acct-collected-emoji">
-                  {c.emoji && isVault(c.emoji) ? <VaultGlass size={24} /> : c.emoji}
+                  {c.emoji && isVault(c.emoji) ? <VaultGlass size={24} /> : c.emoji && <Emoji e={c.emoji} />}
                 </span>
               ))}
             </div>

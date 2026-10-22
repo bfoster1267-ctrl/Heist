@@ -9,6 +9,7 @@ import { chatStyle } from "../account/items";
 import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
 import { VaultGlass, isVault } from "../vault";
+import { Emoji } from "../emoji";
 
 export interface Bubble {
   seat: number;
@@ -115,7 +116,7 @@ export function Bubbles({ bubbles, pos, mine, looks }: { bubbles: Bubble[]; pos:
             transition={{ type: "spring", stiffness: 420, damping: 20 }}
             role="status"
           >
-            {b.text}
+            {emoji ? <Emoji e={b.text} /> : b.text}
           </motion.div>
         );
       })}
@@ -157,7 +158,7 @@ export function ChatTray({
       <div className="chat-emotes">
         {emotes.map((e) => (
           <button key={e} onClick={() => send(e)} aria-label={`Send ${e}`}>
-            {e}
+            <Emoji e={e} />
           </button>
         ))}
       </div>
@@ -192,7 +193,7 @@ export function ChatTray({
           <div className="chat-emotes">
             {drinks.map((d) => (
               <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
-                {isVault(d.emoji) ? <VaultGlass size={26} /> : d.emoji}
+                {isVault(d.emoji) ? <VaultGlass size={26} /> : <Emoji e={d.emoji} />}
                 <span className="chat-price">{d.price || "free"}</span>
               </button>
             ))}
