@@ -8,13 +8,13 @@
 // messages and groups, built in Friends.tsx), one unread count covers both, and friends' new messages
 // float up over the lobby with the Lounge's. MessageRow draws a line the same way everywhere.
 //
-// The lobby tour ends here: given a `greet`, the Lounge opens with a hello already typed (big Send, small
-// Skip), so new players say hi and the owner gets a phone alert to welcome them.
+// New players say hi here: given a `greet`, the Lounge opens with a hello already typed in and stays open
+// until it's sent (they can change the words), so the owner gets a phone alert and can welcome them.
 
 import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import type { Backend, LoungeMsg } from "./backend";
+import { BackendError, type Backend, type LoungeMsg } from "./backend";
 import type { Badge } from "@heist/profile";
 import { Avatar } from "./bits";
 import { chatStyle } from "./items";
@@ -107,7 +107,8 @@ export interface FriendsSlot {
 
 type Tab = "lounge" | "friends" | "board";
 
-/** The lobby tour's last stop: the Lounge opens with this hello typed in; `onDone` either way (sent or skipped). */
+/** A new player's hello: the Lounge opens with this typed in and can't be closed until it's sent. `onDone(false)`: the
+ * Lounge can't take it (no account to talk with, or the server is down), so the player moves on anyway. */
 export interface Greet {
   text: string;
   onDone: (sent: boolean) => void;
@@ -255,7 +256,7 @@ function LoungeRoom({ backend, me, friends, float, greet }: { backend: Backend; 
         {open && (
           <LoungePanel
             key="lounge"
-            tab={friends || tab !== "friends" ? tab : "lounge"}
+            tab={greet ? "lounge" : friends || tab !== "friends" ? tab : "lounge"}
             onTab={setTab}
             friends={friends}
             loungeUnread={unread}
@@ -276,10 +277,7 @@ function LoungeRoom({ backend, me, friends, float, greet }: { backend: Backend; 
             onGone={(id) => setMsgs((ms) => ms.filter((x) => x.id !== id))}
             onPull={pull}
             greet={greet}
-            onClose={() => {
-              setOpen(false);
-              greet?.onDone(false);
-            }}
+            onClose={() => setOpen(false)}
           />
         )}
       </AnimatePresence>
@@ -397,6 +395,13 @@ function LoungePanel({
   const [text, setText] = useState(greet?.text ?? "");
   /** the tour's hello went out: their line shows for a moment, then the tour moves on */
   const [greeted, setGreeted] = useState(false);
+  /** the hello is owed: no closing until it's sent */
+  const held = !!greet && !greeted;
+  const close = () => !held && onClose();
+  // nobody here can talk (not signed in, suspended): don't hold them
+  useEffect(() => {
+    if (held && !canPost && why) greet.onDone(false);
+  }, [held, canPost, why, greet]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
@@ -415,10 +420,10 @@ function LoungePanel({
     if (el && atBottom.current) el.scrollTop = el.scrollHeight;
   }, [msgs.length, tab]);
   useEffect(() => {
-    const k = (e: KeyboardEvent) => e.key === "Escape" && !card && onClose();
+    const k = (e: KeyboardEvent) => e.key === "Escape" && !card && !held && onClose();
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
-  }, [onClose, card]);
+  }, [onClose, card, held]);
 
   const send = async (e: FormEvent) => {
     e.preventDefault();
@@ -437,6 +442,9 @@ function LoungePanel({
       }
     } catch (x) {
       setErr(x instanceof Error ? x.message : "That didn't send");
+      // the server's down or turned them away: a hello they can't send doesn't hold them (a 400 is the
+      // filter or the pace, which they can fix by changing the words or waiting)
+      if (held && !(x instanceof BackendError && x.status === 400)) greet.onDone(false);
     } finally {
       setBusy(false);
     }
@@ -467,10 +475,10 @@ function LoungePanel({
   };
 
   return (
-    <motion.div className="lounge-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && onClose()}>
+    <motion.div className="lounge-back" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={(e) => e.target === e.currentTarget && close()}>
       <motion.div className="lounge" role="dialog" aria-label={t("lounge.title")} initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ type: "spring", stiffness: 380, damping: 34 }}>
         <div className="lounge-head">
-          {friends || backend.board ? (
+          {(friends || backend.board) && !held ? (
             <div className="lounge-tabs" role="tablist" aria-label={t("lounge.chat")}>
               <button role="tab" aria-selected={tab === "lounge"} className={tab === "lounge" ? "on" : ""} onClick={() => onTab("lounge")}>
                 {t("lounge.tab_lounge")}
@@ -496,9 +504,11 @@ function LoungePanel({
               </div>
             </div>
           )}
-          <button className="acct-x" onClick={onClose} aria-label={t("lounge.close_aria")}>
-            ×
-          </button>
+          {!held && (
+            <button className="acct-x" onClick={onClose} aria-label={t("lounge.close_aria")}>
+              ×
+            </button>
+          )}
         </div>
         {tab === "friends" && friends ? (
           <div className="lounge-friends">{friends.render({ onClose })}</div>
@@ -506,7 +516,7 @@ function LoungePanel({
           <FeedbackBoard backend={backend} me={me} onPlayer={setCard} />
         ) : (
         <>
-        {(friends || backend.board) && (
+        {(friends || backend.board) && !held && (
           <div className="lounge-sub lounge-sub-tabbed">
             <span className="lounge-live" aria-hidden /> {here > 1 ? t("lounge.here_now", { count: here }) : t("lounge.chat_everyone")}
           </div>
@@ -602,7 +612,7 @@ function LoungePanel({
             {note}
           </div>
         )}
-        {greet && !greeted && canPost && (
+        {held && canPost && (
           <div className="lounge-greet">
             <b>{t("lounge.greet_title", "Say hi to the room")}</b>
             <span>{t("lounge.greet_desc", "Real players hang out here. Send this and someone might queue up with you.")}</span>
@@ -610,7 +620,7 @@ function LoungePanel({
         )}
         {greet && greeted && <div className="lounge-greet sent">{t("lounge.greet_sent", "Sent! Everyone in the Lounge can see it.")}</div>}
         {canPost ? (
-          <form className={"lounge-form" + (greet && !greeted ? " greeting" : "")} onSubmit={send}>
+          <form className={"lounge-form" + (held ? " greeting" : "")} onSubmit={send}>
             <input
               className="lounge-input"
               value={text}
@@ -623,17 +633,12 @@ function LoungePanel({
                 setErr(null);
               }}
             />
-            <button className={"btn gold" + (greet && !greeted ? " lounge-send-glow" : "")} type="submit" disabled={busy || !text.trim()} data-track={greet ? "tour-lounge-send" : undefined}>
+            <button className={"btn gold" + (held ? " lounge-send-glow" : "")} type="submit" disabled={busy || !text.trim()} data-track={held ? "lounge-hello" : undefined}>
               {t("lounge.send")}
             </button>
           </form>
         ) : (
           <div className="lounge-locked">{why ?? t("lounge.locked")}</div>
-        )}
-        {greet && !greeted && (
-          <button className="lounge-skip" data-track="tour-lounge-skip" onClick={() => greet.onDone(false)}>
-            {t("lounge.greet_skip", "Skip for now")}
-          </button>
         )}
         <div className="lounge-fine">
           {err ? <span className="lounge-err">{err}</span> : t("lounge.fine")}

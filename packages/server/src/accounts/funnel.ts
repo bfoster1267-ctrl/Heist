@@ -193,7 +193,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     switch (e.kind) {
       case "ui.tap":
         if (d.name === "welcome-new" || (typeof d.name === "string" && d.name.startsWith("I'm new"))) t.newTap = true;
-        if (d.name === "tour-profile") t.tourCard = true;
+        if (d.name === "tour-profile" || d.name === "lounge-hello") t.tourCard = true;
         if (d.name === "tour-coach" || d.name === "tour-bots" || d.name === "tour-save" || d.name === "tour-lobby") t.toured = true;
         break;
       case "auth.guest":
@@ -305,7 +305,8 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     { key: "lesson", label: "Started a game", note: "Learn to play or card game deal", did: (t) => t.lesson || t.arcadeStarted },
     ...turns.map((n) => ({ key: `turn${n}`, label: `Reached turn ${n}`, note: "of the coached game", did: (t: Trail) => t.turn >= n })),
     { key: "finish", label: "Finished the game", note: "played it to the end", did: (t) => t.finished || t.arcadeWon },
-    { key: "tourcard", label: "Opened their player card", note: "the lobby tour's first stop, which opens the Season pass", did: (t) => t.tourCard || t.toured },
+    // until 2026-10-23 this stop was the player card (Season pass); now it's the hello every new player sends
+    { key: "tourcard", label: "Said hi in the Lounge", note: "the hello after the first hand (before 2026-10-23: opened their player card)", did: (t) => t.tourCard || t.toured },
     { key: "tour", label: "Picked what's next", note: "the tour's last card: more coaching, save progress, or the lobby", did: (t) => t.toured },
     { key: "again", label: "Played another game", note: "a second game of any kind", did: (t) => t.games >= 2 || t.online },
     { key: "back", label: "Came back later", note: "12+ hours after the first visit", did: (t) => t.back },

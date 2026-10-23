@@ -99,6 +99,8 @@ export interface RuleOptions {
   rolePool?: RoleId[];
   /** Learner tables: the game ends after this many rounds (everyone Boss once per round), scored like Last Call. */
   rounds?: number;
+  /** Learner tables: the game ends after this many Boss turns (the first hand: just the learner's), scored like Last Call. */
+  turns?: number;
 }
 
 /** One finished job, kept so players (and bots) can look back at who backed whom and who got burned. */

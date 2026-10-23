@@ -217,7 +217,8 @@ export function Table({
   });
   useEffect(() => talk?.listenDrinks((from, to, emoji) => drinks.send(from, to, emoji)), [talk, drinks.send]);
   // the tour pauses nothing, so it only runs at a local table where the game waits for you
-  const [walk, setWalk] = useState(() => !getPrefs().walked && useSource === useTable);
+  // the first hand goes straight to a decision: no walkthrough (the coach explains each idea as it comes)
+  const [walk, setWalk] = useState(() => !getPrefs().walked && useSource === useTable && settings.lesson !== FIRST_HAND);
   const [potShown, setPotShown] = useState(0);
   const [paidOut, setPaidOut] = useState(false);
   const paid = useRef(false);

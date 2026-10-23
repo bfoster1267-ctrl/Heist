@@ -44,11 +44,10 @@ export interface LobbyChoice {
 export type LobbyPage = "career" | "wardrobe" | "season" | "shop" | "board";
 
 /**
- * The lobby tour after a new player's first hand: tap the player card (nothing else can be tapped),
- * which opens the Season pass; then the Lounge opens with a hello typed in (send it or skip); then
- * pick what's next: more coaching, saving the account, or the lobby.
+ * After a new player's first hand: the Lounge opens with a hello typed in that they send (App.tsx),
+ * then they pick what's next: more coaching, saving the account, or the lobby.
  */
-export type TourStep = "profile" | "lounge" | "next";
+export type TourStep = "lounge" | "next";
 
 export function Lobby({
   chips,
@@ -485,7 +484,7 @@ export function Lobby({
         <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
       </Suspense>
       <AnimatePresence>
-        {tour && tour !== "lounge" && onTour && onOpen && (tour === "next" ? (
+        {tour === "next" && onTour && (
           <TourNext
             key="next"
             nextLesson={nextLesson}
@@ -502,58 +501,9 @@ export function Lobby({
             }
             onLobby={() => onTour(null)}
           />
-        ) : (
-          <TourSpot
-            key={tour}
-            onTap={() => {
-              onTour("lounge");
-              onOpen("season");
-            }}
-          />
-        ))}
+        )}
       </AnimatePresence>
     </div>
-  );
-}
-
-/** The tour's spotlight: the lobby dims, the player card shines, and only it can be tapped. */
-function TourSpot({ onTap }: { onTap: () => void }) {
-  const [r, setR] = useState<DOMRect | null>(null);
-  useEffect(() => {
-    const measure = () => setR(document.querySelector(".acct-corner .acct-chip")?.getBoundingClientRect() ?? null);
-    measure();
-    // the lobby animates in, and phones turn: keep the spotlight on the card
-    const t = window.setInterval(measure, 400);
-    window.addEventListener("resize", measure);
-    return () => {
-      clearInterval(t);
-      window.removeEventListener("resize", measure);
-    };
-  }, []);
-  const pad = 6;
-  const below = r ? r.top < window.innerHeight / 2 : false;
-  return createPortal(
-    <motion.div className="tour" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} role="dialog" aria-label="Your stuff">
-      {r && (
-        <button
-          className="tour-hole"
-          data-track="tour-profile"
-          style={{ left: r.left - pad, top: r.top - pad, width: r.width + pad * 2, height: r.height + pad * 2 }}
-          onClick={onTap}
-          aria-label="Open your profile"
-        />
-      )}
-      <motion.div
-        className="tour-card"
-        initial={{ y: 12, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        style={r ? (below ? { top: r.bottom + 18 } : { bottom: window.innerHeight - r.top + 18 }) : undefined}
-      >
-        <b>{t("tour.spot_title", "Your stuff lives here")}</b>
-        <span>{t("tour.spot_desc", "The Season pass, your look, the shop and your stats. Tap your card to see the prize at the top of the pass.")}</span>
-      </motion.div>
-    </motion.div>,
-    document.body,
   );
 }
 

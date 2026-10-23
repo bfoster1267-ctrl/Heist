@@ -746,7 +746,6 @@ export const en: Record<string, string> = {
   "lounge.greet_title": "Say hi to the room",
   "lounge.greet_desc": "Real players hang out here. Send this and someone might queue up with you.",
   "lounge.greet_sent": "Sent! Everyone in the Lounge can see it.",
-  "lounge.greet_skip": "Skip for now",
   "lounge.fine": "Be nice. Swears get starred out; links and slurs don't send.",
   "lounge.unmute": "Unmute {count}",
   "lounge.muted_note": "{name} is muted. You won't see them here.",

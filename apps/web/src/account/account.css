@@ -2778,7 +2778,7 @@
   outline: 2px solid var(--gold);
   outline-offset: 1px;
 }
-/* the lobby tour's last stop: a hello is typed in, Send glows, Skip stays small */
+/* a new player's hello: typed in for them, Send glows */
 .lounge-greet {
   display: flex;
   flex-direction: column;
@@ -2825,17 +2825,6 @@
     animation: none;
     box-shadow: 0 0 16px rgba(231, 181, 60, 0.7);
   }
-}
-.lounge-skip {
-  align-self: center;
-  margin: 6px 0 0;
-  padding: 4px 10px;
-  border: 0;
-  background: none;
-  color: rgba(244, 236, 216, 0.5);
-  font-size: 12px;
-  text-decoration: underline;
-  cursor: pointer;
 }
 .lounge-locked {
   padding: 12px 10px;

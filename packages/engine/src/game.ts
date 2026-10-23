@@ -361,7 +361,7 @@ export class HeistGame {
         this.endLastCall();
         break;
       }
-      if (s.rules.rounds && s.turn + 1 >= s.rules.rounds * s.n) {
+      if ((s.rules.rounds && s.turn + 1 >= s.rules.rounds * s.n) || (s.rules.turns && s.turn + 1 >= s.rules.turns)) {
         this.endLastCall(true);
         break;
       }

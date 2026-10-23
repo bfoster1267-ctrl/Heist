@@ -746,7 +746,6 @@ export const ptBR: Record<string, string> = {
   "lounge.greet_title": "Diga oi para a galera",
   "lounge.greet_desc": "Jogadores de verdade ficam por aqui. Mande isso e alguém pode entrar na fila com você.",
   "lounge.greet_sent": "Enviado! Todo mundo no Lounge pode ver.",
-  "lounge.greet_skip": "Pular por agora",
   "lounge.fine": "Seja gentil. Palavrões são censurados; links e ofensas são bloqueados.",
   "lounge.unmute": "Desmutar {count}",
   "lounge.muted_note": "{name} foi silenciado. Você não verá mais suas mensagens aqui.",
