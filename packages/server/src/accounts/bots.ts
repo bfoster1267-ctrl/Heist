@@ -10,7 +10,7 @@ export const CRAWLER_UA =
   /(?<!cu)bot\b|(?<!cu)bot\/|crawl|spider|slurp|preview|facebookexternalhit|embedly|headless|phantomjs|puppeteer|playwright|selenium|lighthouse|pagespeed|python-requests|python-urllib|aiohttp|curl\/|wget|go-http-client|okhttp|java\/|axios|node-fetch|undici|scrapy|httpclient|feedfetcher|mediapartners|bingpreview|ahrefs|semrush|mj12|dotbot|petalbot|yandex|baiduspider|duckduckbot|applebot|discordbot|twitterbot|slackbot|telegrambot|whatsapp|skypeuripreview|redditbot|iframely|vkshare|quora link preview|linkedinbot|google-inspectiontool|chrome-lighthouse|gtmetrix|statuscake|pingdom|censys|zgrab|masscan|nmap/i;
 
 /** host names (reverse DNS) of the big crawlers' addresses */
-export const CRAWLER_HOST = /\.(googlebot\.com|google\.com|googleusercontent\.com|search\.msn\.com|crawl\.yahoo\.net|crawl\.baidu\.com|yandex\.(ru|net|com)|applebot\.apple\.com|amazonaws\.com|compute\.internal|petalsearch\.com|ahrefs\.com|semrush\.com)$/i;
+export const CRAWLER_HOST = /\.(googlebot\.com|google\.com|googleusercontent\.com|search\.msn\.com|crawl\.yahoo\.net|crawl\.baidu\.com|yandex\.(ru|net|com)|applebot\.apple\.com|amazonaws\.com|compute\.internal|fbsv\.net|tfbnw\.net|facebook\.com|petalsearch\.com|ahrefs\.com|semrush\.com)$/i;
 
 /** Which app or site sent a visitor, from the page's referrer and the browser's user agent. */
 export function sourceOf(ref: string | undefined, ua: string | undefined): string | null {
@@ -77,8 +77,20 @@ export function judge(events: readonly ActivityEvent[], signedUp: boolean, now: 
     if (h && CRAWLER_HOST.test(h)) return { kind: "crawler", reason: `Crawler address: ${h}` };
   }
   if (now - events[0].at < SETTLE_MS) return null;
+  // someone who tapped an ad (or a link) on their phone and only looked is a person who left, not a robot:
+  // robots don't open in the Facebook/Instagram/Reddit app's own browser or carry a phone's ad click
+  if (events.some(lookedAndLeft)) return null;
   const turn = events.some((e) => e.kind === "ui.turn" || e.kind === "solo.start");
   return { kind: "untouched", reason: turn ? "Never tapped anything: the first lesson started on its own and it left" : "Never tapped anything" };
+}
+
+const AD_CLICK = ["fbclid", "gclid", "gbraid", "wbraid"];
+const PHONE = /iPhone|iPad|Android|Mobile|Silk\//;
+function lookedAndLeft(e: ActivityEvent): boolean {
+  if (!e.ua) return false;
+  if (/ app$/.test(sourceOf(undefined, e.ua) ?? "")) return true;
+  const land = ((e.data ?? {}) as { land?: Record<string, unknown> }).land ?? {};
+  return PHONE.test(e.ua) && AD_CLICK.some((k) => typeof land[k] === "string" && land[k] !== "");
 }
 
 const short = (ua: string) => {

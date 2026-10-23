@@ -54,6 +54,22 @@ describe("bot visits", () => {
     expect(judge(fresh, false, now + SETTLE_MS, () => undefined)?.kind).toBe("untouched");
   });
 
+  it("keeps people who came from an ad or an app's browser and only looked", () => {
+    const now = Date.UTC(2026, 9, 23);
+    const fbApp = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 [FBAN/FBIOS;FBAV/480.0]";
+    const android = "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/126.0 Mobile Safari/537.36";
+    const mac = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15";
+    const look = (ua: string, land?: Record<string, string>) => [{ at: now - 20 * MIN, kind: "auth.guest", userId: "u", ua, ...(land ? { data: { land } } : {}) }];
+    expect(judge(look(fbApp), false, now, () => undefined)).toBeNull();
+    expect(judge(look(android, { fbclid: "x", play: "1" }), false, now, () => undefined)).toBeNull();
+    // a desktop ad check, or a phone with no ad click, still counts as untouched
+    expect(judge(look(mac, { fbclid: "x" }), false, now, () => undefined)?.kind).toBe("untouched");
+    expect(judge(look(android), false, now, () => undefined)?.kind).toBe("untouched");
+    // Meta's own reviewers are crawlers wherever they land
+    const meta = [{ ...look(fbApp)[0], ip: "31.13.127.3" }];
+    expect(judge(meta, false, now, () => "fwdproxy-xyz.fbsv.net")?.kind).toBe("crawler");
+  });
+
   it("leaves bots out of the stats and lists them with where they came from", async () => {
     const { svc, admin, wait } = setup(async (ip) => (ip === "207.46.13.154" ? ["msnbot-207-46-13-154.search.msn.com"] : []));
     // a person: the lesson starts, they tap through it
