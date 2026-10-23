@@ -3,6 +3,7 @@
 
 import { useState } from "react";
 import type { Funnel } from "./api";
+import { Benchmarks } from "./benchmarks";
 import { ARCADE, Link, Stat, day, go, labelOf, num, usePoll, when, PlayerNum } from "./bits";
 import { Problem, useAdmin, type PageProps } from "./pages";
 
@@ -132,6 +133,7 @@ export function FunnelPage({ s, onAuth, query }: PageProps) {
               return st ? <Stat key={k} label={st.label} value={pct(st.reached, start)} sub={`${num(st.reached)} people`} /> : null;
             })}
           </section>
+          {f.rates && <Benchmarks rates={f.rates} />}
           <div className="card">
             <div className="card-head">
               <h3>How far new people got</h3>

@@ -345,6 +345,12 @@ export interface FunnelStep {
   people?: FunnelPerson[];
 }
 
+export interface FunnelRate {
+  key: "started" | "turn1quit" | "finished" | "again" | "back" | "signup";
+  n: number;
+  of: number;
+}
+
 export interface Funnel {
   from: number;
   to: number;
@@ -353,6 +359,8 @@ export interface Funnel {
   people: number;
   steps: FunnelStep[];
   worst: { step: string; label: string; stopped: number; of: number } | null;
+  /** headline rates, each on its own base (older servers send none) */
+  rates?: FunnelRate[];
   newest: FunnelPerson[];
   /** new people in range by where they came from (before the source filter), biggest first */
   sources?: { key: string; label: string; people: number }[];
