@@ -86,6 +86,12 @@ export interface FunnelStep {
   people?: FunnelPerson[];
 }
 
+export interface FunnelRate {
+  key: "started" | "turn1quit" | "finished" | "again" | "back" | "signup";
+  n: number;
+  of: number;
+}
+
 export interface Funnel {
   from: number;
   to: number;
@@ -98,6 +104,8 @@ export interface Funnel {
   /** the step most people stop at (null when nobody stopped anywhere but the end) */
   worst: { step: string; label: string; stopped: number; of: number } | null;
   newest: FunnelPerson[];
+  /** headline rates for comparing with industry numbers: n of `of` people (each rate has its own base) */
+  rates: FunnelRate[];
   /** new people in range by where they came from (before the source filter), biggest first */
   sources: { key: SourceKey; label: string; people: number }[];
 }
@@ -339,6 +347,19 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
         })),
     };
   });
+  // rates read each person's own record, not the furthest step (a sign-up who never came back isn't "back")
+  const lastAt = sorted[sorted.length - 1]?.at ?? to;
+  const heist = at.filter((x) => x.t.lesson);
+  // coming back can only be judged for people whose first visit was long enough ago
+  const settled = at.filter((x) => lastAt - x.t.first >= 2 * RETURN_AFTER);
+  const rates: FunnelRate[] = [
+    { key: "started", n: at.filter((x) => x.t.lesson || x.t.arcadeStarted).length, of: at.length },
+    { key: "turn1quit", n: heist.filter((x) => x.t.turn < 2 && !x.t.finished).length, of: heist.length },
+    { key: "finished", n: at.filter((x) => x.t.finished || x.t.arcadeWon).length, of: at.length },
+    { key: "again", n: at.filter((x) => x.t.games >= 2 || x.t.online).length, of: at.length },
+    { key: "back", n: settled.filter((x) => x.t.back).length, of: settled.length },
+    { key: "signup", n: at.filter((x) => x.t.signedUp).length, of: at.length },
+  ];
   // the last step is the finish line, not a drop
   let worst: Funnel["worst"] = null;
   for (const s of steps.slice(0, -1)) if (s.stopped > 0 && (!worst || s.stopped > worst.stopped)) worst = { step: s.key, label: s.label, stopped: s.stopped, of: at.length };
@@ -349,6 +370,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     people: at.length,
     steps,
     worst,
+    rates,
     newest: at
       .sort((a, b) => b.t.first - a.t.first)
       .slice(0, 100)

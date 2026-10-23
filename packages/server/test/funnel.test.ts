@@ -111,4 +111,35 @@ describe("drop-off funnel: where people came from", () => {
     expect(ads.steps.find((s) => s.key === "tourcard")?.reached).toBe(1);
     expect(ads.steps.find((s) => s.key === "tour")?.reached).toBe(0);
   });
+
+  it("gives headline rates on each person's own record, judging coming back only once a day has passed", () => {
+    const ev: ActivityEvent[] = [
+      // p: quits Heist on turn 1, never back
+      { at: t0, kind: "auth.guest", userId: "p" },
+      { at: t0 + 1, kind: "solo.start", userId: "p", ok: true, data: { coached: true, gameId: "p1" } },
+      { at: t0 + 2, kind: "ui.turn", userId: "p", data: { turn: 1, coached: true } },
+      // q: finishes, plays again, back 13 h later
+      { at: t0, kind: "auth.guest", userId: "q" },
+      { at: t0 + 1, kind: "solo.start", userId: "q", ok: true, data: { coached: true, gameId: "q1" } },
+      { at: t0 + 2, kind: "ui.turn", userId: "q", data: { turn: 4, coached: true } },
+      { at: t0 + 3, kind: "game.solo", userId: "q", data: { coached: true, quit: false } },
+      { at: t0 + 4, kind: "solo.start", userId: "q", ok: true, data: {} },
+      { at: t0 + 13 * H, kind: "app.open", userId: "q" },
+      // r: signs up straight away but never comes back
+      { at: t0, kind: "auth.guest", userId: "r" },
+      { at: t0 + 5, kind: "auth.register", userId: "r", ok: true },
+      // s: arrives an hour before the log ends, so too soon to say whether they come back
+      { at: t0 + 29 * H, kind: "auth.guest", userId: "s" },
+      { at: t0 + 30 * H, kind: "ui.tap", userId: "s", data: { name: "Quick Match" } },
+    ];
+    const g = buildFunnel(ev, (id) => id, t0 - H, t0 + 100 * H);
+    const rate = (k: string) => g.rates.find((x) => x.key === k);
+    expect(rate("started")).toMatchObject({ n: 2, of: 4 });
+    expect(rate("turn1quit")).toMatchObject({ n: 1, of: 2 });
+    expect(rate("finished")).toMatchObject({ n: 1, of: 4 });
+    expect(rate("again")).toMatchObject({ n: 1, of: 4 });
+    // the furthest-step funnel counts r as "back"; the rate doesn't, and leaves s out of the base
+    expect(rate("back")).toMatchObject({ n: 1, of: 3 });
+    expect(rate("signup")).toMatchObject({ n: 1, of: 4 });
+  });
 });

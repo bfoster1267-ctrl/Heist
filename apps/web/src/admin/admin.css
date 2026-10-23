@@ -1544,3 +1544,16 @@ h4 {
   opacity: 0.6;
   font-style: italic;
 }
+.bench td.up {
+  color: var(--cash);
+}
+.bench td.down {
+  color: var(--red);
+}
+.bench + h4 {
+  margin: 16px 0 2px;
+}
+.bench td:first-child {
+  white-space: normal;
+  min-width: 150px;
+}
