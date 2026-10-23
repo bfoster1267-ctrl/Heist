@@ -86,6 +86,8 @@ export interface Account {
   sessions: number;
   /** phones and browsers that asked for turn alerts (web push), newest last */
   push?: PushSub[];
+  /** real-money purchases Stripe confirmed, one per Checkout Session (so a replayed webhook pays once) */
+  paid?: { session: string; purchase: string; cents: number; at: number }[];
   /** the owner's notes, tags, flag and ban (admin panel only; never sent to the player) */
   crm?: Crm;
   /** their answer to "What lost you?" after their first game (asked once; "skip" when they closed it) */

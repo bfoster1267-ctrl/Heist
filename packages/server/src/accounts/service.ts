@@ -5,7 +5,7 @@
 import { randomBytes, randomInt } from "node:crypto";
 import {
   badgeOf, buy, buyIn, daily, equip, failed, levelInfo, newProgress, openPack, payForDrink, payout, prestige, publicProfile, refill,
-  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, replayCheckers, checkersTallyOf, checkersPay, settleCheckers, isCheckersLevel, replayHearts, heartsTallyOf, heartsPay, settleHearts, isHeartsLevel, replaySpades, spadesTallyOf, spadesPay, settleSpades, isSpadesLevel, tallyMines, minesPay, settleMinesweeper, isMinesLevel, MINES_DAILY_LEVEL, tallySudoku, sudokuPay, settleSudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, soloMates, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
+  replaySolo, tallySol, solPay, settleSolitaire, tallyFreeCell, fcPay, settleFreeCell, tallyTriPeaks, tpPay, settleTriPeaks, tallyErs, ersPay, settleErs, tallySpider, spiderPay, settleSpider, tallyPyramid, pyramidPay, settlePyramid, tallyYukon, yukonPay, settleYukon, tallyScoundrel, scoundrelPay, settleScoundrel, replayCheckers, checkersTallyOf, checkersPay, settleCheckers, isCheckersLevel, replayHearts, heartsTallyOf, heartsPay, settleHearts, isHeartsLevel, replaySpades, spadesTallyOf, spadesPay, settleSpades, isSpadesLevel, tallyMines, minesPay, settleMinesweeper, isMinesLevel, MINES_DAILY_LEVEL, tallySudoku, sudokuPay, settleSudoku, isSudokuLevel, SUDOKU_DAILY_LEVEL, easySeed, lessonFor, FIRST_HAND, settle, settleCoached, addMistakes, addCounts, MISTAKES, MISTAKE_IDS, type MistakeCounts, summarize, upgrade, BOT_RATING, botLevelFor, botLevelsFor, soloRivals, soloMates, stage, drink as drinkInfo, level, places, rankedPublic, RANKED_LEVEL, RANKED_START_MMR, buyStreakFreeze, claimDailyVault, claimWelcomeGift, getDailySeed, todayUtc, recordQuestActivity, readPurchaseRef, type Badge, type Fail, type Progress, type PublicProfile, type Reward,
 } from "@heist/profile";
 import type { BotLevel, GameEvent } from "@heist/engine";
 import { cleanName, type Identity, type IdentityProvider } from "../identity";
@@ -16,6 +16,7 @@ import { MemoryAccountStore, type Account, type Crm, type Feedback, FEEDBACK_REA
 import { Tokens, checkPassword, hashPassword } from "./tokens";
 import { STOCK_NAME, cringeName } from "./names";
 import { parseSub, type PushSub } from "../push";
+import { fetchSession, type StripeSession } from "./stripe";
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -232,36 +233,53 @@ export class AccountService {
   }
 
   /**
-   * Activates VIP Founder Pass on the server account.
-   * Verifies the Stripe checkout session token format and optionally confirms payment with Stripe REST API if STRIPE_SECRET_KEY is configured.
+   * The VIP Founder Pass, when Stripe sent the player back with a Checkout Session id. The webhook normally
+   * grants it first; this is the fallback when the player gets back before Stripe's call. The session must be
+   * paid, be for VIP, and name this account, and it only counts once.
    */
   async claimVip(a: Account, sessionId?: string): Promise<Me> {
     this.checkBan(a);
-    if (sessionId) {
-      if (!/^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId)) {
-        throw new ApiError(400, "Invalid Stripe checkout session token");
-      }
-      const secret = process.env.STRIPE_SECRET_KEY;
-      if (secret) {
-        try {
-          const res = await fetch(`https://api.stripe.com/v1/checkout/sessions/${sessionId}`, {
-            headers: { Authorization: `Bearer ${secret}` },
-          });
-          if (!res.ok) throw new Error("Stripe verification failed");
-          const session = (await res.json()) as { payment_status?: string };
-          if (session.payment_status !== "paid") {
-            throw new ApiError(400, "Stripe session payment not completed");
-          }
-        } catch (err) {
-          if (err instanceof ApiError) throw err;
-          throw new ApiError(400, "Unable to verify Stripe checkout session with Stripe API");
-        }
-      }
+    if (upgrade(a.progress).vip) return this.me(a);
+    if (!sessionId || !/^cs_(live|test)_[a-zA-Z0-9_]{16,}$/.test(sessionId)) throw new ApiError(400, "That isn't a Stripe receipt");
+    const key = process.env.STRIPE_SECRET_KEY;
+    if (!key) throw new ApiError(503, "Payments are still being set up");
+    let session: StripeSession;
+    try {
+      session = await fetchSession(sessionId, key);
+    } catch {
+      throw new ApiError(502, "Couldn't check that payment with Stripe. Try again in a minute.");
     }
-    a.progress = upgrade(a.progress);
-    a.progress.vip = true;
-    await this.store.put(a);
-    return this.me(a);
+    const ref = readPurchaseRef(session.client_reference_id);
+    if (session.payment_status !== "paid" || !ref?.purchase.vip || ref.accountId !== a.id) throw new ApiError(400, "That payment isn't a VIP pass for this account");
+    await this.stripePaid(session);
+    const x = await this.store.get(a.id);
+    return this.me(x ?? a);
+  }
+
+  /**
+   * A Checkout Session Stripe says is complete: credit what was bought to the account named in it. Pays each
+   * session once, and only when Stripe charged the listed price. Returns what happened, for the log.
+   */
+  async stripePaid(session: StripeSession): Promise<"credited" | "repeat" | "unpaid" | "unmatched"> {
+    if (session.payment_status !== "paid") return "unpaid";
+    const ref = readPurchaseRef(session.client_reference_id);
+    const priced = ref && session.amount_total === ref.purchase.cents && (session.currency ?? "usd") === "usd";
+    if (!ref || !priced || !(await this.store.get(ref.accountId))) {
+      this.track({ kind: "shop.unmatched", data: { session: session.id, ref: session.client_reference_id ?? null, cents: session.amount_total ?? null } });
+      return "unmatched";
+    }
+    return this.update(ref.accountId, (x) => {
+      x.paid ??= [];
+      if (x.paid.some((p) => p.session === session.id)) return "repeat" as const;
+      const p = ref.purchase;
+      x.paid.push({ session: session.id, purchase: p.id, cents: p.cents, at: this.now() });
+      x.progress = upgrade(x.progress);
+      if (p.vip) x.progress.vip = true;
+      if (p.coins) x.progress.coins += p.coins;
+      if (p.chips) x.progress.chips += p.chips;
+      this.track({ kind: "shop.purchase", userId: x.id, name: x.name, data: { purchase: p.id, cents: p.cents, session: session.id } });
+      return "credited" as const;
+    });
   }
 
   /** The account's suspension, if one is in force. */

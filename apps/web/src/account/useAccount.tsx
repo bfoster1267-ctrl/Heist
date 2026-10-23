@@ -5,7 +5,7 @@ import { cosmetic, type Reward } from "@heist/profile";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { bootStep } from "../boot";
 import { BackendError, openBackend, type Backend, type Me } from "./backend";
-import { getHeistProSession, useHeistPro } from "./pro";
+import { getHeistProSession, setHeistPro, useHeistPro } from "./pro";
 
 interface AccountCtx {
   backend: Backend | null;
@@ -101,8 +101,13 @@ export function AccountProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!backend || !me) return;
-    if (isPro && !me.progress.vip) {
-      backend.claimVip(getHeistProSession() ?? undefined).then(setMe, () => {});
+    // on the server, the account says who is VIP: a paid pass shows on every device, and a local flag
+    // nobody paid for is dropped once the server turns its receipt down
+    if (backend.kind === "server" && me.progress.vip && !isPro) setHeistPro(true);
+    else if (isPro && !me.progress.vip) {
+      backend.claimVip(getHeistProSession() ?? undefined).then(setMe, () => {
+        if (backend.kind === "server") setHeistPro(false);
+      });
     }
   }, [backend, me, isPro]);
 

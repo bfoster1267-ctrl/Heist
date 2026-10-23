@@ -41,6 +41,8 @@ export interface Config {
   apple: string | null;
   google: string | null;
   facebook: string | null;
+  /** the server can hear about Stripe payments, so the shop may sell (off until Stripe's keys are set) */
+  payments?: boolean;
 }
 
 export interface SoloTicket {

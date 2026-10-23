@@ -13,6 +13,7 @@ import type { Hosting } from "./hosting";
 import { ApiError, type AccountService } from "./service";
 import type { Account } from "./store";
 import type { Social } from "./social";
+import { stripeSigned, type StripeSession } from "./stripe";
 
 const BODY_LIMIT = 16 * 1024;
 /** a finished solo game posts every answer the player gave */
@@ -325,6 +326,8 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     "GET /api/config": async () => ({
       providers: [...svc.oauth.providers(), "email", ...(svc.devLogins ? ["dev"] : [])],
       ...svc.oauth.publicConfig(),
+      // the shop's buy buttons show only once Stripe can tell the server about payments
+      payments: !!process.env.STRIPE_WEBHOOK_SECRET && !!process.env.STRIPE_SECRET_KEY,
     }),
     "POST /api/auth/guest": async (b) => svc.guest(b.token, b.name, b.src),
     "POST /api/auth/crazygames": async (b, t) => svc.crazyGames(b.credential, t),
@@ -621,6 +624,55 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     });
   }
 
+  /**
+   * POST /api/stripe/webhook: Stripe's call after a payment. Signed with STRIPE_WEBHOOK_SECRET (off without it);
+   * checkout.session.completed credits the purchase. Anything else signed gets a 200 so Stripe stops retrying.
+   */
+  async function stripeWebhook(req: IncomingMessage, res: ServerResponse) {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    if (!secret) return send(res, 503, { error: "Payments are off" });
+    let raw: Buffer;
+    try {
+      raw = await readRaw(req, 256 * 1024);
+    } catch {
+      return send(res, 413, { error: "Too big" });
+    }
+    const sig = req.headers["stripe-signature"];
+    if (!stripeSigned(raw, typeof sig === "string" ? sig : undefined, secret, now())) return send(res, 400, { error: "Bad signature" });
+    let event: { type?: string; data?: { object?: StripeSession } };
+    try {
+      event = JSON.parse(raw.toString());
+    } catch {
+      return send(res, 400, { error: "Bad JSON" });
+    }
+    const s = event.data?.object;
+    if ((event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") && s?.id) {
+      try {
+        return send(res, 200, { ok: true, result: await svc.stripePaid(s) });
+      } catch (e) {
+        console.error("stripe", e);
+        return send(res, 500, { error: "Something went wrong" });
+      }
+    }
+    send(res, 200, { ok: true, ignored: event.type ?? null });
+  }
+
+  function readRaw(req: IncomingMessage, limit: number): Promise<Buffer> {
+    return new Promise((resolve, reject) => {
+      let size = 0;
+      const chunks: Buffer[] = [];
+      req.on("data", (c: Buffer) => {
+        size += c.length;
+        if (size > limit) {
+          reject(new ApiError(413, "Too big"));
+          req.destroy();
+        } else chunks.push(c);
+      });
+      req.on("end", () => resolve(Buffer.concat(chunks)));
+      req.on("error", reject);
+    });
+  }
+
   /** Handles /api/* requests; returns false for anything else. */
   return async function handle(req: IncomingMessage, res: ServerResponse): Promise<boolean> {
     const url = new URL(req.url ?? "/", "http://x");
@@ -639,6 +691,10 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     if (ua.includes(CLAUDE_UA)) w.tester = "claude";
     if (url.pathname.startsWith("/api/admin/")) {
       await adminRoute(req, res, url, ip);
+      return true;
+    }
+    if (req.method === "POST" && url.pathname === "/api/stripe/webhook") {
+      await stripeWebhook(req, res);
       return true;
     }
     let key = `${req.method} ${url.pathname}`;
