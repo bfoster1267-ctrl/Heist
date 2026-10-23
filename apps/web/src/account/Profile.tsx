@@ -20,14 +20,14 @@ import { useAccount } from "./useAccount";
 import { AddFriendButton, Friends } from "./Friends";
 import { badgeCount, useFriends } from "./social";
 import { t } from "../i18n";
-import { COIN_BUNDLES, HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
+import { COIN_BUNDLES, HEIST_PRO_STRIPE_URL, buyUrl, useHeistPro } from "./pro";
 import { click } from "../sound";
 import { buzz } from "../haptics";
 
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
 export function Profile({ onClose, tab: start = "career", chat }: { onClose: () => void; tab?: Tab; /** a friend's chat to open on the Friends tab */ chat?: string | null }) {
-  const { me } = useAccount();
+  const { me, backend } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
   const [shopSubTab, setShopSubTab] = useState<"cosmetics" | "stashes">("cosmetics");
   const friends = useFriends();
@@ -67,10 +67,15 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
         </div>
         <Header
           me={me}
-          onOpenStashes={() => {
-            setShopSubTab("stashes");
-            setTab("shop");
-          }}
+          onOpenStashes={
+            // the paid shop stays hidden until the server can take Stripe payments
+            backend?.config.payments
+              ? () => {
+                  setShopSubTab("stashes");
+                  setTab("shop");
+                }
+              : undefined
+          }
         />
         <nav className="acct-tabs">
           {(
@@ -135,21 +140,28 @@ function Header({ me, onOpenStashes }: { me: Me; onOpenStashes?: () => void }) {
         <NextUnlock level={li.level} prestige={p.prestige} />
       </div>
       <div className="acct-head-wallet">
-        <button
-          type="button"
-          className="acct-head-wallet-btn"
-          onClick={() => {
-            click();
-            buzz("tap");
-            onOpenStashes?.();
-          }}
-          title="Buy Coins & Chips"
-          aria-label="Buy Coins and Chips"
-        >
-          <span className="acct-wallet-plus-badge" aria-hidden>+</span>
-          <Chips amount={p.chips} />
-          <Coins amount={p.coins} big />
-        </button>
+        {onOpenStashes ? (
+          <button
+            type="button"
+            className="acct-head-wallet-btn"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onOpenStashes();
+            }}
+            title="Buy Coins & Chips"
+            aria-label="Buy Coins and Chips"
+          >
+            <span className="acct-wallet-plus-badge" aria-hidden>+</span>
+            <Chips amount={p.chips} />
+            <Coins amount={p.coins} big />
+          </button>
+        ) : (
+          <div className="acct-head-wallet-btn">
+            <Chips amount={p.chips} />
+            <Coins amount={p.coins} big />
+          </div>
+        )}
         {canPrestige && (
           <button className="btn warn" onClick={() => setConfirm(true)}>
             {t("profile.prestige")}
@@ -452,10 +464,12 @@ function Shop({
   subTab?: "cosmetics" | "stashes";
   onSubTabChange?: (tab: "cosmetics" | "stashes") => void;
 }) {
-  const { act } = useAccount();
+  const { act, backend } = useAccount();
   const p = me.progress;
   const li = levelInfo(p.xp);
   const pro = useHeistPro();
+  const payments = backend?.config.payments;
+  const vipUrl = buyUrl(HEIST_PRO_STRIPE_URL, "vip", me.id, payments);
   const [busy, setBusy] = useState<string | null>(null);
   const [shopTab, setShopTab] = useState<"cosmetics" | "stashes">(subTab);
 
@@ -481,7 +495,7 @@ function Shop({
   return (
     <div className="acct-shop">
       {/* Sub-navigation tabs: separates in-game cosmetics from currency stashes */}
-      <div className="acct-shop-tabs" role="tablist">
+      {payments && <div className="acct-shop-tabs" role="tablist">
         <button
           type="button"
           role="tab"
@@ -501,22 +515,24 @@ function Shop({
           <CoinIcon size={16} /> <ChipIcon size={16} /> Buy Coins &amp; Chips
           <span className="acct-shop-tab-badge">6 Packs</span>
         </button>
-      </div>
+      </div>}
 
-      {shopTab === "cosmetics" ? (
+      {shopTab === "cosmetics" || !payments ? (
         <>
           <div className="acct-shop-quick-bar">
             <div className="acct-shop-quick-left">
               <Coins amount={p.coins} big />
               <span className="dim">{t("shop.coins_desc")}</span>
             </div>
-            <button
-              type="button"
-              className="btn small gold acct-shop-quick-btn"
-              onClick={() => switchTab("stashes")}
-            >
-              <CoinIcon size={15} /> <ChipIcon size={15} /> + Get Coins &amp; Chips
-            </button>
+            {payments && (
+              <button
+                type="button"
+                className="btn small gold acct-shop-quick-btn"
+                onClick={() => switchTab("stashes")}
+              >
+                <CoinIcon size={15} /> <ChipIcon size={15} /> + Get Coins &amp; Chips
+              </button>
+            )}
           </div>
 
           {SLOTS.map(([slot, labelKey]) => (
@@ -581,9 +597,11 @@ function Shop({
               <span className="acct-pro-hero-price">$4.99</span>
               {pro ? (
                 <span className="acct-pro-active-badge">✓ VIP Active</span>
+              ) : !vipUrl ? (
+                <span className="dim">Coming soon</span>
               ) : (
                 <a
-                  href={HEIST_PRO_STRIPE_URL}
+                  href={vipUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn small gold"
@@ -624,9 +642,9 @@ function Shop({
                       <ChipIcon size={15} /> +{b.chips.toLocaleString()} Chips
                     </span>
                   </div>
-                  {b.stripeUrl ? (
+                  {buyUrl(b.stripeUrl, b.purchase, me.id, payments) ? (
                     <a
-                      href={b.stripeUrl}
+                      href={buyUrl(b.stripeUrl, b.purchase, me.id, payments)!}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="btn small gold acct-bundle-btn"
@@ -640,7 +658,7 @@ function Shop({
                       className="btn small acct-bundle-btn"
                       disabled
                       aria-disabled="true"
-                      title="Coming soon - waiting for dedicated Stripe checkout link"
+                      title="Coming soon"
                     >
                       Coming Soon ({b.price})
                     </button>

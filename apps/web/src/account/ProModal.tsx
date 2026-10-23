@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { HEIST_PRO_STRIPE_URL, useHeistPro } from "./pro";
+import { HEIST_PRO_STRIPE_URL, buyUrl, useHeistPro } from "./pro";
+import { useAccountMaybe } from "./useAccount";
 import { buzz } from "../haptics";
 import { click } from "../sound";
 import "./proModal.css";
@@ -13,6 +14,8 @@ export function ProModal({
   onClose: () => void;
 }) {
   const pro = useHeistPro();
+  const acct = useAccountMaybe();
+  const vipUrl = buyUrl(HEIST_PRO_STRIPE_URL, "vip", acct?.me?.id, acct?.backend?.config.payments);
   const cardRef = useRef<HTMLDivElement>(null);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const prevFocusRef = useRef<HTMLElement | null>(null);
@@ -206,9 +209,11 @@ export function ProModal({
           <div className="pro-active-banner">
             ✓ You have VIP Founder Status Active! Thank you for supporting Heist.
           </div>
+        ) : !vipUrl ? (
+          <div className="pro-active-banner">The VIP Founder Pass is coming soon.</div>
         ) : (
           <a
-            href={HEIST_PRO_STRIPE_URL}
+            href={vipUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="pro-buy-btn"

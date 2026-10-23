@@ -2,12 +2,15 @@
  * Heist VIP Founder Pass state, storage, and checkout integration.
  */
 
+import { purchase, purchaseRef } from "@heist/profile";
 import { useSyncExternalStore } from "react";
 
 export const HEIST_PRO_STRIPE_URL = "https://buy.stripe.com/cNicN42WW2Ta16V1fDf3a00";
 
 export interface CoinBundle {
   id: string;
+  /** the purchase in @heist/profile's PURCHASES this bundle sells */
+  purchase: string;
   name: string;
   coins: number;
   chips: number;
@@ -20,9 +23,10 @@ export interface CoinBundle {
 export const COIN_BUNDLES: CoinBundle[] = [
   {
     id: "bundle_starter",
+    purchase: "starter",
     name: "Starter Stash",
-    coins: 2500,
-    chips: 5000,
+    coins: purchase("starter")!.coins!,
+    chips: purchase("starter")!.chips!,
     price: "$1.99",
     image: "/bundles/bundle_1.jpg",
     badge: "Popular",
@@ -30,9 +34,10 @@ export const COIN_BUNDLES: CoinBundle[] = [
   },
   {
     id: "bundle_high_roller",
+    purchase: "highroller",
     name: "High Roller Sack",
-    coins: 7500,
-    chips: 20000,
+    coins: purchase("highroller")!.coins!,
+    chips: purchase("highroller")!.chips!,
     price: "$4.99",
     image: "/bundles/bundle_2.jpg",
     badge: "Best Value",
@@ -40,9 +45,10 @@ export const COIN_BUNDLES: CoinBundle[] = [
   },
   {
     id: "bundle_vault",
+    purchase: "vault",
     name: "Vault Master",
-    coins: 20000,
-    chips: 60000,
+    coins: purchase("vault")!.coins!,
+    chips: purchase("vault")!.chips!,
     price: "$9.99",
     image: "/bundles/bundle_3.jpg",
     badge: "Maximum",
@@ -50,9 +56,10 @@ export const COIN_BUNDLES: CoinBundle[] = [
   },
   {
     id: "bundle_kingpin",
+    purchase: "kingpin",
     name: "Kingpin Safe",
-    coins: 50000,
-    chips: 160000,
+    coins: purchase("kingpin")!.coins!,
+    chips: purchase("kingpin")!.chips!,
     price: "$19.99",
     image: "/bundles/bundle_4.jpg",
     badge: "High Roller",
@@ -60,9 +67,10 @@ export const COIN_BUNDLES: CoinBundle[] = [
   },
   {
     id: "bundle_syndicate",
+    purchase: "syndicate",
     name: "Syndicate Treasury",
-    coins: 140000,
-    chips: 500000,
+    coins: purchase("syndicate")!.coins!,
+    chips: purchase("syndicate")!.chips!,
     price: "$49.99",
     image: "/bundles/bundle_5.jpg",
     badge: "Whale Pack",
@@ -70,15 +78,25 @@ export const COIN_BUNDLES: CoinBundle[] = [
   },
   {
     id: "bundle_godfather",
+    purchase: "godfather",
     name: "Godfather's Reserve",
-    coins: 350000,
-    chips: 1500000,
+    coins: purchase("godfather")!.coins!,
+    chips: purchase("godfather")!.chips!,
     price: "$99.99",
     image: "/bundles/bundle_6.jpg",
     badge: "Ultimate",
     stripeUrl: "https://buy.stripe.com/dRmdR80OOeBS3f3cYlf3a08",
   },
 ];
+
+/**
+ * A Stripe Payment Link that tells Stripe which purchase and which account it's for, so the server's webhook
+ * can credit the right player. Null while the server can't take payments yet (no Stripe keys) or offline.
+ */
+export function buyUrl(link: string, purchaseId: string, accountId: string | undefined, payments: boolean | undefined): string | null {
+  if (!payments || !accountId) return null;
+  return `${link}?client_reference_id=${encodeURIComponent(purchaseRef(purchaseId, accountId))}`;
+}
 
 const STORAGE_KEY = "heist_pro_pass";
 const SESSION_STORAGE_KEY = "heist_vip_session";

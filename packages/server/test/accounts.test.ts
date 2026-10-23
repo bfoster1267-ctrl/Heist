@@ -3,7 +3,7 @@ import {
   FIRST_HAND, MINES_DAILY_LEVEL, SOL_XP, STAGES, SUDOKU_DAILY_LEVEL, SUDOKU_XP, applyMines, botLevelsFor, createSoloGame, dealKlondike, dealMines,
   dealSudoku, getDailySeed, tallyMines, tallyMinesXp, todayUtc, type MinesMove, type SoloSetup, type SudokuMove,
 } from "@heist/profile";
-import { generateKeyPairSync, sign } from "node:crypto";
+import { createHmac, generateKeyPairSync, sign } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -663,30 +663,72 @@ describe("accounts over HTTP and the game socket", () => {
     b.c.close();
   }, 30_000);
 
-  it("activates VIP Founder Pass via claimVip and marks leaderboard rows", async () => {
+  it("VIP needs a real Stripe receipt: no session, a made-up one, or no server key are all refused", async () => {
     const svc = new AccountService({ secret: "s" });
     const g = await svc.guest(undefined, "VIPPlayer");
     const acc = await svc.require(g.token);
-    expect(svc.me(acc).progress.vip).toBeFalsy();
+    await expect(svc.claimVip(acc)).rejects.toThrow(/Stripe receipt/);
+    await expect(svc.claimVip(acc, "invalid_session_id")).rejects.toThrow(/Stripe receipt/);
+    const before = process.env.STRIPE_SECRET_KEY;
+    delete process.env.STRIPE_SECRET_KEY;
+    await expect(svc.claimVip(acc, "cs_test_1234567890abcdef12345678")).rejects.toThrow(/being set up/);
+    if (before !== undefined) process.env.STRIPE_SECRET_KEY = before;
+    expect(svc.me(await svc.require(g.token)).progress.vip).toBeFalsy();
+  });
 
-    // Rejects invalid checkout session strings
-    await expect(svc.claimVip(acc, "invalid_session_id")).rejects.toThrow(/Invalid Stripe checkout session token/);
+  it("credits a Stripe purchase once, only at its listed price, and marks VIP on the leaderboard", async () => {
+    const svc = new AccountService({ secret: "s" });
+    const g = await svc.guest(undefined, "Buyer");
+    const id = g.me.id;
+    const coins0 = g.me.progress.coins;
+    const paid = (session: string, ref: string, cents: number) =>
+      svc.stripePaid({ id: session, client_reference_id: ref, payment_status: "paid", amount_total: cents, currency: "usd" });
+    expect(await paid("cs_test_a", `starter-${id}`, 199)).toBe("credited");
+    expect(await paid("cs_test_a", `starter-${id}`, 199)).toBe("repeat");
+    // paid the $1.99 link but claimed the $99.99 bundle
+    expect(await paid("cs_test_b", `godfather-${id}`, 199)).toBe("unmatched");
+    expect(await paid("cs_test_c", "starter-u_nobodyhere", 199)).toBe("unmatched");
+    expect(await svc.stripePaid({ id: "cs_test_d", client_reference_id: `vip-${id}`, payment_status: "unpaid", amount_total: 499 })).toBe("unpaid");
+    let acc = await svc.require(g.token);
+    expect(acc.progress.coins).toBe(coins0 + 2500);
+    expect(acc.progress.vip).toBeFalsy();
+    expect(await paid("cs_test_e", `vip-${id}`, 499)).toBe("credited");
+    acc = await svc.require(g.token);
+    expect(acc.progress.vip).toBe(true);
+    expect(acc.paid?.map((p) => p.purchase)).toEqual(["starter", "vip"]);
 
-    // Activates with valid session format
-    const me = await svc.claimVip(acc, "cs_test_1234567890abcdef12345678");
-    expect(me.progress.vip).toBe(true);
-    expect(svc.me(acc).progress.vip).toBe(true);
-
-    // Ensure leaderboard row includes vip: true
     acc.progress.stats.games = 1;
     acc.progress.stats.wins = 1;
     acc.logins = [{ provider: "dev", subject: "g1" }];
     await svc.store.put(acc);
-
-    const rows = await svc.leaderboard("wins");
-    const found = rows.find((r) => r.id === acc.id);
-    expect(found).toBeDefined();
+    const found = (await svc.leaderboard("wins")).find((r) => r.id === acc.id);
     expect(found?.vip).toBe(true);
+  });
+
+  it("takes Stripe's webhook only with a valid signature", async () => {
+    const before = process.env.STRIPE_WEBHOOK_SECRET;
+    process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+    try {
+      const accounts = new AccountService({ secret: "s" });
+      const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });
+      servers.push(srv);
+      const g = await accounts.guest(undefined, "Hooked");
+      const body = JSON.stringify({ type: "checkout.session.completed", data: { object: { id: "cs_test_w", client_reference_id: `starter-${g.me.id}`, payment_status: "paid", amount_total: 199, currency: "usd" } } });
+      const t = Math.floor(Date.now() / 1000);
+      const sig = createHmac("sha256", "whsec_test").update(`${t}.${body}`).digest("hex");
+      const hook = (signature: string) =>
+        fetch(`http://127.0.0.1:${srv.port()}/api/stripe/webhook`, { method: "POST", headers: { "content-type": "application/json", "stripe-signature": signature }, body });
+      expect((await hook(`t=${t},v1=${"0".repeat(64)}`)).status).toBe(400);
+      expect((await hook(`t=${t - 3600},v1=${sig}`)).status).toBe(400);
+      const ok = await hook(`t=${t},v1=${sig}`);
+      expect(ok.status).toBe(200);
+      expect(((await ok.json()) as { result: string }).result).toBe("credited");
+      expect(((await (await hook(`t=${t},v1=${sig}`)).json()) as { result: string }).result).toBe("repeat");
+      expect((await accounts.require(g.token)).progress.coins).toBe(g.me.progress.coins + 2500);
+    } finally {
+      if (before === undefined) delete process.env.STRIPE_WEBHOOK_SECRET;
+      else process.env.STRIPE_WEBHOOK_SECRET = before;
+    }
   });
 });
 
