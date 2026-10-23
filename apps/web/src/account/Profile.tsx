@@ -27,7 +27,7 @@ import { buzz } from "../haptics";
 type Tab = "career" | "wardrobe" | "season" | "shop" | "board" | "friends" | "account";
 
 export function Profile({ onClose, tab: start = "career", chat }: { onClose: () => void; tab?: Tab; /** a friend's chat to open on the Friends tab */ chat?: string | null }) {
-  const { me } = useAccount();
+  const { me, backend } = useAccount();
   const [tab, setTab] = useState<Tab>(start);
   const [shopSubTab, setShopSubTab] = useState<"cosmetics" | "stashes">("cosmetics");
   const friends = useFriends();
@@ -67,10 +67,15 @@ export function Profile({ onClose, tab: start = "career", chat }: { onClose: () 
         </div>
         <Header
           me={me}
-          onOpenStashes={() => {
-            setShopSubTab("stashes");
-            setTab("shop");
-          }}
+          onOpenStashes={
+            // the paid shop stays hidden until the server can take Stripe payments
+            backend?.config.payments
+              ? () => {
+                  setShopSubTab("stashes");
+                  setTab("shop");
+                }
+              : undefined
+          }
         />
         <nav className="acct-tabs">
           {(
@@ -135,21 +140,28 @@ function Header({ me, onOpenStashes }: { me: Me; onOpenStashes?: () => void }) {
         <NextUnlock level={li.level} prestige={p.prestige} />
       </div>
       <div className="acct-head-wallet">
-        <button
-          type="button"
-          className="acct-head-wallet-btn"
-          onClick={() => {
-            click();
-            buzz("tap");
-            onOpenStashes?.();
-          }}
-          title="Buy Coins & Chips"
-          aria-label="Buy Coins and Chips"
-        >
-          <span className="acct-wallet-plus-badge" aria-hidden>+</span>
-          <Chips amount={p.chips} />
-          <Coins amount={p.coins} big />
-        </button>
+        {onOpenStashes ? (
+          <button
+            type="button"
+            className="acct-head-wallet-btn"
+            onClick={() => {
+              click();
+              buzz("tap");
+              onOpenStashes();
+            }}
+            title="Buy Coins & Chips"
+            aria-label="Buy Coins and Chips"
+          >
+            <span className="acct-wallet-plus-badge" aria-hidden>+</span>
+            <Chips amount={p.chips} />
+            <Coins amount={p.coins} big />
+          </button>
+        ) : (
+          <div className="acct-head-wallet-btn">
+            <Chips amount={p.chips} />
+            <Coins amount={p.coins} big />
+          </div>
+        )}
         {canPrestige && (
           <button className="btn warn" onClick={() => setConfirm(true)}>
             {t("profile.prestige")}
@@ -483,7 +495,7 @@ function Shop({
   return (
     <div className="acct-shop">
       {/* Sub-navigation tabs: separates in-game cosmetics from currency stashes */}
-      <div className="acct-shop-tabs" role="tablist">
+      {payments && <div className="acct-shop-tabs" role="tablist">
         <button
           type="button"
           role="tab"
@@ -503,22 +515,24 @@ function Shop({
           <CoinIcon size={16} /> <ChipIcon size={16} /> Buy Coins &amp; Chips
           <span className="acct-shop-tab-badge">6 Packs</span>
         </button>
-      </div>
+      </div>}
 
-      {shopTab === "cosmetics" ? (
+      {shopTab === "cosmetics" || !payments ? (
         <>
           <div className="acct-shop-quick-bar">
             <div className="acct-shop-quick-left">
               <Coins amount={p.coins} big />
               <span className="dim">{t("shop.coins_desc")}</span>
             </div>
-            <button
-              type="button"
-              className="btn small gold acct-shop-quick-btn"
-              onClick={() => switchTab("stashes")}
-            >
-              <CoinIcon size={15} /> <ChipIcon size={15} /> + Get Coins &amp; Chips
-            </button>
+            {payments && (
+              <button
+                type="button"
+                className="btn small gold acct-shop-quick-btn"
+                onClick={() => switchTab("stashes")}
+              >
+                <CoinIcon size={15} /> <ChipIcon size={15} /> + Get Coins &amp; Chips
+              </button>
+            )}
           </div>
 
           {SLOTS.map(([slot, labelKey]) => (

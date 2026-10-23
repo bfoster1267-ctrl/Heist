@@ -1139,7 +1139,7 @@ function Game() {
             onTour={setTour}
             progress={me.progress}
             onOpenDaily={() => setDailyHubOpen(true)}
-            onOpenPro={() => setProModalOpen(true)}
+            onOpenPro={backend?.config.payments ? () => setProModalOpen(true) : undefined}
           />
           <div className="acct-corner">
             <ProfileChip
@@ -1216,7 +1216,7 @@ function Game() {
               progress={me.progress}
               onClose={() => setDailyHubOpen(false)}
               onPlayChallenge={launchDailyGame}
-              onOpenPro={() => setProModalOpen(true)}
+              onOpenPro={backend?.config.payments ? () => setProModalOpen(true) : undefined}
             />
           )}
         </AnimatePresence>
