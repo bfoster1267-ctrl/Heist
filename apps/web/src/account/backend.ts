@@ -21,6 +21,8 @@ export interface Me {
   profile: PublicProfile;
   /** they've had the "What lost you?" question (server only; missing from older servers) */
   asked?: boolean;
+  /** their player number (#1001 up; server only) */
+  num?: number;
 }
 
 /** An answer to "What lost you?" ("skip": closed without answering) */
@@ -134,6 +136,8 @@ export interface LoungeMsg {
   text: string;
   /** level, frame, title and the chat bubble the sender wears */
   badge?: Badge;
+  /** the sender joined in the last day: their line wears a NEW tag */
+  fresh?: true;
   /** a drink sent from the Lounge ("<name> sent <to> a <text>") */
   drink?: { id: string; emoji: string; to: string; toId: string };
 }

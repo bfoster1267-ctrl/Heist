@@ -45,9 +45,10 @@ export type LobbyPage = "career" | "wardrobe" | "season" | "shop" | "board";
 
 /**
  * The lobby tour after a new player's first hand: tap the player card (nothing else can be tapped),
- * which opens the Season pass, then pick what's next: more coaching, saving the account, or the lobby.
+ * which opens the Season pass; then the Lounge opens with a hello typed in (send it or skip); then
+ * pick what's next: more coaching, saving the account, or the lobby.
  */
-export type TourStep = "profile" | "next";
+export type TourStep = "profile" | "lounge" | "next";
 
 export function Lobby({
   chips,
@@ -484,7 +485,7 @@ export function Lobby({
         <AnimatePresence>{settings && <LobbySettings onClose={() => setSettings(false)} />}</AnimatePresence>
       </Suspense>
       <AnimatePresence>
-        {tour && onTour && onOpen && (tour === "next" ? (
+        {tour && tour !== "lounge" && onTour && onOpen && (tour === "next" ? (
           <TourNext
             key="next"
             nextLesson={nextLesson}
@@ -505,7 +506,7 @@ export function Lobby({
           <TourSpot
             key={tour}
             onTap={() => {
-              onTour("next");
+              onTour("lounge");
               onOpen("season");
             }}
           />

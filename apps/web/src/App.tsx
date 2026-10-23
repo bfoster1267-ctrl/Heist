@@ -1,7 +1,7 @@
 import type { Answer } from "@heist/engine";
 import { ALL_DRINKS, FIRST_HAND, currentPass, getDailyStreak, getStreakMultiplier, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { joinTable, useFriends, useFriendsSync } from "./account/social";
 import { Rewards } from "./account/Rewards";
@@ -18,6 +18,7 @@ import { crazyGamesLoaded, onCrazyGames, onCrazyGamesSignIn, startPath, useCrazy
 import { menuTaps } from "./menuTap";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
+import { t } from "./i18n";
 
 const Table = lazy(() => import("./table/Table").then((m) => ({ default: m.Table })));
 const OnlineLobby = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.OnlineLobby })));
@@ -599,6 +600,15 @@ function Game() {
   useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel || checkers || minesweeper || sudoku || hearts || spades));
   useEffect(() => onCrazyGamesSignIn(() => void act((b) => b.me())), [act]);
   const chatOff = useCrazyGamesChatOff();
+  // the tour's Lounge stop: a hello with their name typed in (no chat on CrazyGames: straight on)
+  const greetName = me ? (me.num ? `${me.name} #${me.num}` : me.name) : "";
+  const greet = useMemo(
+    () => (tour === "lounge" && !profile && greetName ? { text: t("lounge.greet_text", { name: greetName }), onDone: () => setTour("next") } : undefined),
+    [tour, profile, greetName, setTour],
+  );
+  useEffect(() => {
+    if (tour === "lounge" && chatOff) setTour("next");
+  }, [tour, chatOff, setTour]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);
@@ -1151,7 +1161,7 @@ function Game() {
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
           <Suspense fallback={null}>
-            {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour && !chatOff ? <LoungeDock meId={me.id} /> : null}
+            {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && (!tour || greet) && !chatOff ? <LoungeDock meId={me.id} greet={greet} /> : null}
             {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
             {away === null && (
               <TableBar
@@ -1221,7 +1231,7 @@ function Game() {
           )}
         </AnimatePresence>
       </Suspense>
-      {profile && !table && tour === "next" && (
+      {profile && !table && tour === "lounge" && (
         <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
           Keep going →
         </button>
@@ -1282,7 +1292,7 @@ function savedTour(): TourStep | null {
   try {
     const v = localStorage.getItem(TOUR_KEY);
     // "wardrobe" and "season" were the old tour's steps (it spotlit the lobby's bottom bar, now gone)
-    return v === "next" ? v : v === "profile" || v === "wardrobe" || v === "season" ? "profile" : null;
+    return v === "next" || v === "lounge" ? v : v === "profile" || v === "wardrobe" || v === "season" ? "profile" : null;
   } catch {
     return null;
   }

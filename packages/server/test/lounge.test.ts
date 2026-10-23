@@ -1,15 +1,25 @@
+import { createECDH } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { AccountService } from "../src/accounts/service";
 import { Lounge, cleanLine } from "../src/lounge";
+import { Pusher, makeVapidKeys } from "../src/push";
 import { startServer, type HeistServer } from "../src/server";
 
 const servers: HeistServer[] = [];
 afterAll(async () => {
   for (const s of servers) await s.close();
 });
+
+const until = async (f: () => boolean, ms = 3_000) => {
+  const end = Date.now() + ms;
+  while (!f()) {
+    if (Date.now() > end) throw new Error("timed out");
+    await new Promise((r) => setTimeout(r, 20));
+  }
+};
 
 const refused = (s: string) => {
   try {
@@ -97,7 +107,7 @@ describe("the Lounge", () => {
     expect(again.say({ id: "new", name: "New" }, "hi").id).toBe(bad.id + 1);
   });
 
-  it("serves the Lounge over the API: anyone reads, players who've finished a game talk in their bubble", async () => {
+  it("serves the Lounge over the API: anyone reads, anyone with an account talks in their bubble", async () => {
     const accounts = new AccountService({ secret: "s", devLogins: true });
     const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, rate: { burst: 1000, perSec: 1000 } });
     servers.push(srv);
@@ -111,21 +121,26 @@ describe("the Lounge", () => {
       return { status: r.status, body: (await r.json()) as Record<string, any> };
     };
     const fresh = (await call("/api/auth/guest", undefined, { name: "New" })).body as { token: string };
-    expect((await call("/api/lounge", fresh.token)).body.canPost).toBe(false);
-    expect((await call("/api/lounge/say", fresh.token, { text: "hi" })).status).toBe(403);
+    // a brand-new player can talk straight away, and their line wears a NEW tag for their first day
+    expect((await call("/api/lounge", fresh.token)).body.canPost).toBe(true);
+    const hi = await call("/api/lounge/say", fresh.token, { text: "hi" });
+    expect(hi.status).toBe(200);
+    expect(hi.body.msg.fresh).toBe(true);
 
     const vet = (await call("/api/auth/dev", undefined, { name: "Vet" })).body as { token: string; me: { id: string } };
     const a = (await accounts.store.get(vet.me.id))!;
-    await accounts.store.put({ ...a, progress: { ...a.progress, xp: 500, owned: [...a.progress.owned, "s1.chat.crimson"], equipped: { ...a.progress.equipped, chat: "s1.chat.crimson" } } });
+    await accounts.store.put({ ...a, createdAt: a.createdAt - 2 * 86_400_000, progress: { ...a.progress, xp: 500, owned: [...a.progress.owned, "s1.chat.crimson"], equipped: { ...a.progress.equipped, chat: "s1.chat.crimson" } } });
     expect((await call("/api/lounge", vet.token)).body.canPost).toBe(true);
     const said = await call("/api/lounge/say", vet.token, { text: "anyone up for a game? shit" });
     expect(said.status).toBe(200);
     expect(said.body.msg.text).toBe("anyone up for a game? s***");
+    expect(said.body.msg.fresh).toBeUndefined();
     expect((await call("/api/lounge/say", vet.token, { text: "www.spam.com" })).status).toBe(400);
 
     const feed = (await call("/api/lounge")).body;
     expect(feed.canPost).toBe(false);
-    expect(feed.msgs).toHaveLength(1);
+    expect(feed.msgs).toHaveLength(2);
+    feed.msgs.shift();
     expect(feed.msgs[0].badge.chat).toBe("s1.chat.crimson");
     expect((await call(`/api/lounge?after=${feed.last}`)).body.msgs).toEqual([]);
 
@@ -145,6 +160,40 @@ describe("the Lounge", () => {
     const rep = await call("/api/lounge/report", fresh.token, { id: feed.msgs[0].id });
     expect(rep.body).toMatchObject({ ok: true, hidden: false });
     await accounts.ban(vet.me.id, "spam", 1);
-    expect((await call("/api/lounge")).body.msgs.map((m: { userId: string }) => m.userId)).toEqual([pal.me.id]);
+    expect((await call("/api/lounge")).body.msgs.map((m: { userId: string }) => m.userId)).toEqual([hi.body.msg.userId, pal.me.id]);
+    await accounts.ban(pal.me.id, "spam", 1);
+    expect((await call("/api/lounge/say", pal.token, { text: "let me back" })).status).toBe(403);
+  });
+
+  it("pings the owner's phone when a new player says hi, once, and not for the owner's own lines", async () => {
+    const sent: string[] = [];
+    const push = new Pusher(makeVapidKeys(), { fetch: async (url) => (sent.push(url), { status: 201 }) });
+    const accounts = new AccountService({ secret: "s", devLogins: true });
+    const srv = await startServer({ port: 0, host: "127.0.0.1", accounts, push, admin: { user: "admin", password: "a-long-admin-password" }, rate: { burst: 1000, perSec: 1000 } });
+    servers.push(srv);
+    const base = `http://127.0.0.1:${srv.port()}`;
+    const post = async (path: string, body: object, token?: string, ip = "10.1.1.1") => {
+      const r = await fetch(base + path, { method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip, ...(token ? { authorization: `Bearer ${token}` } : {}) }, body: JSON.stringify(body) });
+      return { status: r.status, body: (await r.json()) as Record<string, any> };
+    };
+    const phone = (name: string) => {
+      const e = createECDH("prime256v1");
+      e.generateKeys();
+      return { endpoint: `https://fcm.googleapis.com/fcm/send/${name}`, keys: { p256dh: e.getPublicKey().toString("base64url"), auth: Buffer.alloc(16, 9).toString("base64url") } };
+    };
+    // the owner plays on the address they sign in to the admin panel from, with alerts on
+    const owner = (await post("/api/auth/guest", { name: "Brock" }, undefined, "10.9.9.9")).body as { token: string };
+    expect((await post("/api/push/subscribe", { sub: phone("owner") }, owner.token, "10.9.9.9")).status).toBe(200);
+    expect((await post("/api/admin/login", { user: "admin", password: "a-long-admin-password" }, undefined, "10.9.9.9")).status).toBe(200);
+
+    const newbie = (await post("/api/auth/guest", { name: "Newbie" })).body as { token: string };
+    expect((await post("/api/lounge/say", { text: "hey all" }, newbie.token)).status).toBe(200);
+    await until(() => sent.length > 0);
+    expect(sent).toEqual(["https://fcm.googleapis.com/fcm/send/owner"]);
+    await new Promise((r) => setTimeout(r, 2_600)); // the Lounge's pace between lines
+    expect((await post("/api/lounge/say", { text: "anyone?" }, newbie.token)).status).toBe(200);
+    expect((await post("/api/lounge/say", { text: "welcome!" }, owner.token, "10.9.9.9")).status).toBe(200);
+    await new Promise((r) => setTimeout(r, 200));
+    expect(sent).toHaveLength(1);
   });
 });

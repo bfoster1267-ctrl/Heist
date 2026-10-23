@@ -7,6 +7,9 @@
 // The Lounge is the app's one way into chat: given a `friends` slot it gains a Friends tab (direct
 // messages and groups, built in Friends.tsx), one unread count covers both, and friends' new messages
 // float up over the lobby with the Lounge's. MessageRow draws a line the same way everywhere.
+//
+// The lobby tour ends here: given a `greet`, the Lounge opens with a hello already typed (big Send, small
+// Skip), so new players say hi and the owner gets a phone alert to welcome them.
 
 import { ALL_DRINKS, DRINKS, cosmetic } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
@@ -90,6 +93,8 @@ export interface ChatLine {
   at: number;
   /** level, frame, title, rank and the chat bubble the sender wears */
   badge?: Badge;
+  /** the sender joined in the last day */
+  fresh?: true;
 }
 
 /** The Friends tab inside the Lounge: what it shows, its unread count, and its new lines for the lobby floats. */
@@ -102,11 +107,35 @@ export interface FriendsSlot {
 
 type Tab = "lounge" | "friends" | "board";
 
+/** The lobby tour's last stop: the Lounge opens with this hello typed in; `onDone` either way (sent or skipped). */
+export interface Greet {
+  text: string;
+  onDone: (sent: boolean) => void;
+}
+
+/** Opened from the owner's "new player said hi" alert: ?lounge=1 (read once, then cleared). */
+function openedFromAlert() {
+  try {
+    const u = new URL(location.href);
+    if (!u.searchParams.has("lounge")) return false;
+    u.searchParams.delete("lounge");
+    history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The chat button for the lobby, and the chat itself when it's open. Nothing without the game server. */
-export function Lounge({ friends, float = true }: { friends?: FriendsSlot; /** new lines float up over the screen (the main lobby only: elsewhere they'd cover buttons) */ float?: boolean } = {}) {
+export function Lounge({ friends, float = true, greet }: { friends?: FriendsSlot; /** new lines float up over the screen (the main lobby only: elsewhere they'd cover buttons) */ float?: boolean; greet?: Greet } = {}) {
   const { backend, me } = useAccount();
-  if (!backend?.lounge || !me) return null;
-  return <LoungeRoom backend={backend} me={me.id} friends={friends} float={float} />;
+  const off = !backend?.lounge || !me;
+  // no Lounge here (no game server): the tour moves straight on
+  useEffect(() => {
+    if (off && greet) greet.onDone(false);
+  }, [off, greet]);
+  if (off) return null;
+  return <LoungeRoom backend={backend} me={me.id} friends={friends} float={float} greet={greet} />;
 }
 
 const bubbleOf = (badge: Badge | undefined) => chatStyle(cosmetic(badge?.chat ?? "chat.house") ?? cosmetic("chat.house"));
@@ -144,6 +173,7 @@ export function MessageRow({
         {first && !mine && (
           <div className="lounge-name">
             {line.name}
+            {line.fresh && <span className="lounge-tag new">{t("lounge.new_tag", "NEW")}</span>}
             {b?.title && <span className="lounge-tag">{b.title}</span>}
             {b?.rank && <span className="lounge-tag rank">{b.rank}</span>}
           </div>
@@ -165,9 +195,18 @@ export function MessageRow({
 
 const lineOf = (m: LoungeMsg): ChatLine & { drink?: LoungeMsg["drink"] } => ({ ...m, key: `lounge-${m.id}` });
 
-function LoungeRoom({ backend, me, friends, float }: { backend: Backend; me: string; friends?: FriendsSlot; float: boolean }) {
-  const [open, setOpen] = useState(false);
+function LoungeRoom({ backend, me, friends, float, greet }: { backend: Backend; me: string; friends?: FriendsSlot; float: boolean; greet?: Greet }) {
+  const [open, setOpen] = useState(() => !!greet || openedFromAlert());
   const [tab, setTab] = useState<Tab>("lounge");
+  // the tour's hello opens the Lounge, and closes it again when the tour moves on
+  const greeting = useRef(!!greet);
+  useEffect(() => {
+    if (greet) {
+      setTab("lounge");
+      setOpen(true);
+    } else if (greeting.current) setOpen(false);
+    greeting.current = !!greet;
+  }, [greet]);
   const { msgs, setMsgs, info, pull } = useFeed(backend, open);
   const [seen, setSeen] = useState(() => Number(load(SEEN_KEY)) || 0);
   const [muted, setMuted] = useState<string[]>(() => {
@@ -236,7 +275,11 @@ function LoungeRoom({ backend, me, friends, float }: { backend: Backend; me: str
             onSaid={(m) => setMsgs((ms) => (ms.some((x) => x.id === m.id) ? ms : [...ms, m].slice(-KEEP)))}
             onGone={(id) => setMsgs((ms) => ms.filter((x) => x.id !== id))}
             onPull={pull}
-            onClose={() => setOpen(false)}
+            greet={greet}
+            onClose={() => {
+              setOpen(false);
+              greet?.onDone(false);
+            }}
           />
         )}
       </AnimatePresence>
@@ -330,7 +373,7 @@ function LoungeDock({
 }
 
 function LoungePanel({
-  tab, onTab, friends, loungeUnread, backend, me, msgs, here, canPost, why, mutedCount, onMute, onUnmuteAll, onSaid, onGone, onPull, onClose,
+  tab, onTab, friends, loungeUnread, backend, me, msgs, here, canPost, why, mutedCount, onMute, onUnmuteAll, onSaid, onGone, onPull, greet, onClose,
 }: {
   tab: Tab;
   onTab: (t: Tab) => void;
@@ -348,9 +391,12 @@ function LoungePanel({
   onSaid: (m: LoungeMsg) => void;
   onGone: (id: number) => void;
   onPull: () => Promise<void>;
+  greet?: Greet;
   onClose: () => void;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(greet?.text ?? "");
+  /** the tour's hello went out: their line shows for a moment, then the tour moves on */
+  const [greeted, setGreeted] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [picked, setPicked] = useState<number | null>(null);
@@ -385,6 +431,10 @@ function LoungePanel({
       setText("");
       atBottom.current = true;
       onSaid(msg);
+      if (greet && !greeted) {
+        setGreeted(true);
+        window.setTimeout(() => greet.onDone(true), 1_400);
+      }
     } catch (x) {
       setErr(x instanceof Error ? x.message : "That didn't send");
     } finally {
@@ -552,8 +602,15 @@ function LoungePanel({
             {note}
           </div>
         )}
+        {greet && !greeted && canPost && (
+          <div className="lounge-greet">
+            <b>{t("lounge.greet_title", "Say hi to the room")}</b>
+            <span>{t("lounge.greet_desc", "Real players hang out here. Send this and someone might queue up with you.")}</span>
+          </div>
+        )}
+        {greet && greeted && <div className="lounge-greet sent">{t("lounge.greet_sent", "Sent! Everyone in the Lounge can see it.")}</div>}
         {canPost ? (
-          <form className="lounge-form" onSubmit={send}>
+          <form className={"lounge-form" + (greet && !greeted ? " greeting" : "")} onSubmit={send}>
             <input
               className="lounge-input"
               value={text}
@@ -566,12 +623,17 @@ function LoungePanel({
                 setErr(null);
               }}
             />
-            <button className="btn gold" type="submit" disabled={busy || !text.trim()}>
+            <button className={"btn gold" + (greet && !greeted ? " lounge-send-glow" : "")} type="submit" disabled={busy || !text.trim()} data-track={greet ? "tour-lounge-send" : undefined}>
               {t("lounge.send")}
             </button>
           </form>
         ) : (
           <div className="lounge-locked">{why ?? t("lounge.locked")}</div>
+        )}
+        {greet && !greeted && (
+          <button className="lounge-skip" data-track="tour-lounge-skip" onClick={() => greet.onDone(false)}>
+            {t("lounge.greet_skip", "Skip for now")}
+          </button>
         )}
         <div className="lounge-fine">
           {err ? <span className="lounge-err">{err}</span> : t("lounge.fine")}

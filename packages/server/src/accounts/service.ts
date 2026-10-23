@@ -34,6 +34,8 @@ export interface Me {
   profile: PublicProfile;
   /** they've had the "What lost you?" question (answered or closed), so it never shows again */
   asked: boolean;
+  /** their player number (#1001 up), shown with their name when they say hi in the Lounge */
+  num?: number;
 }
 
 export interface OnlineResult {
@@ -225,7 +227,7 @@ export class AccountService {
     const progress = upgrade(a.progress);
     return {
       id: a.id, name: a.name, guest: a.guest, email: a.email ?? null, logins: a.logins.map((l) => l.provider), progress,
-      profile: publicProfile(a.id, a.name, a.createdAt, progress), asked: !!a.feedback,
+      profile: publicProfile(a.id, a.name, a.createdAt, progress), asked: !!a.feedback, ...(a.num ? { num: a.num } : {}),
     };
   }
 
