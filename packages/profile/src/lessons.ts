@@ -50,7 +50,7 @@ const ACTION: Idea = { hand: 2, kinds: ["action", "again"], at: ["action"], titl
 /** what an earlier lesson taught: yours from the start, not explained again */
 const known = (...ideas: Idea[]): Idea => ({ hand: 0, kinds: ideas.flatMap((i) => i.kinds), title: "", text: "" });
 
-/** the first hand: one round, then the new player is shown around the lobby (FIRST_HAND is its id) */
+/** the first hand: just the learner's own turn as Boss (about two decisions), then the Lounge (FIRST_HAND is its id) */
 export const FIRST_HAND = 5;
 
 // A coached game deals a friendly seed, so it's short: about 2 or 3 of your hands. Each lesson teaches about
@@ -60,7 +60,7 @@ export const LESSONS: Lesson[] = [
     n: FIRST_HAND,
     name: "Your first hand",
     blurb: "Lesson 1 of 5. One hand: the coach plays most of it and shows you the fight.",
-    rules: { noRoles: true, scoresOnly: true, noBets: true, rounds: 1 },
+    rules: { noRoles: true, scoresOnly: true, noBets: true, turns: 1 },
     ideas: [FIGHT, SEND],
   },
   {

@@ -1,7 +1,7 @@
 import type { Answer } from "@heist/engine";
 import { ALL_DRINKS, FIRST_HAND, currentPass, getDailyStreak, getStreakMultiplier, lessonFor, type Reward } from "@heist/profile";
 import { AnimatePresence } from "motion/react";
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProfileChip } from "./account/bits";
 import { joinTable, useFriends, useFriendsSync } from "./account/social";
 import { Rewards } from "./account/Rewards";
@@ -18,6 +18,7 @@ import { crazyGamesLoaded, onCrazyGames, onCrazyGamesSignIn, startPath, useCrazy
 import { menuTaps } from "./menuTap";
 import { trackScreen } from "./track";
 import type { TableSettings } from "./useTable";
+import { t } from "./i18n";
 
 const Table = lazy(() => import("./table/Table").then((m) => ({ default: m.Table })));
 const OnlineLobby = lazy(() => import("./online/OnlineLobby").then((m) => ({ default: m.OnlineLobby })));
@@ -363,6 +364,12 @@ function Game() {
     setTourState(t);
     saveTour(t ?? "done");
   }, []);
+  // a player who started the first hand owes the Lounge a hello, finished or not (kept, so a reload asks again)
+  const [helloDue, setHelloDueState] = useState(savedHelloDue);
+  const setHelloDue = useCallback((on: boolean) => {
+    setHelloDueState(on);
+    saveHelloDue(on);
+  }, []);
   // an upright phone needs no asking: the table draws itself sideways (turn.ts)
   const enter = (go: () => void) => go();
   // online: the player's name, set while the friends lobby or an online table is open
@@ -599,6 +606,30 @@ function Game() {
   useCrazyGamesPlay(!!me && (!!table || sol || fc || tp || spider || pyramid || ers || yukon || scoundrel || checkers || minesweeper || sudoku || hearts || spades));
   useEffect(() => onCrazyGamesSignIn(() => void act((b) => b.me())), [act]);
   const chatOff = useCrazyGamesChatOff();
+  // the Lounge hello: a line with their name typed in that they have to send. It's the tour's stop after the
+  // first hand, and it also catches a player who left the first hand early, once "What lost you?" is answered.
+  // (No chat on CrazyGames: straight on.)
+  const greetName = me ? (me.num ? `${me.name} #${me.num}` : me.name) : "";
+  const greetNow = !profile && !table && !ask && !!greetName && (tour === "lounge" || (helloDue && !tour));
+  const greet = useMemo(
+    () =>
+      greetNow
+        ? {
+            text: t("lounge.greet_text", { name: greetName }),
+            onDone: (sent: boolean) => {
+              if (sent) markHelloSent();
+              setHelloDue(false);
+              if (tour === "lounge") setTour("next");
+            },
+          }
+        : undefined,
+    [greetNow, greetName, tour, setTour, setHelloDue],
+  );
+  useEffect(() => {
+    if (!chatOff) return;
+    if (tour === "lounge") setTour("next");
+    if (helloDue) setHelloDue(false);
+  }, [tour, helloDue, chatOff, setTour, setHelloDue]);
   const onlineTableEnded = useCallback(() => {
     const e = onlineEnd.current;
     if (e.reward) showReward(e.reward);
@@ -619,6 +650,10 @@ function Game() {
       const t = await act((b) => b.soloStart(c.players, c.stakes, c.name, c.campaign, c.coached));
       if (!t) return;
       if (t.quit) showReward(t.quit);
+      if (t.lesson === FIRST_HAND && !helloSent()) {
+        setHelloDue(true);
+        void import("./account/Friends"); // the Lounge is ready the moment the hand ends
+      }
       finished.current = false;
       turnRef.current = 0;
       setFirstReward(null);
@@ -638,7 +673,7 @@ function Game() {
       });
       setRound((r) => r + 1);
     },
-    [me, backend, act, showReward, setAway],
+    [me, backend, act, showReward, setAway, setHelloDue],
   );
 
   const gameOver = useCallback(
@@ -657,11 +692,11 @@ function Game() {
   // Walking out mid-game counts as a loss: the buy-in is already in the pot.
   const exit = useCallback(() => {
     if (!finished.current) void act((b) => b.soloQuit());
-    // finished the first hand: the lobby tour comes next, not "What lost you?"
+    // finished the first hand: the Lounge hello and "What's next?" come next, not "What lost you?"
     const firstHandDone = finished.current && table?.lesson === FIRST_HAND;
     if (firstHandDone) {
       firstGame.current = false;
-      if (!tourStarted()) setTour("profile");
+      if (!tourStarted()) setTour("lounge");
     }
     if (firstGame.current && table && !me?.asked) {
       firstGame.current = false;
@@ -1150,8 +1185,10 @@ function Game() {
             />
           </div>
           {/* the Lounge opens after the first lesson, so a new player's first screen stays simple */}
+          {/* while the hello's Lounge loads, nothing behind it can be tapped */}
+          {greet && <div className="lounge-back greet-cover" aria-hidden />}
           <Suspense fallback={null}>
-            {(me.progress.coachGames || me.progress.xp || me.progress.prestige) && !tour && !chatOff ? <LoungeDock meId={me.id} /> : null}
+            {(me.progress.coachGames || me.progress.xp || me.progress.prestige || greet) && (!tour || greet) && !chatOff ? <LoungeDock meId={me.id} greet={greet} /> : null}
             {away !== null && <QueueBar name={away} onBack={backToLine} onDone={() => setAway(null)} onSwitchGame={openSoloGame} activeGame={null} onOpenArcade={() => setArcadeHubOpen(true)} />}
             {away === null && (
               <TableBar
@@ -1221,11 +1258,6 @@ function Game() {
           )}
         </AnimatePresence>
       </Suspense>
-      {profile && !table && tour === "next" && (
-        <button className="btn primary tour-pill" data-track="tour-continue" onClick={() => setProfile(false)}>
-          Keep going →
-        </button>
-      )}
       {/* no "save your progress" sign-in nudge on CrazyGames: their own account keeps it */}
       <Rewards onSave={onCrazyGames || !me?.guest ? undefined : () => setMemberModalOpen(true)} />
       {memberModalOpen && (
@@ -1281,8 +1313,8 @@ const TOUR_KEY = "heist.tour";
 function savedTour(): TourStep | null {
   try {
     const v = localStorage.getItem(TOUR_KEY);
-    // "wardrobe" and "season" were the old tour's steps (it spotlit the lobby's bottom bar, now gone)
-    return v === "next" ? v : v === "profile" || v === "wardrobe" || v === "season" ? "profile" : null;
+    // "profile", "wardrobe" and "season" were older tours' steps (the player card, the lobby's bottom bar; now gone)
+    return v === "next" || v === "lounge" ? v : v === "profile" || v === "wardrobe" || v === "season" ? "lounge" : null;
   } catch {
     return null;
   }
@@ -1299,6 +1331,38 @@ function saveTour(v: TourStep | "done") {
     localStorage.setItem(TOUR_KEY, v);
   } catch {
     // storage blocked: the tour just doesn't come back after a reload
+  }
+}
+
+const HELLO_DUE_KEY = "heist.helloDue";
+const HELLO_SENT_KEY = "heist.helloSent";
+function savedHelloDue() {
+  try {
+    return localStorage.getItem(HELLO_DUE_KEY) === "1" && !localStorage.getItem(HELLO_SENT_KEY);
+  } catch {
+    return false;
+  }
+}
+function saveHelloDue(on: boolean) {
+  try {
+    if (on) localStorage.setItem(HELLO_DUE_KEY, "1");
+    else localStorage.removeItem(HELLO_DUE_KEY);
+  } catch {
+    // storage blocked: a reload doesn't ask again
+  }
+}
+function helloSent() {
+  try {
+    return !!localStorage.getItem(HELLO_SENT_KEY);
+  } catch {
+    return false;
+  }
+}
+function markHelloSent() {
+  try {
+    localStorage.setItem(HELLO_SENT_KEY, "1");
+  } catch {
+    // storage blocked: fine
   }
 }
 

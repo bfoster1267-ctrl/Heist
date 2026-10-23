@@ -22,6 +22,8 @@ export interface LoungeMsg {
   name: string;
   text: string;
   badge?: Badge;
+  /** the sender joined Heist in the last day: their line wears a NEW tag */
+  fresh?: true;
   /** a drink sent from the Lounge: the line reads "<name> sent <to> a <drink>" */
   drink?: { id: string; emoji: string; to: string; toId: string };
 }
@@ -160,7 +162,7 @@ export class Lounge {
   }
 
   /** Post a line. Throws a LoungeError the player can read when it's refused. */
-  say(user: { id: string; name: string; badge?: Badge }, raw: unknown): LoungeMsg {
+  say(user: { id: string; name: string; badge?: Badge; fresh?: boolean }, raw: unknown): LoungeMsg {
     let text: string;
     try {
       text = cleanLine(raw);
@@ -176,7 +178,12 @@ export class Lounge {
     if (mine && !mine.drink && mine.text === text && this.now() - mine.at < 60_000) throw new LoungeError("You just said that");
     this.pace(user.id);
     if (text.includes("*") && text !== String(raw).replace(/\s+/g, " ").trim().slice(0, MAX_CHARS)) this.person(user.id, user.name).starred++;
-    return this.post({ userId: user.id, name: user.name, text, ...(user.badge ? { badge: user.badge } : {}) });
+    return this.post({ userId: user.id, name: user.name, text, ...(user.badge ? { badge: user.badge } : {}), ...(user.fresh ? { fresh: true as const } : {}) });
+  }
+
+  /** how many lines and drinks this player has posted, all time */
+  saidBy(userId: string): number {
+    return this.people.get(userId)?.said ?? 0;
   }
 
   /** The line a drink is about: who gets it (never yourself). Check `pace` and charge before `sendDrink`. */

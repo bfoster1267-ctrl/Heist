@@ -187,6 +187,17 @@ export class AdminService {
   private cache: { at: number; people: People } | null = null;
 
   /**
+   * Who to tell when this account does something the owner wants to hear about (a new player saying hi):
+   * the owner's own accounts, or none when it's the owner, Claude testing, or a robot.
+   */
+  async ownerAccountsFor(userId: string): Promise<string[]> {
+    const ppl = this.people(await this.accounts.store.all());
+    const p = ppl.of.get(userId) ?? userId;
+    if (ppl.owner.has(p) || ppl.claude.has(p) || ppl.bots.has(p)) return [];
+    return [...ppl.owner].flatMap((o) => ppl.members.get(o) ?? []);
+  }
+
+  /**
    * Group accounts into people. Two accounts are one person when the same app install used both, or when a
    * guest shares an address with another account (guests pile up when someone plays in a new browser or
    * clears it). Two signed-up accounts on one address stay two people: a household or a phone carrier can

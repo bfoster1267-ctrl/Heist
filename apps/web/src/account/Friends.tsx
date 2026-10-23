@@ -6,7 +6,7 @@
 import type { Badge } from "@heist/profile";
 import { useEffect, useRef, useState } from "react";
 import { Avatar, Stars } from "./bits";
-import { Lounge, MessageRow, type ChatLine, type FriendsSlot } from "./Lounge";
+import { Lounge, MessageRow, type ChatLine, type FriendsSlot, type Greet } from "./Lounge";
 import { SYSTEM, badgeCount, friendsApi, joinTable, useFastFriends, useFriends, type Dm, type Friend, type Person, type Thread } from "./social";
 import { turnOnAlerts, useAlertState } from "../alerts";
 import { t } from "../i18n";
@@ -601,7 +601,7 @@ export function useFriendsSlot(meId: string | undefined, onPlayer?: (id: string)
   };
 }
 
-export function LoungeDock({ meId }: { meId?: string }) {
+export function LoungeDock({ meId, greet }: { meId?: string; greet?: Greet }) {
   const friendsSlot = useFriendsSlot(meId);
-  return <Lounge friends={friendsSlot} />;
+  return <Lounge friends={friendsSlot} greet={greet} />;
 }

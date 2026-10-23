@@ -31,11 +31,11 @@ describe("Coached play lessons", () => {
     expect([0, 1, 2, 3, 4, 9].map((g) => lessonFor(g, false))).toEqual([1, 2, 3, 4, undefined, undefined]);
   });
 
-  it("the first hand ends after one round, with the learner Boss exactly once", () => {
+  it("the first hand is one Boss turn, then it's over", () => {
     for (let seed = 1; seed <= 20; seed++) {
       const { game, kinds } = play(seed, FIRST_HAND);
       expect(game.over).toBe(true);
-      expect(game.s.endReason === "footholds" || game.s.turn === 2).toBe(true);
+      expect(game.s.endReason === "footholds" || game.s.turn === 0).toBe(true);
       expect(game.s.players.every((p) => p.role === null)).toBe(true);
       expect(kinds.has("keepRole") || kinds.has("bet")).toBe(false);
     }

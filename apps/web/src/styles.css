@@ -4585,60 +4585,7 @@ html.turned .lobby-settings-back .settings {
   }
 }
 
-/* ---------------------------------------------------------------- lobby tour after the first hand */
-.tour {
-  position: fixed;
-  inset: 0;
-  z-index: 75; /* under the profile screen (80) the spotlit button opens, and under reward cards */
-}
-.tour-hole {
-  position: fixed;
-  border: 2px solid var(--gold, #e7b53c);
-  border-radius: 14px;
-  background: transparent;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.74);
-  cursor: pointer;
-  animation: tour-pulse 1.4s ease-in-out infinite;
-}
-@keyframes tour-pulse {
-  50% {
-    border-color: rgba(231, 181, 60, 0.35);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .tour-hole {
-    animation: none;
-  }
-}
-.tour-card {
-  position: fixed;
-  left: 50%;
-  translate: -50% 0;
-  width: min(340px, calc(100vw - 32px));
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px 14px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: rgba(14, 16, 20, 0.97);
-  color: var(--paper);
-  font-size: 15px;
-  line-height: 1.35;
-  pointer-events: none;
-}
-.tour-card b {
-  font-family: var(--cond);
-  font-size: 18px;
-  color: var(--gold, #e7b53c);
-}
-.tour-pill {
-  position: fixed;
-  z-index: 86; /* over the profile screen */
-  right: calc(14px + env(safe-area-inset-right));
-  bottom: calc(14px + env(safe-area-inset-bottom));
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
-}
+/* ---------------------------------------------------------------- "What's next?" after the first hand */
 .welcome.tour-next {
   z-index: 74; /* the profile screen (80) opens over it while the player looks around */
 }

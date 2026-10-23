@@ -11,6 +11,7 @@ import { CLAUDE_UA, scrub } from "./activity";
 import type { AdminAuth, AdminService } from "./admin";
 import type { Hosting } from "./hosting";
 import { ApiError, type AccountService } from "./service";
+import type { Account } from "./store";
 import type { Social } from "./social";
 import { stripeSigned, type StripeSession } from "./stripe";
 
@@ -29,6 +30,8 @@ const TRACK_PER_MIN = 60;
 const TRACK_EVENTS = 50;
 /** opening the app counts once per player per this long */
 const OPEN_EVERY_MS = 10 * 60_000;
+/** a player this new wears a NEW tag in the Lounge */
+const DAY_MS = 24 * 60 * 60_000;
 
 export interface ApiOptions {
   /** browser origins allowed to call the API (empty = any) */
@@ -484,7 +487,7 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     return {
       "GET /api/board": async (_, t, q) => {
         const a = await svc.fromToken(t).catch(() => null);
-        const no = a && svc.banOf(a) ? "This account is suspended" : why(a);
+        const no = why(a);
         return { posts: board.list(a?.id, q.get("sort")), canPost: !no, reward: BOARD_REWARD, voterReward: BOARD_VOTER_REWARD, ...(no ? { why: no } : {}) };
       },
       "GET /api/board/post": async (_, t, q) => {
@@ -513,12 +516,17 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
     };
   }
 
-  /** The Lounge: anyone can read it; players who've finished a game (lesson, solo or online) can talk. */
+  /** The Lounge: anyone can read it, and anyone with an account who isn't suspended can talk. */
   function loungeRoutes(lounge: Lounge): Record<string, Handler> {
-    const why = (a: { progress: Progress } | null) => {
-      if (!a) return "Open the app to join the Lounge";
-      const p = a.progress;
-      return p.xp || p.coachGames || p.prestige ? null : "Finish your first game to chat in the Lounge";
+    const why = (a: Account | null) => (!a ? "Open the app to join the Lounge" : svc.banOf(a) ? "This account is suspended" : null);
+    /** joined in the last day: their lines wear a NEW tag */
+    const isFresh = (a: Account) => (o.now ?? Date.now)() - a.createdAt < DAY_MS;
+    /** a new player's first line pings the owner's phone, so they can say hi back and send a friend request */
+    const tellOwner = async (a: Account, text: string) => {
+      if (!o.notify || !o.admin) return;
+      for (const id of await o.admin.svc.ownerAccountsFor(a.id)) {
+        await o.notify(id, { title: "New player said hi in the Lounge", body: `${a.name}: ${text}`, tag: `lounge-new-${a.id}`, url: "./?lounge=1" }).catch(() => 0);
+      }
     };
     /** a refusal the player can read becomes a 400 */
     const refuse = <T,>(f: () => T): T => {
@@ -533,14 +541,18 @@ export function accountsApi(svc: AccountService, o: ApiOptions = {}) {
       "GET /api/lounge": async (_, t, q) => {
         const a = await svc.fromToken(t).catch(() => null);
         const after = Number(q.get("after"));
-        const no = a && svc.banOf(a) ? "This account is suspended" : why(a);
+        const no = why(a);
         return { ...lounge.feed(Number.isInteger(after) && after > 0 ? after : 0, a?.id), canPost: !no, ...(no ? { why: no } : {}) };
       },
       "POST /api/lounge/say": async (b, t) => {
         const a = await me(t);
         const no = why(a);
         if (no) throw new ApiError(403, no);
-        return { msg: refuse(() => lounge.say({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)) }, b.text)) };
+        const fresh = isFresh(a);
+        const first = fresh && lounge.saidBy(a.id) === 0;
+        const msg = refuse(() => lounge.say({ id: a.id, name: a.name, badge: badgeOf(upgrade(a.progress)), fresh }, b.text));
+        if (first) void tellOwner(a, msg.text).catch(() => {});
+        return { msg };
       },
       /** send a drink (coins) to whoever said a line: it shows in the Lounge for everyone */
       "POST /api/lounge/drink": async (b, t) => {
