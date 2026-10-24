@@ -47,7 +47,7 @@ export function CookieBanner() {
         >
           <div className="cookie-banner-text">
             <span>
-              We use essential cookies and local storage to run the game, remember your progress, and analyze gameplay. By playing, you agree to our{" "}
+              We use local storage to run the game, plus Meta and Google ad cookies to measure our ads (you can opt out, see Privacy). By playing, you agree to our{" "}
               <a href="./terms.html" target="_blank" rel="noreferrer">
                 Terms
               </a>{" "}
