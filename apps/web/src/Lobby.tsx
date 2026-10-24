@@ -52,6 +52,7 @@ export type TourStep = "lounge" | "next";
 export function Lobby({
   chips,
   onPlay,
+  onQueue,
   onRefill,
   onOnline,
   onOpen,
@@ -82,6 +83,8 @@ export function Lobby({
 }: {
   chips: number;
   onPlay: (c: LobbyChoice) => void;
+  /** Quick Play: get in the online queue for this table (real players as they come, bots trickle into the rest) */
+  onQueue?: (c: LobbyChoice) => void;
   onRefill: () => void;
   onOnline?: (name: string) => void;
   onOpen?: (page: LobbyPage) => void;
@@ -163,6 +166,8 @@ export function Lobby({
   const nm = () => name.trim() || "Ace";
   const go = (i: number, campaign?: number) => {
     save();
+    // every regular game goes through the online queue; campaign stages stay solo vs bots
+    if (!campaign && onQueue) return onQueue({ players, name: nm(), stakes: STAKES[i].buyIn });
     onPlay({ players, name: nm(), stakes: campaign ? 0 : STAKES[i].buyIn, campaign });
   };
   const coach = () => {
@@ -612,15 +617,6 @@ function setFlag(key: string) {
   } catch {
     /* storage blocked: asks again next visit */
   }
-}
-
-/** Quick Play at the table the lobby would pick (last players and stake, else the best one you can afford); null when broke. */
-export function quickPlay(chips: number, name: string): LobbyChoice | null {
-  const players = remembered("heist.players", [3, 4, 5, 6], 4);
-  const stake = remembered("heist.stake", [0, 1, 2, 3], 1);
-  if (chips < STAKES[0].buyIn) return null;
-  const table = chips >= STAKES[stake].buyIn ? stake : Math.max(0, STAKES.filter((st) => chips >= st.buyIn).length - 1);
-  return { players, name, stakes: STAKES[table].buyIn };
 }
 
 function remembered(key: string, allowed: number[], fallback: number) {
