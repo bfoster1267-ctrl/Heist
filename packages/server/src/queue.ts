@@ -1,6 +1,7 @@
 // Quick queue: press Play now, wait for others who want the same table size and stakes, and get dealt in.
-// A table starts as soon as it's full, or once the first person in line has waited QUEUE_WAIT_MS; then bots
-// take the empty seats. Matched players land in an unlisted room like any other, so reconnecting, leaving
+// A table starts as soon as it's full. While people wait, bots trickle into the empty seats one at a
+// time, spread evenly over QUEUE_WAIT_MS from the first person in line, so the count keeps moving (1/6,
+// 2/6...) and every real player who joins makes the table deal sooner. Bots stay labeled as bots. Matched players land in an unlisted room like any other, so reconnecting, leaving
 // and rematches work the same as at a friends' table.
 //
 // Lines are matched by hidden skill rating: a table only deals right away for players within a rating
@@ -16,7 +17,7 @@ import type { ErrorCode, ServerMsg } from "./protocol";
 import type { Clock, Conn, Room } from "./room";
 import type { Rooms } from "./rooms";
 
-export const QUEUE_WAIT_MS = 120_000;
+export const QUEUE_WAIT_MS = 60_000;
 /** how far apart in rating a table can be for someone who just joined, and how fast that widens */
 const BAND = 100;
 const BAND_PER_10S = 50;
@@ -58,6 +59,16 @@ export class Matchmaker {
   }
 
   /** `rating`: the player's hidden skill rating, or their Ranked MMR for a ranked line (1000 for anyone without one). */
+  /** Bot seats taken in a casual line whose first person has waited this long: one more every waitMs/(players-1). */
+  private botsAt(players: number, waited: number) {
+    return Math.min(players - 1, Math.floor((Math.max(0, waited) * (players - 1)) / this.waitMs));
+  }
+
+  /** When the next bot sits down (epoch ms), for a line whose first person joined at `since`. */
+  private nextBotAt(players: number, since: number, bots: number) {
+    return since + Math.ceil(((bots + 1) * this.waitMs) / (players - 1));
+  }
+
   join(conn: Conn, players: unknown, stakes: unknown, rating = 1000, ranked = false): ErrorCode | null {
     if (ranked) players = RANKED_PLAYERS;
     if (typeof players !== "number" || !Number.isInteger(players) || players < 3 || players > 6) return "bad_message";
@@ -95,15 +106,19 @@ export class Matchmaker {
       const near = line.waiters
         .filter((w) => Math.abs(w.rating - first.rating) <= band)
         .sort((a, b) => (a === first ? -1 : b === first ? 1 : Math.abs(a.rating - first.rating) - Math.abs(b.rating - first.rating)));
-      // casual tables deal short-handed once the wait is up (bots fill in); ranked ones never do
-      if (near.length < line.players && (line.ranked || waited < this.waitMs)) break;
+      // casual tables deal once real players and the bots that have trickled in fill it; ranked never uses bots
+      const bots = line.ranked ? 0 : this.botsAt(line.players, waited);
+      if (near.length + bots < line.players) break;
       this.deal(line, near.slice(0, line.players));
     }
     if (!line.waiters.length) return this.drop(key, line);
-    line.startsAt = line.waiters[0].since + this.waitMs;
-    this.tell(line);
-    // ranked never runs out of wait, so it just looks again every tick as the band widens
-    line.timer = this.clock.set(() => this.match(key, line), line.ranked ? TICK_MS : Math.max(0, Math.min(TICK_MS, line.startsAt - now)));
+    const first = line.waiters[0];
+    line.startsAt = first.since + this.waitMs;
+    this.tell(line, now);
+    // ranked never runs out of wait, so it just looks again every tick as the band widens;
+    // casual also looks again the moment the next bot sits down
+    const next = line.ranked ? now + TICK_MS : Math.min(now + TICK_MS, this.nextBotAt(line.players, first.since, this.botsAt(line.players, now - first.since)));
+    line.timer = this.clock.set(() => this.match(key, line), Math.max(0, next - now));
   }
 
   /** Out of line: they asked, joined a table some other way, or their socket closed. */
@@ -131,10 +146,12 @@ export class Matchmaker {
     if (this.lines.get(key) === line) this.lines.delete(key);
   }
 
-  /** Everyone in this line hears how many are waiting and when the table starts regardless. */
-  private tell(line: Line) {
+  /** Everyone in this line hears how many are waiting, how many bots have sat down, and when the table starts regardless. */
+  private tell(line: Line, now: number) {
+    const people = Math.min(line.waiters.length, line.players);
+    const bots = line.ranked ? 0 : Math.min(this.botsAt(line.players, now - line.waiters[0].since), line.players - people);
     const msg: ServerMsg = {
-      t: "queue", players: line.players, stakes: line.stakes, waiting: line.waiters.length, startsAt: line.ranked ? 0 : line.startsAt, ...(line.ranked ? { ranked: true } : {}),
+      t: "queue", players: line.players, stakes: line.stakes, waiting: line.waiters.length, bots, startsAt: line.ranked ? 0 : line.startsAt, ...(line.ranked ? { ranked: true } : {}),
     };
     for (const w of line.waiters) w.conn.send(msg);
   }
