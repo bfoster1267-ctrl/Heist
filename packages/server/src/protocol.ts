@@ -153,8 +153,8 @@ export type ServerMsg =
   | { t: "left" }
   /** your new name, after a rename */
   | { t: "renamed"; name: string }
-  /** you're in the quick queue: how many are waiting, and when the table starts regardless (epoch ms) */
-  | { t: "queue"; players: number; stakes: number; waiting: number; startsAt: number; ranked?: boolean }
+  /** you're in the quick queue: how many people are waiting, how many bots have sat down so far, and when the table starts regardless (epoch ms) */
+  | { t: "queue"; players: number; stakes: number; waiting: number; bots: number; startsAt: number; ranked?: boolean }
   | { t: "unqueued" }
   | { t: "error"; code: ErrorCode; msg: string }
   | { t: "pong"; n?: number; at: number }

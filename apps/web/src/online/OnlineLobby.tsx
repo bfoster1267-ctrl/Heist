@@ -38,6 +38,7 @@ export function OnlineLobby({
   name,
   chips,
   join,
+  queueNow,
   onExit,
   onBuyIn,
   onWin,
@@ -49,6 +50,8 @@ export function OnlineLobby({
   chips: number;
   /** a code to join straight away (from an invite link) */
   join?: string | null;
+  /** Quick Play from the main lobby: get in line for this table straight away, and show just the line */
+  queueNow?: { players: number; stakes: number } | null;
   onExit: () => void;
   onBuyIn: (stakes: number) => void;
   /** the table has played out to the end (won = chips won, 0 if not) */
@@ -75,6 +78,27 @@ export function OnlineLobby({
       }
     }
   }, [join, sess.status, sess]);
+
+  // Quick Play: in line the moment the socket is up. While that line stands the screen shows only the
+  // line (seats filling, the clock); cancelling it goes back to the main lobby.
+  const [quick, setQuick] = useState(!!queueNow);
+  const queued = useRef(false);
+  useEffect(() => {
+    if (!queueNow || queued.current || sess.status !== "online" || sess.room) return;
+    queued.current = true;
+    sess.syncAccount();
+    sess.client.queue(queueNow.players, queueNow.stakes);
+  }, [queueNow, sess.status, sess]);
+  // turned down (not enough chips, say): the full online lobby shows why
+  useEffect(() => {
+    if (quick && queued.current && sess.error) setQuick(false);
+  }, [quick, sess.error]);
+
+  // out of line and back to the main lobby (not waiting for the server's word, or the lobby would think we're still in line)
+  const backOut = () => {
+    sess.queue = null;
+    onExit();
+  };
 
   // a buy-in for each game this player is dealt into
   const paid = useRef(0);
@@ -158,6 +182,28 @@ export function OnlineLobby({
       <motion.div className="lobby-card online-card" initial={{ y: 30, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
         {room ? (
           <RoomView sess={sess} onLeave={() => sess.leave()} />
+        ) : quick && !sess.error ? (
+          <div className="lobby-col queue-only">
+            <div className="logo">HEIST</div>
+            {sess.queue ? (
+              <QueueCard sess={sess} onSolitaire={() => setSol(true)} onArcade={onArcade} onOpenArcade={onOpenArcade} onCancel={backOut} />
+            ) : (
+              <div className="queue-card" role="status">
+                <div className="queue-title">Finding a table...</div>
+                <div className="fine">{sess.status === "offline" ? "Can't reach the game server." : "Connecting..."}</div>
+                <button
+                  className="btn ghost"
+                  onClick={() => {
+                    sess.client.unqueue();
+                    backOut();
+                  }}
+                  aria-label="Back to main lobby"
+                >
+                  Back
+                </button>
+              </div>
+            )}
+          </div>
         ) : (
           <Pick
             sess={sess}
@@ -496,7 +542,7 @@ function Pick({
             {locked ?? `${RANKED_PLAYERS} players, no bots, no coaching. Finish in the top half to climb. Chips are play money only.`}
           </div>
         ) : (
-          <div className="fine">Play now seats you with other players looking for the same game; bots fill any seats still empty after 2 minutes. Chips are play money only.</div>
+          <div className="fine">Play now seats you with other players looking for the same game. Bots sit down in the empty seats one by one while you wait, and the table deals within a minute. Chips are play money only.</div>
         )}
       </div>
     </>
@@ -606,7 +652,7 @@ function QueueStrip({
 
   const words = (
     <span className="queue-strip-words">
-      {q.ranked ? "Ranked" : "Finding players"} · {q.waiting}/{q.players} · <b>{mmss(waited)}</b>
+      {q.ranked ? "Ranked" : "Finding players"} · {seatedCount(q)}/{q.players} · <b>{mmss(waited)}</b>
       {!q.ranked && (left > 0 ? ` · bots in ${mmss(left)}` : " · dealing...")}
     </span>
   );
@@ -825,29 +871,50 @@ export function TableBar({ onBack }: { onBack: (code: string) => void }) {
   );
 }
 
+/** seats taken so far in a line: people in it plus the bots that have sat down */
+function seatedCount(q: NonNullable<OnlineSession["queue"]>) {
+  const people = Math.min(q.waiting, q.players);
+  return people + Math.min(q.bots ?? 0, q.players - people);
+}
+
 /** Waiting in the quick queue: who's in line, and when bots fill the rest. */
 function QueueCard({
   sess,
   onSolitaire,
   onArcade,
   onOpenArcade,
+  onCancel,
 }: {
   sess: OnlineSession;
   onSolitaire: () => void;
   onArcade?: (game?: ArcadeGameId) => void;
   onOpenArcade?: () => void;
+  /** after leaving the line (Quick Play goes back to the main lobby) */
+  onCancel?: () => void;
 }) {
   const q = sess.queue!;
   const now = useSeconds();
   const left = Math.max(0, Math.ceil(q.startsAt / 1000 - now));
+  const people = Math.min(q.waiting, q.players);
+  const bots = Math.min(q.bots ?? 0, q.players - people);
   return (
     <div className="queue-card" role="status">
       <div className="queue-title">{q.ranked ? "Finding a ranked table..." : "Finding players..."}</div>
+      <div className="queue-seats" aria-label={`${people + bots} of ${q.players} seats taken`}>
+        {Array.from({ length: q.players }, (_, i) => {
+          const kind = i === 0 ? "you" : i < people ? "player" : i < people + bots ? "bot" : "open";
+          return (
+            <span key={i} className={"queue-seat " + kind}>
+              {kind === "you" ? "YOU" : kind === "player" ? "👤" : kind === "bot" ? "BOT" : ""}
+            </span>
+          );
+        })}
+      </div>
       <div>
-        {q.waiting} of {q.players} here · Buy-in {q.stakes.toLocaleString()}
+        {people + bots} of {q.players} seated · Buy-in {q.stakes.toLocaleString()}
       </div>
       <div className="fine">
-        {q.ranked ? "No bots in Ranked: the table deals when six are in line." : left > 0 ? `Bots fill the empty seats in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Dealing..."}
+        {q.ranked ? "No bots in Ranked: the table deals when six are in line." : left > 0 ? `Real players take seats as they join. Bots fill the rest within ${mmss(left)}.` : "Dealing..."}
       </div>
       <button
         className="btn primary"
@@ -871,7 +938,7 @@ function QueueCard({
           }}
           aria-label="Browse Solo Arcade"
         >
-          Browse Solo Arcade (8 Games)
+          Browse Solo Arcade ({ARCADE_GAMES.length} Games)
         </button>
       )}
       <button
@@ -880,6 +947,7 @@ function QueueCard({
           click();
           buzz("tap");
           sess.client.unqueue();
+          onCancel?.();
         }}
         aria-label="Cancel queue"
       >
