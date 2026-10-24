@@ -381,6 +381,11 @@ function Game() {
   const [away, setAwayState] = useState<string | null>(null);
   // a table you were dealt into before the app closed: the bar's "Back to table" sits you down there
   const [rejoin, setRejoin] = useState<string | null>(null);
+  // Quick Play: the table to queue for as the online lobby opens (cleared once it closes)
+  const [queueNow, setQueueNow] = useState<{ players: number; stakes: number } | null>(null);
+  useEffect(() => {
+    if (online === null) setQueueNow(null);
+  }, [online]);
   const awayRef = useRef<string | null>(null);
   const setAway = useCallback((n: string | null) => {
     awayRef.current = n;
@@ -748,6 +753,7 @@ function Game() {
           name={online}
           chips={chips}
           join={rejoin ?? inviteCode()}
+          queueNow={queueNow}
           onExit={() => {
             if (session(online).queue) setAway(online);
             setRejoin(null);
@@ -1149,6 +1155,13 @@ function Game() {
               me.guest && me.name.startsWith("Guest") ? undefined : me.name
             }
             onPlay={(c) => enter(() => void sit(c))}
+            onQueue={(c) =>
+              enter(async () => {
+                if (c.name && c.name !== me.name) await act((b) => b.rename(c.name));
+                setQueueNow({ players: c.players, stakes: c.stakes });
+                setOnline(c.name);
+              })
+            }
             onRefill={() => act((b) => b.refill())}
             onOnline={(n) => enter(() => setOnline(n))}
             onOpen={setProfile}

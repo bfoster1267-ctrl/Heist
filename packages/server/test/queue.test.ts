@@ -28,15 +28,48 @@ describe("quick queue", () => {
     expect(cs.every((c) => c.of("frames").length > 0)).toBe(true);
   });
 
-  it("fills the empty seats with bots after the wait", () => {
+  it("fills the whole table with bots by the end of the wait", () => {
+    const { mm, conn, rooms, clock } = setup();
+    const a = conn(1);
+    mm.join(a, 6, 0);
+    clock.advance(QUEUE_WAIT_MS - 1);
+    expect(rooms.size).toBe(0);
+    expect(a.last("queue").bots).toBe(4);
+    clock.advance(1);
+    expect(rooms.size).toBe(1);
+    expect(a.last("room").room.seats.filter((s: { kind: string }) => s.kind === "bot").length).toBe(5);
+  });
+
+  it("trickles bots in one at a time, so the count keeps moving", () => {
+    const { mm, conn, rooms, clock } = setup();
+    const a = conn(1);
+    mm.join(a, 6, 0);
+    const step = QUEUE_WAIT_MS / 5;
+    expect(a.last("queue")).toMatchObject({ waiting: 1, bots: 0 });
+    const seen: number[] = [];
+    for (let i = 1; i < 5; i++) {
+      clock.advance(step - 1);
+      expect(a.last("queue").bots).toBe(i - 1); // not a moment early
+      clock.advance(1);
+      seen.push(a.last("queue").bots);
+    }
+    expect(seen).toEqual([1, 2, 3, 4]);
+    expect(rooms.size).toBe(0);
+  });
+
+  it("a real player who joins takes a seat and the table deals sooner", () => {
     const { mm, conn, rooms, clock } = setup();
     const a = conn(1);
     const b = conn(2);
     mm.join(a, 5, 0);
-    clock.advance(30_000);
+    const step = QUEUE_WAIT_MS / 4;
+    clock.advance(step);
+    expect(a.last("queue")).toMatchObject({ waiting: 1, bots: 1 });
     mm.join(b, 5, 0);
+    expect(b.last("queue")).toMatchObject({ waiting: 2, bots: 1 });
     expect(b.last("queue").startsAt).toBe(a.last("queue").startsAt); // the clock runs from the first in line
-    clock.advance(QUEUE_WAIT_MS - 30_001);
+    // two people need three bots: the third sits down at 3/4 of the wait, and the table deals then
+    clock.advance(2 * step - 1);
     expect(rooms.size).toBe(0);
     clock.advance(1);
     expect(rooms.size).toBe(1);
