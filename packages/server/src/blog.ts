@@ -19,6 +19,32 @@ const HEIST_PICK = `<p><strong>Full disclosure:</strong> Heist is our game, so t
 
 export const POSTS: Post[] = [
   {
+    slug: "christmas-card-games-online",
+    title: "Christmas Card Games to Play Online With Family (Free, No Download)",
+    description:
+      "Free Christmas card games you can play online with family over the holidays: Christmas Solitaire, Hearts, Spades and a party game for 3 to 6 players. No download.",
+    date: "2026-10-25",
+    body: `<p>The holidays are when the whole family is finally in one place, or on one video call. A deck of cards is the easiest game to share, and you no longer need a real deck to play together. Here are free card games that run in a browser on any phone or computer, so nobody has to install anything.</p>
+<h2>1. Christmas Solitaire, for the quiet moments</h2>
+<p>Solitaire is the classic thing to play between visits, after the big dinner, or while the kids open presents. <a href="/christmas-solitaire">Christmas Solitaire</a> is classic Klondike on a pine-green table with falling snow and red holiday card backs. It has unlimited undo, hints and auto-finish, and it's free with no sign-up.</p>
+<p><a class="play-btn" href="/christmas-solitaire">Play Christmas Solitaire free →</a></p>
+<h2>2. Heist, a party card game for the whole table</h2>
+${HEIST_PICK}
+<p>For a family game night, make a private table and send everyone the table code. It works with relatives on the couch and with cousins in another state, and bots can fill empty seats if you're short a player.</p>
+<p><a class="play-btn" href="/">Play Heist free →</a></p>
+<h2>3. Hearts and Spades, the card-table classics</h2>
+<p>Hearts and Spades are the games many families already play at the holidays. You can practice both free in your browser against bots: <a href="/hearts">Hearts</a> and <a href="/spades">Spades</a>. They're a good way to teach the rules to a younger player before they sit down at the real table.</p>
+<h2>4. Quick puzzles for one</h2>
+<p>For a few minutes on your own, try <a href="/freecell">FreeCell</a> (nearly every deal can be won), <a href="/spider">Spider Solitaire</a> or <a href="/sudoku">Sudoku</a>. All free, and all on the same site.</p>
+<h2>Tips for a family card game night online</h2>
+<ul>
+<li>Start a video or voice call first. The table talk is half the fun.</li>
+<li>Pick one easy game to start, so grandparents and kids can join in right away.</li>
+<li>Check that the game works on phones, since most people will play from the couch.</li>
+</ul>
+${PLAY}`,
+  },
+  {
     slug: "best-free-online-card-games",
     title: "10 Best Free Online Card Games to Play in Your Browser (2026, No Ads)",
     description:

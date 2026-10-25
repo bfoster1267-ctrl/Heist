@@ -730,3 +730,50 @@
   color: #ff6b5e;
   text-shadow: 0 0 8px rgba(255, 80, 60, 0.6);
 }
+
+/* Christmas Solitaire (/christmas-solitaire): a pine-green felt, falling snow, red and white holiday backs */
+.sol.sol-xmas {
+  background:
+    radial-gradient(ellipse 120% 80% at 50% 35%, rgba(255, 255, 255, 0.08), transparent 60%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 5px),
+    radial-gradient(ellipse 120% 100% at 50% 45%, #1d6b45 0%, #124a30 45%, #0a2c1d 100%);
+}
+.sol.sol-xmas .sol-card.back {
+  background: linear-gradient(160deg, #c22a33, #8c141c 70%, #6a0e15);
+}
+.sol.sol-xmas .sol-back-frame {
+  border-color: rgba(255, 255, 255, 0.75);
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.14) 0 2px, transparent 2px 7px),
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.14) 0 2px, transparent 2px 7px);
+}
+.sol.sol-xmas .sol-back-mark {
+  border-color: rgba(255, 255, 255, 0.85);
+  background: radial-gradient(circle, #a51c25, #5e0b11);
+  color: #ffffff;
+}
+.sol-snow {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+.sol-snow i {
+  position: absolute;
+  top: -10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.6);
+  animation: sol-snowfall linear infinite;
+}
+@keyframes sol-snowfall {
+  to {
+    transform: translate(var(--drift, 0), 105vh);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sol-snow {
+    display: none;
+  }
+}

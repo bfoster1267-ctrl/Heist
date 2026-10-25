@@ -53,6 +53,7 @@ const PAGES: Record<string, Page> = {
 <h2>All 12 Free Online Games</h2>
 <ul>
   <li><a href="/solitaire"><strong>Klondike Solitaire</strong></a> — Classic 7-column Solitaire with Draw 1 &amp; Draw 3, unlimited undo, smart hints, and daily streak challenges.</li>
+  <li><a href="/christmas-solitaire"><strong>Christmas Solitaire</strong></a> — Holiday Klondike with falling snow and festive card backs.</li>
   <li><a href="/freecell"><strong>FreeCell Solitaire</strong></a> — 100% open information strategy with 4 reserve cells. Virtually every deal is solvable.</li>
   <li><a href="/spider"><strong>Spider Solitaire</strong></a> — 10-column tableau requiring full descending suit runs from King to Ace.</li>
   <li><a href="/tripeaks"><strong>TriPeaks Solitaire</strong></a> — Fast-paced arcade card matching across 3 peaks with combo multipliers.</li>
@@ -102,6 +103,19 @@ const PAGES: Record<string, Page> = {
 <h2>Features</h2>
 <ul><li>Draw one &amp; Draw three Klondike</li><li>Tap a card to move it, or drag it</li><li>Unlimited undo and hints</li><li>Auto-finish once the game is solved</li><li>Daily challenge seeds with streaks</li></ul>
 <p>Liked it? Try <a href="/">Heist</a>, our multiplayer card game of crews and double-crosses, or browse our other solo card games.</p>`,
+  },
+  "/christmas-solitaire": {
+    title: "Christmas Solitaire: Play Free Holiday Klondike Online, No Download",
+    description:
+      "Play Christmas Solitaire free in your browser: classic Klondike with falling snow and holiday card backs. Unlimited undo, hints and auto-finish. No download, no sign-up.",
+    keywords: "christmas solitaire, holiday solitaire, free christmas solitaire online, christmas card games, winter solitaire, xmas solitaire",
+    text: `<h1>Christmas Solitaire</h1>
+<p>Play classic Klondike solitaire dressed for the holidays: a pine-green table, gently falling snow and red and white holiday card backs. It's free, with no download and no sign-up, on your phone, tablet or computer.</p>
+<h2>How to play Christmas Solitaire</h2>
+<p>Build four foundation piles, one per suit, from Ace up to King. On the seven tableau columns, stack cards downward in alternating colors (red on black, black on red). Only a King can fill an empty column. Turn cards from the stock when you run out of moves. You win when all 52 cards reach the foundations.</p>
+<h2>Features</h2>
+<ul><li>Falling snow and holiday card backs</li><li>Tap a card to move it, or drag it</li><li>Unlimited undo and hints</li><li>Auto-finish once the game is solved</li><li>Daily challenge seeds with streaks</li></ul>
+<p>Playing with family this year? See our <a href="/blog/christmas-card-games-online">Christmas card games to play online with family</a>, or try <a href="/">Heist</a>, our party card game for 3 to 6 players.</p>`,
   },
   "/freecell": {
     title: "FreeCell: Play FreeCell Solitaire Online Free in Browser",

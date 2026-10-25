@@ -8,7 +8,7 @@ import {
   type Klondike, type PlayingCard, type SolMove, type SolTally,
 } from "@heist/profile";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { useAccount } from "../account/useAccount";
 import { buzz } from "../haptics";
 import { reducedMotion } from "../prefs";
@@ -103,6 +103,7 @@ export function Solitaire({
   challengerMoves,
   challengerScore,
   onSave,
+  festive = false,
 }: {
   onExit: () => void;
   /** the win card's "Heist" button (left out while waiting in the online queue) */
@@ -115,6 +116,8 @@ export function Solitaire({
   challengerMoves?: number | null;
   challengerScore?: number | null;
   onSave?: () => void;
+  /** Christmas Solitaire (playheist.net/christmas-solitaire): snow, a winter felt and holiday card backs */
+  festive?: boolean;
 }) {
   const { backend, act, showReward, me } = useAccount();
   const initialDeal = useRef(true);
@@ -510,8 +513,9 @@ export function Solitaire({
   const draining = stalled(now) && shownXp > 0;
   const small = b.cw < 64;
   return (
-    <div className={"sol" + (small ? " sol-small" : "")} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrag(null)}>
+    <div className={"sol" + (small ? " sol-small" : "") + (festive ? " sol-xmas" : "")} onPointerMove={move} onPointerUp={up} onPointerCancel={() => setDrag(null)}>
       <div className="sol-felt-rim" />
+      {festive && <Snow />}
       <div className="sol-board" ref={board}>
       {banner && <div className="sol-banner">{banner}</div>}
       <div className="sol-bar" style={{ height: 52 }}>
@@ -520,7 +524,7 @@ export function Solitaire({
         </button>
         <div className="sol-hud">
           <span className="sol-hud-name">
-            SOLITAIRE
+            {festive ? "❄ SOLITAIRE" : "SOLITAIRE"}
             <span className="arcade-trust-pill">✓ Free · No Ads</span>
           </span>
           <span className="sol-hud-stats">
@@ -647,7 +651,7 @@ export function Solitaire({
             }
             onPointerDown={(e) => (p.pile === "s" ? draw() : down(p, e))}
           >
-            {p.up ? <Face c={p.c} /> : <Back />}
+            {p.up ? <Face c={p.c} /> : <Back festive={festive} />}
           </motion.div>
         );
       })}
@@ -761,12 +765,42 @@ function Face({ c }: { c: PlayingCard }) {
   );
 }
 
-/** The house card back: oxblood, gold frame, the Heist mark. */
-function Back() {
+/** The house card back: oxblood, gold frame, the Heist mark (a snowflake at Christmas). */
+function Back({ festive }: { festive?: boolean }) {
   return (
     <span className="sol-back-frame">
-      <span className="sol-back-mark">H</span>
+      <span className="sol-back-mark">{festive ? "❄" : "H"}</span>
     </span>
+  );
+}
+
+/** Slow falling snow behind the cards (plain CSS, so it costs nothing; hidden for reduced motion). */
+const FLAKES = Array.from({ length: 36 }, (_, i) => ({
+  left: (i * 37) % 100,
+  size: 3 + ((i * 7) % 5),
+  dur: 9 + ((i * 13) % 11),
+  delay: -((i * 29) % 20),
+  drift: ((i * 17) % 40) - 20,
+}));
+function Snow() {
+  return (
+    <div className="sol-snow" aria-hidden="true">
+      {FLAKES.map((f, i) => (
+        <i
+          key={i}
+          style={
+            {
+              left: `${f.left}%`,
+              width: f.size,
+              height: f.size,
+              animationDuration: `${f.dur}s`,
+              animationDelay: `${f.delay}s`,
+              "--drift": `${f.drift}px`,
+            } as CSSProperties
+          }
+        />
+      ))}
+    </div>
   );
 }
 
