@@ -1,6 +1,7 @@
 // Drinks and chips rendered in Blender (scripts/blender: anim.py renders the frames, sprites.py packs
 // them). Each lives in /3d/ as a strip of frames side by side, played with CSS steps(), plus a still of
-// its resting frame. A drink's strip is it rocking to a stop after it lands; a chip's is one full tumble.
+// its resting frame. A drink has two strips: leaning as it brakes while it slides (-slide), then rocking to a
+// stop after it lands; a chip's is one full tumble.
 import type { CSSProperties } from "react";
 import { reducedMotion } from "../prefs";
 
@@ -16,20 +17,20 @@ interface Sheet {
 
 const drink = (id: string, w: number, scale = 1): Sheet => ({ file: `drink-${id}`, frames: 18, w, h: 112, scale });
 const DRINKS: Record<string, Sheet> = {
-  "🏦": drink("vault", 106),
-  "🥃": drink("whiskey", 106),
-  "🍷": drink("wine", 67),
-  "🍸": drink("martini", 87),
-  "🍺": drink("beer", 84),
-  "☕": drink("coffee", 135, 0.75),
-  "🍾": drink("champagne", 42),
-  "🥂": drink("toast", 77),
-  "🍹": drink("maitai", 63),
-  "🍶": drink("sake", 98, 0.9),
-  "🍵": drink("tea", 165, 0.6),
-  "🧋": drink("boba", 59),
-  "🥛": drink("milk", 73),
-  "🧃": drink("juice", 60),
+  "🏦": drink("vault", 109),
+  "🥃": drink("whiskey", 108),
+  "🍷": drink("wine", 70),
+  "🍸": drink("martini", 89),
+  "🍺": drink("beer", 87),
+  "☕": drink("coffee", 134, 0.75),
+  "🍾": drink("champagne", 45),
+  "🥂": drink("toast", 75),
+  "🍹": drink("maitai", 65),
+  "🍶": drink("sake", 92, 0.9),
+  "🍵": drink("tea", 166, 0.6),
+  "🧋": drink("boba", 61),
+  "🥛": drink("milk", 76),
+  "🧃": drink("juice", 62),
 };
 
 const chip = (id: string): Sheet => ({ file: `chip-${id}`, frames: 12, w: 65, h: 64 });
@@ -47,7 +48,7 @@ export const has3dDrink = (emoji: string) => emoji in DRINKS;
 export const has3dChip = (color: string) => color in CHIPS;
 
 /** One sheet at a given height: still, played once (ending on the last frame), or looping. */
-function Sprite({ s, height, mode, className }: { s: Sheet; height: number; mode: "still" | "once" | "loop"; className?: string }) {
+function Sprite({ s, height, mode, className, ms, flip }: { s: Sheet; height: number; mode: "still" | "once" | "loop"; className?: string; ms?: number; flip?: boolean }) {
   height *= s.scale ?? 1;
   const w = (s.w * height) / s.h;
   if (mode === "still" || reducedMotion())
@@ -58,15 +59,24 @@ function Sprite({ s, height, mode, className }: { s: Sheet; height: number; mode
     backgroundImage: `url(/3d/${s.file}.webp)`,
     backgroundSize: `${w * s.frames}px ${height}px`,
     ["--sprite-end" as string]: mode === "once" ? `${-w * (s.frames - 1)}px` : `${-w * s.frames}px`,
-    animation: mode === "once" ? `sprite3d ${s.frames * 45}ms steps(${s.frames - 1}) forwards` : `sprite3d ${s.frames * 40}ms steps(${s.frames}) infinite`,
+    animation: mode === "once" ? `sprite3d ${ms ?? s.frames * 45}ms steps(${s.frames - 1}) forwards` : `sprite3d ${ms ?? s.frames * 40}ms steps(${s.frames}) infinite`,
+    ...(flip ? { transform: "scaleX(-1)" } : {}),
   } as CSSProperties;
   return <span className={"sprite3d " + (className ?? "")} style={style} />;
 }
 
-/** A Blender drink: `settle` plays it rocking to a stop (when it lands), otherwise it stands still. */
-export function Drink3D({ emoji, height, settle = false }: { emoji: string; height: number; settle?: boolean }) {
+/** The lean while sliding: 11 frames, rendered moving left to right (flip it for right to left). */
+const SLIDE_FRAMES = 11;
+
+/**
+ * A Blender drink: `settle` plays it rocking to a stop (when it lands); `slide` plays it leaning as it
+ * brakes over that many ms, mirrored when `flip`; otherwise it stands still.
+ */
+export function Drink3D({ emoji, height, settle = false, slide, flip }: { emoji: string; height: number; settle?: boolean; slide?: number; flip?: boolean }) {
   const s = DRINKS[emoji];
-  return s ? <Sprite s={s} height={height} mode={settle ? "once" : "still"} className="drink3d" /> : null;
+  if (!s) return null;
+  if (slide && !reducedMotion()) return <Sprite s={{ ...s, file: `${s.file}-slide`, frames: SLIDE_FRAMES }} height={height} mode="once" ms={slide} flip={flip} className="drink3d" />;
+  return <Sprite s={s} height={height} mode={settle ? "once" : "still"} className="drink3d" />;
 }
 
 /** A Blender chip tumbling through the air. */

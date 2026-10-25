@@ -348,7 +348,8 @@ else:
             k = f - stop
             x = 0
             lean = math.radians(7) * 0.0 + math.radians(6) * math.exp(-k * 0.3) * math.cos(k * 1.1)
-        root.location = (x, 0, 0); root.rotation_euler = (0, lean, x * 0.15)
+        # --inplace: the lean and turn without the travel, for the game to move the glass itself
+        root.location = (0 if "--inplace" in sys.argv else x, 0, 0); root.rotation_euler = (0, lean, x * 0.15)
         if which == "vault":
             w_ = bpy.data.objects["wheel"]; w_.rotation_euler = (0, 0, -x * 0.9 + (f > stop) * 0); w_.keyframe_insert("rotation_euler", frame=f)
         key(root, f)
@@ -358,7 +359,7 @@ else:
     light((-1, 5, 3), 900, 4, (1, 0.8, 0.5), (0, 0, 1))
     sc.render.resolution_x = int(SIZE * 1.6); sc.render.resolution_y = SIZE
 
-frames = [int(ONLY)] if ONLY else range(int(arg("--start", 0)), N)
+frames = [int(ONLY)] if ONLY else range(int(arg("--start", 0)), int(arg("--end", N)), int(arg("--step", 1)))
 for f in frames:
     sc.frame_set(f)
     sc.render.filepath = f"{OUT}/{f:04d}.png"

@@ -82,11 +82,12 @@ export function DrinkLayer({ drinks, slides, pos }: { drinks: Drink[]; slides: S
           <motion.span
             key={sl.key}
             className={"drink sliding" + (isVault(sl.emoji) ? " vault" : "") + (has3dDrink(sl.emoji) ? " d3" : "")}
-            initial={{ x: fx, y: fy, scale: 0.4, rotate: -20, opacity: 0 }}
-            animate={{ x: [fx, (fx + tx) / 2, tx], y: [fy, (fy + ty) / 2 + 30, ty], scale: [0.4, 1.5, 1], rotate: [-20, 8, 0], opacity: 1 }}
+            initial={{ x: fx, y: fy, scale: 0.4, rotate: has3dDrink(sl.emoji) ? 0 : -20, opacity: 0 }}
+            animate={{ x: [fx, (fx + tx) / 2, tx], y: [fy, (fy + ty) / 2 + 30, ty], scale: [0.4, 1.5, 1], rotate: has3dDrink(sl.emoji) ? 0 : [-20, 8, 0], opacity: 1 }}
             transition={{ duration: SLIDE_MS / 1000, ease: [0.2, 0.7, 0.3, 1], times: [0, 0.6, 1] }}
           >
-            {has3dDrink(sl.emoji) ? <Drink3D emoji={sl.emoji} height={46} /> : isVault(sl.emoji) ? <VaultGlass size={46} /> : <Emoji e={sl.emoji} />}
+            {/* a 3D glass leans as it brakes (rendered in Blender) instead of being spun in code */}
+            {has3dDrink(sl.emoji) ? <Drink3D emoji={sl.emoji} height={46} slide={SLIDE_MS} flip={tx < fx} /> : isVault(sl.emoji) ? <VaultGlass size={46} /> : <Emoji e={sl.emoji} />}
           </motion.span>
         );
       })}
