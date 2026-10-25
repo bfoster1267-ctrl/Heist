@@ -94,6 +94,8 @@ export const en: Record<string, string> = {
   "settings.music_desc": "Ambient soundtrack and table music",
   "settings.haptics": "Vibration Feedback",
   "settings.haptics_desc": "Light haptic taps on cards and buttons",
+  "settings.upright": "Play Upright",
+  "settings.upright_desc": "Phone held upright: tables up to 4 players stay upright. Off: always turn sideways.",
   "settings.motion": "Animation Motion",
   "settings.motion_desc": "Card deal speed and UI transitions",
   "settings.alerts": "Push Alerts & Invites",

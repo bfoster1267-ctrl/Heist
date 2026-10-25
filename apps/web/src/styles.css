@@ -4546,14 +4546,22 @@ button:disabled {
   text-decoration: underline;
 }
 
-/* ---------------------------------------------------------------- tall layout (phone upright, 3-player first hand) */
+/* ---------------------------------------------------------------- tall layout (phone held upright, 2 to 4 players) */
 /* rivals side by side under the top bar, the job in the middle of an upright felt, your hand and
    seat at the bottom; type is set like the wide canvas, since it's drawn at about 0.7 on a phone */
+/* 4 players: a second row of rivals pushes everything under them down a row (TALL_ROW in layout.ts) */
+.l-tall.p4 {
+  --row: 164px;
+}
+.l-tall.p4 .seat.at-left .seat-hand {
+  right: auto;
+  left: 8px;
+}
 .l-tall .felt {
   left: 14px;
   top: 214px;
   width: 512px;
-  height: 580px;
+  height: calc(580px + var(--row, 0px));
   border-radius: 200px;
 }
 .l-tall .felt::after {
@@ -4640,7 +4648,7 @@ button:disabled {
 }
 .l-tall .ticker {
   font-size: 18px;
-  top: 286px;
+  top: calc(286px + var(--row, 0px));
   left: 20px;
   width: 500px;
   transform: none;
@@ -4650,47 +4658,47 @@ button:disabled {
 /* the piles down the sides of the felt, the job between them */
 .l-tall .deck {
   left: 70px;
-  top: 390px;
+  top: calc(390px + var(--row, 0px));
 }
 .l-tall .discard {
   left: 70px;
-  top: 520px;
+  top: calc(520px + var(--row, 0px));
 }
 .l-tall .pen {
   left: 470px;
-  top: 400px;
+  top: calc(400px + var(--row, 0px));
   width: 92px;
 }
 .l-tall .pot {
   left: 470px;
-  top: 520px;
+  top: calc(520px + var(--row, 0px));
 }
 .l-tall .lastcall-badge {
-  top: 318px;
+  top: calc(318px + var(--row, 0px));
   left: 270px;
 }
 .l-tall .job {
   left: 270px;
-  top: 404px;
+  top: calc(404px + var(--row, 0px));
   scale: 0.8;
 }
 .l-tall .spot {
-  background: radial-gradient(ellipse 230px 200px at 270px 420px, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+  background: radial-gradient(ellipse 230px 200px at 270px calc(420px + var(--row, 0px)), transparent 60%, rgba(0, 0, 0, 0.55) 100%);
 }
 .l-tall .banner {
-  top: 380px;
+  top: calc(380px + var(--row, 0px));
   width: 540px;
   font-size: 30px;
 }
 .l-tall .showdown {
   left: 270px;
-  top: 420px;
+  top: calc(420px + var(--row, 0px));
   gap: 30px;
   padding: 18px 20px 22px;
 }
 .l-tall .my-hand {
   left: 270px;
-  top: 836px;
+  top: calc(836px + var(--row, 0px));
 }
 /* the decision panel sits across the bottom of the felt, just above your hand */
 .l-tall .action-panel {
@@ -4705,7 +4713,7 @@ button:disabled {
   bottom: auto;
 }
 .l-tall .waiting {
-  top: 728px;
+  top: calc(728px + var(--row, 0px));
   left: 20px;
   right: 20px;
   width: auto;

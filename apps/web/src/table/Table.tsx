@@ -18,7 +18,7 @@ import { Coach, CoachIdea, CoachLine, MistakeCheck, Walkthrough } from "./Coach"
 import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
-import { clearSpot, seatGrow, seatPos, useLayout, type Spot } from "./layout";
+import { clearSpot, seatGrow, seatPos, UPRIGHT_MAX, useLayout, type Spot } from "./layout";
 import { CardBack, CardFace, Chips, CountUp, Crew, FitLine, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
@@ -152,10 +152,10 @@ export function Table({
 }) {
   const HUMAN = seat;
   const t = useSource(settings);
-  // the new player's 3-player first hand has its own layout for a phone held upright
-  const upright = settings.players === 3 && !!settings.coached && settings.lesson === FIRST_HAND;
-  const { L, scale, dx, dy } = useLayout(upright);
   const prefs = usePrefs();
+  // up to 4 players, a phone held upright plays upright (unless the player picked sideways in Settings)
+  const upright = prefs.upright && settings.players <= UPRIGHT_MAX;
+  const { L, scale, dx, dy } = useLayout(upright ? settings.players : 0);
   const reduce = reducedMotion(prefs);
   const canvas = useRef<HTMLDivElement>(null);
   const { flights, launch, fly, at: anchorAt } = useFlights(canvas, scale);

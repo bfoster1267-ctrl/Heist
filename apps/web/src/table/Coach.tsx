@@ -58,18 +58,20 @@ export function Walkthrough({ s, lessonOn = false, canvas, scale, open, onClose 
     onClose();
   };
   const last = i === list.length - 1;
-  // Put the card on whichever side of the spotlight has room.
+  // Put the card on whichever side of the spotlight has room, inside the canvas (narrow when upright).
+  const W = canvas.current?.offsetWidth || 1280, H = canvas.current?.offsetHeight || 800;
+  const cx = box ? Math.min(Math.max(box.x + box.w / 2, Math.min(230, W / 2)), Math.max(W - 230, W / 2)) : 0;
   const cardStyle: React.CSSProperties = box
-    ? box.y > 320
-      ? { left: Math.min(Math.max(box.x + box.w / 2, 230), 1050), top: box.y - 14, transform: "translate(-50%, -100%)" }
-      : { left: Math.min(Math.max(box.x + box.w / 2, 230), 1050), top: box.y + box.h + 14, transform: "translateX(-50%)" }
+    ? box.y > Math.max(320, H * 0.4)
+      ? { left: cx, top: box.y - 14, transform: "translate(-50%, -100%)" }
+      : { left: cx, top: box.y + box.h + 14, transform: "translateX(-50%)" }
     : { left: "50%", top: "42%", transform: "translate(-50%, -50%)" };
   return (
     <div className="walk" role="dialog" aria-modal="true" aria-label={t("rules.title", "How the table works")}>
       <motion.div
         className="walk-hole"
         initial={false}
-        animate={box ? { left: box.x, top: box.y, width: box.w, height: box.h, opacity: 1 } : { left: 640, top: 300, width: 0, height: 0, opacity: 1 }}
+        animate={box ? { left: box.x, top: box.y, width: box.w, height: box.h, opacity: 1 } : { left: W / 2, top: H * 0.4, width: 0, height: 0, opacity: 1 }}
         transition={{ type: "spring", stiffness: 260, damping: 30 }}
       />
       <div className="walk-card" style={cardStyle}>

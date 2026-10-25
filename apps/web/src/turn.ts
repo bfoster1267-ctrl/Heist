@@ -6,8 +6,8 @@
 // While turned, every CSS @media rule that asks about the window's width, height or orientation is
 // re-decided for the sideways window (the browser would still answer for the upright one).
 //
-// A table that has its own upright layout (the 3-player first hand, see layout.ts) sets html.upright and
-// is left as it is.
+// A table that has its own upright layout (2 to 4 players, see layout.ts) sets html.upright and is left
+// as it is.
 
 const PORTRAIT_PHONE = "(orientation: portrait) and (max-width: 760px) and (pointer: coarse)";
 const SIZED = /width|height|orientation/;
