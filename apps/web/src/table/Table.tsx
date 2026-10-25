@@ -407,6 +407,12 @@ export function Table({
     return { kind: "bot", name: p.name, color: p.color, bot, level: bot.level ?? "normal" };
   };
 
+  // Upright on a tall phone with few players there's room to spare: your seat spreads out and your hand
+  // grows into it. The room is worked out from the busiest the column gets (the Boss's card while you
+  // watch, or every row plus the decision panel on your move), so it doesn't change as panels come and go.
+  const listRoom = list ? L.H - (52 + Math.max(245 + (s.n - 2) * 50, 260 + (s.n - 1) * 50) + 320) : 0;
+  const roomy = listRoom >= 90;
+  const handZoom = roomy ? Math.min(1.12, 1 + (listRoom - 90) / 300) : 1;
   const handEl = (
     <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label="Your hand" aria-hidden={watching || undefined}>
       {me.hand.map((c, i) => {
@@ -428,8 +434,8 @@ export function Table({
                   }
                 : undefined
             }
-            // upright, a big hand overlaps more so it still fits across the phone
-            style={{ rotate: `${off * 3}deg`, marginTop: Math.abs(off) * 4, zIndex: i, ...(list && i && n > 5 ? { marginLeft: Math.min(-22, (L.W - 60 - 84 * n) / (n - 1)) } : {}) }}
+            // upright, a big (or zoomed) hand overlaps more so it still fits across the phone
+            style={{ rotate: `${off * 3}deg`, marginTop: Math.abs(off) * 4, zIndex: i, ...(list && i ? { marginLeft: Math.min(-22, (L.W / handZoom - 30 - 84 * n) / (n - 1)) } : {}) }}
             enter={dealing ? 0.5 + i * 0.12 : undefined}
           />
         );
@@ -502,7 +508,7 @@ export function Table({
     };
     const speeds: Record<number, string> = { 1: "Speed 1x", 2: "Speed 2x", 4: "Speed 4x" };
     return (
-      <div className={"l-view" + (ask?.kind === "pickMark" || ask?.kind === "pickHideout" ? " picking" : "")}>
+      <div className={"l-view" + (ask?.kind === "pickMark" || ask?.kind === "pickHideout" ? " picking" : "") + (roomy ? " roomy" : "")}>
         <ListTop
           who={s!.phase !== "setup" && !s!.winners ? (s!.boss === HUMAN ? "Your turn" : `${s!.players[s!.boss].name}'s turn`) : null}
           step={s!.phase !== "setup" && !s!.winners ? STEPS[stepRef.current] : null}
@@ -557,7 +563,7 @@ export function Table({
           {panelEl}
         </div>
         <div className="l-foot">
-          {handEl}
+          <div style={{ zoom: handZoom }}>{handEl}</div>
           <MySeat {...common(HUMAN)} me={!watching} acting={!s!.winners && actor === HUMAN && !!ask} />
         </div>
       </div>
@@ -688,7 +694,6 @@ export function Table({
                   hideoutGlow={pickHide}
                   onHideout={pickHide ? (h) => play({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
-                  showBank={wide}
                   away={away?.[p.seat]}
                   tag={tags?.[p.seat]}
                   onPeek={() => {

@@ -1159,28 +1159,6 @@ button:disabled {
   margin-left: -20px;
   transform-origin: bottom center;
 }
-.seat-bank {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  align-items: center;
-  margin-top: 5px;
-}
-.bank-coin {
-  font-family: var(--cond);
-  font-weight: 800;
-  font-size: 11px;
-  line-height: 15px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--cash);
-  color: #fff;
-}
-.seat-bank .more {
-  font-family: var(--cond);
-  font-size: 12px;
-  color: var(--muted);
-}
 .seat.me {
   width: 300px;
 }
@@ -5109,29 +5087,80 @@ button:disabled {
   border-color: var(--gold);
   box-shadow: 0 0 18px rgba(231, 181, 60, 0.25);
 }
+/* your seat is the one you read most, so it's drawn bigger than the rows above it */
 .l-me-top {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 .l-me-top .l-id {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 7px;
+}
+.l-me-top .l-name {
+  font-size: 24px;
 }
 .l-me-top .l-stats {
   flex: none;
-  width: 196px;
+  width: 204px;
   gap: 4px;
 }
+.l-me-top .l-stat {
+  padding: 6px 0 6px;
+}
 .l-me-top .l-stat-v {
-  font-size: 20px;
+  font-size: 26px;
+}
+.l-me-top .l-stat-k {
+  font-size: 12px;
 }
 .l-me-top .l-pips {
-  gap: 5px;
+  gap: 7px;
+}
+.l-me-top .l-pips .pip {
+  width: 14px;
+  height: 14px;
 }
 .l-me-top .you-tag {
   margin-left: 5px;
+}
+.l-me .l-hideouts .hideout {
+  min-height: 46px;
+}
+.l-me .l-hideouts .hideout-k {
+  font-size: 22px;
+}
+/* a tall phone with room to spare: the stats get a full row of their own, everything bigger */
+.l-view.roomy .l-me-top {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.l-view.roomy .l-me-top .l-name {
+  font-size: 28px;
+}
+.l-view.roomy .l-me-top .l-stats {
+  width: 100%;
+  gap: 6px;
+}
+.l-view.roomy .l-me-top .l-stat {
+  padding: 8px 0 7px;
+}
+.l-view.roomy .l-me-top .l-stat-v {
+  font-size: 32px;
+}
+.l-view.roomy .l-me-top .l-stat-k {
+  font-size: 13px;
+}
+.l-view.roomy .l-me-top .l-pips .pip {
+  width: 16px;
+  height: 16px;
+}
+.l-view.roomy .l-me .l-hideouts .hideout {
+  min-height: 54px;
+}
+.l-view.roomy .l-me .l-hideouts .hideout-k {
+  font-size: 26px;
 }
 
 /* the things that float over the table, placed for the column */

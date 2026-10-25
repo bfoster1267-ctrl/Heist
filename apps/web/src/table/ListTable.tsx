@@ -70,11 +70,11 @@ function Avatar({ s, seat, size, hold, acting }: { s: GameState; seat: number; s
   );
 }
 
-function Hideouts({ s, seat, glow, onHideout }: { s: GameState; seat: number; glow?: boolean; onHideout?: (h: number) => void }) {
+function Hideouts({ s, seat, glow, onHideout, big }: { s: GameState; seat: number; glow?: boolean; onHideout?: (h: number) => void; big?: boolean }) {
   return (
     <div className="l-hideouts">
       {s.players[seat].hideouts.map((_, h) => (
-        <Hideout key={h} s={s} owner={seat} h={h} counts glow={glow} onClick={onHideout ? () => onHideout(h) : undefined} />
+        <Hideout key={h} s={s} owner={seat} h={h} counts big={big} glow={glow} onClick={onHideout ? () => onHideout(h) : undefined} />
       ))}
     </div>
   );
@@ -235,7 +235,7 @@ export function MySeat({ s, seat, onPeek, me, acting }: Who & { me: boolean; act
   return (
     <div className={"l-me" + (s.boss === seat && s.phase !== "setup" ? " boss" : "") + (s.job?.kind === "hit" && s.job.mark === seat ? " mark" : "") + (acting ? " acting" : "") + (s.winners?.includes(seat) ? " winner" : "")} data-anchor={me ? "my-seat" : undefined}>
       <div className="l-me-top">
-        <Avatar s={s} seat={seat} size={38} hold={hold} />
+        <Avatar s={s} seat={seat} size={48} hold={hold} />
         <div className="l-id">
           <div className="l-name" {...hold.props}>
             <span className="l-name-text">{P.name}</span>
@@ -258,7 +258,7 @@ export function MySeat({ s, seat, onPeek, me, acting }: Who & { me: boolean; act
           </Stat>
         </div>
       </div>
-      <Hideouts s={s} seat={seat} />
+      <Hideouts s={s} seat={seat} big />
     </div>
   );
 }

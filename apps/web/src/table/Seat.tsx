@@ -123,7 +123,6 @@ export function Seat({
   hideoutGlow,
   onHideout,
   acting,
-  showBank,
   away,
   cigar,
   tag,
@@ -139,7 +138,6 @@ export function Seat({
   hideoutGlow?: boolean;
   onHideout?: (h: number) => void;
   acting?: boolean;
-  showBank?: boolean;
   /** online: the player has dropped ("away") or a bot is playing for them ("bot") */
   away?: "away" | "bot";
   /** your equipped cigar, resting by your avatar */
@@ -276,15 +274,6 @@ export function Seat({
             <span key={i} className="seat-hand-card" style={{ transform: `rotate(${(i - (Math.min(P.hand.length, 7) - 1) / 2) * 7}deg)` }}>
               <CardBack size="xs" />
             </span>
-          ))}
-        </div>
-      )}
-      {(!me || showBank) && P.bank.length > 0 && (
-        <div className="seat-bank">
-          {P.bank.map((c) => (
-            <motion.span key={c.id} className="bank-coin" initial={{ scale: 0 }} animate={{ scale: 1 }}>
-              ${c.cash}
-            </motion.span>
           ))}
         </div>
       )}
