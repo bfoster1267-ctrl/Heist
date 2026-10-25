@@ -15,6 +15,10 @@
   --title: "Bebas Neue", "Barlow Condensed", Impact, sans-serif;
   --cond: "Barlow Condensed", "Arial Narrow", sans-serif;
   --body: "Barlow", system-ui, sans-serif;
+  --lobby-felt:
+    radial-gradient(ellipse 100% 60% at 50% 20%, rgba(231, 181, 60, 0.08) 0%, transparent 65%),
+    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 6px),
+    radial-gradient(ellipse 130% 120% at 50% 45%, #187a50 0%, #0f5a3c 45%, #0a3f2a 80%, #062b1c 100%);
   color-scheme: dark;
 }
 * {
@@ -45,13 +49,19 @@ body {
   right: 0;
   bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
 }
-/* Lobby is open (Lobby.tsx): html, body and #root (stretched by -webkit-fill-available) show past the bottom of the page in the iPhone
-   home-screen app, so match the lobby felt's bottom edge instead of a black band. */
+/* Lobby is open (Lobby.tsx): in the iPhone home-screen app the lobby stops short of the bottom of the glass,
+   while body and #root (stretched by -webkit-fill-available) reach it. So #root carries the lobby felt and
+   the lobby itself goes see-through: one unbroken felt, no band under the menu. */
 html.on-lobby,
-html.on-lobby body,
-html.on-lobby #root {
+html.on-lobby body {
   background: #0e5339;
   background-color: #0e5339;
+}
+html.on-lobby #root {
+  background: var(--lobby-felt);
+}
+html.on-lobby .lobby {
+  background: transparent;
 }
 @supports (-webkit-touch-callout: none) {
   html, body, #root {
@@ -1858,10 +1868,7 @@ button:disabled {
   display: grid;
   place-items: center;
   padding: calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
-  background:
-    radial-gradient(ellipse 100% 60% at 50% 20%, rgba(231, 181, 60, 0.08) 0%, transparent 65%),
-    repeating-linear-gradient(115deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 6px),
-    radial-gradient(ellipse 130% 120% at 50% 45%, #187a50 0%, #0f5a3c 45%, #0a3f2a 80%, #062b1c 100%);
+  background: var(--lobby-felt);
   box-shadow: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
