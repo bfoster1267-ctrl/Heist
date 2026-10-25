@@ -45,6 +45,12 @@ body {
   right: 0;
   bottom: calc(-1 * env(safe-area-inset-bottom, 0px));
 }
+/* Lobby is open (Lobby.tsx): the canvas is whatever shows past the bottom of the page in the iPhone
+   home-screen app, so match the lobby felt's bottom edge instead of a black band. */
+html.on-lobby {
+  background: #0e5339;
+  background-color: #0e5339;
+}
 @supports (-webkit-touch-callout: none) {
   html, body, #root {
     min-height: -webkit-fill-available;

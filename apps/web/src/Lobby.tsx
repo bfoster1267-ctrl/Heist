@@ -181,6 +181,12 @@ export function Lobby({
     const neverPlayed = !progress?.coachGames && !progress?.stats.games;
     return (newbie && !flag("heist.welcomed")) || (playLink() && neverPlayed);
   });
+  // Home-screen app on newer iPhones: the page stops short of the bottom of the glass and the strip below
+  // shows the root canvas, so paint the canvas lobby green while the menu is up (see html.on-lobby in styles.css).
+  useEffect(() => {
+    document.documentElement.classList.add("on-lobby");
+    return () => document.documentElement.classList.remove("on-lobby");
+  }, []);
   if (front)
     return (
       <TitleCard
