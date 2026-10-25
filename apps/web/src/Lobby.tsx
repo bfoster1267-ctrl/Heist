@@ -283,16 +283,12 @@ export function Lobby({
             <span className="lobby-sub">{t("lobby.top_up")} ({REFILL_TO.toLocaleString()})</span>
           </button>
         ) : (
-          <button className={"btn lobby-big" + (newbie ? "" : " primary")} onClick={() => go(table)}>
-            {t("lobby.quick_play")}
-            <span className="lobby-sub">
-              {players} {t("table.players").toLowerCase()} · {STAKES[table].name} · {t("table.buy_in").toLowerCase()} {STAKES[table].buyIn.toLocaleString()}
-            </span>
+          // one way in: the online lobby holds Casual, Ranked and tables with friends
+          <button className={"btn lobby-big" + (newbie ? "" : " primary")} disabled={!onOnline} onClick={() => onOnline?.(nm())}>
+            {t("lobby.play_heist", "Play Heist")}
+            <span className="lobby-sub">{t("lobby.play_heist_sub", "Casual, Ranked or with friends")}</span>
           </button>
         )}
-        <button className="lobby-change" onClick={() => setOptions(true)}>
-          {t("lobby.change_table")}
-        </button>
 
         {onSave && (
           <button
@@ -318,7 +314,6 @@ export function Lobby({
         )}
 
         <div className="lobby-modes">
-          <Mode icon="online" label={t("lobby.play_online")} sub={newbie ? t("lobby.first_lesson_sub") : t("lobby.real_people")} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onCheckers || onMinesweeper || onSudoku || onHearts || onSpades) && (
             <Mode
               icon="cards"

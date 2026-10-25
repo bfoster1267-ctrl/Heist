@@ -33,6 +33,8 @@ export const ptBR: Record<string, string> = {
   "common.level_boss": "Chefe",
 
   // Saguão (Lobby)
+  "lobby.play_heist": "Jogar Heist",
+  "lobby.play_heist_sub": "Casual, Ranqueada ou com amigos",
   "lobby.quick_play": "Casual",
   "lobby.free_chips": "Fichas Grátis",
   "lobby.top_up": "Recarregar fichas e jogar",
