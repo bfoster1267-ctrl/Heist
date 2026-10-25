@@ -33,6 +33,8 @@ export const en: Record<string, string> = {
   "common.level_boss": "Boss",
 
   // Lobby
+  "lobby.play_heist": "Play Heist",
+  "lobby.play_heist_sub": "Casual, Ranked or with friends",
   "lobby.quick_play": "Casual",
   "lobby.free_chips": "Free chips",
   "lobby.top_up": "Top up and play",
