@@ -63,6 +63,13 @@ html.on-lobby #root {
 html.on-lobby .lobby {
   background: transparent;
 }
+/* A full-screen page opened over the lobby stops just as short, so the strip takes that page's colour instead. */
+html.on-lobby:has(.lounge) #root {
+  background: #101318;
+}
+html.on-lobby:has(.acct-screen) #root {
+  background: #101217;
+}
 @supports (-webkit-touch-callout: none) {
   html, body, #root {
     min-height: -webkit-fill-available;
