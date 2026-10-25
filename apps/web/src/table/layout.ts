@@ -1,11 +1,13 @@
 // The table is drawn on a fixed canvas that scales to the window, like a poker client.
 // Two canvases: "desk" (16:10, laptops and tablets) and "wide" (phones held sideways and very wide
-// windows), which is shorter so everything draws about a third bigger on a phone.
+// windows), which is shorter so everything draws about a third bigger on a phone. A third, "tall", is
+// for a phone held upright at the 3-player first hand: rivals on top, the job in the middle, you at
+// the bottom, so a new player never meets a table drawn sideways.
 import { useLayoutEffect, useState } from "react";
 import { safeInsets } from "../appShell";
 import { turnInsets, viewport } from "../turn";
 
-export type LayoutName = "desk" | "wide";
+export type LayoutName = "desk" | "wide" | "tall";
 
 export interface Layout {
   name: LayoutName;
@@ -44,6 +46,16 @@ export const LAYOUTS: Record<LayoutName, Layout> = {
     },
     human: [175, 515],
   },
+  tall: {
+    name: "tall",
+    W: 540,
+    H: 1080,
+    // only the 3-player table is drawn upright: the two rivals side by side under the top bar
+    opp: {
+      2: [[136, 200], [404, 200]],
+    },
+    human: [270, 990],
+  },
 };
 
 export function seatPos(L: Layout, seat: number, n: number, human: number): [number, number] {
@@ -58,17 +70,18 @@ export function seatGrow(L: Layout, [x, y]: [number, number], n: number): React.
   const h = x < L.W * 0.25 ? "left" : x > L.W * 0.75 ? "right" : "center";
   const v = y < L.H * 0.3 ? "top" : y > L.H * 0.7 ? "bottom" : "center";
   // at 5 and 6 players the seats sit shoulder to shoulder, so none of them can grow much
-  const max = n >= 5 ? (L.name === "wide" ? 1 : 1.08) : h === "center" ? 1.1 : undefined;
+  const max = n >= 5 ? (L.name === "wide" ? 1 : 1.08) : L.name === "tall" ? 1 : h === "center" ? 1.1 : undefined;
   return { transformOrigin: `${h} ${v}`, ...(max ? { "--seat-max": max } : {}) } as React.CSSProperties;
 }
 
-/** Pick the canvas for the window shape and the scale that fits it. */
-export function useLayout() {
+/** Pick the canvas for the window shape and the scale that fits it. `upright`: this table can be drawn
+ *  on the tall canvas when the window is a phone held upright (see turn.ts, which then leaves it alone). */
+export function useLayout(upright = false) {
   // Fit inside the safe area so nothing sits under the notch or the home bar.
   const pick = () => {
     const ins = turnInsets(safeInsets()), vp = viewport();
     const w = vp.w - ins.left - ins.right, h = vp.h - ins.top - ins.bottom;
-    const L = w / h >= 1.85 ? LAYOUTS.wide : LAYOUTS.desk;
+    const L = upright && w / h < 0.8 ? LAYOUTS.tall : w / h >= 1.85 ? LAYOUTS.wide : LAYOUTS.desk;
     return { L, scale: Math.min(w / L.W, h / L.H), dx: (ins.left - ins.right) / 2, dy: (ins.top - ins.bottom) / 2 };
   };
   const [v, setV] = useState(pick);
@@ -85,7 +98,7 @@ export function useLayout() {
       window.removeEventListener("orientationchange", f);
       window.removeEventListener("orientationchange", late);
     };
-  }, []);
+  }, [upright]);
   return v;
 }
 
@@ -165,7 +178,7 @@ export interface Spot {
 export function clearSpot(el: HTMLElement, canvas: HTMLElement, L: Layout): Spot {
   const w = el.offsetWidth, h = el.offsetHeight;
   // the old fixed spot: the card's top a little above the middle of the felt
-  const home = { cx: L.W / 2, top: L.name === "wide" ? 120 : 190 };
+  const home = { cx: L.W / 2, top: L.name === "wide" ? 120 : L.name === "tall" ? 400 : 190 };
   const keep: [Box, number][] = [];
   for (const [sel, weight] of KEEP_CLEAR)
     canvas.querySelectorAll<HTMLElement>(sel).forEach((o) => {

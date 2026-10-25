@@ -4539,6 +4539,214 @@ button:disabled {
   text-decoration: underline;
 }
 
+/* ---------------------------------------------------------------- tall layout (phone upright, 3-player first hand) */
+/* rivals side by side under the top bar, the job in the middle of an upright felt, your hand and
+   seat at the bottom; type is set like the wide canvas, since it's drawn at about 0.7 on a phone */
+.l-tall .felt {
+  left: 14px;
+  top: 214px;
+  width: 512px;
+  height: 580px;
+  border-radius: 200px;
+}
+.l-tall .felt::after {
+  border-radius: 192px;
+}
+.l-tall .felt-inner {
+  border-radius: 182px;
+}
+.l-tall .felt-logo {
+  font-size: 84px;
+  letter-spacing: 16px;
+  top: 64%;
+}
+.l-tall .topbar.left {
+  left: 8px;
+  top: 6px;
+}
+.l-tall .topbar.right {
+  right: 8px;
+  top: 6px;
+  gap: 5px;
+}
+/* the lesson name and the turn steps get their own row under the buttons */
+.l-tall .topbar-info {
+  position: absolute;
+  left: 0;
+  top: 54px;
+  width: 524px;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+}
+.l-tall .stakes {
+  margin-top: 0;
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+.l-tall .turn-steps {
+  font-size: 12.5px;
+  flex: none;
+}
+.l-tall .turn-step {
+  padding: 2px 5px;
+}
+.l-tall .icon-btn {
+  height: 46px;
+  min-width: 52px;
+  font-size: 18px;
+}
+.l-tall .icon-btn .ib-k {
+  font-size: 10.5px;
+}
+.l-tall .seat:not(.me) {
+  width: 260px;
+}
+/* face-down hands sit on the seat's top edge (the right seat has no room past it) */
+.l-tall .seat-hand {
+  right: 8px;
+  top: -40px;
+}
+.l-tall .seat.me {
+  width: 524px;
+  top: auto !important;
+  bottom: 8px;
+  transform: translateX(-50%);
+}
+.big-text .l-tall .seat.me {
+  transform: translateX(-50%);
+}
+.l-tall .seat-name {
+  font-size: 19px;
+}
+.l-tall .seat-stats {
+  font-size: 15px;
+}
+.l-tall .fh-k,
+.l-tall .stat-k,
+.l-tall .seat-sub {
+  font-size: 11px;
+}
+.l-tall .ticker {
+  font-size: 18px;
+  top: 286px;
+  left: 20px;
+  width: 500px;
+  transform: none;
+  height: 26px;
+  z-index: 6;
+}
+/* the piles down the sides of the felt, the job between them */
+.l-tall .deck {
+  left: 70px;
+  top: 390px;
+}
+.l-tall .discard {
+  left: 70px;
+  top: 520px;
+}
+.l-tall .pen {
+  left: 470px;
+  top: 400px;
+  width: 92px;
+}
+.l-tall .pot {
+  left: 470px;
+  top: 520px;
+}
+.l-tall .lastcall-badge {
+  top: 318px;
+  left: 270px;
+}
+.l-tall .job {
+  left: 270px;
+  top: 404px;
+  scale: 0.8;
+}
+.l-tall .spot {
+  background: radial-gradient(ellipse 230px 200px at 270px 420px, transparent 60%, rgba(0, 0, 0, 0.55) 100%);
+}
+.l-tall .banner {
+  top: 380px;
+  width: 540px;
+  font-size: 30px;
+}
+.l-tall .showdown {
+  left: 270px;
+  top: 420px;
+  gap: 30px;
+  padding: 18px 20px 22px;
+}
+.l-tall .my-hand {
+  left: 270px;
+  top: 836px;
+}
+/* the decision panel sits across the bottom of the felt, just above your hand */
+.l-tall .action-panel {
+  top: auto;
+  bottom: 310px;
+  left: 8px;
+  right: 8px;
+  width: auto;
+}
+.l-tall .action-panel.wide {
+  top: 120px;
+  bottom: auto;
+}
+.l-tall .waiting {
+  top: 728px;
+  left: 20px;
+  right: 20px;
+  width: auto;
+}
+.l-tall .log {
+  top: 100px;
+  bottom: 220px;
+}
+.l-tall .settings,
+.l-tall .chat-tray {
+  top: 60px;
+}
+/* sized by the canvas, not the window (the canvas is drawn at about 0.7) */
+.l-tall .settings.settings-modal-card.in-game {
+  left: 8px;
+  right: 8px;
+  width: auto;
+  max-height: 860px;
+}
+/* it already spans the canvas, so bigger text doesn't scale it past the edges */
+.big-text .l-tall .settings {
+  scale: 1;
+}
+.l-tall .rules {
+  width: 510px;
+}
+.l-tall .rules-body {
+  font-size: 18px;
+}
+.l-tall .rules-tabs button {
+  font-size: 16px;
+  padding: 9px 12px;
+}
+.l-tall .btn {
+  min-height: 46px;
+  font-size: 17px;
+  padding: 9px 14px;
+}
+.l-tall .action-title {
+  font-size: 24px;
+}
+.l-tall .hint {
+  font-size: 13.5px;
+}
+.l-tall .coach-card {
+  padding: 22px 22px 18px;
+}
+
 /* ------------------------------------------------------------------ upright phone at a table: the page turns itself */
 /* (turn.ts sets html.turned and the sizes; Reddit's browser never rotates, so this is how it plays there) */
 html.turned body {

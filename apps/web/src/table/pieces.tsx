@@ -158,7 +158,8 @@ export function TableCard({
       style={style}
       whileHover={onClick ? { y: -10 } : undefined}
       initial={enter !== undefined ? { y: -340, x: -120, opacity: 0, scale: 0.5, rotateZ: -40 } : false}
-      animate={enter !== undefined ? { y: 0, x: 0, opacity: 1, scale: 1, rotateZ: 0 } : undefined}
+      // always settles here: a card still dealing in when the deal ends (a quick first hand draws during it) must not stay hidden
+      animate={{ y: 0, x: 0, opacity: 1, scale: 1, rotateZ: 0 }}
       transition={enter !== undefined ? { delay: enter, type: "spring", stiffness: 220, damping: 22 } : { type: "spring", stiffness: 380, damping: 32 }}
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}

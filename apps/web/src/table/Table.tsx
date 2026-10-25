@@ -152,7 +152,9 @@ export function Table({
 }) {
   const HUMAN = seat;
   const t = useSource(settings);
-  const { L, scale, dx, dy } = useLayout();
+  // the new player's 3-player first hand has its own layout for a phone held upright
+  const upright = settings.players === 3 && !!settings.coached && settings.lesson === FIRST_HAND;
+  const { L, scale, dx, dy } = useLayout(upright);
   const prefs = usePrefs();
   const reduce = reducedMotion(prefs);
   const canvas = useRef<HTMLDivElement>(null);
@@ -165,11 +167,13 @@ export function Table({
   const [showRules, setShowRules] = useState(false);
   // Coached play: an answer held back because the coach spotted a rookie mistake in it
   const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
-  // while a table is open, an upright phone draws the page sideways (see turn.ts)
+  // while a table is open, an upright phone draws the page sideways (see turn.ts), unless it has an upright layout
   useEffect(() => {
-    document.documentElement.classList.add("in-game");
-    return () => document.documentElement.classList.remove("in-game");
-  }, []);
+    const html = document.documentElement;
+    html.classList.add("in-game");
+    html.classList.toggle("upright", upright);
+    return () => html.classList.remove("in-game", "upright");
+  }, [upright]);
   /** Coached play: a word of praise for the move just made, shown for a few seconds */
   const [cheer, setCheer] = useState<string | null>(null);
   useEffect(() => {
@@ -231,6 +235,7 @@ export function Table({
   const pot = settings.stakes * settings.players;
   const ev = t.shown?.ev ?? null;
   const wide = L.name === "wide";
+  const tall = L.name === "tall";
 
   // Coached play lessons: a decision the lesson hasn't handed you yet, the coach plays for you
   const lessonOn = !!settings.coached && !!settings.lesson && !watching && !coachOff;
@@ -507,7 +512,7 @@ export function Table({
                   hideoutGlow={pickHide}
                   onHideout={pickHide ? (h) => play({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
-                  showBank={wide}
+                  showBank={wide || tall}
                   away={away?.[p.seat]}
                   tag={tags?.[p.seat]}
                   onPeek={() => {
@@ -519,7 +524,7 @@ export function Table({
             })}
 
             {/* your bank and hand */}
-            {!wide && (
+            {L.name === "desk" && (
               <div className="my-bank" data-anchor={`bank-${HUMAN}`}>
                 <div className="area-label">
                   BANK{" "}
@@ -700,7 +705,7 @@ export function Table({
           <AnimatePresence>{s.winners && paidOut && <GameOver s={s} me={watching || forfeit ? -1 : HUMAN} forfeit={forfeit} pot={pot} history={t.history.current} onAgain={onAgain} againLabel={againLabel} oneGame={clean} firstHand={settings.coached && settings.lesson === FIRST_HAND && !forfeit} firstReward={firstReward} onExit={onExit} />}</AnimatePresence>
         </div>
         </motion.div>
-        <RotateHint />
+        {!upright && <RotateHint />}
       </div>
     </MotionConfig>
   );
