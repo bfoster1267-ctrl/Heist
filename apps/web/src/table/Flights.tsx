@@ -6,6 +6,7 @@ import { useCallback, useState } from "react";
 import { reducedMotion } from "../prefs";
 import { CardBack, Crew } from "./pieces";
 import { boxIn } from "../turn";
+import { Chip3D, has3dChip } from "./sprite3d";
 
 export type Token = { kind: "crew"; color: number } | { kind: "coin" } | { kind: "card" } | { kind: "chip"; color: string };
 interface Flight {
@@ -120,7 +121,7 @@ export function FlightLayer({ flights, speed }: { flights: Flight[]; speed: numb
           >
             {f.token.kind === "crew" && <Crew color={f.token.color} size={20} glow />}
             {f.token.kind === "coin" && <span className="coin">$</span>}
-            {f.token.kind === "chip" && <span className="fly-chip" style={{ background: f.token.color }} />}
+            {f.token.kind === "chip" && (has3dChip(f.token.color) ? <Chip3D color={f.token.color} size={24} /> : <span className="fly-chip" style={{ background: f.token.color }} />)}
             {f.token.kind === "card" && <CardBack size="xs" />}
           </motion.div>
         );

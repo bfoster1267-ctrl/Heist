@@ -10,6 +10,7 @@ import { useLook } from "../account/useAccount";
 import { pop } from "../sound";
 import { VaultGlass, isVault } from "../vault";
 import { Emoji } from "../emoji";
+import { Drink3D, has3dDrink } from "./sprite3d";
 
 export interface Bubble {
   seat: number;
@@ -193,7 +194,7 @@ export function ChatTray({
           <div className="chat-emotes">
             {drinks.map((d) => (
               <button key={d.id} className={isVault(d.emoji) ? "chat-vault" : undefined} onClick={() => setDrink(d.emoji)} aria-label={`Send a ${d.name}, ${d.price ? `${d.price} coins` : "free"}`} title={`${d.name}: ${d.price ? `${d.price} coins` : "free"}`}>
-                {isVault(d.emoji) ? <VaultGlass size={26} /> : <Emoji e={d.emoji} />}
+                {has3dDrink(d.emoji) ? <Drink3D emoji={d.emoji} height={28} /> : isVault(d.emoji) ? <VaultGlass size={26} /> : <Emoji e={d.emoji} />}
                 <span className="chat-price">{d.price || "free"}</span>
               </button>
             ))}
