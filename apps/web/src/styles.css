@@ -1159,28 +1159,6 @@ button:disabled {
   margin-left: -20px;
   transform-origin: bottom center;
 }
-.seat-bank {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  align-items: center;
-  margin-top: 5px;
-}
-.bank-coin {
-  font-family: var(--cond);
-  font-weight: 800;
-  font-size: 11px;
-  line-height: 15px;
-  padding: 0 5px;
-  border-radius: 999px;
-  background: var(--cash);
-  color: #fff;
-}
-.seat-bank .more {
-  font-family: var(--cond);
-  font-size: 12px;
-  color: var(--muted);
-}
 .seat.me {
   width: 300px;
 }
@@ -4546,220 +4524,687 @@ button:disabled {
   text-decoration: underline;
 }
 
-/* ---------------------------------------------------------------- tall layout (phone held upright, 2 to 4 players) */
-/* rivals side by side under the top bar, the job in the middle of an upright felt, your hand and
-   seat at the bottom; type is set like the wide canvas, since it's drawn at about 0.7 on a phone */
-/* 4 players: a second row of rivals pushes everything under them down a row (TALL_ROW in layout.ts) */
-.l-tall.p4 {
-  --row: 164px;
+/* ---------------------------------------------------------------- list layout (phone held upright) */
+/* no felt: one column about the width of the phone, drawn at about 1x (ListTable.tsx). The Boss's
+   big card and the job on top, a row per player, your hand and seat at the bottom. Text 15-21px. */
+.l-list {
+  background: radial-gradient(ellipse at 50% 30%, #1b3a2c 0%, #0d1a14 55%, #0a0c0f 100%);
 }
-.l-tall.p4 .seat.at-left .seat-hand {
+.l-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 6px 8px 8px;
+  gap: 6px;
+}
+/* the piles stay as places things fly from and to, out of sight in the middle */
+.l-list .deck,
+.l-list .discard,
+.l-list .pen,
+.l-list .pot {
+  visibility: hidden;
+  left: 50%;
+  top: 40%;
   right: auto;
-  left: 8px;
+  bottom: auto;
 }
-.l-tall .felt {
-  left: 14px;
-  top: 214px;
-  width: 512px;
-  height: calc(580px + var(--row, 0px));
-  border-radius: 200px;
+.l-top {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  z-index: 20;
 }
-.l-tall .felt::after {
-  border-radius: 192px;
+.l-top .icon-btn.labeled {
+  height: 46px;
+  min-width: 50px;
+  font-size: 18px;
+  flex: none;
 }
-.l-tall .felt-inner {
-  border-radius: 182px;
+.l-top .icon-btn .ib-k {
+  font-size: 10.5px;
 }
-.l-tall .felt-logo {
-  font-size: 84px;
-  letter-spacing: 16px;
-  top: 64%;
+.l-turn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 6px;
+  font-family: var(--title);
+  font-size: 19px;
+  letter-spacing: 0.5px;
+  line-height: 1.05;
+  color: var(--gold2);
+  text-align: center;
 }
-.l-tall .topbar.left {
-  left: 8px;
-  top: 6px;
+.l-turn-who {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.l-tall .topbar.right {
-  right: 8px;
-  top: 6px;
+.l-turn-step,
+.l-turn-last {
+  background: var(--gold);
+  color: #2a1d02;
+  border-radius: 999px;
+  padding: 2px 9px 1px;
+  white-space: nowrap;
+}
+.l-turn-last {
+  background: var(--red);
+  color: #fff;
+}
+.l-menu-back {
+  position: fixed;
+  inset: -2000px;
+  z-index: 1;
+}
+.l-menu {
+  position: absolute;
+  right: 0;
+  top: 52px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 6px;
+  border-radius: 12px;
+  background: #181b22;
+  border: 1px solid var(--line);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+.l-menu-item {
+  text-align: left;
+  font-family: var(--cond);
+  font-weight: 700;
+  font-size: 18px;
+  padding: 11px 12px;
+  border-radius: 8px;
+  color: var(--paper);
+  background: none;
+  border: 0;
+}
+.l-menu-item + .l-menu-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.l-menu-item.on {
+  color: var(--gold);
+}
+/* the middle scrolls if it ever has to, so a button is never out of reach */
+.l-mid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 -4px;
+  padding: 2px 4px 4px;
+}
+.l-gap {
+  flex: 1;
+  min-height: 0;
+}
+.l-pips {
+  display: inline-flex;
+  gap: 6px;
+  flex: none;
+}
+.l-pips .pip {
+  width: 12px;
+  height: 12px;
+  border-width: 2px;
+}
+.l-name {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 20px;
+  line-height: 1.1;
+}
+.l-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.l-tag {
+  flex: none;
+  font-family: var(--title);
+  font-size: 14px;
+  letter-spacing: 1px;
+  line-height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  margin-left: 7px;
+}
+.l-tag.boss {
+  background: var(--gold);
+  color: #2a1d02;
+}
+.l-tag.mark {
+  background: var(--red);
+  color: #fff;
+}
+.l-avatar {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+}
+.l-acting {
+  margin-left: 6px;
+  color: var(--gold2);
+  font-weight: 600;
+  font-size: 16px;
+}
+.l-cash {
+  color: var(--cash);
+}
+.l-stats {
+  display: grid;
+  gap: 5px;
+  font-family: var(--cond);
+  font-weight: 800;
+}
+.l-stats.five {
+  grid-template-columns: repeat(5, 1fr);
+}
+.l-stats.four {
+  grid-template-columns: repeat(4, 1fr);
+}
+.l-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0 5px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+}
+.l-stat-v {
+  font-size: 22px;
+  line-height: 1;
+}
+.l-stat-k {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.l-stat.cash .l-stat-v {
+  color: var(--cash);
+}
+.l-stat.dim .l-stat-v {
+  color: #c9ccd2;
+}
+.l-hideouts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 5px;
 }
-/* the lesson name and the turn steps get their own row under the buttons */
-.l-tall .topbar-info {
-  position: absolute;
-  left: 0;
-  top: 54px;
-  width: 524px;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
+.l-hideouts .hideout {
+  min-height: 34px;
+  justify-content: center;
+  gap: 2px 7px;
+  padding: 3px 4px 3px 13px;
 }
-.l-tall .stakes {
-  margin-top: 0;
+.l-hideouts .hideout-k {
+  font-size: 18px;
+  margin-left: 2px;
+}
+.l-hideouts .hideout-empty {
   font-size: 13px;
-  letter-spacing: 0.5px;
+}
+.l-hideouts .hideout-num {
+  font-size: 11px;
+}
+
+/* the Boss: everything showing */
+.l-boss,
+.l-card,
+.l-row,
+.l-me,
+.l-job {
+  position: relative;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(30, 33, 41, 0.96), rgba(18, 20, 25, 0.96));
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  flex: none;
+}
+.l-boss {
+  padding: 9px 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-color: var(--gold);
+  box-shadow: 0 0 22px rgba(231, 181, 60, 0.22);
+}
+.l-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+.l-id {
+  flex: 1;
+  min-width: 0;
+}
+.l-role {
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 16px;
+  color: #9fc3ff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.l-boss .l-name {
+  font-size: 23px;
+}
+
+/* the job, in a line */
+.l-job {
+  padding: 7px 12px;
+  background: rgba(0, 0, 0, 0.55);
+}
+.l-job-main {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.l-job-title {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--title);
+  font-size: 19px;
+  letter-spacing: 0.8px;
+  color: var(--gold2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.l-job-score {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-family: var(--title);
+  font-size: 26px;
+  line-height: 1;
+}
+.l-job-b {
+  color: var(--gold2);
+}
+.l-job-m {
+  color: #ff7a5e;
+}
+.l-job-score .q {
+  font-size: 15px;
+  color: var(--muted);
+  margin-left: 2px;
+}
+.l-job-vs {
+  font-size: 16px;
+  color: var(--paper);
+}
+.l-job-b.lost,
+.l-job-m.lost {
+  opacity: 0.4;
+}
+.l-job-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 4px;
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 15px;
+  color: #c9ccd2;
+}
+.l-job-result {
+  font-family: var(--title);
+  font-size: 18px;
+  letter-spacing: 1px;
+  color: var(--gold2);
+}
+.l-job-result.r-M {
+  color: #ff7a5e;
+}
+.l-bet.B {
+  color: var(--gold2);
+}
+.l-bet.M {
+  color: #ff7a5e;
+}
+
+/* everyone else, a row each */
+.l-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 44px;
+  padding: 4px 10px 4px 7px;
+  cursor: pointer;
+}
+.l-row .l-name {
+  flex: 1;
+}
+.l-row .l-cash,
+.l-row .l-home {
+  flex: none;
+  font-family: var(--title);
+  font-size: 23px;
+  line-height: 1;
+  text-align: right;
+}
+.l-row .l-cash {
+  min-width: 34px;
+}
+.l-row .l-home {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 36px;
+  justify-content: flex-end;
+}
+.l-row.boss,
+.l-card.boss {
+  border-color: var(--gold);
+}
+.l-row.mark,
+.l-card.mark,
+.l-me.mark {
+  border-color: var(--red);
+  box-shadow: 0 0 14px rgba(214, 69, 43, 0.35);
+}
+/* whoever's move it is */
+.l-row.acting,
+.l-card.acting,
+.l-me.acting {
+  border-color: var(--gold2);
+  box-shadow: 0 0 16px rgba(246, 215, 122, 0.4);
+  background: linear-gradient(180deg, rgba(58, 50, 26, 0.96), rgba(28, 25, 16, 0.96));
+}
+.l-row.winner,
+.l-card.winner,
+.l-boss.winner,
+.l-me.winner {
+  border-color: var(--gold2);
+  box-shadow: 0 0 30px rgba(246, 215, 122, 0.7);
+}
+.l-row .thinking,
+.l-boss .thinking,
+.l-card .thinking {
+  right: -8px;
+  top: -6px;
+}
+
+/* opened up: picking the Mark, a hideout, joining a fight, or a row tapped open */
+.l-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 6px;
+}
+.l-card {
+  padding: 8px 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   min-width: 0;
 }
-.l-tall .turn-steps {
-  font-size: 12.5px;
-  flex: none;
+.l-card.clickable {
+  cursor: pointer;
+  border-color: var(--gold);
 }
-.l-tall .turn-step {
-  padding: 2px 5px;
+.l-card.glow::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 0 2px var(--gold2), 0 0 22px rgba(246, 215, 122, 0.55);
+  pointer-events: none;
+  animation: glow-pulse 1s ease-in-out infinite;
 }
-.l-tall .icon-btn {
-  height: 46px;
-  min-width: 52px;
-  font-size: 18px;
-}
-.l-tall .icon-btn .ib-k {
-  font-size: 10.5px;
-}
-.l-tall .seat:not(.me) {
-  width: 260px;
-}
-/* face-down hands sit on the seat's top edge (the right seat has no room past it) */
-.l-tall .seat-hand {
-  right: 8px;
-  top: -40px;
-}
-.l-tall .seat.me {
-  width: 524px;
-  top: auto !important;
-  bottom: 8px;
-  transform: translateX(-50%);
-}
-.big-text .l-tall .seat.me {
-  transform: translateX(-50%);
-}
-.l-tall .seat-name {
+.l-card .l-name {
   font-size: 19px;
 }
-.l-tall .seat-stats {
+.l-card-mid {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.l-card-cash {
+  font-family: var(--cond);
+  font-weight: 800;
+  font-size: 18px;
+  white-space: nowrap;
+}
+.l-card .l-pips {
+  gap: 5px;
+}
+.l-card .l-pips .pip {
+  width: 11px;
+  height: 11px;
+}
+
+/* the line under the job while you wait: what just happened */
+.l-ticker {
+  flex: none;
+  min-height: 24px;
+  text-align: center;
+  font-family: var(--cond);
+  font-weight: 600;
+  font-size: 17px;
+  line-height: 1.25;
+  color: var(--paper);
+  text-shadow: 0 1px 2px #000;
+}
+.l-ticker span {
+  display: inline-block;
+}
+.l-list .waiting {
+  position: static;
+  width: auto;
+  flex: none;
+  font-size: 17px;
+}
+
+/* your decision: in the column, just above your hand */
+.l-list .action-panel {
+  position: relative;
+  inset: auto;
+  width: auto;
+  flex: none;
+  padding: 10px 12px 12px;
+}
+/* picking your Role: over everything, the two cards side by side */
+.l-list .action-panel.wide {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 60px;
+  width: auto;
+  max-height: calc(100% - 70px);
+  overflow-y: auto;
+  z-index: 40;
+}
+.l-list .role-pick {
+  gap: 8px;
+}
+/* two Role cards side by side across the phone */
+.l-list .role-pick .role-face {
+  zoom: 0.78;
+}
+.l-view.picking .action-panel {
+  order: -1;
+}
+.l-list .action-title {
+  font-size: 23px;
+}
+.l-list .hint,
+.l-list .odds {
   font-size: 15px;
 }
-.l-tall .fh-k,
-.l-tall .stat-k,
-.l-tall .seat-sub {
-  font-size: 11px;
-}
-.l-tall .ticker {
+.l-list .btn {
+  min-height: 46px;
   font-size: 18px;
-  top: calc(286px + var(--row, 0px));
-  left: 20px;
-  width: 500px;
-  transform: none;
-  height: 26px;
-  z-index: 6;
+  padding: 9px 14px;
 }
-/* the piles down the sides of the felt, the job between them */
-.l-tall .deck {
-  left: 70px;
-  top: calc(390px + var(--row, 0px));
+
+/* you: your hand, then your seat */
+.l-foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
-.l-tall .discard {
-  left: 70px;
-  top: calc(520px + var(--row, 0px));
-}
-.l-tall .pen {
-  left: 470px;
-  top: calc(400px + var(--row, 0px));
-  width: 92px;
-}
-.l-tall .pot {
-  left: 470px;
-  top: calc(520px + var(--row, 0px));
-}
-.l-tall .lastcall-badge {
-  top: calc(318px + var(--row, 0px));
-  left: 270px;
-}
-.l-tall .job {
-  left: 270px;
-  top: calc(404px + var(--row, 0px));
-  scale: 0.8;
-}
-.l-tall .spot {
-  background: radial-gradient(ellipse 230px 200px at 270px calc(420px + var(--row, 0px)), transparent 60%, rgba(0, 0, 0, 0.55) 100%);
-}
-.l-tall .banner {
-  top: calc(380px + var(--row, 0px));
-  width: 540px;
-  font-size: 30px;
-}
-.l-tall .showdown {
-  left: 270px;
-  top: calc(420px + var(--row, 0px));
-  gap: 30px;
-  padding: 18px 20px 22px;
-}
-.l-tall .my-hand {
-  left: 270px;
-  top: calc(836px + var(--row, 0px));
-}
-/* the decision panel sits across the bottom of the felt, just above your hand */
-.l-tall .action-panel {
+.l-list .my-hand {
+  position: relative;
+  left: auto;
   top: auto;
-  bottom: 310px;
-  left: 8px;
-  right: 8px;
-  width: auto;
+  transform: none;
+  justify-content: center;
+  padding-top: 6px;
 }
-.l-tall .action-panel.wide {
-  top: 120px;
-  bottom: auto;
+.l-me {
+  padding: 8px 9px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border-color: rgba(231, 181, 60, 0.55);
 }
-.l-tall .waiting {
-  top: calc(728px + var(--row, 0px));
-  left: 20px;
-  right: 20px;
-  width: auto;
+.l-me.boss {
+  border-color: var(--gold);
+  box-shadow: 0 0 18px rgba(231, 181, 60, 0.25);
 }
-.l-tall .log {
-  top: 100px;
-  bottom: 220px;
+/* your seat is the one you read most, so it's drawn bigger than the rows above it */
+.l-me-top {
+  display: flex;
+  align-items: center;
+  gap: 9px;
 }
-.l-tall .settings,
-.l-tall .chat-tray {
+.l-me-top .l-id {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.l-me-top .l-name {
+  font-size: 24px;
+}
+.l-me-top .l-stats {
+  flex: none;
+  width: 204px;
+  gap: 4px;
+}
+.l-me-top .l-stat {
+  padding: 6px 0 6px;
+}
+.l-me-top .l-stat-v {
+  font-size: 26px;
+}
+.l-me-top .l-stat-k {
+  font-size: 12px;
+}
+.l-me-top .l-pips {
+  gap: 7px;
+}
+.l-me-top .l-pips .pip {
+  width: 14px;
+  height: 14px;
+}
+.l-me-top .you-tag {
+  margin-left: 5px;
+}
+.l-me .l-hideouts .hideout {
+  min-height: 46px;
+}
+.l-me .l-hideouts .hideout-k {
+  font-size: 22px;
+}
+/* a tall phone with room to spare: the stats get a full row of their own, everything bigger */
+.l-view.roomy .l-me-top {
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.l-view.roomy .l-me-top .l-name {
+  font-size: 28px;
+}
+.l-view.roomy .l-me-top .l-stats {
+  width: 100%;
+  gap: 6px;
+}
+.l-view.roomy .l-me-top .l-stat {
+  padding: 8px 0 7px;
+}
+.l-view.roomy .l-me-top .l-stat-v {
+  font-size: 32px;
+}
+.l-view.roomy .l-me-top .l-stat-k {
+  font-size: 13px;
+}
+.l-view.roomy .l-me-top .l-pips .pip {
+  width: 16px;
+  height: 16px;
+}
+.l-view.roomy .l-me .l-hideouts .hideout {
+  min-height: 54px;
+}
+.l-view.roomy .l-me .l-hideouts .hideout-k {
+  font-size: 26px;
+}
+
+/* the things that float over the table, placed for the column */
+.l-list .banner {
+  top: 34%;
+  width: 100%;
+  font-size: 28px;
+}
+.l-list .showdown {
+  left: 50%;
+  top: 40%;
+  gap: 24px;
+  padding: 16px 16px 20px;
+}
+.l-list .log {
+  top: 60px;
+  bottom: 200px;
+}
+.l-list .settings,
+.l-list .chat-tray {
   top: 60px;
 }
-/* sized by the canvas, not the window (the canvas is drawn at about 0.7) */
-.l-tall .settings.settings-modal-card.in-game {
+/* sized by the canvas, not the window */
+.l-list .settings.settings-modal-card.in-game {
   left: 8px;
   right: 8px;
   width: auto;
-  max-height: 860px;
+  max-height: calc(100% - 80px);
 }
-/* it already spans the canvas, so bigger text doesn't scale it past the edges */
-.big-text .l-tall .settings {
+.big-text .l-list .settings {
   scale: 1;
 }
-.l-tall .rules {
-  width: 510px;
+.l-list .rules {
+  width: calc(100% - 16px);
 }
-.l-tall .rules-body {
+.l-list .rules-body {
   font-size: 18px;
 }
-.l-tall .rules-tabs button {
+.l-list .rules-tabs button {
   font-size: 16px;
   padding: 9px 12px;
 }
-.l-tall .btn {
-  min-height: 46px;
-  font-size: 17px;
-  padding: 9px 14px;
-}
-.l-tall .action-title {
-  font-size: 24px;
-}
-.l-tall .hint {
-  font-size: 13.5px;
-}
-.l-tall .coach-card {
-  padding: 22px 22px 18px;
+.l-list .coach-card {
+  padding: 22px 20px 18px;
 }
 
 /* ------------------------------------------------------------------ upright phone at a table: the page turns itself */

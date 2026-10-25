@@ -22,7 +22,7 @@ export interface Prefs {
   tips: boolean;
   /** quiet music at the table (on iPhone it also keeps Heist in the Dynamic Island while you're in another app) */
   tableMusic: boolean;
-  /** Tables of up to 4 players play upright on a phone held upright (off: always turn sideways). */
+  /** A phone held upright plays the table upright, as a list (off: always turn sideways). */
   upright: boolean;
   /** The first-game walkthrough has been shown. */
   walked: boolean;
