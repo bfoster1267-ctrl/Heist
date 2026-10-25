@@ -33,12 +33,12 @@ export const ptBR: Record<string, string> = {
   "common.level_boss": "Chefe",
 
   // Saguão (Lobby)
-  "lobby.quick_play": "Jogo Rápido",
+  "lobby.quick_play": "Casual",
   "lobby.free_chips": "Fichas Grátis",
   "lobby.top_up": "Recarregar fichas e jogar",
   "lobby.change_table": "Mudar de Mesa",
-  "lobby.play_online": "Jogar Online",
-  "lobby.real_people": "Jogadores reais",
+  "lobby.play_online": "Ranqueada",
+  "lobby.real_people": "Mesas de amigos e códigos",
   "lobby.first_lesson_sub": "Após sua primeira lição",
   "lobby.solo_arcade": "Arcade Solo",
   "lobby.arcade_sub": "Paciência, Damas e Puzzles",

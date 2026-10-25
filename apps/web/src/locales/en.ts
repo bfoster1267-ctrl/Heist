@@ -33,12 +33,12 @@ export const en: Record<string, string> = {
   "common.level_boss": "Boss",
 
   // Lobby
-  "lobby.quick_play": "Quick Play",
+  "lobby.quick_play": "Casual",
   "lobby.free_chips": "Free chips",
   "lobby.top_up": "Top up and play",
   "lobby.change_table": "Change table",
-  "lobby.play_online": "Play online",
-  "lobby.real_people": "Real people",
+  "lobby.play_online": "Ranked",
+  "lobby.real_people": "Plus friends' tables & codes",
   "lobby.first_lesson_sub": "After your first lesson",
   "lobby.solo_arcade": "Solo Arcade",
   "lobby.arcade_sub": "Solitaire, Checkers & Puzzles",
