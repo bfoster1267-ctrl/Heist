@@ -6,7 +6,7 @@ import { useHeistPro } from "../account/pro";
 import { useRef } from "react";
 
 /** Press and hold (or right-click) to call `onHold`; the tap that ends a hold doesn't count as a click. */
-function useLongPress(onHold?: () => void, ms = 450) {
+export function useLongPress(onHold?: () => void, ms = 450) {
   const timer = useRef<number | null>(null);
   const held = useRef(false);
   const start = useRef<[number, number]>([0, 0]);
@@ -77,6 +77,7 @@ export function Hideout({
   glow,
   onClick,
   big,
+  counts,
 }: {
   s: GameState;
   owner: number;
@@ -84,6 +85,8 @@ export function Hideout({
   glow?: boolean;
   onClick?: () => void;
   big?: boolean;
+  /** a number by every crew, even a lone one */
+  counts?: boolean;
 }) {
   const H = s.players[owner].hideouts[h];
   const j = s.job;
@@ -102,7 +105,7 @@ export function Hideout({
       {entries.map(({ k, seat }) => (
         <span key={seat} className={"hideout-entry" + (seat !== owner ? " foothold" : "")}>
           <Crew color={s.players[seat].color} size={big ? 18 : 14} />
-          {k > 1 && <span className="hideout-k">{k}</span>}
+          {(k > 1 || counts) && <span className="hideout-k">{k}</span>}
         </span>
       ))}
     </div>

@@ -18,7 +18,8 @@ import { Coach, CoachIdea, CoachLine, MistakeCheck, Walkthrough } from "./Coach"
 import { autoPick, checkMove, coachPick, FIRST_HAND, ideaFor, lesson, lessonNo, lessonOpen, type MistakeCounts, type MistakeId } from "@heist/profile";
 import { FlightLayer, useFlights } from "./Flights";
 import { JobZone } from "./JobZone";
-import { clearSpot, seatGrow, seatPos, UPRIGHT_MAX, useLayout, type Spot } from "./layout";
+import { clearSpot, seatGrow, seatPos, useLayout, type Spot } from "./layout";
+import { BossCard, JobLine, ListTop, MySeat, PlayerCard, PlayerRow } from "./ListTable";
 import { CardBack, CardFace, Chips, CountUp, Crew, FitLine, TableCard } from "./pieces";
 import { Recap } from "./Recap";
 import { Seat, footholdsOf } from "./Seat";
@@ -153,9 +154,9 @@ export function Table({
   const HUMAN = seat;
   const t = useSource(settings);
   const prefs = usePrefs();
-  // up to 4 players, a phone held upright plays upright (unless the player picked sideways in Settings)
-  const upright = prefs.upright && settings.players <= UPRIGHT_MAX;
-  const { L, scale, dx, dy } = useLayout(upright ? settings.players : 0);
+  // a phone held upright plays upright, as a list (unless the player picked sideways in Settings)
+  const upright = prefs.upright;
+  const { L, scale, dx, dy } = useLayout(upright);
   const reduce = reducedMotion(prefs);
   const canvas = useRef<HTMLDivElement>(null);
   const { flights, launch, fly, at: anchorAt } = useFlights(canvas, scale);
@@ -167,7 +168,7 @@ export function Table({
   const [showRules, setShowRules] = useState(false);
   // Coached play: an answer held back because the coach spotted a rookie mistake in it
   const [held, setHeld] = useState<{ a: Answer; id: MistakeId } | null>(null);
-  // while a table is open, an upright phone draws the page sideways (see turn.ts), unless it has an upright layout
+  // while a table is open, an upright phone draws the page sideways (see turn.ts), unless it plays upright
   useEffect(() => {
     const html = document.documentElement;
     html.classList.add("in-game");
@@ -184,6 +185,8 @@ export function Table({
   useEffect(() => setHeld(null), [t.ask]);
   // press and hold a seat: who's sitting there. Your turn closes it, so it never hides your choices.
   const [peek, setPeek] = useState<number | null>(null);
+  // upright: the players whose row was tapped open into a card
+  const [opened, setOpened] = useState<number[]>([]);
   const yourTurn = useRef(onYourTurn);
   yourTurn.current = onYourTurn;
   useEffect(() => {
@@ -205,7 +208,8 @@ export function Table({
   const seatAt = (seat: number): [number, number] => {
     const a = anchorAt(`seat-${seat}`);
     // above the avatar, or beside it for a seat at the top edge, where above is off the table
-    if (a) return a.y - 32 < 18 ? [a.x - 40, a.y] : [a.x - 8, a.y - 32];
+    // (upright, beside the avatar: the row above is right there)
+    if (a) return a.y - 32 < 18 || L.name === "list" ? [a.x + 26, a.y - 4] : [a.x - 8, a.y - 32];
     const p = seatPos(L, seat, nRef.current, HUMAN);
     return [p[0], p[1] - 70];
   };
@@ -235,7 +239,7 @@ export function Table({
   const pot = settings.stakes * settings.players;
   const ev = t.shown?.ev ?? null;
   const wide = L.name === "wide";
-  const tall = L.name === "tall";
+  const list = L.name === "list";
 
   // Coached play lessons: a decision the lesson hasn't handed you yet, the coach plays for you
   const lessonOn = !!settings.coached && !!settings.lesson && !watching && !coachOff;
@@ -336,6 +340,16 @@ export function Table({
     return () => window.removeEventListener("keydown", k);
   }, [t]);
 
+  // Upright, the middle of the column scrolls if it has to: your decision comes into view (picking the
+  // Mark or a hideout sits at the top, over the cards it's about; anything else just above your hand),
+  // and watching starts from the top.
+  useLayoutEffect(() => {
+    const mid = canvas.current?.querySelector<HTMLElement>(".l-mid");
+    if (!mid) return;
+    const id = window.setTimeout(() => mid.scrollTo({ top: t.ask && t.ask.kind !== "pickMark" && t.ask.kind !== "pickHideout" ? mid.scrollHeight : 0, behavior: "smooth" }), 60);
+    return () => window.clearTimeout(id);
+  }, [t.ask, L.name]);
+
   // The flipped Job card finds a spot on the felt that leaves every seat readable (you pick the Mark
   // off those seats). Measured again a moment later, once the decision panel has come in.
   const flipSpot = useRef<HTMLDivElement>(null);
@@ -393,6 +407,163 @@ export function Table({
     return { kind: "bot", name: p.name, color: p.color, bot, level: bot.level ?? "normal" };
   };
 
+  const handEl = (
+    <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label="Your hand" aria-hidden={watching || undefined}>
+      {me.hand.map((c, i) => {
+        const n = me.hand.length;
+        const off = i - (n - 1) / 2;
+        const can = !!hs && hs.allow(c.id);
+        return (
+          <TableCard
+            key={c.id}
+            card={c}
+            size="md"
+            selected={sel.includes(c.id)}
+            dim={!!hs && !can}
+            onClick={
+              can
+                ? () => {
+                    buzz("tap");
+                    toggle(c.id);
+                  }
+                : undefined
+            }
+            // upright, a big hand overlaps more so it still fits across the phone
+            style={{ rotate: `${off * 3}deg`, marginTop: Math.abs(off) * 4, zIndex: i, ...(list && i && n > 5 ? { marginLeft: Math.min(-22, (L.W - 60 - 84 * n) / (n - 1)) } : {}) }}
+            enter={dealing ? 0.5 + i * 0.12 : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+  const panelEl = (
+    <AnimatePresence>
+      {ask && !autoAsk && (
+        <ActionPanel
+          key={JSON.stringify(ask)}
+          ask={ask}
+          s={s}
+          seat={HUMAN}
+          clock={clock}
+          sel={sel}
+          setSel={setSel}
+          answer={play}
+          coach={
+            coached && !s.winners ? (
+              <CoachLine s={s} ask={ask} idea={idea} pick={t.game ? coachPick(t.game, ask) : null} cheer={cheer} onIdea={() => idea && setRead((x) => x.filter((r) => r !== idea.title))} />
+            ) : undefined
+          }
+        />
+      )}
+    </AnimatePresence>
+  );
+  const waitingEl = (!t.ask || autoAsk) && !s.winners && (
+    <div className={"waiting" + (autoAsk ? " coach-plays" : "")}>
+      <span className="dots">
+        <span />
+        <span />
+        <span />
+      </span>
+      {autoAsk ? `Coach: ${COACH_DOES[autoAsk.kind] ?? "playing this one for you"}` : `${s.players[actor].name}'s move`}
+    </div>
+  );
+  // upright: chat bubbles come off the avatar, wherever its row or card is
+  const bubbleAt = (seat: number): [number, number] => {
+    const a = list ? anchorAt(`seat-${seat}`) : null;
+    return a ? [a.x + 40, a.y + 40] : seatPos(L, seat, s.n, HUMAN);
+  };
+  const listView = list ? listTable() : null;
+  function listTable() {
+    const n = s!.n;
+    const others = Array.from({ length: n - 1 }, (_, i) => (HUMAN + 1 + i) % n);
+    const bossSeat = s!.phase !== "setup" && !s!.winners ? s!.boss : -1;
+    const j = s!.job;
+    // the players you're choosing between open up into cards, side by side
+    const choosing = ask?.kind === "pickMark" ? others.filter((p) => ask.rivals.includes(p)) : ask?.kind === "pickHideout" ? [ask.mark] : ask?.kind === "join" && j ? [j.boss, j.mark].filter((p) => p !== HUMAN) : [];
+    // the Boss gets the big card while you watch; your own decision needs the room
+    const bigBoss = bossSeat >= 0 && bossSeat !== HUMAN && !ask && !choosing.includes(bossSeat) ? bossSeat : -1;
+    const cards = [...choosing, ...others.filter((p) => opened.includes(p) && !choosing.includes(p) && p !== bigBoss)];
+    // joining a fight or picking a hideout, the cards are all that matter (and the panel needs the room)
+    const rows = ask?.kind === "join" || ask?.kind === "pickHideout" ? [] : others.filter((p) => p !== bigBoss && !cards.includes(p));
+    const common = (p: number) => ({
+      s: s!,
+      seat: p,
+      tag: tags?.[p],
+      away: away?.[p],
+      onPeek: () => {
+        buzz("tap");
+        setPeek(p);
+      },
+    });
+    const acting = (p: number) => !s!.winners && actor === p && p !== HUMAN;
+    const toggleOpen = (p: number) => {
+      buzz("tap");
+      setOpened((o) => (o.includes(p) ? o.filter((x) => x !== p) : [...o, p]));
+    };
+    const speeds: Record<number, string> = { 1: "Speed 1x", 2: "Speed 2x", 4: "Speed 4x" };
+    return (
+      <div className={"l-view" + (ask?.kind === "pickMark" || ask?.kind === "pickHideout" ? " picking" : "")}>
+        <ListTop
+          who={s!.phase !== "setup" && !s!.winners ? (s!.boss === HUMAN ? "Your turn" : `${s!.players[s!.boss].name}'s turn`) : null}
+          step={s!.phase !== "setup" && !s!.winners ? STEPS[stepRef.current] : null}
+          lastCall={s!.lastCall}
+          onExit={onExit}
+          onSkip={t.skip}
+          chat={watching ? undefined : { on: showChat, toggle: () => setShowChat(!showChat) }}
+          menu={[
+            { key: "speed", label: speeds[t.speed] ?? `Speed ${t.speed}x`, act: () => t.setSpeed(t.speed === 1 ? 2 : t.speed === 2 ? 4 : 1) },
+            { key: "log", label: "Game log", on: showLog, act: () => setShowLog(!showLog) },
+            { key: "rules", label: "How to play", act: () => setShowRules(true) },
+            { key: "settings", label: "Settings", act: () => setShowSettings(true) },
+          ]}
+        />
+        <div className="l-mid">
+          {bigBoss >= 0 && <BossCard {...common(bigBoss)} acting={acting(bigBoss)} />}
+          <JobLine s={s!} />
+          {cards.length > 0 && (
+            <div className="l-grid">
+              {cards.map((p) => {
+                const pick = ask?.kind === "pickMark" && choosing.includes(p);
+                const hide = ask?.kind === "pickHideout" && ask.mark === p;
+                return (
+                  <PlayerCard
+                    key={p}
+                    {...common(p)}
+                    acting={acting(p)}
+                    glow={pick}
+                    onClick={pick ? () => play({ kind: "pickMark", mark: p }) : undefined}
+                    hideoutGlow={hide}
+                    onHideout={hide ? (h) => play({ kind: "pickHideout", hideout: h }) : undefined}
+                    onClose={!choosing.includes(p) ? () => toggleOpen(p) : undefined}
+                  />
+                );
+              })}
+            </div>
+          )}
+          {rows.map((p) => (
+            <PlayerRow key={p} {...common(p)} acting={acting(p)} onOpen={() => toggleOpen(p)} />
+          ))}
+          <div className="l-gap" />
+          {!ask && !s!.winners && (
+            <div className="l-ticker" aria-hidden>
+              <AnimatePresence mode="popLayout">
+                <motion.span key={t.shown!.key} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0, transition: { duration: 0.12 } }}>
+                  {t.shown!.msg}
+                </motion.span>
+              </AnimatePresence>
+            </div>
+          )}
+          {autoAsk && waitingEl}
+          {panelEl}
+        </div>
+        <div className="l-foot">
+          {handEl}
+          <MySeat {...common(HUMAN)} me={!watching} acting={!s!.winners && actor === HUMAN && !!ask} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <MotionConfig reducedMotion={reduce ? "always" : "never"}>
       <div
@@ -402,6 +573,9 @@ export function Table({
         <motion.div className="shaker" animate={shake}>
         <div className={`canvas l-${L.name} p${settings.players}${wide && settings.players >= 5 ? " crowd" : ""}`} ref={canvas} style={{ width: L.W, height: L.H, transform: `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px)) scale(${scale})` }}>
           <LayoutGroup>
+            {list && listView}
+            {!list && (
+            <>
             <div className="felt">
               <div className="felt-inner" />
               <div className="felt-logo">HEIST</div>
@@ -458,8 +632,10 @@ export function Table({
                 ⚙<span className="ib-k">Settings</span>
               </button>
             </div>
+            </>
+            )}
 
-            {/* center: deck, discard, pen, pot */}
+            {/* center: deck, discard, pen, pot (upright, out of sight: just where things fly from and to) */}
             <div className="deck" data-anchor="deck" data-tip={`Job deck · ${s.deckCount} cards\nRun-outs: ${s.reshuffles} of 3. The third one is Last Call.`}>
               <CardBack size="sm" />
               <span className="pile-label">JOBS {s.deckCount}</span>
@@ -489,12 +665,12 @@ export function Table({
               <Chips amount={potShown} counting />
               <span className="pile-label">POT</span>
             </div>
-            {s.lastCall && <div className="lastcall-badge">LAST CALL</div>}
+            {s.lastCall && !list && <div className="lastcall-badge">LAST CALL</div>}
 
-            <JobZone s={s} />
+            {!list && <JobZone s={s} />}
 
             {/* seats */}
-            {s.players.map((p) => {
+            {!list && s.players.map((p) => {
               const pos = seatPos(L, p.seat, s.n, HUMAN);
               const pickMark = ask?.kind === "pickMark" && ask.rivals.includes(p.seat);
               const pickHide = ask?.kind === "pickHideout" && ask.mark === p.seat;
@@ -512,7 +688,7 @@ export function Table({
                   hideoutGlow={pickHide}
                   onHideout={pickHide ? (h) => play({ kind: "pickHideout", hideout: h }) : undefined}
                   acting={!s.winners && actor === p.seat}
-                  showBank={wide || tall}
+                  showBank={wide}
                   away={away?.[p.seat]}
                   tag={tags?.[p.seat]}
                   onPeek={() => {
@@ -539,52 +715,8 @@ export function Table({
                 </div>
               </div>
             )}
-            <div className={"my-hand" + (watching ? " watching" : "")} data-anchor="my-hand" role="group" aria-label="Your hand" aria-hidden={watching || undefined}>
-              {me.hand.map((c, i) => {
-                const n = me.hand.length;
-                const off = i - (n - 1) / 2;
-                const can = !!hs && hs.allow(c.id);
-                return (
-                  <TableCard
-                    key={c.id}
-                    card={c}
-                    size="md"
-                    selected={sel.includes(c.id)}
-                    dim={!!hs && !can}
-                    onClick={
-                      can
-                        ? () => {
-                            buzz("tap");
-                            toggle(c.id);
-                          }
-                        : undefined
-                    }
-                    style={{ rotate: `${off * 3}deg`, marginTop: Math.abs(off) * 4, zIndex: i }}
-                    enter={dealing ? 0.5 + i * 0.12 : undefined}
-                  />
-                );
-              })}
-            </div>
-
-            <AnimatePresence>
-              {ask && !autoAsk && (
-                <ActionPanel
-                  key={JSON.stringify(ask)}
-                  ask={ask}
-                  s={s}
-                  seat={HUMAN}
-                  clock={clock}
-                  sel={sel}
-                  setSel={setSel}
-                  answer={play}
-                  coach={
-                    coached && !s.winners ? (
-                      <CoachLine s={s} ask={ask} idea={idea} pick={t.game ? coachPick(t.game, ask) : null} cheer={cheer} onIdea={() => idea && setRead((x) => x.filter((r) => r !== idea.title))} />
-                    ) : undefined
-                  }
-                />
-              )}
-            </AnimatePresence>
+            {!list && handEl}
+            {!list && panelEl}
             {coached ? (
               held ? (
                 <MistakeCheck id={held.id} before={mistakes?.[held.id] ?? 0} onChange={() => setHeld(null)} onAnyway={() => {
@@ -599,16 +731,7 @@ export function Table({
             ) : (
               !clean && !coachOff && <Coach ask={ask} blocked={walk || !!s.winners} />
             )}
-            {(!t.ask || autoAsk) && !s.winners && (
-              <div className={"waiting" + (autoAsk ? " coach-plays" : "")}>
-                <span className="dots">
-                  <span />
-                  <span />
-                  <span />
-                </span>
-                {autoAsk ? `Coach: ${COACH_DOES[autoAsk.kind] ?? "playing this one for you"}` : `${s.players[actor].name}'s move`}
-              </div>
-            )}
+            {!list && waitingEl}
           </LayoutGroup>
 
           <div className="flip-spot" ref={flipSpot} style={spot ? { left: spot.left, top: spot.top, transform: `scale(${spot.scale})` } : { visibility: "hidden" }}>
@@ -644,7 +767,7 @@ export function Table({
           </AnimatePresence>
 
           <Showdown s={s} ev={ev} k={t.shown!.key} />
-          <Bubbles bubbles={chat.bubbles} pos={(seat) => seatPos(L, seat, s.n, HUMAN)} mine={watching ? undefined : HUMAN} looks={bubbleLooks} />
+          <Bubbles bubbles={chat.bubbles} pos={bubbleAt} mine={watching ? undefined : HUMAN} looks={bubbleLooks} />
           <DrinkLayer drinks={drinks.drinks} slides={drinks.slides} pos={seatAt} />
           <AnimatePresence>
             {showChat && !watching && (
