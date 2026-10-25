@@ -157,6 +157,7 @@ export function Seat({
   const role = ROLES.find((r) => r.id === P.role);
   const winner = s.winners?.includes(seat);
   const atRight = String(grow?.transformOrigin ?? "").startsWith("right");
+  const atLeft = String(grow?.transformOrigin ?? "").startsWith("left");
   const hold = useLongPress(onPeek);
   const tap = onClick
     ? () => {
@@ -170,7 +171,7 @@ export function Seat({
     : undefined;
   return (
     <motion.div
-      className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "") + (atRight ? " at-right" : "")}
+      className={"seat" + (me ? " me" : "") + (glow ? " glow" : "") + (onClick ? " clickable" : "") + (isBoss ? " boss" : "") + (isMark ? " mark" : "") + (winner ? " winner" : "") + (acting ? " acting" : "") + (atRight ? " at-right" : "") + (atLeft ? " at-left" : "")}
       style={{ left: pos[0], top: pos[1], ...grow }}
       layout={false}
       data-anchor={me ? "my-seat" : undefined}

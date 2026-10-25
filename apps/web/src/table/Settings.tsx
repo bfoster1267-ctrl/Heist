@@ -448,6 +448,27 @@ export function Settings({
                 </label>
               </div>
             </div>
+
+            {/* Upright tables on a phone held upright */}
+            <div className="set-card">
+              <div className="set-info">
+                <span className="set-label">{t("settings.upright")}</span>
+                <span className="set-desc">{t("settings.upright_desc")}</span>
+              </div>
+              <div className="set-control">
+                <label className="set-switch">
+                  <input
+                    type="checkbox"
+                    checked={prefs.upright}
+                    onChange={(e) => {
+                      buzz("tap");
+                      setPrefs({ upright: e.target.checked });
+                    }}
+                  />
+                  <span className="set-slider" />
+                </label>
+              </div>
+            </div>
           </>
         )}
 

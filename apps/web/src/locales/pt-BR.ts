@@ -94,6 +94,8 @@ export const ptBR: Record<string, string> = {
   "settings.music_desc": "Trilha sonora ambiente da mesa",
   "settings.haptics": "Vibração / Resposta Tátil",
   "settings.haptics_desc": "Vibrações suaves ao tocar e jogar cartas",
+  "settings.upright": "Jogar na Vertical",
+  "settings.upright_desc": "Celular em pé: mesas de até 4 jogadores ficam na vertical. Desligado: sempre de lado.",
   "settings.motion": "Animações da Tela",
   "settings.motion_desc": "Velocidade do carteado e transições",
   "settings.alerts": "Notificações e Convites",

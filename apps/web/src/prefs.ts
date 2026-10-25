@@ -22,6 +22,8 @@ export interface Prefs {
   tips: boolean;
   /** quiet music at the table (on iPhone it also keeps Heist in the Dynamic Island while you're in another app) */
   tableMusic: boolean;
+  /** Tables of up to 4 players play upright on a phone held upright (off: always turn sideways). */
+  upright: boolean;
   /** The first-game walkthrough has been shown. */
   walked: boolean;
   /** Coach tips already shown, by key. */
@@ -29,7 +31,7 @@ export interface Prefs {
 }
 
 const KEY = "heist.prefs";
-const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: phone() ? 1.3 : 1, tips: true, tableMusic: true, walked: false, seen: [] };
+const DEFAULTS: Prefs = { motion: "system", theme: "classic", haptics: true, bigText: false, textSize: phone() ? 1.3 : 1, tips: true, tableMusic: true, upright: true, walked: false, seen: [] };
 
 /** A phone (touch, small screen): text starts bigger there so new players can read it without hunting for the slider. */
 function phone() {
