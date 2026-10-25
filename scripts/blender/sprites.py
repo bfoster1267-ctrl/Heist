@@ -18,8 +18,9 @@ def strip(frames, h, name):
     fr[-1].save(f"{OUT}/{name}-still.webp", quality=88, method=6)
     meta[name] = {"frames": len(fr), "w": w, "h": h}
 if KIND == "drink":
-    for d in ["vault", "whiskey", "wine", "martini", "beer"]:
-        fs = sorted(glob.glob(f"{S}/frames/drink-{d}/*.png"))[22:]
+    # the settle: from the frame the slide stops (anim.py: 55% of 40) to the end
+    for d in sys.argv[4:] or ["vault", "whiskey", "wine", "martini", "beer"]:
+        fs = [f for f in sorted(glob.glob(f"{S}/frames/drink-{d}/*.png")) if int(os.path.basename(f)[:4]) >= 22]
         strip([Image.open(f).convert("RGBA") for f in fs], 112, f"drink-{d}")
 else:
     for c in ["legendary", "red", "blue", "black", "green", "purple"]:

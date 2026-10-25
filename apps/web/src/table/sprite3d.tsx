@@ -10,15 +10,26 @@ interface Sheet {
   /** one frame's size in the file, px */
   w: number;
   h: number;
+  /** shown this much of the asked height (short, wide pieces like a mug would look huge at full height) */
+  scale?: number;
 }
 
-const drink = (id: string, w: number): Sheet => ({ file: `drink-${id}`, frames: 18, w, h: 112 });
+const drink = (id: string, w: number, scale = 1): Sheet => ({ file: `drink-${id}`, frames: 18, w, h: 112, scale });
 const DRINKS: Record<string, Sheet> = {
   "🏦": drink("vault", 106),
   "🥃": drink("whiskey", 106),
   "🍷": drink("wine", 67),
   "🍸": drink("martini", 87),
   "🍺": drink("beer", 84),
+  "☕": drink("coffee", 135, 0.75),
+  "🍾": drink("champagne", 42),
+  "🥂": drink("toast", 77),
+  "🍹": drink("maitai", 63),
+  "🍶": drink("sake", 98, 0.9),
+  "🍵": drink("tea", 165, 0.6),
+  "🧋": drink("boba", 59),
+  "🥛": drink("milk", 73),
+  "🧃": drink("juice", 60),
 };
 
 const chip = (id: string): Sheet => ({ file: `chip-${id}`, frames: 12, w: 65, h: 64 });
@@ -37,6 +48,7 @@ export const has3dChip = (color: string) => color in CHIPS;
 
 /** One sheet at a given height: still, played once (ending on the last frame), or looping. */
 function Sprite({ s, height, mode, className }: { s: Sheet; height: number; mode: "still" | "once" | "loop"; className?: string }) {
+  height *= s.scale ?? 1;
   const w = (s.w * height) / s.h;
   if (mode === "still" || reducedMotion())
     return <img className={"sprite3d " + (className ?? "")} src={`/3d/${s.file}-still.webp`} width={w} height={height} alt="" draggable={false} />;

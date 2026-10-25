@@ -11,4 +11,5 @@ uv venv -p 3.13 .bvenv && uv pip install -p .bvenv bpy     # Blender 5.2 as a pi
 python3 scripts/blender/sprites.py . apps/web/public/3d drink   # or: chip
 ```
 
-Drinks: vault, whiskey, wine, martini, beer. Chips: legendary, red, blue, black, green, purple.
+Drinks: vault, whiskey, wine, martini, beer, coffee, champagne, toast, maitai, sake, tea, boba, milk, juice
+(sprites.py takes drink names after `drink`; the game only uses frames 22-39, so `--start 22` saves time). Chips: legendary, red, blue, black, green, purple.
