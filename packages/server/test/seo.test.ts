@@ -12,6 +12,13 @@ describe("seo", () => {
     expect(html).toContain("<h1>Free Klondike Solitaire</h1>");
     expect(html).not.toContain("<title>Heist</title>");
   });
+  it("gives /christmas-solitaire its own holiday page in the sitemap", () => {
+    const html = pageHtml(APP, "/christmas-solitaire");
+    expect(html).toContain("<title>Christmas Solitaire:");
+    expect(html).toContain('rel="canonical" href="https://playheist.net/christmas-solitaire"');
+    expect(SITEMAP).toContain("<loc>https://playheist.net/christmas-solitaire</loc>");
+    expect(SITEMAP).toContain("/blog/christmas-card-games-online</loc>");
+  });
   it("leaves other paths alone", () => {
     expect(pageHtml(APP, "/somewhere")).toBe(APP);
   });

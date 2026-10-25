@@ -94,9 +94,12 @@ function Game() {
   const turnRef = useRef(0);
   const [ask, setAsk] = useState<LostAsk | null>(null);
   const [firstReward, setFirstReward] = useState<Reward | null>(null);
-  // Solitaire: from the lobby, or straight in at playheist.net/solitaire (its own link to share)
+  // Solitaire: from the lobby, or straight in at playheist.net/solitaire (its own link to share);
+  // playheist.net/christmas-solitaire opens the same game dressed for the holidays
+  const [xmas, setXmasState] = useState(() => startPath() === "/christmas-solitaire");
+  const xmasRef = useRef(xmas);
   const [sol, setSolState] = useState(() => {
-    const on = startPath() === "/solitaire";
+    const on = startPath() === "/solitaire" || startPath() === "/christmas-solitaire";
     try {
       // someone who came for Solitaire isn't dropped into the Heist lesson when they head to the lobby
       if (on) localStorage.setItem("heist.welcomed", "1");
@@ -107,8 +110,13 @@ function Game() {
   });
   const setSol = useCallback((on: boolean) => {
     setSolState(on);
+    if (!on) {
+      // back in the lobby, Solitaire opens as the everyday game again
+      xmasRef.current = false;
+      setXmasState(false);
+    }
     try {
-      history.replaceState(null, "", on ? "/solitaire" + location.search : "/" + location.search);
+      history.replaceState(null, "", on ? (xmasRef.current ? "/christmas-solitaire" : "/solitaire") + location.search : "/" + location.search);
       if (on) localStorage.setItem("heist.welcomed", "1");
     } catch {
       /* fine without */
@@ -789,6 +797,7 @@ function Game() {
     return (
       <Suspense fallback={<div className="loading">Opening the vault…</div>}>
         <Solitaire
+          festive={xmas}
           initialSeed={gameConfig.seed}
           isDaily={gameConfig.isDaily}
           challengerTime={gameConfig.challengerTime}
