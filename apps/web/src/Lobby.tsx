@@ -318,15 +318,7 @@ export function Lobby({
         )}
 
         <div className="lobby-modes">
-          <Mode icon="online" label={t("lobby.play_online")} sub={newbie ? t("lobby.first_lesson_sub") : t("lobby.real_people")} disabled={newbie || !onOnline} onClick={() => {
-            // Casual is the big button above, so this opens the online lobby on the Ranked tab
-            try {
-              localStorage.setItem("heist.mode", "ranked");
-            } catch {
-              /* private mode */
-            }
-            onOnline?.(nm());
-          }} />
+          <Mode icon="online" label={t("lobby.play_online")} sub={newbie ? t("lobby.first_lesson_sub") : t("lobby.real_people")} disabled={newbie || !onOnline} onClick={() => onOnline?.(nm())} />
           {(onSolitaire || onFreeCell || onTriPeaks || onErs || onSpider || onPyramid || onYukon || onScoundrel || onCheckers || onMinesweeper || onSudoku || onHearts || onSpades) && (
             <Mode
               icon="cards"

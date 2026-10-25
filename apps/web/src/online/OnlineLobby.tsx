@@ -252,8 +252,6 @@ function lastTable(): string | null {
   }
 }
 
-type Mode = "casual" | "ranked";
-const MODE_KEY = "heist.mode";
 
 function Pick({
   sess,
@@ -271,29 +269,12 @@ function Pick({
   const { me } = useAccount();
   // signed in or out since the socket opened: play as the account the app shows
   useEffect(() => sess.syncAccount(), [sess, me?.id]);
-  const [mode, setModeState] = useState<Mode>(() => {
-    try {
-      return localStorage.getItem(MODE_KEY) === "ranked" ? "ranked" : "casual";
-    } catch {
-      return "casual";
-    }
-  });
-  const setMode = (m: Mode) => {
-    setModeState(m);
-    try {
-      localStorage.setItem(MODE_KEY, m);
-    } catch {
-      /* private mode */
-    }
-  };
   const level = me ? levelInfo(me.progress.xp).level : 1;
   const locked = !me || me.guest ? "Sign in to play Ranked." : level < RANKED_LEVEL ? `Ranked unlocks at level ${RANKED_LEVEL}. You're level ${level}.` : null;
-  const ranked = mode === "ranked";
   const myRank = me ? rankedPublic(me.progress.ranked, Date.now()) : null;
   const [players, setPlayers] = useState(4);
   const [back, setBack] = useState(lastTable);
   const [stake, setStake] = useState(0);
-  const [isPrivate, setPrivate] = useState(true);
   const [code, setCode] = useState("");
   useEffect(() => {
     if (sess.status !== "online") return;
@@ -307,7 +288,7 @@ function Pick({
     <>
       <div className="lobby-col">
         <div className="logo">HEIST</div>
-        <div className="tagline">Casual, Ranked or with friends</div>
+        <div className="tagline">Ranked or with friends</div>
         <div className="wallet">
           <Chips amount={chips} />
           <span className="dim">play chips</span>
@@ -353,96 +334,20 @@ function Pick({
             </button>
           </div>
         </div>
-        <div className="field">
-          <span>Open tables</span>
-          {sess.rooms.length ? (
-            <div className="open-tables">
-              {sess.rooms.map((r) => (
-                <button
-                  key={r.code}
-                  className="open-table"
-                  disabled={chips < r.stakes}
-                  onClick={() => {
-                    click();
-                    buzz("tap");
-                    sess.client.join(r.code);
-                  }}
-                  aria-label={`Join table ${r.code}, ${r.players} players, buy-in ${r.stakes.toLocaleString()}`}
-                >
-                  <b>{r.players} players</b>
-                  <span>Buy-in {r.stakes.toLocaleString()}</span>
-                  <span className="dim">
-                    {r.open} seat{r.open > 1 ? "s" : ""} open
-                  </span>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="fine">{online ? "No open tables right now. Start one!" : sess.status === "connecting" ? "Connecting..." : "Offline"}</div>
-          )}
-        </div>
       </div>
       <div className="lobby-col">
-        <div className="seg mode-seg" role="tablist" aria-label="Game mode">
-          <button
-            role="tab"
-            aria-selected={!ranked}
-            className={!ranked ? "on" : ""}
-            onClick={() => {
-              click();
-              buzz("tap");
-              setMode("casual");
-            }}
-          >
-            Casual
-          </button>
-          <button
-            role="tab"
-            aria-selected={ranked}
-            className={ranked ? "on" : ""}
-            onClick={() => {
-              click();
-              buzz("tap");
-              setMode("ranked");
-            }}
-          >
-            Ranked{locked ? " 🔒" : ""}
-          </button>
+        <div className="ranked-head">
+          {myRank && myRank.games ? (
+            <>
+              <b>{myRank.label}</b>
+              <span>
+                {myRank.rp.toLocaleString()} RP · MMR {myRank.mmr.toLocaleString()}
+              </span>
+            </>
+          ) : (
+            <b>Unranked this season</b>
+          )}
         </div>
-        {ranked ? (
-          <div className="ranked-head">
-            {myRank && myRank.games ? (
-              <>
-                <b>{myRank.label}</b>
-                <span>
-                  {myRank.rp.toLocaleString()} RP · MMR {myRank.mmr.toLocaleString()}
-                </span>
-              </>
-            ) : (
-              <b>Unranked this season</b>
-            )}
-          </div>
-        ) : (
-          <div className="field">
-            <span>Start a table</span>
-            <div className="seg">
-              {[3, 4, 5, 6].map((n) => (
-                <button
-                  key={n}
-                  className={players === n ? "on" : ""}
-                  onClick={() => {
-                    click();
-                    buzz("tap");
-                    setPlayers(n);
-                  }}
-                  aria-label={`${n} players`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
         <div className="stakes-grid">
           {STAKES.map((st, i) => (
             <button
@@ -461,32 +366,6 @@ function Pick({
             </button>
           ))}
         </div>
-        {!ranked && (
-          <div className="seg">
-            <button
-              className={isPrivate ? "on" : ""}
-              onClick={() => {
-                click();
-                buzz("tap");
-                setPrivate(true);
-              }}
-              aria-label="Friends only table"
-            >
-              Friends only
-            </button>
-            <button
-              className={!isPrivate ? "on" : ""}
-              onClick={() => {
-                click();
-                buzz("tap");
-                setPrivate(false);
-              }}
-              aria-label="Open to anyone table"
-            >
-              Open to anyone
-            </button>
-          </div>
-        )}
         {sess.queue ? (
           <QueueCard
             sess={sess}
@@ -494,55 +373,58 @@ function Pick({
             onArcade={onArcade}
             onOpenArcade={onOpenArcade}
           />
-        ) : ranked ? (
-          <div className="start-row">
-            <button
-              className="btn gold huge"
-              disabled={!online || !!locked || chips < buyIn}
-              onClick={() => {
-                cardSound();
-                buzz("tap");
-                sess.client.queue(RANKED_PLAYERS, buyIn, true);
-              }}
-              aria-label="Play Ranked queue"
-            >
-              Play Ranked
-            </button>
-          </div>
         ) : (
-          <div className="start-row">
+          <>
+            <div className="start-row">
+              <button
+                className="btn gold huge"
+                disabled={!online || !!locked || chips < buyIn}
+                onClick={() => {
+                  cardSound();
+                  buzz("tap");
+                  sess.client.queue(RANKED_PLAYERS, buyIn, true);
+                }}
+                aria-label="Play Ranked queue"
+              >
+                Play Ranked
+              </button>
+            </div>
+            <div className="fine">
+              {locked ?? `${RANKED_PLAYERS} players, no bots, no coaching. Finish in the top half to climb. Chips are play money only.`}
+            </div>
+            {/* Casual is the big button on the main lobby; this screen only adds a private table for friends */}
+            <div className="field">
+              <span>Table for friends</span>
+              <div className="seg">
+                {[3, 4, 5, 6].map((n) => (
+                  <button
+                    key={n}
+                    className={players === n ? "on" : ""}
+                    onClick={() => {
+                      click();
+                      buzz("tap");
+                      setPlayers(n);
+                    }}
+                    aria-label={`${n} players`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
-              className="btn gold huge"
+              className="btn primary"
               disabled={!online || chips < buyIn}
               onClick={() => {
                 cardSound();
                 buzz("tap");
-                sess.client.queue(players, buyIn);
+                sess.client.create({ players, stakes: buyIn, isPrivate: true });
               }}
-              aria-label="Play now queue"
+              aria-label="Start a table for friends"
             >
-              Play now
+              Start a table and get a code
             </button>
-            <button
-              className="btn primary huge"
-              disabled={!online || chips < buyIn}
-              onClick={() => {
-                cardSound();
-                buzz("tap");
-                sess.client.create({ players, stakes: buyIn, isPrivate });
-              }}
-              aria-label="Start a table"
-            >
-              Start a table
-            </button>
-          </div>
-        )}
-        {ranked ? (
-          <div className="fine">
-            {locked ?? `${RANKED_PLAYERS} players, no bots, no coaching. Finish in the top half to climb. Chips are play money only.`}
-          </div>
-        ) : (
-          <div className="fine">Play now seats you with other players looking for the same game. Bots sit down in the empty seats one by one while you wait, and the table deals within a minute. Chips are play money only.</div>
+          </>
         )}
       </div>
     </>
