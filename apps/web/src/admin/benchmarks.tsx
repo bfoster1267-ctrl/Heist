@@ -29,7 +29,7 @@ const BENCH: Record<FunnelRate["key"], Bench> = {
   again: { label: "Played a second game", note: "of new people" },
   back: {
     label: "Came back later",
-    note: "12+ hours after their first visit; only people who first came a day or more ago",
+    note: "tapped or played 12+ hours after their first visit (an open tab or reload alone doesn't count); only people who first came a day or more ago",
     low: 0.11,
     median: 0.22,
     good: 0.28,

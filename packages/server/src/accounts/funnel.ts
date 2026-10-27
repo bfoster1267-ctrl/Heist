@@ -5,9 +5,10 @@
 // biggest fall between two steps is where most people leave.
 
 import type { ActivityEvent } from "./activity";
+import { byHand } from "./bots";
 
 const HOUR = 60 * 60_000;
-/** "came back" means activity this long after the first visit */
+/** "came back" means doing something by hand this long after the first visit */
 export const RETURN_AFTER = 12 * HOUR;
 /** the coached-game turns shown as their own steps (only up to the furthest anyone got) */
 const TURNS = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30];
@@ -187,7 +188,9 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
         if (t.recent.length > 5) t.recent.shift();
       }
     }
-    if (e.at - t.first >= RETURN_AFTER) t.back = true;
+    // a tab left open (heartbeats, "leave" pings) or reloaded by the Facebook app (app.open, a Lobby screen) isn't a
+    // return: only a tap, a game or a sign-in after the gap counts
+    if (e.at - t.first >= RETURN_AFTER && byHand(e)) t.back = true;
     const d = (e.data ?? {}) as Record<string, unknown>;
     const ok = e.ok !== false;
     switch (e.kind) {
@@ -309,7 +312,7 @@ export function buildFunnel(events: readonly ActivityEvent[], personOf: (userId:
     { key: "tourcard", label: "Said hi in the Lounge", note: "the hello after the first hand (before 2026-10-23: opened their player card)", did: (t) => t.tourCard || t.toured },
     { key: "tour", label: "Picked what's next", note: "the tour's last card: more coaching, save progress, or the lobby", did: (t) => t.toured },
     { key: "again", label: "Played another game", note: "a second game of any kind", did: (t) => t.games >= 2 || t.online },
-    { key: "back", label: "Came back later", note: "12+ hours after the first visit", did: (t) => t.back },
+    { key: "back", label: "Came back later", note: "tapped or played 12+ hours after the first visit", did: (t) => t.back },
     { key: "signup", label: "Signed up", note: "made an account", did: (t) => t.signedUp },
   ];
   const furthest = (t: Trail) => {

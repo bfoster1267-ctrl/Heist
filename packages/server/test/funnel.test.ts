@@ -125,6 +125,12 @@ describe("drop-off funnel: where people came from", () => {
       { at: t0 + 3, kind: "game.solo", userId: "q", data: { coached: true, quit: false } },
       { at: t0 + 4, kind: "solo.start", userId: "q", ok: true, data: {} },
       { at: t0 + 13 * H, kind: "app.open", userId: "q" },
+      { at: t0 + 13 * H + 1, kind: "ui.tap", userId: "q", data: { name: "Quick Match" } },
+      // t: an open tab (or the Facebook app reloading the page) a day later, without a tap, is not back
+      { at: t0, kind: "auth.guest", userId: "t" },
+      { at: t0 + 20 * H, kind: "app.open", userId: "t" },
+      { at: t0 + 20 * H + 1, kind: "ui.screen", userId: "t", data: { name: "Lobby" } },
+      { at: t0 + 20 * H + 2, kind: "ui.ping", userId: "t", data: { name: "leave" } },
       // r: signs up straight away but never comes back
       { at: t0, kind: "auth.guest", userId: "r" },
       { at: t0 + 5, kind: "auth.register", userId: "r", ok: true },
@@ -134,12 +140,12 @@ describe("drop-off funnel: where people came from", () => {
     ];
     const g = buildFunnel(ev, (id) => id, t0 - H, t0 + 100 * H);
     const rate = (k: string) => g.rates.find((x) => x.key === k);
-    expect(rate("started")).toMatchObject({ n: 2, of: 4 });
+    expect(rate("started")).toMatchObject({ n: 2, of: 5 });
     expect(rate("turn1quit")).toMatchObject({ n: 1, of: 2 });
-    expect(rate("finished")).toMatchObject({ n: 1, of: 4 });
-    expect(rate("again")).toMatchObject({ n: 1, of: 4 });
+    expect(rate("finished")).toMatchObject({ n: 1, of: 5 });
+    expect(rate("again")).toMatchObject({ n: 1, of: 5 });
     // the furthest-step funnel counts r as "back"; the rate doesn't, and leaves s out of the base
-    expect(rate("back")).toMatchObject({ n: 1, of: 3 });
-    expect(rate("signup")).toMatchObject({ n: 1, of: 4 });
+    expect(rate("back")).toMatchObject({ n: 1, of: 4 });
+    expect(rate("signup")).toMatchObject({ n: 1, of: 5 });
   });
 });
